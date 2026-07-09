@@ -93,3 +93,18 @@ export const RestoreIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M3 3v5h5" />
   </Base>
 );
+
+export const MicIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="9" y="2" width="6" height="12" rx="3" />
+    <path d="M5 10v1a7 7 0 0 0 14 0v-1" />
+    <path d="M12 18v4M8 22h8" />
+  </Base>
+);
+
+export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" />
+    <path d="M2 14h4M10 8h4M18 16h4" />
+  </Base>
+);

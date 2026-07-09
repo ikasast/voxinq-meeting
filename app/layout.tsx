@@ -3,7 +3,7 @@ import { Inter, Noto_Sans_JP } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
-import { GearIcon } from "./icons";
+import { GearIcon, MicIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
@@ -40,6 +40,17 @@ function HeaderNav({ external }: { external: boolean }) {
           <Link href="/settings" className="btn-icon" title="Settings" aria-label="Settings">
             <GearIcon />
           </Link>
+          {external ? null : (
+            // Recording is Tailscale-internal only, so only offer it on internal access
+            <Link
+              href="/quick-record"
+              className="btn-icon"
+              title="One-tap record"
+              aria-label="One-tap record"
+            >
+              <MicIcon />
+            </Link>
+          )}
           {external ? (
             // Recording is Tailscale-internal only, so disable the create action on external access
             <span className="btn-ink cursor-not-allowed opacity-50" title="Recording is not available from an external network">
