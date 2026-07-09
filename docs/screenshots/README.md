@@ -1,14 +1,18 @@
-# スクリーンショット配置場所
+# Screenshots
 
-README から参照している画像をここに置く。ファイル名は固定（下記）。
-PC のブラウザで `https://<web-host>.<tailnet>.ts.net/` を開いて撮影し、PNG で保存 → ここに置いて
-`git add -A && git commit && git push`。
+Images referenced by the main README. Filenames are fixed (below).
 
-| ファイル名 | 内容 |
+Capture on a desktop browser with the app open, then save as PNG here and
+`git add -A && git commit && git push`.
+
+| Filename | What to show |
 | --- | --- |
-| `dashboard.png` | 議事録一覧（トップ画面） |
-| `recording.png` | 録音画面（発言ログ・AI提案・上部の録音バー） |
-| `minutes.png` | 会議詳細（議事録＋ロール別フィードバックのタブ） |
-| `settings.png` | 設定画面 |
+| `dashboard.png` | Home / meeting list (left pane with search + tags, right info panel). Also used as the README header image. |
+| `recording.png` | Recording screen: top recording bar (Start/Stop, level meter), live transcript. |
+| `minutes.png` | Meeting detail: generated minutes (headings, version selector) + transcript below. |
+| `settings.png` | Settings → Minutes or LLM tab. |
 
-推奨: 横幅 1200〜1600px 程度、ダークテーマのまま、機密情報（実際の会議内容・氏名）が写らないものを。
+Guidelines:
+- ~1200–1600px wide, dark theme.
+- Use a demo/sample meeting — **no confidential content or real names**.
+- The UI is English now, so retake any stale (Japanese) screenshots.

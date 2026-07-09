@@ -4,7 +4,7 @@
 
 **Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Nothing leaves your machine.**
 
-<!-- Header image goes here (e.g. docs/screenshots/dashboard.png) -->
+![Voxinq dashboard](docs/screenshots/dashboard.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
@@ -43,35 +43,21 @@
 
 ## 📦 Installation
 
-**Prerequisites:** an NVIDIA GPU (CUDA), Node.js 20+, Python 3.11, PostgreSQL 17, and [Ollama](https://ollama.com) (or another LLM endpoint).
+**Prerequisites:** an NVIDIA GPU (CUDA, 8 GB ok), Node.js 20+, Python 3.11, PostgreSQL 17, and [Ollama](https://ollama.com).
 
 ```bash
 git clone https://github.com/ikasast/voxinq.git
 cd voxinq
-npm install
-
-# LLM (default): pull a model that fits 8GB VRAM
-ollama pull qwen2.5:7b-instruct
-
-# STT service (separate venv)
-cd stt-service && python -m venv .venv && . .venv/Scripts/activate   # Linux: source .venv/bin/activate
-pip install -r requirements.txt && cd ..
-
-# Diarization (separate venv, GPU torch — optional but recommended)
-cd diarization && python -m venv .venv && . .venv/Scripts/activate
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
-pip install -r requirements.txt && cd ..
+npm install                        # web app
+ollama pull qwen2.5:7b-instruct    # default LLM (fits 8 GB)
+# set DATABASE_URL in .env, then:
+npx prisma db push                 # create the DB schema
 ```
 
-Create `.env` (see [Configuration](#-configuration)), then create the database schema:
+Then set up the Python STT service (and optional diarization) in their own venvs.
 
-```bash
-npx prisma db push
-```
-
-- **Windows (primary host):** register background tasks with the helper scripts —
-  `scripts/windows/install-db-task.ps1`, `install-web-task.ps1`, and `stt-service/install-startup-task.ps1`.
-- **Linux:** use `scripts/redeploy.sh` for the web app and the provided `stt-service/voxinq-stt.service` systemd unit.
+📖 **Full step-by-step** — Windows/Linux, background services, remote access via Tailscale —
+is in **[docs/setup.md](docs/setup.md)**.
 
 ## 🚀 Quick Start
 
@@ -99,6 +85,12 @@ Then:
 - **Fix a bad transcript:** *Edit tools → Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and a custom format.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
+
+| Recording | Minutes |
+| --- | --- |
+| ![Recording screen](docs/screenshots/recording.png) | ![Minutes](docs/screenshots/minutes.png) |
+
+📚 **Full docs:** [Setup](docs/setup.md) · [Configuration](docs/configuration.md) · [LLM providers](docs/llm-providers.md) · [Usage & recipes](docs/usage.md) · [Architecture](docs/architecture.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## 🏗 Architecture
 
