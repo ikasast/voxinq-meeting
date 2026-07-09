@@ -1,0 +1,317 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* ============================================================
+   Voxinq theme
+   Built around the cyan of the brand icon; layers are conveyed by
+   brightness differences of the surfaces (surface/elevated).
+   Dark by default. <html data-theme="light"> switches to light
+   (Settings > Appearance; saved per device in localStorage).
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces and borders */
+  --background: #0b1220;
+  --surface: #1b2536;
+  --elevated: #232f43;
+  --hover-surface: #2b3852;
+  --border: #2f3d54;
+  --border-strong: #3d4d6a;
+  --header: #0b1220;
+
+  /* Text */
+  --foreground: #e5e7eb;
+  --text-strong: #ffffff;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  /* Accent (cyan) and status colors */
+  --accent: #06b6d4;
+  --accent-hover: #0891b2;
+  --accent-pressed: #0e7490;
+  --accent-sub: #67e8f9;
+  --accent-contrast: #06222a; /* text color placed on top of accent surfaces */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+}
+
+/* Light theme. Accent/status colors match the brand palette; neutrals are
+   derived by inverting the dark ones. Swapping themes is contained to this block. */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #f5f7fa;
+  --surface: #ffffff;
+  --elevated: #f1f4f9;
+  --hover-surface: #e7ecf3;
+  --border: #dfe5ee;
+  --border-strong: #c6d0de;
+  --header: #ffffff;
+
+  --foreground: #1f2937;
+  --text-strong: #0b1220;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+
+  --accent: #06b6d4;
+  --accent-hover: #0891b2;
+  --accent-pressed: #0e7490;
+  --accent-sub: #0e7490; /* for emphasis text on light surfaces (#67e8f9 is unreadable on white) */
+  --accent-contrast: #06222a;
+  --success: #10b981;
+  --warning: #b45309; /* #f59e0b is too faint as text on white, so one shade darker */
+  --error: #ef4444;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-sub: var(--accent-sub);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --font-sans: var(--font-inter), var(--font-noto-jp), system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-inter), var(--font-noto-jp), system-ui, sans-serif;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Links/emphasis inside Markdown (minutes) lean toward the brand colors */
+.prose-invert {
+  --tw-prose-invert-links: var(--accent-sub);
+  --tw-prose-invert-bold: var(--text-strong);
+  --tw-prose-invert-headings: var(--text-strong);
+  --tw-prose-invert-quote-borders: var(--accent);
+  --tw-prose-invert-bullets: var(--accent);
+}
+
+/* In the light theme, override prose-invert colors for a light background
+   (article markup stays the same; only the variables are swapped) */
+html[data-theme="light"] .prose-invert {
+  --tw-prose-invert-body: #374151;
+  --tw-prose-invert-headings: var(--text-strong);
+  --tw-prose-invert-links: var(--accent-sub);
+  --tw-prose-invert-bold: var(--text-strong);
+  --tw-prose-invert-counters: #6b7280;
+  --tw-prose-invert-bullets: var(--accent);
+  --tw-prose-invert-hr: var(--border);
+  --tw-prose-invert-quotes: var(--text-strong);
+  --tw-prose-invert-quote-borders: var(--accent);
+  --tw-prose-invert-captions: #6b7280;
+  --tw-prose-invert-code: var(--text-strong);
+  --tw-prose-invert-pre-code: #e5e7eb;
+  --tw-prose-invert-pre-bg: #1f2937;
+  --tw-prose-invert-th-borders: var(--border-strong);
+  --tw-prose-invert-td-borders: var(--border);
+}
+
+/* Show the right logo per theme (the light-gray text logo is invisible in light mode) */
+.logo-light {
+  display: none;
+}
+html[data-theme="light"] .logo-light {
+  display: block;
+}
+html[data-theme="light"] .logo-dark {
+  display: none;
+}
+
+@layer base {
+  /* Tailwind v4 preflight does not set cursor:pointer on button, so restore it */
+  :is(button, [role="button"]):not(:disabled),
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  summary {
+    cursor: pointer;
+  }
+
+  ::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+@layer components {
+  /* --- Surfaces --- */
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--surface);
+    box-shadow:
+      0 1px 3px rgb(0 0 0 / 0.35),
+      0 1px 2px rgb(0 0 0 / 0.25);
+  }
+  html[data-theme="light"] .card {
+    box-shadow:
+      0 1px 3px rgb(15 23 42 / 0.08),
+      0 1px 2px rgb(15 23 42 / 0.05);
+  }
+
+  /* --- Headings --- */
+  /* Section heading: a vertical accent line on the left edge */
+  .section-title {
+    position: relative;
+    padding-left: 0.7rem;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0.2em auto 0.2em 0;
+      width: 3px;
+      border-radius: 2px;
+      background: linear-gradient(var(--accent-sub), var(--accent));
+    }
+  }
+
+  /* Large heading and subtext at the very top of the page */
+  .eyebrow {
+    color: var(--accent-sub);
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+
+    @media (min-width: 640px) {
+      font-size: 2.5rem;
+    }
+  }
+  .eyebrow-sub {
+    margin-top: 0.25rem;
+    color: var(--accent);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  /* --- Forms --- */
+  .input {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.5rem;
+    background: var(--elevated);
+    color: var(--foreground);
+    font-size: 0.875rem;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    &:disabled {
+      opacity: 0.6;
+    }
+  }
+  .label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* --- Buttons (pill shape) ---
+     btn-ink: primary CTA (cyan) / btn-soft: with surface / btn-outline: border only */
+  :is(.btn-ink, .btn-soft, .btn-outline) {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.625rem 1.25rem;
+    border-radius: calc(infinity * 1px);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      opacity 0.15s,
+      background-color 0.15s,
+      border-color 0.15s;
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+  .btn-ink {
+    background: var(--accent);
+    color: var(--accent-contrast);
+
+    &:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+    &:active:not(:disabled) {
+      background: var(--accent-pressed);
+    }
+  }
+  .btn-soft {
+    border: 1px solid var(--border-strong);
+    background: var(--elevated);
+    color: var(--foreground);
+
+    &:hover:not(:disabled) {
+      background: var(--hover-surface);
+    }
+  }
+  .btn-outline {
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--foreground);
+
+    &:hover:not(:disabled) {
+      background: var(--hover-surface);
+    }
+  }
+
+  /* --- Icon buttons (square, icon only) --- */
+  :is(.btn-icon, .btn-icon-accent) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: calc(infinity * 1px);
+    transition:
+      opacity 0.15s,
+      background-color 0.15s,
+      border-color 0.15s;
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+  .btn-icon {
+    border: 1px solid var(--border-strong);
+    background: var(--elevated);
+    color: var(--foreground);
+
+    &:hover:not(:disabled) {
+      background: var(--hover-surface);
+    }
+  }
+  .btn-icon-accent {
+    background: var(--accent);
+    color: var(--accent-contrast);
+
+    &:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+  }
+
+  /* --- Tags --- */
+  .tag-lime {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: calc(infinity * 1px);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent-sub);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+}

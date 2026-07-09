@@ -1,0 +1,28 @@
+# Voxinq STT service (systemd unit for running resident on a Linux GPU host)
+#
+# Usage:
+#   1) Edit the paths/user for your environment
+#   2) sudo cp voxinq-stt.service /etc/systemd/system/
+#   3) sudo systemctl daemon-reload && sudo systemctl enable --now voxinq-stt
+#   4) journalctl -u voxinq-stt -f  to view logs
+#
+# Prerequisite: stt-service/.venv (faster-whisper) and diarization/.venv (torch cu128 + pyannote) already created.
+[Unit]
+Description=Voxinq STT service (faster-whisper + diarization)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/voxinq/stt-service
+ExecStart=/home/YOUR_USER/voxinq/stt-service/.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=3
+# Run diarization on GPU (use cpu for CPU)
+Environment=DIA_DEVICE=cuda
+# If needed, set the HuggingFace cache/token location explicitly
+# Environment=HF_HOME=/home/YOUR_USER/.cache/huggingface
+
+[Install]
+WantedBy=multi-user.target
