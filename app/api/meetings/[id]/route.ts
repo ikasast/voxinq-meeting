@@ -31,14 +31,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     description?: unknown;
     tags?: unknown;
     speakerLabels?: unknown;
+    archived?: unknown;
   }>(req);
 
   const data: {
     title?: string;
     description?: string | null;
     speakerLabels?: string;
+    archivedAt?: Date | null;
     tags?: { set: []; connectOrCreate: { where: { name: string }; create: { name: string } }[] };
   } = {};
+
+  if (body?.archived !== undefined) {
+    // Archive hides a meeting from the list but keeps it in the DB (still searchable).
+    data.archivedAt = body.archived ? new Date() : null;
+  }
 
   if (body?.title !== undefined) {
     const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -94,6 +101,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         title: true,
         description: true,
         speakerLabels: true,
+        archivedAt: true,
         tags: { select: { name: true }, orderBy: { name: "asc" } },
       },
     });

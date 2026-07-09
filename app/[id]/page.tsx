@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 import { MeetingListPane } from "../meeting-list-pane";
 import { PageHeader } from "../page-header";
+import { ArchiveButton } from "./archive-button";
 import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 import { MeetingMeta } from "./meeting-meta";
@@ -73,9 +74,16 @@ export default async function MeetingDetailPage({
           {!external ? (
             <CloneMeetingButton description={meeting.description} tags={tagNames} />
           ) : null}
+          <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
           <DeleteMeetingButton id={meeting.id} title={meeting.title} />
         </div>
       </div>
+
+      {meeting.archivedAt ? (
+        <div className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+          Archived — hidden from the meeting list, but still found via search.
+        </div>
+      ) : null}
 
       <MeetingMeta id={meeting.id} description={meeting.description} tags={tagNames} />
 

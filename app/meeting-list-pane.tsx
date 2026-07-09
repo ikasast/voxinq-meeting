@@ -211,6 +211,11 @@ export async function MeetingListPane({
                     <span className="truncate text-sm font-medium text-[var(--text-strong)]">
                       {m.title}
                     </span>
+                    {m.archivedAt ? (
+                      <span className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+                        Archived
+                      </span>
+                    ) : null}
                     {m.endedAt ? null : <span className="tag-lime shrink-0">In progress</span>}
                   </div>
                   <p className="mt-1 text-xs text-[var(--text-muted)]">
