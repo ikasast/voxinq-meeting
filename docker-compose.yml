@@ -1,0 +1,46 @@
+# Optional definition for running Voxinq Web via docker-compose (see README 3-2).
+# Running it directly with npm as before is still supported.
+#
+# - build args: compose reads .env at the project root and passes the values that
+#   must be baked in at build time (NEXT_PUBLIC_* / APP_PASSWORD) to the image build.
+# - network_mode: host ... shares tailscale serve (proxy to localhost:3000) and
+#   *.ts.net name resolution (MagicDNS) with the host. On a bridge network the
+#   container cannot resolve Ollama's tailnet name.
+# - settings.json stays on the host and is shared via a volume, so switching to or
+#   back from the non-Docker setup needs no data move.
+services:
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_STT_WS_URL: ${NEXT_PUBLIC_STT_WS_URL}
+        APP_PASSWORD: ${APP_PASSWORD:-}
+        APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./settings.json:/app/settings.json
+    # No depends_on for db: in an "external-viewer only" setup where DATABASE_URL
+    # points to another host (e.g. the primary PC), `docker compose up -d web` can
+    # start web alone. When using the db on the same host, web restarts and catches
+    # up even if db is not ready right after startup.
+    restart: unless-stopped
+
+  # Meeting data (PostgreSQL). Exposed only on localhost:5432 so both web (host
+  # network) and the direct-npm setup can use the same connection string.
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: voxinq
+      POSTGRES_USER: voxinq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voxinq -d voxinq"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped

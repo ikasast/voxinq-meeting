@@ -1,0 +1,69 @@
+// Voxinq data model.
+// Meeting 1 - n Transcript / MeetingSummary.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Meeting {
+  id          String    @id @default(cuid())
+  title       String
+  description   String?   @map("description") // meta info such as the meeting's purpose/contents
+  sttLanguage   String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
+  speakerLabels String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
+  summaryStatus String?   @map("summary_status") // minutes generation state: processing | done | error
+  startedAt   DateTime  @default(now()) @map("started_at")
+  endedAt     DateTime? @map("ended_at")
+  deletedAt   DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  transcripts Transcript[]
+  summaries   MeetingSummary[]
+  tags        Tag[]
+
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("meetings")
+}
+
+// User-defined meeting tags (unique by name). Many-to-many with meetings.
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  meetings Meeting[]
+
+  @@map("tags")
+}
+
+model Transcript {
+  id          String   @id @default(cuid())
+  meetingId   String   @map("meeting_id")
+  speakerType String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
+  text        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, createdAt])
+  @@map("transcripts")
+}
+
+model MeetingSummary {
+  id          String   @id @default(cuid())
+  meetingId   String   @map("meeting_id")
+  summaryText String   @map("summary_text")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, createdAt])
+  @@map("meeting_summaries")
+}

@@ -1,0 +1,7 @@
+# For speaker diarization (pyannote.audio). Install in a separate venv from the STT service (diarization/.venv).
+# Runs after a meeting when Whisper is already released, so use the GPU (CUDA) build of torch.
+# pyannote.audio 4.x requires torch>=2.8 -> cu124 stops at 2.6, so use cu128:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements.txt
+# * If there is no GPU / you don't use one, the CPU build works too (--index-url .../whl/cpu, DIA_DEVICE=cpu).
+pyannote.audio>=3.1
