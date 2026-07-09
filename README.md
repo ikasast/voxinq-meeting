@@ -12,6 +12,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791)
 ![GPU](https://img.shields.io/badge/GPU-CUDA%20(8GB%20ok)-76b900)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-100%25%20offline-2ea44f)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
 
@@ -145,4 +146,11 @@ flowchart LR
 
 - Whisper and the LLM cannot both stay resident on 8 GB — the app releases Whisper on meeting end.
 - Similar open-source projects: [Meetily](https://github.com/Zackriya-Solutions/meeting-minutes), [Transcription Stream](https://github.com/transcriptionstream/transcriptionstream).
-- **License:** none yet. This project was bootstrapped from an unlicensed base repo; obtain the original author's permission before publishing or redistributing.
+
+## 📄 License
+
+Released under the [MIT License](LICENSE) — © 2026 Takafumi Sasaki.
+
+You are free to use, modify, and distribute this software, including commercially, provided the copyright and license notice are retained. The software is provided "as is", without warranty of any kind.
+
+> **Third-party components** ship under their own licenses. In particular, [pyannote.audio](https://github.com/pyannote/pyannote-audio) models require accepting the terms on Hugging Face, and Whisper / your chosen LLM (Ollama models, etc.) are subject to their respective licenses. Review these before deploying.
