@@ -168,18 +168,42 @@ async function condenseTranscript(
 
 export async function requestSummary(
   transcripts: TranscriptForPrompt[],
-  opts?: { description?: string | null; speakerLabels?: SpeakerLabels },
+  opts?: {
+    description?: string | null;
+    speakerLabels?: SpeakerLabels;
+    // Per-generation overrides (e.g. from the "Regenerate with options" panel).
+    // They apply to this run only and are NOT persisted to settings.
+    detail?: string;
+    provider?: string;
+  },
 ): Promise<string> {
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
   const conversation = transcriptsToText(transcripts, opts?.speakerLabels ?? {}, multiSpeaker);
 
-  const [cfg, background, format, language, detail] = await Promise.all([
+  const [cfg, background, format, language, savedDetail] = await Promise.all([
     getLlmConfig(),
     getLlmBackground(),
     getSummaryFormat(),
     getSummaryLanguage(),
     getSummaryDetail(),
   ]);
+
+  // Apply per-generation overrides. Detail falls back to the saved setting if invalid/absent.
+  // Use hasOwnProperty (not `in`) so inherited keys like "toString"/"constructor" from a
+  // crafted request body cannot select a function as maxTokens.
+  const detail =
+    opts?.detail && Object.prototype.hasOwnProperty.call(DETAIL_MAX_TOKENS, opts.detail)
+      ? opts.detail
+      : savedDetail;
+  // Provider override for this run only. Each provider still uses the model configured for
+  // it in settings (cfg from getLlmConfig is a fresh object, so mutating it is local).
+  if (
+    opts?.provider &&
+    (["ollama", "anthropic", "openai"] as const).includes(opts.provider as LlmProviderName)
+  ) {
+    cfg.provider = opts.provider as LlmProviderName;
+  }
+
   const provider = providerFor(cfg.provider);
   const maxTokens = DETAIL_MAX_TOKENS[detail] ?? DETAIL_MAX_TOKENS.standard;
 

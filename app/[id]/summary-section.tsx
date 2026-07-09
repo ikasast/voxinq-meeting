@@ -5,12 +5,26 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDateTime } from "@/lib/utils";
-import { PencilIcon, RefreshIcon } from "../icons";
+import { PencilIcon, RefreshIcon, SlidersIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopySummaryButton } from "./copy-summary-button";
 import { ShareButton } from "./share-button";
 
 export type SummaryVersion = { id: string; text: string; createdAt: string };
+
+const DETAILS: { id: string; label: string }[] = [
+  { id: "brief", label: "Brief (shorter)" },
+  { id: "standard", label: "Standard" },
+  { id: "detailed", label: "Detailed (fuller)" },
+];
+
+// Providers the user can pick for a one-off regeneration. Each provider uses the model
+// configured for it in Settings — the panel just shows which one that is.
+const PROVIDERS: { id: string; label: string }[] = [
+  { id: "ollama", label: "Ollama (local)" },
+  { id: "anthropic", label: "Anthropic" },
+  { id: "openai", label: "OpenAI-compatible" },
+];
 
 // Display / edit / regenerate the minutes, plus version history.
 // summaries is newest-first. Shows the not-generated state when empty.
@@ -51,6 +65,33 @@ export function SummarySection({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [genBusy, setGenBusy] = useState(false);
+
+  // "Regenerate with options" panel: per-run detail level + provider, prefilled from saved settings.
+  const [showOptions, setShowOptions] = useState(false);
+  const [optDetail, setOptDetail] = useState("standard");
+  const [optProvider, setOptProvider] = useState("ollama");
+  const [optModels, setOptModels] = useState<Record<string, string>>({});
+  const [optLoaded, setOptLoaded] = useState(false);
+
+  const toggleOptions = async () => {
+    setShowOptions((v) => !v);
+    if (optLoaded) return;
+    try {
+      const res = await fetch("/api/settings");
+      if (!res.ok) return;
+      const s = await res.json();
+      setOptDetail(s.summaryDetail ?? "standard");
+      setOptProvider(s.llmProvider ?? "ollama");
+      setOptModels({
+        ollama: s.ollamaModel ?? "",
+        anthropic: s.anthropicModel ?? "",
+        openai: s.openaiModel ?? "",
+      });
+      setOptLoaded(true);
+    } catch {
+      // ignore — the user can still pick a provider / detail level
+    }
+  };
 
   const processing = summaryStatus === "processing";
 
@@ -103,19 +144,20 @@ export function SummarySection({
     }
   };
 
-  const regenerate = async () => {
+  const regenerate = async (overrides?: { detail?: string; provider?: string }) => {
     setGenBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/claude/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId }),
+        body: JSON.stringify({ meetingId, ...overrides }),
       });
       if (!res.ok && res.status !== 202) {
         const d = await res.json().catch(() => null);
         throw new Error(d?.error ?? `HTTP ${res.status}`);
       }
+      setShowOptions(false);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Regeneration failed");
@@ -139,20 +181,32 @@ export function SummarySection({
             filename={`${meetingTitle}-minutes.md`}
           />
           {canGenerate ? (
-            <button
-              type="button"
-              onClick={regenerate}
-              disabled={genBusy || processing || otherBusy}
-              className="btn-icon-accent"
-              title={
-                otherBusy
-                  ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
-                  : "Regenerate the minutes from the current transcript"
-              }
-              aria-label="Regenerate"
-            >
-              <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => regenerate()}
+                disabled={genBusy || processing || otherBusy}
+                className="btn-icon-accent"
+                title={
+                  otherBusy
+                    ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
+                    : "Regenerate the minutes from the current transcript"
+                }
+                aria-label="Regenerate"
+              >
+                <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleOptions}
+                className="btn-icon"
+                title="Regenerate with options (detail / model)"
+                aria-label="Regenerate options"
+                aria-expanded={showOptions}
+              >
+                <SlidersIcon />
+              </button>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -172,13 +226,13 @@ export function SummarySection({
         ) : summaryStatus === "error" ? (
           <>
             <p className="mt-4 text-sm text-[var(--error)]">Failed to generate minutes.</p>
-            {canGenerate ? <GenButton onClick={regenerate} busy={genBusy || otherBusy} label="Regenerate minutes" /> : null}
+            {canGenerate ? <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Regenerate minutes" /> : null}
           </>
         ) : (
           <>
             <p className="mt-4 text-sm text-[var(--text-muted)]">No minutes generated yet.</p>
             {canGenerate ? (
-              <GenButton onClick={regenerate} busy={genBusy || otherBusy} label="Generate minutes" />
+              <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Generate minutes" />
             ) : (
               <p className="mt-2 text-xs text-[var(--text-muted)]">No transcript, so minutes cannot be generated.</p>
             )}
@@ -192,6 +246,71 @@ export function SummarySection({
   return (
     <>
       {header}
+
+      {/* Regenerate options: one-off detail level + provider for this run (settings unchanged). */}
+      {showOptions && !editing ? (
+        <div className="mt-3 space-y-3 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="regen-detail" className="label">
+                Detail
+              </label>
+              <select
+                id="regen-detail"
+                value={optDetail}
+                onChange={(e) => setOptDetail(e.target.value)}
+                className="input mt-1"
+              >
+                {DETAILS.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="regen-provider" className="label">
+                Provider
+              </label>
+              <select
+                id="regen-provider"
+                value={optProvider}
+                onChange={(e) => setOptProvider(e.target.value)}
+                className="input mt-1"
+              >
+                {PROVIDERS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              {optModels[optProvider] ? (
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Model: {optModels[optProvider]} (from Settings)
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-[var(--text-muted)]">
+              Applies to this run only — saved settings are unchanged.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowOptions(false)} className="btn-outline">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => regenerate({ detail: optDetail, provider: optProvider })}
+                disabled={genBusy || processing || otherBusy}
+                className="btn-ink"
+              >
+                {genBusy ? "Starting…" : "Regenerate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {processing ? (
         <div className="mt-3 flex items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">

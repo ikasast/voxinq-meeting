@@ -7,11 +7,19 @@ export const runtime = "nodejs";
 export const maxDuration = 90;
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) as { meetingId?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as
+    | { meetingId?: unknown; detail?: unknown; provider?: unknown }
+    | null;
   const meetingId = typeof body?.meetingId === "string" ? body.meetingId : "";
   if (!meetingId) {
     return NextResponse.json({ error: "meetingId is required" }, { status: 400 });
   }
+
+  // Optional per-generation overrides (from the "Regenerate with options" panel).
+  // Not persisted to settings — they only affect this run. Each provider uses its own
+  // model configured in Settings; requestSummary validates these values.
+  const detail = typeof body?.detail === "string" ? body.detail : undefined;
+  const provider = typeof body?.provider === "string" ? body.provider : undefined;
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
@@ -65,7 +73,12 @@ export async function POST(req: NextRequest) {
 
   after(async () => {
     try {
-      const summaryText = await requestSummary(transcriptInput, { description, speakerLabels });
+      const summaryText = await requestSummary(transcriptInput, {
+        description,
+        speakerLabels,
+        detail,
+        provider,
+      });
       await prisma.meetingSummary.create({ data: { meetingId, summaryText } });
       await prisma.meeting.update({
         where: { id: meetingId },
