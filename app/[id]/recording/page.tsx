@@ -82,6 +82,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const autostartTried = useRef(false);
   const [external, setExternal] = useState(false);
   const [meetingLang, setMeetingLang] = useState<string | undefined>(undefined);
+  // Whether this meeting has already ended. A back-navigation can land here again, so this
+  // guards against restarting the recording / meeting timer on a finished meeting.
+  const [ended, setEnded] = useState(false);
+  const endedRef = useRef(false);
 
   // Per-recording temporary settings passed from the new-meeting screen (not saved to the settings file).
   // STT language is saved on the meeting (meeting.sttLanguage), so it is not handled here.
@@ -159,6 +163,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       if (cancelled) return;
       setTitle(data.title);
       setStartedAt(new Date(data.startedAt));
+      // Already-ended meeting (e.g. navigated back here after finishing): block restart.
+      if (data.endedAt) {
+        endedRef.current = true;
+        setEnded(true);
+      }
       // The per-meeting language overrides the settings default (adopted at start).
       if (data.sttLanguage) {
         meetingLangRef.current = data.sttLanguage;
@@ -281,7 +290,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   );
 
   const startRecording = useCallback(async () => {
-    if (handleRef.current) return;
+    if (handleRef.current || endedRef.current) return; // never (re)start an ended meeting
     try {
       handleRef.current = await startMic(handlers, {
         model: whisperModelRef.current,
@@ -323,14 +332,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   );
 
   // One-tap recording: when arriving with ?autostart=1, try to auto-start recording after settings/meeting load.
+  // Skip entirely if the meeting already ended (e.g. navigated back here).
   useEffect(() => {
-    if (autostartTried.current || !settingsLoaded || !startedAt || external) return;
+    if (autostartTried.current || !settingsLoaded || !startedAt || external || ended) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("autostart") === "1") {
       autostartTried.current = true;
       void startRecording();
     }
-  }, [settingsLoaded, startedAt, external, startRecording]);
+  }, [settingsLoaded, startedAt, external, ended, startRecording]);
 
   // Protect the recording (WAV used for diarization/re-transcription). If off, auto-deleted after 7 days.
   const protectRecording = useCallback(async () => {
@@ -355,6 +365,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     });
     if (!ok) return;
     setBusy("summary");
+    endedRef.current = true;
+    setEnded(true);
     try {
       await stopRecording();
       if (checked) await protectRecording();
@@ -369,7 +381,9 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         const sumData = await sumRes.json().catch(() => null);
         throw new Error(sumData?.error ?? `HTTP ${sumRes.status}`);
       }
-      router.push(`/`);
+      // replace() so this recording page leaves the history — pressing "back" from the
+      // list/detail must not return here and restart the meeting.
+      router.replace(`/`);
     } catch (e) {
       showToast(`Failed to start minutes generation: ${(e as Error).message}`);
       setBusy("none");
@@ -386,10 +400,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
     });
     if (!ok) return;
+    endedRef.current = true;
+    setEnded(true);
     await stopRecording();
     if (checked) await protectRecording();
     await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
-    router.push(`/${meetingId}`);
+    // replace() so back navigation cannot return to this recording page.
+    router.replace(`/${meetingId}`);
   }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording]);
 
   // Warn before leaving while recording
@@ -452,9 +469,9 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     : 0;
 
   const active = status === "connecting" || status === "open" || status === "reconnecting";
-  // Block starting a new recording while another GPU task runs (minutes generation, or an
-  // STT job elsewhere). Stopping the current recording stays allowed.
-  const startBlocked = gpu.busy && !active;
+  // Block starting a recording if the meeting already ended, or while another GPU task runs
+  // (minutes generation, or an STT job elsewhere). Stopping the current recording stays allowed.
+  const startBlocked = ended || (gpu.busy && !active);
 
   // Displayed language prefers this meeting's setting (meetingLang), else the settings default.
   const effectiveLang = meetingLang ?? cfg?.sttLanguage;
@@ -486,9 +503,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             title={
               external
                 ? "Recording is not available from an external network"
-                : startBlocked
-                  ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
-                  : undefined
+                : ended
+                  ? "This meeting has ended"
+                  : startBlocked
+                    ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
+                    : undefined
             }
             className={`inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
               active
@@ -545,6 +564,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           </Link>
         </div>
       </div>
+
+      {ended ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+          <span>This meeting has already ended. Recording cannot be restarted.</span>
+          <Link href={`/${meetingId}`} className="btn-outline shrink-0">
+            View minutes
+          </Link>
+        </div>
+      ) : null}
 
       {external ? (
         <div className="rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-3 py-2 text-sm text-[var(--warning)]">
