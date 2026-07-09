@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { HealthStatus } from "./health-status";
 
 // Page header shared by the home and meeting-detail pages.
@@ -12,16 +11,8 @@ export function PageHeader({ external }: { external: boolean }) {
           You can still view, generate, and share minutes here.
         </div>
       ) : null}
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Meetings</p>
-          <p className="eyebrow-sub">Minutes</p>
-        </div>
-        {!external ? (
-          <Link href="/quick-record" className="btn-ink shrink-0">
-            One-tap record
-          </Link>
-        ) : null}
+      <div>
+        <p className="eyebrow">Meetings</p>
       </div>
       <HealthStatus showStt={!external} />
     </div>
