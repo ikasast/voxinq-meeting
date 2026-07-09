@@ -20,6 +20,7 @@ model Meeting {
   startedAt   DateTime  @default(now()) @map("started_at")
   endedAt     DateTime? @map("ended_at")
   deletedAt   DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
+  archivedAt  DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -29,6 +30,7 @@ model Meeting {
 
   @@index([createdAt])
   @@index([deletedAt])
+  @@index([archivedAt])
   @@map("meetings")
 }
 

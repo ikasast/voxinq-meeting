@@ -35,7 +35,8 @@ export function periodStart(p: Period, now = new Date()): Date | null {
   return null;
 }
 
-/** Build the Prisma where from search/tag/period (always excludes trash). */
+/** Build the Prisma where from search/tag/period (always excludes trash).
+ * Archived meetings are hidden from the normal list but surface when a text query is present. */
 export function buildMeetingWhere(opts: {
   query?: string;
   tag?: string;
@@ -55,6 +56,9 @@ export function buildMeetingWhere(opts: {
         { summaries: { some: { summaryText: { contains: query, mode: "insensitive" } } } },
       ],
     });
+  } else {
+    // No text query: hide archived meetings from the list (they stay searchable).
+    and.push({ archivedAt: null });
   }
   if (tag) and.push({ tags: { some: { name: tag } } });
   if (from) and.push({ startedAt: { gte: from } });
