@@ -11,9 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tag?: string; period?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string; period?: string; mode?: string }>;
 }) {
-  const { q, tag, period } = await searchParams;
+  const { q, tag, period, mode } = await searchParams;
   const external = await isExternalRequest();
 
   return (
@@ -21,7 +21,7 @@ export default async function HomePage({
       <PageHeader external={external} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(300px,360px)_1fr] lg:items-start">
-        <MeetingListPane q={q} tag={tag} period={period} />
+        <MeetingListPane q={q} tag={tag} period={period} mode={mode} />
 
         {/* Right panel (desktop only): guidance when no meeting is selected */}
         <section className="card hidden min-h-[50vh] flex-col items-center justify-center gap-4 p-10 text-center lg:flex">

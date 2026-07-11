@@ -40,6 +40,10 @@ here (single on-prem user assumed), so keep the file private.
 - `anthropicModel`, `anthropicApiKey`
 - `openaiBaseUrl`, `openaiModel`, `openaiApiKey` — key optional for local servers
 
+**Search & speakers** (edit `settings.json` directly)
+- `embeddingModel` — Ollama model for AI (semantic) search, default `bge-m3` (`ollama pull bge-m3` first)
+- `voiceprintThreshold` — cosine similarity needed for voice-profile auto-naming, default `0.5`
+
 See **[LLM providers](llm-providers.md)** for provider details.
 
 ## Retention

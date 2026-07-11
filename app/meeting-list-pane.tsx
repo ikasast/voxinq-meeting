@@ -1,9 +1,12 @@
 import Link from "next/link";
+import type { Prisma } from "@prisma/client";
+import { semanticSearch } from "@/lib/embeddings";
 import { prisma } from "@/lib/prisma";
-import { type Period, buildMeetingWhere, makeSnippet, periodLabel } from "@/lib/meeting-filter";
+import { type Period, buildMeetingWhere, makeSnippet, periodLabel, periodStart } from "@/lib/meeting-filter";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import { SummaryStatusPoller } from "./[id]/summary-status-poller";
 import { RecordingBadges } from "./recording-badges";
+import { SemanticIndexButton } from "./semantic-index-button";
 import { TrashIcon } from "./icons";
 
 const PERIODS: { id: Period; label: string }[] = [
@@ -18,20 +21,51 @@ export async function MeetingListPane({
   q,
   tag,
   period,
+  mode,
   activeId,
 }: {
   q?: string;
   tag?: string;
   period?: string;
+  mode?: string;
   activeId?: string;
 }) {
   const query = (q ?? "").trim();
   const activeTag = (tag ?? "").trim();
   const activePeriod = (["today", "week", "month"].includes(period ?? "") ? period : "") as Period;
+  const aiMode = mode === "ai";
 
-  const where = buildMeetingWhere({ query, tag: activeTag, period: activePeriod });
+  // AI (semantic) search: rank by embedding similarity instead of keyword match.
+  // Falls back to keyword search (with a note) when embeddings are unavailable.
+  let semanticError: string | null = null;
+  let semanticOrder: string[] = [];
+  const similarity = new Map<string, number>();
+  let unindexed = 0;
+  if (aiMode && query) {
+    try {
+      const r = await semanticSearch(query, 30);
+      semanticOrder = r.hits.map((h) => h.id);
+      for (const h of r.hits) similarity.set(h.id, h.similarity);
+      unindexed = r.unindexed;
+    } catch (e) {
+      semanticError = e instanceof Error ? e.message : "Semantic search failed";
+    }
+  }
+  const semanticActive = aiMode && query.length > 0 && !semanticError;
 
-  const [meetings, allTags] = await Promise.all([
+  let where: Prisma.MeetingWhereInput;
+  if (semanticActive) {
+    // Semantic hits + the tag/period filters (archived meetings stay findable, like keyword search).
+    const and: Prisma.MeetingWhereInput[] = [{ deletedAt: null }, { id: { in: semanticOrder } }];
+    if (activeTag) and.push({ tags: { some: { name: activeTag } } });
+    const from = periodStart(activePeriod);
+    if (from) and.push({ startedAt: { gte: from } });
+    where = { AND: and };
+  } else {
+    where = buildMeetingWhere({ query, tag: activeTag, period: activePeriod });
+  }
+
+  const [meetingsRaw, allTags] = await Promise.all([
     prisma.meeting.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -47,6 +81,12 @@ export async function MeetingListPane({
       include: { _count: { select: { meetings: { where: { deletedAt: null } } } } },
     }),
   ]);
+  // In AI mode, order by similarity (best first) instead of creation date.
+  const meetings = semanticActive
+    ? [...meetingsRaw].sort(
+        (a, b) => semanticOrder.indexOf(a.id) - semanticOrder.indexOf(b.id),
+      )
+    : meetingsRaw;
 
   // On search: find where it matched + a snippet.
   const matched = new Map<string, { fields: string[]; snippet: string | null }>();
@@ -97,6 +137,7 @@ export async function MeetingListPane({
   const queryString = (over: { tag?: string | null; period?: Period | null } = {}) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
+    if (aiMode) params.set("mode", "ai");
     const t = "tag" in over ? over.tag : activeTag;
     if (t) params.set("tag", t);
     const p = "period" in over ? over.period : activePeriod;
@@ -113,22 +154,36 @@ export async function MeetingListPane({
       {generating ? <SummaryStatusPoller /> : null}
       {meetings.length > 0 ? <RecordingBadges ids={meetings.map((m) => m.id)} /> : null}
 
-      <form action={base} className="flex gap-2">
+      <form action={base} className="flex flex-wrap items-center gap-2">
         {activeTag ? <input type="hidden" name="tag" value={activeTag} /> : null}
         {activePeriod ? <input type="hidden" name="period" value={activePeriod} /> : null}
         <input
           type="search"
           name="q"
           defaultValue={query}
-          placeholder="Search (title, transcript, minutes)"
-          className="input"
+          placeholder={aiMode ? "Describe what you remember…" : "Search (title, transcript, minutes)"}
+          className="input min-w-0 flex-1"
         />
-        {filtering ? (
+        <label
+          className="flex shrink-0 cursor-pointer items-center gap-1 text-xs text-[var(--text-secondary)]"
+          title="AI search: finds meetings by meaning, even without the exact words"
+        >
+          <input type="checkbox" name="mode" value="ai" defaultChecked={aiMode} />
+          AI
+        </label>
+        {filtering || aiMode ? (
           <Link href={base} className="btn-outline shrink-0 !px-3" title="Clear filters">
             ×
           </Link>
         ) : null}
       </form>
+
+      {aiMode && query && semanticError ? (
+        <p className="rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] px-3 py-2 text-xs text-[var(--warning)]">
+          AI search unavailable ({semanticError}) — showing keyword results instead.
+        </p>
+      ) : null}
+      {semanticActive && unindexed > 0 ? <SemanticIndexButton unindexed={unindexed} /> : null}
 
       {/* Period filter */}
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -233,7 +288,7 @@ export async function MeetingListPane({
                       {hit.snippet}
                     </p>
                   ) : null}
-                  {m.tags.length > 0 || (hit && hit.fields.length > 0) || m.endedAt ? (
+                  {m.tags.length > 0 || (hit && hit.fields.length > 0) || similarity.has(m.id) || m.endedAt ? (
                     <p className="mt-1.5 flex flex-wrap items-center gap-1">
                       {/* Recording/protection badge (RecordingBadges fills it in after querying STT) */}
                       <span data-rec-badge={m.id} />
@@ -245,6 +300,11 @@ export async function MeetingListPane({
                           {t.name}
                         </span>
                       ))}
+                      {similarity.has(m.id) ? (
+                        <span className="rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]">
+                          AI match {Math.round(similarity.get(m.id)! * 100)}%
+                        </span>
+                      ) : null}
                       {hit?.fields.map((f) => (
                         <span
                           key={f}
