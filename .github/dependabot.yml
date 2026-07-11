@@ -11,6 +11,11 @@ updates:
     groups:
       npm-all:
         patterns: ["*"]
+    ignore:
+      # Major upgrades (e.g. Prisma 7, Next major) need manual migration work —
+      # do them deliberately, not via a monthly bot PR.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: pip
     directory: /stt-service
