@@ -19,8 +19,8 @@ model Meeting {
   summaryStatus String?   @map("summary_status") // minutes generation state: processing | done | error
   seriesId    String?   @map("series_id") // recurring-series membership (null = standalone)
   diarizationEmbeddings String? @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
-  embedding      String?  @map("embedding") // semantic-search vector (JSON float array over title+minutes+transcript head)
-  embeddingModel String?  @map("embedding_model") // model the vector was built with (mismatch = reindex)
+  embedding      String?  @map("embedding") // unused: leftover from the removed AI (semantic) search
+  embeddingModel String?  @map("embedding_model") // unused: leftover from the removed AI (semantic) search
   startedAt   DateTime  @default(now()) @map("started_at")
   endedAt     DateTime? @map("ended_at")
   deletedAt   DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
