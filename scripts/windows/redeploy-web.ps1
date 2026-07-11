@@ -9,9 +9,8 @@ git pull --ff-only
 
 Write-Host '[2/4] update deps & apply DB schema...'
 npm install
-# Changes that drop tables/columns fail here -> review, then run manually:
-#   npx prisma db push --accept-data-loss
-npx prisma db push
+# Apply pending schema migrations (no-op when up to date).
+npx prisma migrate deploy
 
 Write-Host '[3/4] production build...'
 npm run build

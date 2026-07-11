@@ -24,7 +24,7 @@ The script is **idempotent** (safe to re-run) and does, in order:
 1. Checks the prerequisites above and tells you what is missing.
 2. `npm install`
 3. Creates `.env` from `.env.example` and asks for your `DATABASE_URL`.
-4. `npx prisma db push` — creates the DB schema.
+4. `npx prisma migrate deploy` — creates/updates the DB schema.
 5. Creates the STT venv (`stt-service/.venv`) and installs its requirements.
 6. Pulls the default LLM (`ollama pull qwen2.5:7b-instruct`).
 
@@ -59,7 +59,7 @@ if needed, and serves it at `http://localhost:3000`. Ctrl+C stops both.
 ```bash
 npm install
 cp .env.example .env        # then set DATABASE_URL
-npx prisma db push          # create the DB schema
+npx prisma migrate deploy   # create/update the DB schema
 ```
 
 ### 2. LLM (Ollama, default)

@@ -49,8 +49,8 @@ else
   fi
 fi
 
-step "Database schema (prisma db push)"
-npx prisma db push
+step "Database schema (prisma migrate deploy)"
+npx prisma migrate deploy
 
 step "STT service venv (stt-service/.venv)"
 if [ -x stt-service/.venv/bin/python ]; then
