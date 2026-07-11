@@ -36,6 +36,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # runtime settings (contains API keys in plaintext; never commit)
 /settings.json
@@ -81,6 +82,7 @@ next-env.d.ts
 /stt-service/recordings/
 # STT service runtime log
 /stt-service/stt.log
+/stt-service/stt.err.log
 
 # Windows primary-host runtime log
 /scripts/windows/web.log
