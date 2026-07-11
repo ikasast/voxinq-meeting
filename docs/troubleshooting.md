@@ -46,3 +46,7 @@ times, pass the participant count, or assign speakers manually per line.
 Whisper (`large-v3` ≈ 3 GB) and the LLM (7B ≈ 5 GB) cannot both stay resident on 8 GB. Voxinq
 releases Whisper on meeting end. If needed, use a smaller Whisper model (`medium`) or
 `OLLAMA_KEEP_ALIVE=0`.
+
+---
+
+[Docs index](README.md) · [← Architecture](architecture.md)
