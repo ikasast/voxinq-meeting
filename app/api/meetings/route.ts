@@ -17,13 +17,14 @@ export async function GET() {
 
 const STT_LANGS = ["auto", "ja", "en"];
 
-// Create a meeting. title is required; description/tags/sttLanguage are optional.
-// tags are accepted so "new with same settings" can carry over the metadata.
+// Create a meeting. title is required; description/tags/series/sttLanguage are optional.
+// tags/series are accepted so "new with same settings" can carry over the metadata.
 export async function POST(req: NextRequest) {
   const body = await readJson<{
     title?: unknown;
     description?: unknown;
     tags?: unknown;
+    series?: unknown;
     sttLanguage?: unknown;
   }>(req);
 
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
       ? [...new Set((body.tags as string[]).map((t) => t.trim()).filter(Boolean))].slice(0, 10)
       : [];
 
+  const seriesName =
+    typeof body?.series === "string" ? body.series.trim().slice(0, 60) : "";
+
   const created = await prisma.meeting.create({
     data: {
       title,
@@ -52,6 +56,9 @@ export async function POST(req: NextRequest) {
       sttLanguage,
       tags: tagNames.length
         ? { connectOrCreate: tagNames.map((name) => ({ where: { name }, create: { name } })) }
+        : undefined,
+      series: seriesName
+        ? { connectOrCreate: { where: { name: seriesName }, create: { name: seriesName } } }
         : undefined,
     },
   });

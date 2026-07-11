@@ -20,22 +20,24 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ q?: string; tag?: string; period?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string; period?: string; mode?: string }>;
 }) {
   const { id } = await params;
-  const { q, tag, period } = await searchParams;
+  const { q, tag, period, mode } = await searchParams;
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     include: {
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
       tags: { select: { name: true }, orderBy: { name: "asc" } },
+      series: { select: { name: true } },
     },
   });
   if (!meeting) notFound();
 
   const external = await isExternalRequest();
   const tagNames = meeting.tags.map((t) => t.name);
+  const seriesName = meeting.series?.name ?? null;
 
   // Desktop shows the meeting list on the left (2-pane); mobile shows the detail only and
   // goes back via "一覧へ戻る". The header is shared with the home page (so selecting a meeting
@@ -48,7 +50,7 @@ export default async function MeetingDetailPage({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(300px,360px)_1fr] lg:items-start">
       <aside className="hidden lg:block">
-        <MeetingListPane q={q} tag={tag} period={period} activeId={meeting.id} />
+        <MeetingListPane q={q} tag={tag} period={period} mode={mode} activeId={meeting.id} />
       </aside>
 
       <div className="min-w-0 space-y-6">
@@ -72,7 +74,11 @@ export default async function MeetingDetailPage({
             </Link>
           ) : null}
           {!external ? (
-            <CloneMeetingButton description={meeting.description} tags={tagNames} />
+            <CloneMeetingButton
+              description={meeting.description}
+              tags={tagNames}
+              series={seriesName}
+            />
           ) : null}
           <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
           <DeleteMeetingButton id={meeting.id} title={meeting.title} />
@@ -85,7 +91,12 @@ export default async function MeetingDetailPage({
         </div>
       ) : null}
 
-      <MeetingMeta id={meeting.id} description={meeting.description} tags={tagNames} />
+      <MeetingMeta
+        id={meeting.id}
+        description={meeting.description}
+        tags={tagNames}
+        series={seriesName}
+      />
 
       <section className="card p-5">
         <SummarySection

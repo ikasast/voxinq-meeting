@@ -86,6 +86,31 @@ ${bg}
 """`;
 }
 
+// For meetings in a recurring series: append the previous meeting's minutes as
+// reference-only context, framed the same way as the business background so small
+// models do not copy it into the new minutes. Helps the model interpret follow-up
+// topics ("the issue from last time", carried-over TODOs) correctly.
+const PREV_MINUTES_MAX_CHARS = 6000;
+function withPreviousMinutes(
+  system: string,
+  prev: { title: string; date: string; text: string } | undefined,
+): string {
+  if (!prev?.text.trim()) return system;
+  let text = prev.text.trim();
+  if (text.length > PREV_MINUTES_MAX_CHARS) {
+    text = `${text.slice(0, PREV_MINUTES_MAX_CHARS)}\n…（以下略）`;
+  }
+  return `${system}
+
+## 参考情報: 同じシリーズの前回の議事録（今回の議事録の内容ではない）
+以下は前回（${prev.date}「${prev.title}」）の議事録です。「前回の続き」「先週の件」のような発言を
+正しく解釈するためだけに使ってください。**今回の議事録に書いてよいのは、今回の発言ログで実際に
+話された事項だけ。** 前回の議事録にしか無い決定事項・TODO・数値を今回の議事録に書き写さないこと。
+"""
+${text}
+"""`;
+}
+
 // Clean up LLM output. Small models sometimes wrap everything in ``` against instructions,
 // or add a preamble/postamble like "以下は〜です：", so strip those.
 export function sanitizeSummary(text: string): string {
@@ -181,6 +206,8 @@ export async function requestSummary(
     // They apply to this run only and are NOT persisted to settings.
     detail?: string;
     provider?: string;
+    // Previous meeting's minutes when this meeting belongs to a series (reference-only).
+    previousMinutes?: { title: string; date: string; text: string };
   },
 ): Promise<string> {
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
@@ -216,7 +243,10 @@ export async function requestSummary(
   // Use the user-specified format if any, otherwise the default, inside the prompt.
   const effectiveFormat = format?.trim() || DEFAULT_SUMMARY_FORMAT;
   const system = withBackground(
-    buildSummarySystemPrompt(opts?.description, { multiSpeaker, language, format, detail }),
+    withPreviousMinutes(
+      buildSummarySystemPrompt(opts?.description, { multiSpeaker, language, format, detail }),
+      opts?.previousMinutes,
+    ),
     background,
   );
 

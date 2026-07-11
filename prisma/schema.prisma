@@ -17,6 +17,10 @@ model Meeting {
   sttLanguage   String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
   speakerLabels String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
   summaryStatus String?   @map("summary_status") // minutes generation state: processing | done | error
+  seriesId    String?   @map("series_id") // recurring-series membership (null = standalone)
+  diarizationEmbeddings String? @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
+  embedding      String?  @map("embedding") // semantic-search vector (JSON float array over title+minutes+transcript head)
+  embeddingModel String?  @map("embedding_model") // model the vector was built with (mismatch = reindex)
   startedAt   DateTime  @default(now()) @map("started_at")
   endedAt     DateTime? @map("ended_at")
   deletedAt   DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
@@ -27,11 +31,26 @@ model Meeting {
   transcripts Transcript[]
   summaries   MeetingSummary[]
   tags        Tag[]
+  series      Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([deletedAt])
   @@index([archivedAt])
+  @@index([seriesId])
   @@map("meetings")
+}
+
+// A recurring meeting series ("weekly sync" etc.). When generating minutes for a
+// meeting in a series, the previous meeting's minutes are fed to the LLM as
+// reference-only context so follow-up topics are interpreted correctly.
+model Series {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  meetings Meeting[]
+
+  @@map("series")
 }
 
 // User-defined meeting tags (unique by name). Many-to-many with meetings.
@@ -43,6 +62,20 @@ model Tag {
   meetings Meeting[]
 
   @@map("tags")
+}
+
+// Enrolled voice profiles: one mean speaker embedding (voiceprint) per named person.
+// Enrolled from a diarized meeting's clusters; matched against future diarization runs
+// to auto-name recurring speakers.
+model SpeakerProfile {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  embedding       String // JSON float array (pyannote speaker centroid)
+  sourceMeetingId String?  @map("source_meeting_id") // meeting the profile was enrolled from
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("speaker_profiles")
 }
 
 model Transcript {

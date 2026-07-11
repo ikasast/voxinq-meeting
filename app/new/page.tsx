@@ -27,6 +27,8 @@ export default function NewMeetingPage() {
   const gpu = useGpuBusy();
   const [title, setTitle] = useState(() => defaultMeetingTitle());
   const [description, setDescription] = useState("");
+  const [series, setSeries] = useState("");
+  const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +62,12 @@ export default function NewMeetingPage() {
 
   useEffect(() => {
     let cancelled = false;
+    fetch("/api/series")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list: { name: string }[] | null) => {
+        if (!cancelled && list) setSeriesOptions(list.map((s) => s.name));
+      })
+      .catch(() => {});
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
       .then((s: { whisperModel?: string; micMode?: string } | null) => {
@@ -80,6 +88,7 @@ export default function NewMeetingPage() {
       body: JSON.stringify({
         title: title.trim() || fallbackTitle,
         description: description.trim(),
+        series: series.trim(),
         sttLanguage,
       }),
     });
@@ -276,6 +285,28 @@ export default function NewMeetingPage() {
             disabled={busy}
             className="input mt-1 resize-y"
           />
+        </div>
+
+        <div>
+          <label htmlFor="series" className="label">
+            Series (recurring meetings, optional)
+          </label>
+          <input
+            id="series"
+            type="text"
+            list="series-options"
+            value={series}
+            onChange={(e) => setSeries(e.target.value)}
+            placeholder="e.g. Weekly sync — links meetings so minutes carry context"
+            maxLength={60}
+            disabled={busy}
+            className="input mt-1"
+          />
+          <datalist id="series-options">
+            {seriesOptions.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
         </div>
 
         {/* Recording settings for this meeting only. Defaults come from settings; changes here are not saved. */}
