@@ -5,6 +5,16 @@
 
 export const AUTH_COOKIE = "voxinq_auth";
 
+// Warn once at startup when password auth is enabled but the cookie-signing secret
+// was left at its known default — anyone who knows the password scheme could forge
+// the auth cookie without ever entering the password.
+if (process.env.APP_PASSWORD && !process.env.APP_SESSION_SECRET) {
+  console.warn(
+    "[voxinq] APP_PASSWORD is set but APP_SESSION_SECRET is not — using the built-in default. " +
+      "Set a long random APP_SESSION_SECRET in .env, or auth cookies can be forged.",
+  );
+}
+
 export async function expectedAuthToken(): Promise<string | null> {
   const pw = process.env.APP_PASSWORD;
   if (!pw) return null; // auth disabled
