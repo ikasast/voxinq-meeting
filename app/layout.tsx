@@ -54,11 +54,11 @@ function HeaderNav({ external }: { external: boolean }) {
           {external ? (
             // Recording is Tailscale-internal only, so disable the create action on external access
             <span className="btn-ink cursor-not-allowed opacity-50" title="Recording is not available from an external network">
-              + New meeting
+              + New
             </span>
           ) : (
             <Link href="/new" className="btn-ink">
-              + New meeting
+              + New
             </Link>
           )}
           {process.env.APP_PASSWORD ? <LogoutButton /> : null}
