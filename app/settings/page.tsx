@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
+import { VoiceProfiles } from "./voice-profiles";
 
 type PublicSettings = {
   whisperModel: string;
@@ -54,6 +55,7 @@ const LLM_PROVIDERS: { id: PublicSettings["llmProvider"]; label: string }[] = [
 // Settings tabs. Grouped by category as the number of items has grown.
 const TABS = [
   { id: "stt", label: "Transcription" },
+  { id: "speakers", label: "Speakers" },
   { id: "minutes", label: "Minutes" },
   { id: "llm", label: "LLM" },
   { id: "appearance", label: "Appearance" },
@@ -296,6 +298,9 @@ export default function SettingsPage() {
           </div>
         </section>
         ) : null}
+
+        {/* Voice profiles (speaker auto-naming) */}
+        {tab === "speakers" ? <VoiceProfiles /> : null}
 
         {/* Minutes (business background / format) */}
         {tab === "minutes" ? (
