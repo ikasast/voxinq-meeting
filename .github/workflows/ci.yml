@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: voxinq
+          POSTGRES_PASSWORD: voxinq
+          POSTGRES_DB: voxinq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U voxinq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://voxinq:voxinq@localhost:5432/voxinq
+      NEXT_PUBLIC_STT_WS_URL: ws://localhost:8000/ws
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Also validates that the migration history builds a working schema.
+      - run: npx prisma migrate deploy
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  python-services:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Syntax-level check only: the heavy CUDA deps are not installable in CI.
+      - run: python -m py_compile stt-service/server.py diarization/diarize.py

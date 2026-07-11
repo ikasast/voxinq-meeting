@@ -1,0 +1,28 @@
+# Monthly, grouped dependency-update PRs (kept low-noise for a solo project).
+# Security updates are controlled separately: enable "Dependabot security updates"
+# in the repo Settings → Code security to get immediate PRs for vulnerabilities.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      npm-all:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /stt-service
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1
+    groups:
+      pip-all:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 1

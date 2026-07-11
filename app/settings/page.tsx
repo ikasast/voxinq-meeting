@@ -250,7 +250,7 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              "Auto-detect" transcribes in the spoken language (minutes language is set separately below).
+              “Auto-detect” transcribes in the spoken language (minutes language is set separately below).
             </p>
           </div>
 
@@ -290,7 +290,7 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              "Room" turns off echo/noise suppression and raises auto-gain to pick up distant speech.
+              “Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.
               Placing the device in the center of the table helps.
             </p>
           </div>
@@ -340,7 +340,7 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              How much detail. "Detailed" grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.
+              How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.
             </p>
           </div>
           <div>
@@ -357,7 +357,7 @@ export default function SettingsPage() {
               className="input mt-1 resize-y"
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Always-on context, separate from each meeting's purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.
+              Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.
             </p>
           </div>
 
@@ -386,7 +386,7 @@ export default function SettingsPage() {
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               Specify the heading structure and granularity. If empty, the default format (shown as the placeholder) is used.
-              Click "Load default format" to import it, then edit to make it your own.
+              Click “Load default format” to import it, then edit to make it your own.
             </p>
           </div>
         </section>
@@ -581,7 +581,7 @@ export default function SettingsPage() {
               ))}
             </div>
             <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Applied instantly and saved per device (browser). No need to press "Save".
+              Applied instantly and saved per device (browser). No need to press “Save”.
             </p>
           </div>
         </section>
