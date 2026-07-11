@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDateTime } from "@/lib/utils";
-import { PencilIcon, RefreshIcon, SlidersIcon } from "../icons";
+import { PencilIcon, RefreshIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopySummaryButton } from "./copy-summary-button";
 import { ShareButton } from "./share-button";
@@ -181,32 +181,23 @@ export function SummarySection({
             filename={`${meetingTitle}-minutes.md`}
           />
           {canGenerate ? (
-            <>
-              <button
-                type="button"
-                onClick={() => regenerate()}
-                disabled={genBusy || processing || otherBusy}
-                className="btn-icon-accent"
-                title={
-                  otherBusy
-                    ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
-                    : "Regenerate the minutes from the current transcript"
-                }
-                aria-label="Regenerate"
-              >
-                <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
-              </button>
-              <button
-                type="button"
-                onClick={toggleOptions}
-                className="btn-icon"
-                title="Regenerate with options (detail / model)"
-                aria-label="Regenerate options"
-                aria-expanded={showOptions}
-              >
-                <SlidersIcon />
-              </button>
-            </>
+            // Opens the options panel (detail level + provider) — the actual run
+            // starts from the panel's Regenerate button.
+            <button
+              type="button"
+              onClick={toggleOptions}
+              disabled={genBusy || processing || otherBusy}
+              className="btn-icon-accent"
+              title={
+                otherBusy
+                  ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
+                  : "Regenerate the minutes (choose detail & provider)"
+              }
+              aria-label="Regenerate"
+              aria-expanded={showOptions}
+            >
+              <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
+            </button>
           ) : null}
         </div>
       ) : null}
@@ -361,7 +352,7 @@ export function SummarySection({
           </div>
         </div>
       ) : (
-        <article className="prose prose-invert mt-4 max-w-none prose-headings:font-semibold prose-h2:text-base prose-h2:mt-4">
+        <article className="prose prose-invert minutes-prose mt-4 max-w-none prose-headings:font-semibold">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{current.text}</ReactMarkdown>
         </article>
       )}
