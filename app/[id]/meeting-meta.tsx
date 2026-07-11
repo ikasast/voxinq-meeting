@@ -3,29 +3,35 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-// Section to edit the meeting's contents/purpose (description) and tags afterward.
+// Section to edit the meeting's contents/purpose (description), tags, and series afterward.
 // description feeds the minutes-generation prompt; tags are used for list display/filtering.
+// series links recurring meetings: the previous one's minutes become LLM reference context.
 export function MeetingMeta({
   id,
   description,
   tags,
+  series,
 }: {
   id: string;
   description: string | null;
   tags: string[];
+  series: string | null;
 }) {
   const router = useRouter();
   const [savedDesc, setSavedDesc] = useState(description ?? "");
   const [savedTags, setSavedTags] = useState(tags);
+  const [savedSeries, setSavedSeries] = useState(series ?? "");
   const [draftDesc, setDraftDesc] = useState(description ?? "");
   const [draftTags, setDraftTags] = useState(tags);
+  const [draftSeries, setDraftSeries] = useState(series ?? "");
   const [tagInput, setTagInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // When opening the editor, offer existing tags as suggestions.
+  // When opening the editor, offer existing tags/series as suggestions.
   useEffect(() => {
     if (!editing) return;
     let cancelled = false;
@@ -33,6 +39,12 @@ export function MeetingMeta({
       .then((r) => (r.ok ? r.json() : null))
       .then((list: { name: string }[] | null) => {
         if (!cancelled && list) setSuggestions(list.map((t) => t.name));
+      })
+      .catch(() => {});
+    fetch("/api/series")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list: { name: string }[] | null) => {
+        if (!cancelled && list) setSeriesOptions(list.map((s) => s.name));
       })
       .catch(() => {});
     return () => {
@@ -43,6 +55,7 @@ export function MeetingMeta({
   const cancel = () => {
     setDraftDesc(savedDesc);
     setDraftTags(savedTags);
+    setDraftSeries(savedSeries);
     setTagInput("");
     setError(null);
     setEditing(false);
@@ -70,16 +83,22 @@ export function MeetingMeta({
       const res = await fetch(`/api/meetings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: draftDesc.trim(), tags: finalTags }),
+        body: JSON.stringify({
+          description: draftDesc.trim(),
+          tags: finalTags,
+          series: draftSeries.trim() || null,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
-      const updated = (await res.json()) as { tags: string[] };
+      const updated = (await res.json()) as { tags: string[]; series: string | null };
       setSavedDesc(draftDesc.trim());
       setSavedTags(updated.tags);
       setDraftTags(updated.tags);
+      setSavedSeries(updated.series ?? "");
+      setDraftSeries(updated.series ?? "");
       setTagInput("");
       setEditing(false);
       router.refresh();
@@ -169,6 +188,32 @@ export function MeetingMeta({
             ) : null}
           </div>
 
+          <div>
+            <label htmlFor="series" className="label">
+              Series (recurring meetings)
+            </label>
+            <input
+              id="series"
+              type="text"
+              list="series-options"
+              value={draftSeries}
+              onChange={(e) => setDraftSeries(e.target.value)}
+              placeholder="e.g. Weekly sync (empty = none)"
+              maxLength={60}
+              disabled={pending}
+              className="input mt-1"
+            />
+            <datalist id="series-options">
+              {seriesOptions.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Meetings in the same series share context: the previous meeting&apos;s minutes are
+              given to the LLM as reference when generating minutes.
+            </p>
+          </div>
+
           {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={cancel} disabled={pending} className="btn-outline">
@@ -188,8 +233,13 @@ export function MeetingMeta({
           ) : (
             <p className="mt-2 text-sm text-[var(--text-muted)]">Not set</p>
           )}
-          {savedTags.length > 0 ? (
+          {savedTags.length > 0 || savedSeries ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
+              {savedSeries ? (
+                <span className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)]">
+                  ↻ {savedSeries}
+                </span>
+              ) : null}
               {savedTags.map((t) => (
                 <span
                   key={t}

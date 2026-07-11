@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { indexMeeting } from "@/lib/embeddings";
 import { requestSummary } from "@/lib/llm";
 import { parseSpeakerLabels } from "@/lib/speakers";
 
@@ -23,7 +24,14 @@ export async function POST(req: NextRequest) {
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: { id: true, description: true, speakerLabels: true, summaryStatus: true },
+    select: {
+      id: true,
+      description: true,
+      speakerLabels: true,
+      summaryStatus: true,
+      seriesId: true,
+      startedAt: true,
+    },
   });
   if (!meeting) {
     return NextResponse.json({ error: "meeting not found" }, { status: 404 });
@@ -65,6 +73,34 @@ export async function POST(req: NextRequest) {
 
   const description = meeting.description;
   const speakerLabels = parseSpeakerLabels(meeting.speakerLabels);
+
+  // Series context: the latest minutes of the previous meeting in the same series,
+  // passed to the LLM as reference-only material (helps "continuing from last time").
+  let previousMinutes: { title: string; date: string; text: string } | undefined;
+  if (meeting.seriesId) {
+    const prev = await prisma.meeting.findFirst({
+      where: {
+        seriesId: meeting.seriesId,
+        deletedAt: null,
+        id: { not: meeting.id },
+        startedAt: { lt: meeting.startedAt },
+        summaries: { some: {} },
+      },
+      orderBy: { startedAt: "desc" },
+      select: {
+        title: true,
+        startedAt: true,
+        summaries: { orderBy: { createdAt: "desc" }, take: 1, select: { summaryText: true } },
+      },
+    });
+    if (prev?.summaries[0]) {
+      previousMinutes = {
+        title: prev.title,
+        date: prev.startedAt.toISOString().slice(0, 10),
+        text: prev.summaries[0].summaryText,
+      };
+    }
+  }
   const transcriptInput = transcripts.map((t) => ({
     speakerType: t.speakerType,
     text: t.text,
@@ -78,12 +114,16 @@ export async function POST(req: NextRequest) {
         speakerLabels,
         detail,
         provider,
+        previousMinutes,
       });
       await prisma.meetingSummary.create({ data: { meetingId, summaryText } });
       await prisma.meeting.update({
         where: { id: meetingId },
         data: { summaryStatus: "done" },
       });
+      // Refresh the semantic-search vector with the new minutes (best-effort: the
+      // embedding model may not be installed; keyword search still works without it).
+      await indexMeeting(meetingId).catch(() => {});
     } catch (e) {
       console.error("summary generation failed", e);
       await prisma.meeting

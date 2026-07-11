@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { defaultMeetingTitle } from "@/lib/utils";
 
-// Create a new meeting inheriting the purpose/tags and go straight to recording (for recurring meetings).
+// Create a new meeting inheriting the purpose/tags/series and go straight to recording (for recurring meetings).
 export function CloneMeetingButton({
   description,
   tags,
+  series,
 }: {
   description: string | null;
   tags: string[];
+  series: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -25,6 +27,7 @@ export function CloneMeetingButton({
           title: defaultMeetingTitle(),
           description: description ?? "",
           tags,
+          series: series ?? "",
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

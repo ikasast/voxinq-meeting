@@ -3,6 +3,7 @@ import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isValidSpeakerKey } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
+import { pruneOrphanSeries } from "@/lib/series";
 import { pruneOrphanTags } from "@/lib/tags";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 // - title: rename the meeting
 // - description: meeting purpose/contents (empty string resets to unset)
 // - tags: array of tag names (full replace; unknown names are created as new tags)
+// - series: series name (created if new; null/"" detaches from the series)
 // - speakerLabels: update speaker display names (speaker key -> display name)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,6 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     title?: unknown;
     description?: unknown;
     tags?: unknown;
+    series?: unknown;
     speakerLabels?: unknown;
     archived?: unknown;
   }>(req);
@@ -40,6 +43,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     speakerLabels?: string;
     archivedAt?: Date | null;
     tags?: { set: []; connectOrCreate: { where: { name: string }; create: { name: string } }[] };
+    series?:
+      | { connectOrCreate: { where: { name: string }; create: { name: string } } }
+      | { disconnect: true };
   } = {};
 
   if (body?.archived !== undefined) {
@@ -75,6 +81,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     };
   }
 
+  if (body?.series !== undefined) {
+    if (body.series !== null && typeof body.series !== "string") {
+      return apiError("invalid series", 400);
+    }
+    const name = typeof body.series === "string" ? body.series.trim() : "";
+    if (name.length > 60) return apiError("series name too long (max 60)", 400);
+    data.series = name
+      ? { connectOrCreate: { where: { name }, create: { name } } }
+      : { disconnect: true };
+  }
+
   if (body?.speakerLabels !== undefined) {
     const raw = body.speakerLabels;
     if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
@@ -103,11 +120,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         speakerLabels: true,
         archivedAt: true,
         tags: { select: { name: true }, orderBy: { name: "asc" } },
+        series: { select: { name: true } },
       },
     });
-    // After re-tagging, clean up tags no longer attached to any meeting.
+    // After re-tagging/reassigning, clean up tags/series no longer attached to any meeting.
     if (data.tags) await pruneOrphanTags();
-    return NextResponse.json({ ...updated, tags: updated.tags.map((t) => t.name) });
+    if (data.series) await pruneOrphanSeries();
+    return NextResponse.json({
+      ...updated,
+      tags: updated.tags.map((t) => t.name),
+      series: updated.series?.name ?? null,
+    });
   } catch {
     return apiError("not found", 404);
   }
@@ -133,8 +156,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   } catch {
     return apiError("not found", 404);
   }
-  // Tags that were attached only to this meeting become orphans, so clean them up.
+  // Tags/series that were attached only to this meeting become orphans, so clean them up.
   await pruneOrphanTags();
+  await pruneOrphanSeries();
   // Also delete the recording (WAV, etc.) on the GPU host. Best-effort: even if STT is
   // unreachable, the meeting delete still succeeds (recordings auto-delete on retention).
   try {
