@@ -873,6 +873,78 @@ async def upload_recording(
     return {"status": "running"}
 
 
+@app.post("/voiceprint")
+async def voiceprint_extract(request: Request) -> dict:
+    """Extract one voice embedding (voiceprint) from an uploaded single-speaker clip.
+
+    Used by the settings screen to enroll a profile: the browser records ~20-60s of
+    guided reading and posts the audio here. Runs the diarization pipeline (GPU) with
+    num_speakers=1, so the global GPU lock applies."""
+    data = await request.body()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty upload")
+    if not _DIA_PYTHON.exists() or not _DIA_SCRIPT.exists():
+        raise HTTPException(status_code=500, detail="Diarization environment not found")
+    reason = _gpu_busy_other("__voiceprint__")
+    if reason:
+        raise HTTPException(status_code=409, detail=reason)
+
+    RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+    src = RECORDINGS_DIR / "__voiceprint__.upload"
+    tmp = RECORDINGS_DIR / "__voiceprint__.wav"
+    src.write_bytes(data)
+    try:
+        from faster_whisper.audio import decode_audio
+
+        audio = decode_audio(str(src), sampling_rate=SAMPLE_RATE)  # float32 mono 16k
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Could not read the audio: {str(e)[-200:]}")
+    finally:
+        src.unlink(missing_ok=True)
+
+    seconds = len(audio) / SAMPLE_RATE if audio is not None else 0.0
+    if seconds < 5:
+        raise HTTPException(status_code=400, detail="Clip too short — record at least 5 seconds")
+    if seconds > 180:
+        raise HTTPException(status_code=400, detail="Clip too long — keep it under 3 minutes")
+
+    pcm = (np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
+    with wave.open(str(tmp), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SAMPLE_RATE)
+        w.writeframes(pcm)
+
+    def _run() -> list[float]:
+        env = dict(os.environ)
+        env.setdefault("DIA_DEVICE", "cuda")
+        env["PYTHONIOENCODING"] = "utf-8"
+        proc = subprocess.run(
+            [str(_DIA_PYTHON), str(_DIA_SCRIPT), "--embed", str(tmp)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError((proc.stderr or proc.stdout or "").strip()[-300:] or "embed failed")
+        lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+        payload = json.loads(lines[-1]) if lines else {}
+        vec = payload.get("embedding")
+        if not isinstance(vec, list) or not vec:
+            raise RuntimeError(payload.get("error") or "no embedding returned")
+        return vec
+
+    try:
+        embedding = await asyncio.to_thread(_run)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Voiceprint extraction failed: {str(e)[-300:]}")
+    finally:
+        tmp.unlink(missing_ok=True)
+
+    return {"embedding": embedding, "seconds": round(seconds, 1)}
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()

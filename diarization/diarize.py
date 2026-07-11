@@ -142,8 +142,22 @@ def assign_speakers(turns, segments):
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("usage: python diarize.py <audio> [segments.json]")
+        print("usage: python diarize.py <audio> [segments.json] | --embed <audio>")
         raise SystemExit(1)
+
+    if sys.argv[1] == "--embed":
+        # Voice-profile enrollment: extract ONE voiceprint from a single-speaker clip.
+        if len(sys.argv) < 3:
+            print("usage: python diarize.py --embed <audio>")
+            raise SystemExit(1)
+        os.environ["DIA_NUM_SPEAKERS"] = "1"
+        _turns, embeddings = diarize(sys.argv[2])
+        vec = next(iter(embeddings.values()), None)
+        if vec is None:
+            print(json.dumps({"error": "no voice embedding could be extracted"}))
+            raise SystemExit(2)
+        print(json.dumps({"embedding": vec}))
+        return
 
     audio_path = sys.argv[1]
     turns, embeddings = diarize(audio_path)

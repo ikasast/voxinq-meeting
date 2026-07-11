@@ -32,16 +32,17 @@ accuracy, run it, then rename speakers. Regenerate minutes to use the names.
 
 ## Voice profiles (auto-name recurring speakers)
 
-After diarizing and naming speakers, press **Save voice profiles** (below the speaker-name
-editor). Each named speaker's voiceprint is enrolled; from then on, **Auto-diarize
-automatically names any speaker whose voice matches an enrolled profile** (manual names are
-never overwritten). Notes:
+Two ways to enroll a voiceprint; afterwards **Auto-diarize automatically names any speaker
+whose voice matches an enrolled profile** (manual names are never overwritten):
 
-- Enrollment needs the meeting's **recording (WAV) to still exist** — a voiceprint is
-  computed from audio, so meetings whose WAV already expired cannot be used.
-- Anyone can be enrolled (not just you) — name them, then save.
-- Delete a profile from the "Enrolled" list; the match threshold is
-  `voiceprintThreshold` in `settings.json` (default 0.5 — raise it if wrong names appear).
+1. **Guided recording (best for yourself):** Settings → **Speakers** → enter a name, read
+   the displayed passage for ~20–30 s, and save. The profile list (with delete) lives there too.
+2. **From a diarized meeting (for other participants):** diarize, name the speakers, then
+   press **Save voice profiles** below the speaker-name editor. Needs the meeting's
+   **recording (WAV) to still exist** — voiceprints are computed from audio.
+
+The match threshold is `voiceprintThreshold` in `settings.json` (default 0.5 — raise it if
+wrong names appear).
 
 ## Re-transcribe
 
