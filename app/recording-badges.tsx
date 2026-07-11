@@ -39,10 +39,12 @@ export function RecordingBadges({ ids }: { ids: string[] }) {
         el.textContent = "";
         continue;
       }
-      el.textContent = st.protected ? "🔒 Protected" : "🎙 Recording";
-      el.className = st.protected
-        ? "rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
-        : "rounded-full border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]";
+      // Icon-only: 🔒 = recording protected, 🎙 = recording available (details on hover).
+      el.textContent = st.protected ? "🔒" : "🎙";
+      el.title = st.protected
+        ? "Recording protected (not auto-deleted)"
+        : "Recording available (auto-deletes after the retention period)";
+      el.className = "text-[11px] leading-none";
     }
   }, [states]);
 

@@ -102,6 +102,22 @@ export const MicIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const ArchiveIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="2" y="3" width="20" height="5" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  </Base>
+);
+
+export const DotsIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </Base>
+);
+
 export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" />

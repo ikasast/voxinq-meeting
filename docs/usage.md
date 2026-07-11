@@ -43,14 +43,6 @@ never overwritten). Notes:
 - Delete a profile from the "Enrolled" list; the match threshold is
   `voiceprintThreshold` in `settings.json` (default 0.5 — raise it if wrong names appear).
 
-## AI (semantic) search
-
-Tick **AI** next to the search box and describe what you remember ("the meeting where we
-discussed GPU memory") — meetings are ranked by meaning, not exact words. Requires the
-embedding model once: `ollama pull bge-m3`. New meetings are indexed automatically after
-minutes generation; if older meetings are missing from the index, a **Build index** button
-appears.
-
 ## Re-transcribe
 
 **Edit tools → Re-transcribe** re-runs recognition over the saved recording (pick a larger
@@ -58,12 +50,11 @@ model like `large-v3` for accuracy). This replaces the transcript; re-run diariz
 
 > Requires the recording to still exist (WAVs auto-delete after 7 days unless protected).
 
-## Regenerate minutes (with options)
+## Regenerate minutes
 
-The **Regenerate** button remakes minutes from the current transcript. The **sliders icon**
-next to it opens options to pick a **detail level** and **provider** for that one run — handy
-to try a bigger model on a specific meeting without changing your defaults. Past versions are
-kept; switch between them with the version selector.
+The **Regenerate** button opens a small panel to pick a **detail level** and **provider**
+for that one run — handy to try a bigger model on a specific meeting without changing your
+defaults. Past versions are kept; switch between them with the version selector.
 
 ## Edit minutes / transcript
 
@@ -73,12 +64,13 @@ kept; switch between them with the version selector.
 ## Search, tags, filters
 
 - Search matches titles, transcripts, and minutes; results show a snippet and where it matched.
-- Tag meetings and filter by tag or period (today / this week / this month).
+- Tag meetings and filter by tag.
 
 ## Archive
 
-**Archive** hides a meeting from the list but keeps it in the DB — it still appears in search.
-Use it to declutter without deleting. Unarchive from the meeting page.
+**Archive** hides a meeting from the list but keeps it in the DB — it still appears in search,
+and the **Archived** page (link under the list) shows all of them. Use it to declutter without
+deleting. Unarchive from the meeting page, the ⋯ menu on a list card, or the Archived page.
 
 ## Trash
 

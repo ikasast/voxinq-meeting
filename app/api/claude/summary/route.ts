@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { indexMeeting } from "@/lib/embeddings";
 import { requestSummary } from "@/lib/llm";
 import { parseSpeakerLabels } from "@/lib/speakers";
 
@@ -121,9 +120,6 @@ export async function POST(req: NextRequest) {
         where: { id: meetingId },
         data: { summaryStatus: "done" },
       });
-      // Refresh the semantic-search vector with the new minutes (best-effort: the
-      // embedding model may not be installed; keyword search still works without it).
-      await indexMeeting(meetingId).catch(() => {});
     } catch (e) {
       console.error("summary generation failed", e);
       await prisma.meeting
