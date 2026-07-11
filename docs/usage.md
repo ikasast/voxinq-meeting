@@ -17,10 +17,39 @@ Tips:
 Drag an audio file (`wav`/`mp3`/`m4a`/…) onto the **New meeting** screen. Voxinq creates the
 meeting, transcribes the file, and generates minutes automatically.
 
+## Recurring series
+
+Assign a meeting to a **Series** (on the New meeting screen, or under *Purpose & agenda →
+Edit* on the meeting page). Meetings in the same series share context: when generating
+minutes, the **previous meeting's minutes are given to the LLM as reference**, so remarks
+like "continuing from last time" are interpreted correctly. *New with same settings* keeps
+the series. A series disappears automatically when its last meeting is removed.
+
 ## Speaker diarization
 
 On a meeting page → **Edit tools → Auto-diarize**. Enter the participant count for better
 accuracy, run it, then rename speakers. Regenerate minutes to use the names.
+
+## Voice profiles (auto-name recurring speakers)
+
+After diarizing and naming speakers, press **Save voice profiles** (below the speaker-name
+editor). Each named speaker's voiceprint is enrolled; from then on, **Auto-diarize
+automatically names any speaker whose voice matches an enrolled profile** (manual names are
+never overwritten). Notes:
+
+- Enrollment needs the meeting's **recording (WAV) to still exist** — a voiceprint is
+  computed from audio, so meetings whose WAV already expired cannot be used.
+- Anyone can be enrolled (not just you) — name them, then save.
+- Delete a profile from the "Enrolled" list; the match threshold is
+  `voiceprintThreshold` in `settings.json` (default 0.5 — raise it if wrong names appear).
+
+## AI (semantic) search
+
+Tick **AI** next to the search box and describe what you remember ("the meeting where we
+discussed GPU memory") — meetings are ranked by meaning, not exact words. Requires the
+embedding model once: `ollama pull bge-m3`. New meetings are indexed automatically after
+minutes generation; if older meetings are missing from the index, a **Build index** button
+appears.
 
 ## Re-transcribe
 
