@@ -113,7 +113,11 @@ Helper scripts register Task Scheduler tasks that start at logon and self-restar
 scripts\windows\install-db-task.ps1        # PostgreSQL
 scripts\windows\install-web-task.ps1       # Web app
 stt-service\install-startup-task.ps1       # STT service
+scripts\windows\install-backup-task.ps1    # nightly DB backup (03:00, pg_dump + rotation)
 ```
+
+Backups land in `~\voxinq-backups` (daily kept 14 days, 1st-of-month kept a year — a dump is
+only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --if-exists <file>.dump`.
 
 - Redeploy the web app after code changes: `scripts\windows\redeploy-web.ps1`
 - Restarting the STT service: kill the process owning port 8000 — the `run-stt.bat` loop
