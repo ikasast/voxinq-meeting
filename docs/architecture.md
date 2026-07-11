@@ -56,3 +56,7 @@ running.
 | Trashed meetings | PostgreSQL (`deletedAt`) | purged after 30 days |
 | Archived meetings | PostgreSQL (`archivedAt`) | kept; hidden from list, shown in search |
 | Settings / API keys | `settings.json` (gitignored) | until changed |
+
+---
+
+[Docs index](README.md) · [← Usage & recipes](usage.md) · Next: [Troubleshooting →](troubleshooting.md)

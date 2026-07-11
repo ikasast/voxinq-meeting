@@ -8,29 +8,61 @@ service, diarization, and the LLM. A browser (incl. a phone) connects to it.
 - **NVIDIA GPU** with CUDA (8 GB VRAM is enough)
 - **Node.js** 20+
 - **Python** 3.11
-- **PostgreSQL** 17
+- **PostgreSQL** 17 (running, with a database you can connect to)
 - **[Ollama](https://ollama.com)** (default LLM) — or any OpenAI-compatible endpoint
 
-## 1. Clone & install
+## Recommended: one-shot script
 
 ```bash
 git clone https://github.com/ikasast/voxinq.git
 cd voxinq
-npm install
+./scripts/setup.sh      # Windows: .\scripts\setup.ps1
 ```
 
-## 2. Database
+The script is **idempotent** (safe to re-run) and does, in order:
 
-Create a database and user, then point `.env` at it (see [Configuration](configuration.md)):
+1. Checks the prerequisites above and tells you what is missing.
+2. `npm install`
+3. Creates `.env` from `.env.example` and asks for your `DATABASE_URL`.
+4. `npx prisma db push` — creates the DB schema.
+5. Creates the STT venv (`stt-service/.venv`) and installs its requirements.
+6. Pulls the default LLM (`ollama pull qwen2.5:7b-instruct`).
+
+For speaker diarization (optional, GPU torch + pyannote), add the flag:
 
 ```bash
-# example (adjust names/passwords)
-createdb voxinq
-# .env: DATABASE_URL="postgresql://voxinq:PASSWORD@localhost:5432/voxinq"
-npx prisma db push          # create the schema
+./scripts/setup.sh --diarization      # Windows: .\scripts\setup.ps1 -Diarization
 ```
 
-## 3. LLM (Ollama, default)
+then set `HF_TOKEN` (or log in with `huggingface-cli`) and accept the terms for
+`pyannote/speaker-diarization-3.1` and `pyannote/segmentation-3.0` on Hugging Face.
+
+## Run
+
+```bash
+./scripts/start.sh      # Windows: .\scripts\start.ps1
+```
+
+Starts the STT service in the background (reusing it if already running), builds the web app
+if needed, and serves it at `http://localhost:3000`. Ctrl+C stops both.
+
+> ⚡ Always serve a **production build** (`start` does). `npm run dev` breaks hydration when
+> accessed cross-origin (e.g. over Tailscale).
+
+## Manual install (what the script does)
+
+<details>
+<summary>Step-by-step manual setup</summary>
+
+### 1. Web app
+
+```bash
+npm install
+cp .env.example .env        # then set DATABASE_URL
+npx prisma db push          # create the DB schema
+```
+
+### 2. LLM (Ollama, default)
 
 ```bash
 ollama pull qwen2.5:7b-instruct   # fits 8 GB VRAM
@@ -38,7 +70,7 @@ ollama pull qwen2.5:7b-instruct   # fits 8 GB VRAM
 
 Prefer a bigger model or an external GPU? See **[LLM providers](llm-providers.md)**.
 
-## 4. STT service (separate Python venv)
+### 3. STT service (separate Python venv)
 
 ```bash
 cd stt-service
@@ -48,9 +80,7 @@ pip install -r requirements.txt
 cd ..
 ```
 
-## 5. Diarization (optional, separate venv + GPU torch)
-
-Only needed for speaker separation. Requires accepting the pyannote model terms on Hugging Face.
+### 4. Diarization (optional, separate venv + GPU torch)
 
 ```bash
 cd diarization
@@ -61,23 +91,17 @@ pip install -r requirements.txt
 cd ..
 ```
 
-Set `HF_TOKEN` (or log in with `huggingface-cli`) and accept the terms for
-`pyannote/speaker-diarization-3.1` and `pyannote/segmentation-3.0`.
-
-## 6. Run
-
-Always serve a **production build** — `npm run dev` breaks hydration when accessed
-cross-origin (e.g. over Tailscale).
+### 5. Run
 
 ```bash
 # STT service (GPU)
 cd stt-service && . .venv/Scripts/activate && python -m uvicorn server:app --host 0.0.0.0 --port 8000
 
-# Web app
+# Web app (production build)
 npm run build && npm start
 ```
 
-Open `http://localhost:3000`.
+</details>
 
 ## Run as background services
 
@@ -113,3 +137,7 @@ tailscale serve --https=8443 localhost:8000     # STT (wss)
 Set `NEXT_PUBLIC_STT_WS_URL` to the `wss://<host>.<tailnet>.ts.net:8443/ws` URL **before
 building** (it is baked in at build time). Optionally set `APP_PASSWORD` for login on
 public/Funnel access. See [Configuration](configuration.md).
+
+---
+
+[Docs index](README.md) · Next: [Configuration →](configuration.md)

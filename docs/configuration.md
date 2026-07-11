@@ -48,3 +48,7 @@ See **[LLM providers](llm-providers.md)** for provider details.
   a recording to keep it. Minutes/transcripts in the DB are **not** affected.
 - **Trash:** deleted meetings are purged after 30 days.
 - **Archive:** archived meetings are hidden from the list but stay in the DB and appear in search.
+
+---
+
+[Docs index](README.md) · [← Setup](setup.md) · Next: [LLM providers →](llm-providers.md)

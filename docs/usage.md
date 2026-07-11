@@ -59,3 +59,7 @@ transcript, minutes, and recording for good.
 ## Share / export
 
 Copy or share minutes and transcripts, or download them as files (`.md` / `.txt`).
+
+---
+
+[Docs index](README.md) · [← LLM providers](llm-providers.md) · Next: [Architecture →](architecture.md)

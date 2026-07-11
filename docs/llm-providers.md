@@ -55,3 +55,7 @@ Notes:
 - If a transcript exceeds the budget, Voxinq **summarizes it in chunks then merges** — the
   latter half of a long meeting is never silently dropped. This makes multiple LLM passes, so
   it is slower locally; an external GPU with a big-context model avoids the chunking.
+
+---
+
+[Docs index](README.md) · [← Configuration](configuration.md) · Next: [Usage & recipes →](usage.md)
