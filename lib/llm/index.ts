@@ -131,13 +131,9 @@ async function condenseChunk(
 // Map-reduce condensation so long meetings are never truncated: split the transcript into
 // chunks that fit the context, note each, then (recursively) condense the combined notes
 // until they fit. Returns text to feed the final minutes pass in place of the transcript.
-async function condenseTranscript(
-  provider: ChatProvider,
-  cfg: LlmConfig,
-  conversation: string,
-  avail: number,
-  language: string,
-): Promise<string> {
+// Split a transcript into line-aligned chunks that fit the per-chunk token budget.
+// Pure and exported for tests: chunks must cover every line, in order, with no loss.
+export function splitForCondense(conversation: string, avail: number): string[] {
   const lines = conversation.split("\n");
   const chunkBudget = Math.max(1024, avail - 1200); // leave room for the note-prompt overhead
   const chunks: string[] = [];
@@ -154,7 +150,17 @@ async function condenseTranscript(
     curTok += t;
   }
   if (cur.length) chunks.push(cur.join("\n"));
+  return chunks;
+}
 
+async function condenseTranscript(
+  provider: ChatProvider,
+  cfg: LlmConfig,
+  conversation: string,
+  avail: number,
+  language: string,
+): Promise<string> {
+  const chunks = splitForCondense(conversation, avail);
   const notes: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
     notes.push(`# パート${i + 1}\n${await condenseChunk(provider, cfg, chunks[i], language, i + 1, chunks.length)}`);

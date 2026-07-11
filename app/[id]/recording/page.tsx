@@ -584,15 +584,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       <ul className="list-disc space-y-1 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] py-2 pl-7 pr-3 text-xs text-[var(--accent-sub)] marker:text-[var(--accent)]">
         <li>Pick the recording source from the menu above (mic / PC audio / both).</li>
         {displaySupported ? (
-          <li>For PC audio / both, enable "Share tab audio" (or system audio) in the share dialog.</li>
+          <li>For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.</li>
         ) : null}
         {displaySupported ? (
           <li>
-            <strong>Headphones are recommended for "both"</strong>. With speakers, the mic picks up PC
+            <strong>Headphones are recommended for “both”</strong>. With speakers, the mic picks up PC
             audio and it may be recorded twice.
           </li>
         ) : null}
-        <li>Distinguish speakers after the meeting via "Auto-diarize" on the detail page, or per line.</li>
+        <li>Distinguish speakers after the meeting via “Auto-diarize” on the detail page, or per line.</li>
         <li>
           On phones, <strong>keep the screen on</strong> while recording (sleep is auto-suppressed, but on
           some devices turning the screen off stops mic capture).
