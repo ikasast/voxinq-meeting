@@ -11,9 +11,6 @@ export function PageHeader({ external }: { external: boolean }) {
           You can still view, generate, and share minutes here.
         </div>
       ) : null}
-      <div>
-        <p className="eyebrow">Meetings</p>
-      </div>
       <HealthStatus showStt={!external} />
     </div>
   );
