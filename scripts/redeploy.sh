@@ -15,9 +15,8 @@ git pull --ff-only
 
 echo "[2/4] update deps & apply DB schema & production build (keeps the current server on failure)..."
 npm install
-# Apply schema changes to the DB. Changes that drop tables/columns fail here, so
-# review and run manually: npx prisma db push --accept-data-loss
-npx prisma db push
+# Apply pending schema migrations (no-op when up to date).
+npx prisma migrate deploy
 npm run build
 
 echo "[3/4] stop old server..."

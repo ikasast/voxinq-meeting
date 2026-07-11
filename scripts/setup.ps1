@@ -46,8 +46,8 @@ if (Test-Path .env) {
   }
 }
 
-Step "Database schema (prisma db push)"
-npx prisma db push
+Step "Database schema (prisma migrate deploy)"
+npx prisma migrate deploy
 if ($LASTEXITCODE -ne 0) { exit 1 }
 
 Step "STT service venv (stt-service\.venv)"
