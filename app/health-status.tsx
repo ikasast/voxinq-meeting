@@ -25,6 +25,7 @@ function Dot({ ok }: { ok: boolean | null }) {
 export function HealthStatus({ showStt }: { showStt: boolean }) {
   const [stt, setStt] = useState<Check>({ ok: null });
   const [llm, setLlm] = useState<Check>({ ok: null });
+  const [db, setDb] = useState<Check>({ ok: null });
 
   const check = useCallback(() => {
     if (showStt) {
@@ -60,13 +61,24 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
       void checkStt();
     }
     setLlm({ ok: null });
+    setDb({ ok: null });
     fetch("/api/health", { signal: AbortSignal.timeout(6000), cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { llm?: { ok: boolean; provider: string; detail?: string } }) => {
-        if (!data.llm) throw new Error("bad response");
-        setLlm({ ok: data.llm.ok, detail: data.llm.detail });
-      })
-      .catch(() => setLlm({ ok: false, detail: "check failed" }));
+      .then(
+        (data: {
+          db?: { ok: boolean; detail?: string };
+          llm?: { ok: boolean; provider: string; detail?: string };
+        }) => {
+          if (!data.llm) throw new Error("bad response");
+          setLlm({ ok: data.llm.ok, detail: data.llm.detail });
+          setDb(data.db ? { ok: data.db.ok, detail: data.db.detail } : { ok: false });
+        },
+      )
+      .catch(() => {
+        setLlm({ ok: false, detail: "check failed" });
+        // A failing health endpoint usually IS a DB outage (pages 500) — mark it red too.
+        setDb({ ok: false, detail: "check failed" });
+      });
   }, [showStt]);
 
   useEffect(() => {
@@ -76,6 +88,7 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
   const items: { label: string; c: Check }[] = [
     ...(showStt ? [{ label: "Recording (STT)", c: stt }] : []),
     { label: "Minutes (LLM)", c: llm },
+    { label: "DB", c: db },
   ];
 
   return (
