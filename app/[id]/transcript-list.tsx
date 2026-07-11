@@ -68,8 +68,61 @@ export function TranscriptList({
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
   const [retransModel, setRetransModel] = useState("");
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [profiles, setProfiles] = useState<{ name: string }[]>([]);
+  const [profileBusy, setProfileBusy] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const confirm = useConfirm();
+
+  // Enrolled voice profiles (shown in the speaker-names tools; loaded when the tools open).
+  useEffect(() => {
+    if (!toolsOpen) return;
+    let cancelled = false;
+    fetch("/api/speaker-profiles")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list: { name: string }[] | null) => {
+        if (!cancelled && list) setProfiles(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [toolsOpen]);
+
+  // Enroll voiceprints from this meeting's diarized clusters (named speakers only).
+  const saveVoiceProfiles = useCallback(async () => {
+    setProfileBusy(true);
+    setProfileMsg(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/save-voice-profiles`, {
+        method: "POST",
+      });
+      const d = (await res.json().catch(() => null)) as
+        | { saved?: string[]; error?: string }
+        | null;
+      if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      setProfileMsg(`Saved voice profiles: ${(d?.saved ?? []).join(", ")}`);
+      const list = (await fetch("/api/speaker-profiles").then((r) => r.json())) as {
+        name: string;
+      }[];
+      setProfiles(list);
+    } catch (e) {
+      setProfileMsg((e as Error).message);
+    } finally {
+      setProfileBusy(false);
+    }
+  }, [meetingId]);
+
+  const deleteProfile = useCallback(async (name: string) => {
+    try {
+      await fetch(`/api/speaker-profiles?name=${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      setProfiles((list) => list.filter((p) => p.name !== name));
+    } catch {
+      // best-effort
+    }
+  }, []);
 
   const startedMs = useMemo(() => Date.parse(meetingStartedAt), [meetingStartedAt]);
 
@@ -275,7 +328,12 @@ export function TranscriptList({
         const d = await startRes.json().catch(() => null);
         throw new Error(d?.detail ?? `Failed to start (HTTP ${startRes.status})`);
       }
-      let data = (await startRes.json()) as { status: string; speakers?: string[]; detail?: string };
+      let data = (await startRes.json()) as {
+        status: string;
+        speakers?: string[];
+        embeddings?: Record<string, number[]>;
+        detail?: string;
+      };
       while (data.status === "running") {
         setDiarStatus("Analyzing… (longer meetings take longer; you can leave this page open)");
         await new Promise((r) => setTimeout(r, 4000));
@@ -310,6 +368,27 @@ export function TranscriptList({
         ),
       );
 
+      // Voiceprints: store the cluster embeddings on the meeting and auto-name any
+      // clusters that match enrolled voice profiles (never overwrites manual names).
+      let recognized: string[] = [];
+      try {
+        const embRes = await fetch(`/api/meetings/${meetingId}/diarization-embeddings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embeddings: data.embeddings ?? {} }),
+        });
+        if (embRes.ok) {
+          const emb = (await embRes.json()) as {
+            labels: SpeakerLabels;
+            matched: Record<string, string>;
+          };
+          setSpeakerLabels(emb.labels);
+          recognized = Object.values(emb.matched);
+        }
+      } catch {
+        // voiceprint matching is best-effort; diarization itself already succeeded
+      }
+
       const distinct = applied.speakerKeys?.length ?? 0;
       const wanted = numSpeakers.trim() ? Number(numSpeakers.trim()) : 0;
       const missed = (applied.transcriptCount ?? 0) - (applied.speakerCount ?? 0);
@@ -321,9 +400,14 @@ export function TranscriptList({
         );
       } else {
         setDiarWarn(null);
+        const recognizedNote =
+          recognized.length > 0
+            ? ` Recognized by voiceprint: ${recognized.join(", ")}.`
+            : "";
         setDiarStatus(
-          `Done: assigned speakers to ${applied.updated} lines (${distinct} speakers). ` +
-            'Name each speaker under "Speaker names" below.',
+          `Done: assigned speakers to ${applied.updated} lines (${distinct} speakers).` +
+            recognizedNote +
+            ' Name the rest under "Speaker names" below.',
         );
       }
     } catch (e) {
@@ -455,6 +539,47 @@ export function TranscriptList({
                     labels={speakerLabels}
                     onRename={renameSpeaker}
                   />
+
+                  {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveVoiceProfiles()}
+                      disabled={profileBusy || busy}
+                      className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+                    >
+                      {profileBusy ? "Saving…" : "Save voice profiles"}
+                    </button>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      Enrolls each named speaker&apos;s voiceprint from this meeting; future
+                      auto-diarize runs will name them automatically.
+                    </span>
+                  </div>
+                  {profileMsg ? (
+                    <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p>
+                  ) : null}
+                  {profiles.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
+                      {profiles.map((p) => (
+                        <span
+                          key={p.name}
+                          className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
+                        >
+                          {p.name}
+                          <button
+                            type="button"
+                            onClick={() => void deleteProfile(p.name)}
+                            aria-label={`Delete voice profile ${p.name}`}
+                            title="Delete this voice profile"
+                            className="text-[var(--text-muted)] hover:text-[var(--error)]"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </section>

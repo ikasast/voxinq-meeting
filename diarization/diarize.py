@@ -23,6 +23,7 @@ Environment variables:
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 
@@ -55,7 +56,14 @@ def load_pipeline():
 
 
 def diarize(audio_path: str):
-    """Split audio into speaker turns. Returns [(start, end, speaker_label)]."""
+    """Split audio into speaker turns and extract per-speaker voice embeddings.
+
+    Returns (turns, embeddings):
+      turns:      [(start, end, raw_label)]
+      embeddings: {raw_label: [float, ...]} mean speaker embedding (voiceprint) per
+                  cluster, or {} if the installed pyannote version cannot provide them.
+                  Used for voice-profile enrollment / recognition on the web side.
+    """
     pipeline = load_pipeline()
     kwargs = {}
     if os.environ.get("DIA_NUM_SPEAKERS"):
@@ -65,18 +73,43 @@ def diarize(audio_path: str):
     if os.environ.get("DIA_MAX_SPEAKERS"):
         kwargs["max_speakers"] = int(os.environ["DIA_MAX_SPEAKERS"])
 
-    annotation = pipeline(audio_path, **kwargs)
-    # pyannote 4.x returns a DiarizeOutput. For assigning speakers to utterances, the
-    # non-overlapping exclusive version is easier, so prefer it. 3.x returns an Annotation directly.
-    for attr in ("exclusive_speaker_diarization", "speaker_diarization"):
-        if hasattr(annotation, attr):
-            annotation = getattr(annotation, attr)
-            break
+    # 3.x: pipeline(file, return_embeddings=True) returns (Annotation, centroids).
+    # 4.x: ignores that kwarg and returns a DiarizeOutput with .speaker_embeddings.
+    try:
+        result = pipeline(audio_path, return_embeddings=True, **kwargs)
+    except TypeError:
+        result = pipeline(audio_path, **kwargs)
+
+    centroids = None
+    if isinstance(result, tuple) and len(result) == 2:  # 3.x
+        annotation, centroids = result
+        labels_source = annotation
+    elif hasattr(result, "speaker_diarization"):  # 4.x DiarizeOutput
+        full = result.speaker_diarization
+        centroids = getattr(result, "speaker_embeddings", None)
+        labels_source = full  # centroid rows are ordered by full.labels()
+        # For assigning speakers to utterances, the non-overlapping exclusive version is easier.
+        annotation = getattr(result, "exclusive_speaker_diarization", None) or full
+    else:
+        annotation = result
+        labels_source = result
+
     turns = [
         (float(turn.start), float(turn.end), str(label))
         for turn, _, label in annotation.itertracks(yield_label=True)
     ]
-    return turns
+
+    embeddings: dict[str, list[float]] = {}
+    if centroids is not None:
+        for i, label in enumerate(labels_source.labels()):
+            if i >= len(centroids):
+                break
+            vec = [float(x) for x in centroids[i]]
+            # Skip padded/degenerate rows (all-zero or non-finite).
+            if not vec or any(not math.isfinite(x) for x in vec) or all(x == 0.0 for x in vec):
+                continue
+            embeddings[str(label)] = vec
+    return turns, embeddings
 
 
 def normalize_labels(turns):
@@ -113,13 +146,17 @@ def main() -> None:
         raise SystemExit(1)
 
     audio_path = sys.argv[1]
-    turns = diarize(audio_path)
+    turns, embeddings = diarize(audio_path)
 
     if len(sys.argv) >= 3:
         with open(sys.argv[2], encoding="utf-8") as f:
             segments = json.load(f)
         speakers = assign_speakers(turns, segments)
-        print(json.dumps({"speakers": speakers}, ensure_ascii=False))
+        # Emit embeddings keyed by the normalized labels ("speaker0", ...) so the web
+        # side can enroll/match voice profiles per displayed speaker.
+        label_map = normalize_labels(turns)
+        norm_embeddings = {label_map[k]: v for k, v in embeddings.items() if k in label_map}
+        print(json.dumps({"speakers": speakers, "embeddings": norm_embeddings}, ensure_ascii=False))
     else:
         label_map = normalize_labels(turns)
         out = [
