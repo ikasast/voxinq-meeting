@@ -115,6 +115,49 @@ html[data-theme="light"] .prose-invert {
   --tw-prose-invert-td-borders: var(--border);
 }
 
+/* Minutes markdown: compact layout with a clearly ranked heading scale.
+   (The typography plugin's h3 default is larger than a Tailwind-overridden h2,
+   which made h3 render bigger than h2 — set the whole scale explicitly.) */
+.minutes-prose h2 {
+  font-size: 1.15rem;
+  line-height: 1.4;
+  margin-top: 1.7em;
+  margin-bottom: 0.55em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+.minutes-prose h2:first-child {
+  margin-top: 0.25em;
+}
+.minutes-prose h3 {
+  font-size: 1rem;
+  margin-top: 1.2em;
+  margin-bottom: 0.35em;
+}
+.minutes-prose h4 {
+  font-size: 0.95rem;
+  margin-top: 1em;
+  margin-bottom: 0.3em;
+}
+.minutes-prose p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+.minutes-prose ul,
+.minutes-prose ol {
+  margin-top: 0.45em;
+  margin-bottom: 0.9em;
+}
+.minutes-prose li {
+  margin-top: 0.18em;
+  margin-bottom: 0.18em;
+}
+.minutes-prose li > ul,
+.minutes-prose li > ol {
+  margin-top: 0.18em;
+  margin-bottom: 0.18em;
+}
+
 /* Show the right logo per theme (the light-gray text logo is invisible in light mode) */
 .logo-light {
   display: none;
