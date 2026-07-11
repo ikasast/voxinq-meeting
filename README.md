@@ -4,6 +4,11 @@
 
 **Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Nothing leaves your machine.**
 
+🎙️ **Record** in the browser → ⚡ **Transcribe** on your GPU → 📝 **Minutes** from your local LLM
+
+<!-- When docs/screenshots/demo.gif is ready, replace the image below with:
+![Voxinq demo](docs/screenshots/demo.gif)
+-->
 ![Voxinq dashboard](docs/screenshots/dashboard.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
@@ -30,52 +35,35 @@
 - 🌐 **Access from your phone** — install as a PWA; reach it over [Tailscale](https://tailscale.com) with optional password auth.
 - 🔧 **Swappable LLM** — Ollama, vLLM, LM Studio, or any OpenAI-compatible endpoint; Anthropic/OpenAI too.
 
-## 💡 Why this project?
+## 💡 Why Voxinq?
 
-- **The problem:** most transcription tools upload your audio to a third party. That is a non-starter for confidential meetings (research, legal, HR, internal strategy).
-- **What's wrong with alternatives:** cloud SaaS = privacy/compliance risk; classic on-prem tools are clunky and single-machine.
-- **The strengths:**
-  - 100% local — audio, transcripts, and minutes stay on your hardware.
-  - GPU-efficient — fits in **8 GB VRAM** by time-sharing Whisper (during) and the LLM (after).
-  - Web-native — record from any browser, including a phone.
-  - Model-agnostic — start with a small local model, swap in a bigger one (or an external GPU) later.
-- **Who it's for:** researchers and teams who need meeting minutes but cannot send audio to the cloud.
+Cloud transcription SaaS means uploading confidential meetings — research, legal, HR, strategy — to someone else's servers. Voxinq keeps everything on hardware you control.
 
-## 📦 Installation
+| | **Voxinq** | Cloud SaaS |
+| --- | --- | --- |
+| **Privacy** | 100% local — audio never leaves your machine | Audio uploaded to a third party |
+| **Cost** | Free — runs on a consumer GPU (8 GB VRAM) | Per-user / per-minute subscription |
+| **Record anywhere** | Any browser incl. phone (PWA + Tailscale) | Any browser — via their cloud |
+| **Models** | Pick any Whisper / LLM; swap or upgrade anytime | Fixed, vendor-chosen |
+
+## 🚀 Get started
 
 **Prerequisites:** an NVIDIA GPU (CUDA, 8 GB ok), Node.js 20+, Python 3.11, PostgreSQL 17, and [Ollama](https://ollama.com).
 
 ```bash
 git clone https://github.com/ikasast/voxinq.git
 cd voxinq
-npm install                        # web app
-ollama pull qwen2.5:7b-instruct    # default LLM (fits 8 GB)
-# set DATABASE_URL in .env, then:
-npx prisma db push                 # create the DB schema
+./scripts/setup.sh    # Windows: .\scripts\setup.ps1  — checks prereqs, installs everything
+./scripts/start.sh    # Windows: .\scripts\start.ps1  — starts the STT service + web app
 ```
 
-Then set up the Python STT service (and optional diarization) in their own venvs.
+Then open `http://localhost:3000` → **New meeting → Start recording**, talk, and
+**Generate minutes & end**. Minutes appear on the meeting page.
+(Or just **drop an audio file** on the New meeting screen.)
 
-📖 **Full step-by-step** — Windows/Linux, background services, remote access via Tailscale —
-is in **[docs/setup.md](docs/setup.md)**.
+📖 Manual install, background services, and phone access via Tailscale: **[docs/setup.md](docs/setup.md)**.
 
-## 🚀 Quick Start
-
-```bash
-# 1. Start the STT service (GPU)
-cd stt-service && . .venv/Scripts/activate && python -m uvicorn server:app --host 0.0.0.0 --port 8000
-
-# 2. Build & start the web app (production build — required for cross-device access)
-npm run build && npm start
-```
-
-Then:
-
-1. Open `http://localhost:3000`.
-2. Click **New meeting → Start recording**, talk, then **Generate minutes & end**.
-3. Minutes appear on the meeting page. (Or just **drop an audio file** on the New meeting screen.)
-
-> ⚡ Always serve a production build (`npm run build && npm start`). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
+> ⚡ Always serve a production build (`scripts/start` does). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
 
 ## 📖 Usage
 
@@ -119,20 +107,11 @@ flowchart LR
 
 ## ⚙ Configuration
 
-**`.env`** (build/runtime, gitignored):
+- **`.env`** (copy from [`.env.example`](.env.example)) — `DATABASE_URL`, the STT WebSocket URL, optional password auth.
+- **`settings.json`** (edit in the UI under **Settings**, no restart) — Whisper model, LLM provider/model (Ollama / vLLM / LM Studio / Anthropic / OpenAI), minutes language, detail level, custom format, API keys.
+- **Retention** — recordings auto-delete after 7 days (protect to keep); trashed meetings purge after 30 days.
 
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `NEXT_PUBLIC_STT_WS_URL` | STT WebSocket URL (baked in at build time) |
-| `APP_PASSWORD` | Optional password auth (unset = open within your network) |
-| `APP_SESSION_SECRET` | Secret for the auth cookie |
-| `NETWORK_MODE` | `tailscale` (default) or `lan` |
-
-**`settings.json`** (runtime, editable in the UI, gitignored) — Whisper model, LLM provider/model, minutes language, detail level, custom format, business background, and API keys.
-
-- **LLM providers:** `ollama` (default), or `openai` for any OpenAI-compatible server. LM Studio (`http://localhost:1234/v1`) and vLLM (`http://localhost:8000/v1`) need no API key.
-- **Retention:** recordings auto-delete after 7 days (protect to keep); trashed meetings purge after 30 days.
+Full reference: **[docs/configuration.md](docs/configuration.md)**.
 
 ## 🤝 Notes
 
