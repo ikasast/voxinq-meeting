@@ -329,10 +329,11 @@ def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]
     seg_path.write_text(json.dumps(prev_finals + adjusted, ensure_ascii=False), encoding="utf-8")
 
     # The recording content changed, so invalidate the previous diarization-result cache.
-    try:
-        spk_path.unlink()
-    except FileNotFoundError:
-        pass
+    for stale in (spk_path, RECORDINGS_DIR / f"{meeting_id}.embeddings.json"):
+        try:
+            stale.unlink()
+        except FileNotFoundError:
+            pass
     with _DIA_LOCK:
         _DIA_JOBS.pop(meeting_id, None)
 
@@ -397,8 +398,18 @@ def _rec_paths(mid: str) -> dict[str, Path]:
         "wav": RECORDINGS_DIR / f"{mid}.wav",
         "seg": RECORDINGS_DIR / f"{mid}.segments.json",
         "spk": RECORDINGS_DIR / f"{mid}.speakers.json",
+        "emb": RECORDINGS_DIR / f"{mid}.embeddings.json",
         "keep": RECORDINGS_DIR / f"{mid}.keep",
     }
+
+
+def _read_cached_embeddings(mid: str) -> dict:
+    """Cached per-speaker voice embeddings from the last diarization run ({} if none)."""
+    path = RECORDINGS_DIR / f"{mid}.embeddings.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return {}
 
 
 def _recording_state(mid: str) -> dict:
@@ -440,7 +451,7 @@ def _cleanup_recordings_once() -> None:
         try:
             if p["keep"].exists() or wav.stat().st_mtime >= cutoff:
                 continue
-            for f in (p["wav"], p["seg"], p["spk"]):
+            for f in (p["wav"], p["seg"], p["spk"], p["emb"]):
                 f.unlink(missing_ok=True)
             print(f"[retention] deleted recording {mid} (older than {RETENTION_DAYS:g} days)")
         except OSError:
@@ -527,8 +538,11 @@ async def recording_delete(meeting_id: str) -> dict:
     return {"ok": True}
 
 
-def _run_diarizer(wav_path: Path, seg_path: Path, num_speakers: int | None) -> list[str]:
-    """Run diarize.py in the diarization venv as a subprocess to get per-utterance speaker labels."""
+def _run_diarizer(wav_path: Path, seg_path: Path, num_speakers: int | None) -> dict:
+    """Run diarize.py in the diarization venv as a subprocess.
+
+    Returns {"speakers": [...], "embeddings": {label: [float,...]}} — per-utterance
+    speaker labels plus per-speaker voice embeddings (may be missing/empty)."""
     env = dict(os.environ)
     # Diarization runs after the meeting when Whisper is already released, so default to GPU (cuda).
     # Override via the DIA_DEVICE env var (can fall back to cpu).
@@ -548,7 +562,8 @@ def _run_diarizer(wav_path: Path, seg_path: Path, num_speakers: int | None) -> l
     lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
     if not lines:
         raise RuntimeError("diarizer returned no output")
-    return json.loads(lines[-1])["speakers"]
+    payload = json.loads(lines[-1])
+    return {"speakers": payload["speakers"], "embeddings": payload.get("embeddings") or {}}
 
 
 # Diarization can take several to a dozen-plus minutes on CPU (~0.5x the audio length).
@@ -559,11 +574,16 @@ _DIA_JOBS: dict[str, dict] = {}  # meeting_id -> {"status": running|done|error, 
 
 def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> None:
     try:
-        speakers = _run_diarizer(wav, seg, num_speakers)
+        result = _run_diarizer(wav, seg, num_speakers)
+        speakers = result["speakers"]
+        embeddings = result.get("embeddings") or {}
         with open(RECORDINGS_DIR / f"{mid}.speakers.json", "w", encoding="utf-8") as f:
             json.dump(speakers, f, ensure_ascii=False)
+        # Per-speaker voice embeddings for voice-profile enrollment/recognition on the web side.
+        with open(RECORDINGS_DIR / f"{mid}.embeddings.json", "w", encoding="utf-8") as f:
+            json.dump(embeddings, f, ensure_ascii=False)
         with _DIA_LOCK:
-            _DIA_JOBS[mid] = {"status": "done", "speakers": speakers}
+            _DIA_JOBS[mid] = {"status": "done", "speakers": speakers, "embeddings": embeddings}
     except Exception as e:  # noqa: BLE001
         with _DIA_LOCK:
             _DIA_JOBS[mid] = {"status": "error", "detail": str(e)[-300:]}
@@ -595,9 +615,10 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
     cached = RECORDINGS_DIR / f"{mid}.speakers.json"
     if cached.exists() and not force:
         speakers = json.loads(cached.read_text(encoding="utf-8"))
+        embeddings = _read_cached_embeddings(mid)
         with _DIA_LOCK:
-            _DIA_JOBS[mid] = {"status": "done", "speakers": speakers}
-        return {"status": "done", "speakers": speakers}
+            _DIA_JOBS[mid] = {"status": "done", "speakers": speakers, "embeddings": embeddings}
+        return {"status": "done", "speakers": speakers, "embeddings": embeddings}
 
     with _DIA_LOCK:
         _DIA_JOBS[mid] = {"status": "running"}
@@ -614,10 +635,17 @@ async def diarize_status(meeting_id: str) -> dict:
     with _DIA_LOCK:
         job = _DIA_JOBS.get(mid)
     if job:
-        return {"status": job["status"], **{k: job[k] for k in ("speakers", "detail") if k in job}}
+        return {
+            "status": job["status"],
+            **{k: job[k] for k in ("speakers", "embeddings", "detail") if k in job},
+        }
     cached = RECORDINGS_DIR / f"{mid}.speakers.json"
     if cached.exists():
-        return {"status": "done", "speakers": json.loads(cached.read_text(encoding="utf-8"))}
+        return {
+            "status": "done",
+            "speakers": json.loads(cached.read_text(encoding="utf-8")),
+            "embeddings": _read_cached_embeddings(mid),
+        }
     return {"status": "none"}
 
 
@@ -707,6 +735,7 @@ def _retranscribe_job(
             encoding="utf-8",
         )
         p["spk"].unlink(missing_ok=True)
+        p["emb"].unlink(missing_ok=True)
         with _DIA_LOCK:
             _DIA_JOBS.pop(mid, None)
         with _TR_LOCK:
@@ -828,6 +857,7 @@ async def upload_recording(
     # New recording: drop any stale boundaries/diarization from a previous upload.
     p["seg"].unlink(missing_ok=True)
     p["spk"].unlink(missing_ok=True)
+    p["emb"].unlink(missing_ok=True)
     with _DIA_LOCK:
         _DIA_JOBS.pop(mid, None)
 

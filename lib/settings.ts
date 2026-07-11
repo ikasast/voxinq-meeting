@@ -28,6 +28,8 @@ export type AppSettings = {
   summaryFormat: string; // minutes format spec (user-specified, takes priority)
   summaryLanguage: string; // minutes output language "ja" | "en" | "zh" (generated in this language regardless of speech)
   summaryDetail: string; // minutes verbosity "brief" | "standard" | "detailed" (controls output length + guidance)
+  embeddingModel: string; // Ollama embedding model for semantic search (pull it first, e.g. `ollama pull bge-m3`)
+  voiceprintThreshold: number; // cosine similarity needed to auto-name a diarized speaker from a voice profile (0..1)
 };
 
 function defaults(): AppSettings {
@@ -48,6 +50,8 @@ function defaults(): AppSettings {
     summaryFormat: "",
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
+    embeddingModel: process.env.EMBEDDING_MODEL ?? "bge-m3",
+    voiceprintThreshold: 0.5,
   };
 }
 
@@ -71,6 +75,12 @@ export async function readSettings(): Promise<AppSettings> {
     if (!VALID_SUMMARY_DETAILS.includes(merged.summaryDetail))
       merged.summaryDetail = base.summaryDetail;
     if (!VALID_MIC_MODES.includes(merged.micMode)) merged.micMode = base.micMode;
+    if (
+      typeof merged.voiceprintThreshold !== "number" ||
+      !(merged.voiceprintThreshold > 0 && merged.voiceprintThreshold < 1)
+    ) {
+      merged.voiceprintThreshold = base.voiceprintThreshold;
+    }
     return merged;
   } catch {
     // If the file is missing or corrupted, use defaults.
@@ -131,6 +141,17 @@ export async function getSummaryLanguage(): Promise<string> {
 /** Minutes verbosity level (defaults to "standard"). */
 export async function getSummaryDetail(): Promise<string> {
   return (await readSettings()).summaryDetail || "standard";
+}
+
+/** Ollama embedding model for semantic search (defaults to "bge-m3"). */
+export async function getEmbeddingConfig(): Promise<{ baseUrl: string; model: string }> {
+  const s = await readSettings();
+  return { baseUrl: s.ollamaBaseUrl, model: s.embeddingModel || "bge-m3" };
+}
+
+/** Cosine threshold for voiceprint auto-naming (settings.json `voiceprintThreshold`). */
+export async function getVoiceprintThreshold(): Promise<number> {
+  return (await readSettings()).voiceprintThreshold;
 }
 
 /** Client-safe representation with API keys hidden. */
