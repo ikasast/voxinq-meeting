@@ -79,7 +79,7 @@ export default async function ArchivePage() {
                   </p>
                 ) : null}
               </div>
-              <ArchiveButton id={m.id} archived />
+              <ArchiveButton id={m.id} archived variant="text" />
             </li>
           ))}
         </ul>

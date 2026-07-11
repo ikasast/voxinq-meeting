@@ -8,6 +8,7 @@ import { PageHeader } from "../page-header";
 import { ArchiveButton } from "./archive-button";
 import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
+import { DownloadMeetingButton } from "./download-meeting-button";
 import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
@@ -63,7 +64,7 @@ export default async function MeetingDetailPage({
             {meeting.endedAt ? <> – {formatDateTime(meeting.endedAt)}</> : <> – (in progress)</>}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Desktop can navigate via the left pane, so the back button is mobile-only */}
           <Link href="/" className="btn-outline lg:hidden">
             Back to list
@@ -73,15 +74,24 @@ export default async function MeetingDetailPage({
               Recording screen
             </Link>
           ) : null}
-          {!external ? (
-            <CloneMeetingButton
-              description={meeting.description}
-              tags={tagNames}
-              series={seriesName}
+          {/* Compact icon toolbar (hover for what each does) */}
+          <div className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
+            <DownloadMeetingButton
+              meetingId={meeting.id}
+              title={meeting.title}
+              hasMinutes={meeting.summaries.length > 0}
+              hasTranscript={meeting.transcripts.length > 0}
             />
-          ) : null}
-          <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
-          <DeleteMeetingButton id={meeting.id} title={meeting.title} />
+            {!external ? (
+              <CloneMeetingButton
+                description={meeting.description}
+                tags={tagNames}
+                series={seriesName}
+              />
+            ) : null}
+            <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
+            <DeleteMeetingButton id={meeting.id} title={meeting.title} />
+          </div>
         </div>
       </div>
 

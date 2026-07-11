@@ -2,10 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArchiveIcon } from "../icons";
 
 // Archive / unarchive a meeting. Archived meetings are hidden from the list but stay in the
-// DB and reappear in search results.
-export function ArchiveButton({ id, archived }: { id: string; archived: boolean }) {
+// DB, appear in search, and are all listed on /archive.
+export function ArchiveButton({
+  id,
+  archived,
+  variant = "icon",
+}: {
+  id: string;
+  archived: boolean;
+  variant?: "icon" | "text";
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -20,23 +29,34 @@ export function ArchiveButton({ id, archived }: { id: string; archived: boolean 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       router.refresh();
     } catch {
+      /* keep the button usable */
+    } finally {
       setBusy(false);
     }
   };
 
+  const label = archived ? "Unarchive" : "Archive";
+  const title = archived
+    ? "Unarchive: show this meeting in the list again"
+    : "Archive: hide from the list (still searchable, listed under Archived)";
+
+  if (variant === "text") {
+    return (
+      <button type="button" onClick={toggle} disabled={busy} title={title} className="btn-outline">
+        {busy ? "…" : label}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
       onClick={toggle}
       disabled={busy}
-      title={
-        archived
-          ? "Unarchive: show this meeting in the list again"
-          : "Archive: hide from the list (still searchable)"
-      }
-      className="btn-outline"
+      title={title}
+      aria-label={label}
+      className={`btn-icon ${archived ? "!text-[var(--accent-sub)]" : ""}`}
     >
-      {busy ? "…" : archived ? "Unarchive" : "Archive"}
+      <ArchiveIcon className={busy ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
     </button>
   );
 }

@@ -110,6 +110,13 @@ export const ArchiveIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const PlusCircleIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v8M8 12h8" />
+  </Base>
+);
+
 export const DotsIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <circle cx="12" cy="5" r="1" />
