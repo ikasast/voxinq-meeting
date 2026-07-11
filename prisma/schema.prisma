@@ -95,6 +95,8 @@ model MeetingSummary {
   id          String   @id @default(cuid())
   meetingId   String   @map("meeting_id")
   summaryText String   @map("summary_text")
+  provider    String? // LLM provider used for this version (recorded at generation time)
+  model       String? // LLM model used for this version
   createdAt   DateTime @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)

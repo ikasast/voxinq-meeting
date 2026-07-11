@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirm } from "../confirm-dialog";
+import { TrashIcon } from "../icons";
 
 // Delete button on the detail page. Confirm -> DELETE -> back to the list.
 export function DeleteMeetingButton({ id, title }: { id: string; title: string }) {
@@ -42,9 +43,11 @@ export function DeleteMeetingButton({ id, title }: { id: string; title: string }
       type="button"
       onClick={remove}
       disabled={deleting}
-      className="rounded-full border border-[color-mix(in_srgb,var(--error)_50%,transparent)] px-4 py-2 text-sm text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] disabled:opacity-50"
+      title="Move to Trash (restorable for 30 days)"
+      aria-label="Move to Trash"
+      className="btn-icon !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
     >
-      {deleting ? "Deleting…" : "Delete"}
+      <TrashIcon className={deleting ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
     </button>
   );
 }

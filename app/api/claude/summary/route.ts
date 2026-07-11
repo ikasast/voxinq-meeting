@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestSummary } from "@/lib/llm";
+import { getLlmConfig } from "@/lib/settings";
 import { parseSpeakerLabels } from "@/lib/speakers";
 
 export const runtime = "nodejs";
@@ -115,7 +116,22 @@ export async function POST(req: NextRequest) {
         provider,
         previousMinutes,
       });
-      await prisma.meetingSummary.create({ data: { meetingId, summaryText } });
+      // Record which provider/model produced this version (mirrors the resolution
+      // in requestSummary: valid override wins, else the saved setting).
+      const cfg = await getLlmConfig();
+      const effProvider =
+        provider && ["ollama", "anthropic", "openai"].includes(provider)
+          ? (provider as typeof cfg.provider)
+          : cfg.provider;
+      const effModel =
+        effProvider === "ollama"
+          ? cfg.ollamaModel
+          : effProvider === "anthropic"
+            ? cfg.anthropicModel
+            : cfg.openaiModel;
+      await prisma.meetingSummary.create({
+        data: { meetingId, summaryText, provider: effProvider, model: effModel },
+      });
       await prisma.meeting.update({
         where: { id: meetingId },
         data: { summaryStatus: "done" },
