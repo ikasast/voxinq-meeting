@@ -25,12 +25,16 @@ export const ollamaProvider: ChatProvider = {
     // Clamp to sane steps. 32k is qwen2.5's max; cap at 24k to stay within 8GB VRAM.
     const numCtx = Math.min(24576, Math.max(8192, Math.ceil(estTokens / 2048) * 2048));
 
+    // Stream the response. Without streaming, Ollama sends no HTTP headers until the
+    // FULL generation is done — and Node's fetch (undici) aborts requests whose headers
+    // take more than 5 minutes (UND_ERR_HEADERS_TIMEOUT). Long meetings / "detailed"
+    // runs regularly exceed that, so non-streaming caused hard generation failures.
     const res = await fetch(`${cfg.ollamaBaseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: cfg.ollamaModel,
-        stream: false,
+        stream: true,
         messages,
         // Minutes are a structured-extraction task, so keep it stable at low temperature.
         // At the default (0.8), a 7B model on thin input tends to produce token garbage
@@ -44,12 +48,35 @@ export const ollamaProvider: ChatProvider = {
         },
       }),
     });
-    if (!res.ok) {
+    if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");
       throw new Error(`Ollama 呼び出しに失敗 (${res.status}): ${detail.slice(0, 300)}`);
     }
-    const data = (await res.json()) as { message?: { content?: string } };
-    const content = (data.message?.content ?? "").trim();
+
+    // NDJSON stream: one {"message":{"content":"…"},"done":false} object per line.
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let content = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? ""; // keep a possibly incomplete trailing line
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const chunk = JSON.parse(line) as { message?: { content?: string }; error?: string };
+          if (chunk.error) throw new Error(`Ollama エラー: ${chunk.error.slice(0, 300)}`);
+          content += chunk.message?.content ?? "";
+        } catch (e) {
+          if (e instanceof Error && e.message.startsWith("Ollama エラー")) throw e;
+          // ignore malformed keep-alive lines
+        }
+      }
+    }
+    content = content.trim();
     // The prefill is not part of the model's response (only the continuation returns), so re-attach it.
     // But avoid double output when the model repeats the prefill.
     if (prefill && !content.startsWith(prefill.trim())) {

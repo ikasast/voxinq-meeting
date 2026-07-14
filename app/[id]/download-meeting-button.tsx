@@ -130,9 +130,11 @@ export function DownloadMeetingButton({
             aria-hidden
             tabIndex={-1}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-10 cursor-default"
+            className="fixed inset-0 z-10 cursor-default bg-black/30 sm:bg-transparent"
           />
-          <div className="absolute right-0 z-20 mt-1 w-72 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] p-3 shadow-lg">
+          {/* Phones: centered fixed sheet (an anchored dropdown can hang off-screen when
+              the button sits near the viewport edge). ≥sm: regular anchored dropdown. */}
+          <div className="fixed inset-x-4 top-1/2 z-20 -translate-y-1/2 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] p-3 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:w-72 sm:translate-y-0">
             <p className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Download</p>
             <div className="space-y-1.5">
               {rows.map((r) => (

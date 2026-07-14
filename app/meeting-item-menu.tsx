@@ -79,9 +79,11 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
               e.preventDefault();
               setOpen(false);
             }}
-            className="fixed inset-0 z-10 cursor-default"
+            className="fixed inset-0 z-10 cursor-default bg-black/30 sm:bg-transparent"
           />
-          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] py-1 shadow-lg">
+          {/* Phones: centered fixed sheet so the menu can never hang off-screen
+              (e.g. on the last card). ≥sm: regular anchored dropdown. */}
+          <div className="fixed left-1/2 top-1/2 z-20 w-48 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] py-1 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1 sm:w-44 sm:translate-x-0 sm:translate-y-0">
             <button type="button" onClick={() => void toggleArchive()} disabled={busy} className={itemClass}>
               <ArchiveIcon className="h-3.5 w-3.5" />
               {archived ? "Unarchive" : "Archive"}
