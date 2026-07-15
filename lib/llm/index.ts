@@ -206,6 +206,8 @@ export async function requestSummary(
     // They apply to this run only and are NOT persisted to settings.
     detail?: string;
     provider?: string;
+    // Minutes format override (e.g. the meeting's series format). Wins over the saved setting.
+    format?: string;
     // Previous meeting's minutes when this meeting belongs to a series (reference-only).
     previousMinutes?: { title: string; date: string; text: string };
   },
@@ -213,13 +215,15 @@ export async function requestSummary(
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
   const conversation = transcriptsToText(transcripts, opts?.speakerLabels ?? {}, multiSpeaker);
 
-  const [cfg, background, format, language, savedDetail] = await Promise.all([
+  const [cfg, background, savedFormat, language, savedDetail] = await Promise.all([
     getLlmConfig(),
     getLlmBackground(),
     getSummaryFormat(),
     getSummaryLanguage(),
     getSummaryDetail(),
   ]);
+  // Format priority: per-run override (series format) > saved setting > built-in default.
+  const format = opts?.format?.trim() || savedFormat;
 
   // Apply per-generation overrides. Detail falls back to the saved setting if invalid/absent.
   // Use hasOwnProperty (not `in`) so inherited keys like "toString"/"constructor" from a

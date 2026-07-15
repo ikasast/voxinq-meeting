@@ -15,6 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: {
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
+      series: { select: { id: true, name: true, sttGlossary: true } },
     },
   });
   return meeting ? NextResponse.json(meeting) : apiError("not found", 404);

@@ -17,6 +17,7 @@ model Meeting {
   sttLanguage   String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
   speakerLabels String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
   summaryStatus String?   @map("summary_status") // minutes generation state: processing | done | error
+  summaryError  String?   @map("summary_error") // why the last generation failed (shown in the UI; cleared on the next run)
   seriesId    String?   @map("series_id") // recurring-series membership (null = standalone)
   diarizationEmbeddings String? @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
   embedding      String?  @map("embedding") // unused: leftover from the removed AI (semantic) search
@@ -44,9 +45,11 @@ model Meeting {
 // meeting in a series, the previous meeting's minutes are fed to the LLM as
 // reference-only context so follow-up topics are interpreted correctly.
 model Series {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now()) @map("created_at")
+  id            String   @id @default(cuid())
+  name          String   @unique
+  summaryFormat String?  @map("summary_format") // per-series minutes format (overrides the global setting)
+  sttGlossary   String?  @map("stt_glossary") // per-series terms for Whisper initial_prompt (appended to the global glossary)
+  createdAt     DateTime @default(now()) @map("created_at")
 
   meetings Meeting[]
 

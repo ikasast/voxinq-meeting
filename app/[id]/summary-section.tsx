@@ -33,12 +33,14 @@ export function SummarySection({
   meetingTitle,
   summaries,
   summaryStatus,
+  summaryError,
   canGenerate,
 }: {
   meetingId: string;
   meetingTitle: string;
   summaries: SummaryVersion[];
   summaryStatus: string | null;
+  summaryError: string | null;
   canGenerate: boolean;
 }) {
   const router = useRouter();
@@ -216,8 +218,13 @@ export function SummarySection({
           </div>
         ) : summaryStatus === "error" ? (
           <>
-            <p className="mt-4 text-sm text-[var(--error)]">Failed to generate minutes.</p>
-            {canGenerate ? <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Regenerate minutes" /> : null}
+            <p className="mt-4 text-sm text-[var(--error)]">
+              Failed to generate minutes.
+              {summaryError ? (
+                <span className="mt-1 block text-xs opacity-90">Reason: {summaryError}</span>
+              ) : null}
+            </p>
+            {canGenerate ? <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Retry" /> : null}
           </>
         ) : (
           <>
@@ -307,6 +314,11 @@ export function SummarySection({
         <div className="mt-3 flex items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">
           <Spinner />
           Generating new minutes. A new version will be added below when done…
+        </div>
+      ) : summaryStatus === "error" ? (
+        <div className="mt-3 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
+          The last regeneration failed{summaryError ? `: ${summaryError}` : "."} Showing the
+          previous version — use the ↻ button to retry.
         </div>
       ) : null}
 

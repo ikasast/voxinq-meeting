@@ -18,6 +18,7 @@ type MeetingCardData = {
   archivedAt: Date | null;
   summaryStatus: string | null;
   seriesName: string | null;
+  seriesId: string | null;
   tags: { name: string }[];
   _count: { transcripts: number; summaries: number };
 };
@@ -46,7 +47,7 @@ export async function MeetingListPane({
       include: {
         _count: { select: { transcripts: true, summaries: true } },
         tags: { select: { name: true }, orderBy: { name: "asc" } },
-        series: { select: { name: true } },
+        series: { select: { id: true, name: true } },
       },
     }),
     prisma.tag.findMany({
@@ -58,6 +59,7 @@ export async function MeetingListPane({
   const meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
     ...m,
     seriesName: m.series?.name ?? null,
+    seriesId: m.series?.id ?? null,
   }));
 
   // On search: find where it matched + a snippet.
@@ -218,6 +220,7 @@ export async function MeetingListPane({
         <li key={m.id}>
           <SeriesStack
             name={m.seriesName}
+            seriesId={m.seriesId}
             count={group.length}
             latest={card(group[0])}
             rest={group.slice(1).map((x) => (

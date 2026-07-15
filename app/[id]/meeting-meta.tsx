@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -11,11 +12,13 @@ export function MeetingMeta({
   description,
   tags,
   series,
+  seriesId,
 }: {
   id: string;
   description: string | null;
   tags: string[];
   series: string | null;
+  seriesId: string | null;
 }) {
   const router = useRouter();
   const [savedDesc, setSavedDesc] = useState(description ?? "");
@@ -236,9 +239,19 @@ export function MeetingMeta({
           {savedTags.length > 0 || savedSeries ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {savedSeries ? (
-                <span className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)]">
-                  ↻ {savedSeries}
-                </span>
+                seriesId && savedSeries === (series ?? "") ? (
+                  <Link
+                    href={`/series/${seriesId}`}
+                    title="Open the series page (timeline & defaults)"
+                    className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)] hover:underline"
+                  >
+                    ↻ {savedSeries}
+                  </Link>
+                ) : (
+                  <span className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)]">
+                    ↻ {savedSeries}
+                  </span>
+                )
               ) : null}
               {savedTags.map((t) => (
                 <span

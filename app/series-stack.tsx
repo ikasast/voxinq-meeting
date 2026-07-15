@@ -1,17 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { type ReactNode, useState } from "react";
 
 // A recurring series rendered as a "pile" in the meeting list: only the latest
 // meeting's card is shown, with offset layers behind it hinting at the older ones.
-// A toggle expands the rest inline (indented under the pile).
+// A toggle expands the rest inline (indented under the pile); the series name links
+// to the series page (timeline + per-series defaults).
 export function SeriesStack({
   name,
+  seriesId,
   count,
   latest,
   rest,
 }: {
   name: string;
+  seriesId: string | null;
   count: number;
   latest: ReactNode;
   rest: ReactNode;
@@ -36,17 +40,31 @@ export function SeriesStack({
         ) : null}
         {latest}
       </div>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`mt-2 flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-[11px] text-[var(--text-muted)] hover:text-[var(--accent-sub)] ${
+      <div
+        className={`mt-2 flex w-full items-center gap-2 px-2 py-0.5 text-[11px] text-[var(--text-muted)] ${
           open ? "" : "mt-3"
         }`}
-        aria-expanded={open}
       >
-        <span className="text-[var(--accent-sub)]">↻ {name}</span>
-        {open ? `hide ${count - 1} earlier` : `show ${count - 1} earlier ▾`}
-      </button>
+        {seriesId ? (
+          <Link
+            href={`/series/${seriesId}`}
+            className="text-[var(--accent-sub)] hover:underline"
+            title="Open the series page (timeline & defaults)"
+          >
+            ↻ {name}
+          </Link>
+        ) : (
+          <span className="text-[var(--accent-sub)]">↻ {name}</span>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="hover:text-[var(--accent-sub)]"
+          aria-expanded={open}
+        >
+          {open ? `hide ${count - 1} earlier` : `show ${count - 1} earlier ▾`}
+        </button>
+      </div>
       {open ? (
         <div className="mt-2 space-y-2 border-l-2 border-[var(--border)] pl-2.5">{rest}</div>
       ) : null}

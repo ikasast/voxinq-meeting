@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       summaryStatus: true,
       seriesId: true,
       startedAt: true,
+      series: { select: { summaryFormat: true } },
     },
   });
   if (!meeting) {
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
   // Set the processing flag and run minutes generation in the background (after the response is sent).
   await prisma.meeting.update({
     where: { id: meetingId },
-    data: { summaryStatus: "processing" },
+    data: { summaryStatus: "processing", summaryError: null },
   });
 
   const description = meeting.description;
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
         speakerLabels,
         detail,
         provider,
+        format: meeting.series?.summaryFormat ?? undefined,
         previousMinutes,
       });
       // Record which provider/model produced this version (mirrors the resolution
@@ -138,8 +140,15 @@ export async function POST(req: NextRequest) {
       });
     } catch (e) {
       console.error("summary generation failed", e);
+      // Keep a human-readable reason for the UI (include the network-level cause,
+      // e.g. UND_ERR_HEADERS_TIMEOUT, which the top-level message often hides).
+      const cause = e instanceof Error && e.cause instanceof Error ? ` (${e.cause.message})` : "";
+      const reason = `${e instanceof Error ? e.message : String(e)}${cause}`.slice(0, 300);
       await prisma.meeting
-        .update({ where: { id: meetingId }, data: { summaryStatus: "error" } })
+        .update({
+          where: { id: meetingId },
+          data: { summaryStatus: "error", summaryError: reason },
+        })
         .catch(() => {});
     }
   });

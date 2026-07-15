@@ -46,12 +46,14 @@ export function TranscriptList({
   meetingStartedAt,
   initialTranscripts,
   initialSpeakerLabels,
+  seriesGlossary,
 }: {
   meetingId: string;
   meetingTitle: string;
   meetingStartedAt: string;
   initialTranscripts: Item[];
   initialSpeakerLabels: string | null;
+  seriesGlossary: string | null;
 }) {
   const [transcripts, setTranscripts] = useState<Item[]>(initialTranscripts);
   const [speakerLabels, setSpeakerLabels] = useState<SpeakerLabels>(
@@ -266,7 +268,9 @@ export function TranscriptList({
         body: JSON.stringify({
           language: settings?.sttLanguage,
           model: retransModel || settings?.whisperModel,
-          initialPrompt: settings?.sttGlossary,
+          // Global glossary + this meeting's series glossary (if any).
+          initialPrompt:
+            [settings?.sttGlossary, seriesGlossary].filter(Boolean).join("、") || undefined,
         }),
       });
       if (!startRes.ok) {
@@ -423,6 +427,23 @@ export function TranscriptList({
   // GPU task (minutes generation, or an STT job we didn't start) is running.
   const gpuBlocked = gpu.busy && !diarizing && !retransing;
   const busy = diarizing || retransing || gpuBlocked;
+
+  // "Diarize & end" on the recording page lands here with ?autodiarize=1: start
+  // Auto-diarize once, with the tools section open so the progress is visible, and
+  // drop the param from the URL so a reload doesn't re-trigger (results are cached
+  // on the STT side anyway, so an accidental re-run is cheap).
+  const autoDiarizeTried = useRef(false);
+  useEffect(() => {
+    if (autoDiarizeTried.current || transcripts.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("autodiarize") !== "1") return;
+    autoDiarizeTried.current = true;
+    params.delete("autodiarize");
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    setToolsOpen(true);
+    void runDiarization();
+  }, [transcripts.length, runDiarization]);
 
   return (
     <details open>

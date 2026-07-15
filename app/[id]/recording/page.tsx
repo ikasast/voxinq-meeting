@@ -68,6 +68,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const sttLanguageRef = useRef<string | undefined>(undefined);
   const meetingLangRef = useRef<string | undefined>(undefined); // per-meeting language (overrides settings)
   const sttGlossaryRef = useRef<string | undefined>(undefined);
+  const seriesGlossaryRef = useRef<string | undefined>(undefined);
   const sttMicModeRef = useRef<string | undefined>(undefined);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [cfg, setCfg] = useState<{
@@ -158,10 +159,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         startedAt: string;
         endedAt: string | null;
         sttLanguage: string | null;
+        series?: { sttGlossary: string | null } | null;
         transcripts: { id: string; speakerType: string; text: string; createdAt: string }[];
       };
       if (cancelled) return;
       setTitle(data.title);
+      // Per-series glossary terms are appended to the global glossary at recording start.
+      if (data.series?.sttGlossary) seriesGlossaryRef.current = data.series.sttGlossary;
       setStartedAt(new Date(data.startedAt));
       // Already-ended meeting (e.g. navigated back here after finishing): block restart.
       if (data.endedAt) {
@@ -296,7 +300,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         model: whisperModelRef.current,
         meetingId,
         language: meetingLangRef.current ?? sttLanguageRef.current,
-        initialPrompt: sttGlossaryRef.current,
+        // Global glossary + this meeting's series glossary (if any).
+        initialPrompt:
+          [sttGlossaryRef.current, seriesGlossaryRef.current].filter(Boolean).join("、") ||
+          undefined,
         micMode: sttMicModeRef.current,
         source: sourceRef.current,
       });
@@ -386,6 +393,36 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       router.replace(`/`);
     } catch (e) {
       showToast(`Failed to start minutes generation: ${(e as Error).message}`);
+      setBusy("none");
+    }
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording]);
+
+  // End the meeting and kick off speaker diarization: the detail page opens with
+  // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
+  // Minutes are NOT generated — review the speakers first, then generate.
+  const diarizeAndEnd = useCallback(async () => {
+    if (busy !== "none") return;
+    const { ok, checked } = await confirm({
+      title: title || "Meeting",
+      message:
+        "End the meeting and start speaker diarization. Speakers are assigned automatically on the meeting page (enrolled voices get their names); generate minutes afterwards.",
+      confirmLabel: "Diarize & end",
+      checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+    });
+    if (!ok) return;
+    setBusy("summary");
+    endedRef.current = true;
+    setEnded(true);
+    try {
+      // stopRecording waits for the STT server to finish saving the WAV + utterance
+      // boundaries — diarization needs both.
+      await stopRecording();
+      if (checked) await protectRecording();
+      await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
+      // replace() so back navigation cannot return here and restart the meeting.
+      router.replace(`/${meetingId}?autodiarize=1`);
+    } catch (e) {
+      showToast(`Failed to end the meeting: ${(e as Error).message}`);
       setBusy("none");
     }
   }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording]);
@@ -690,6 +727,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           className="btn-ink"
         >
           {busy === "summary" ? "Starting…" : "Generate minutes & end"}
+        </button>
+        <button
+          type="button"
+          onClick={diarizeAndEnd}
+          disabled={busy !== "none" || transcripts.length === 0}
+          className="btn-soft"
+          title="End the meeting and assign speakers automatically; generate minutes after reviewing them"
+        >
+          Diarize & end
         </button>
         <button type="button" onClick={endWithoutSummary} disabled={busy !== "none"} className="btn-soft">
           End only

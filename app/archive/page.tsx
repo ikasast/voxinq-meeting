@@ -15,7 +15,7 @@ export default async function ArchivePage() {
     include: {
       _count: { select: { transcripts: true, summaries: true } },
       tags: { select: { name: true }, orderBy: { name: "asc" } },
-      series: { select: { name: true } },
+      series: { select: { id: true, name: true } },
     },
   });
 
@@ -64,9 +64,12 @@ export default async function ArchivePage() {
                 {m.tags.length > 0 || m.series ? (
                   <p className="mt-1 flex flex-wrap items-center gap-1">
                     {m.series ? (
-                      <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]">
+                      <Link
+                        href={`/series/${m.series.id}`}
+                        className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)] hover:underline"
+                      >
                         ↻ {m.series.name}
-                      </span>
+                      </Link>
                     ) : null}
                     {m.tags.map((t) => (
                       <span

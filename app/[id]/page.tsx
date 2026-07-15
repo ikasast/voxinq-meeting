@@ -31,7 +31,7 @@ export default async function MeetingDetailPage({
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
       tags: { select: { name: true }, orderBy: { name: "asc" } },
-      series: { select: { name: true } },
+      series: { select: { id: true, name: true, sttGlossary: true } },
     },
   });
   if (!meeting) notFound();
@@ -39,6 +39,7 @@ export default async function MeetingDetailPage({
   const external = await isExternalRequest();
   const tagNames = meeting.tags.map((t) => t.name);
   const seriesName = meeting.series?.name ?? null;
+  const seriesId = meeting.series?.id ?? null;
 
   // Desktop shows the meeting list on the left (2-pane); mobile shows the detail only and
   // goes back via "一覧へ戻る". The header is shared with the home page (so selecting a meeting
@@ -106,6 +107,7 @@ export default async function MeetingDetailPage({
         description={meeting.description}
         tags={tagNames}
         series={seriesName}
+        seriesId={seriesId}
       />
 
       <section className="card p-5">
@@ -113,6 +115,7 @@ export default async function MeetingDetailPage({
           meetingId={meeting.id}
           meetingTitle={meeting.title}
           summaryStatus={meeting.summaryStatus}
+          summaryError={meeting.summaryError}
           canGenerate={meeting.transcripts.length > 0}
           summaries={meeting.summaries.map((s) => ({
             id: s.id,
@@ -128,6 +131,7 @@ export default async function MeetingDetailPage({
           meetingTitle={meeting.title}
           meetingStartedAt={meeting.startedAt.toISOString()}
           initialSpeakerLabels={meeting.speakerLabels}
+          seriesGlossary={meeting.series?.sttGlossary ?? null}
           initialTranscripts={meeting.transcripts.map((t) => ({
             id: t.id,
             speakerType: t.speakerType,

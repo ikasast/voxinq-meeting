@@ -43,6 +43,7 @@ export default function NewMeetingPage() {
   const [phase, setPhase] = useState<Phase>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const glossaryRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const supported =
@@ -70,10 +71,11 @@ export default function NewMeetingPage() {
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((s: { whisperModel?: string; micMode?: string } | null) => {
+      .then((s: { whisperModel?: string; micMode?: string; sttGlossary?: string } | null) => {
         if (cancelled || !s) return;
         if (s.whisperModel) setModel(s.whisperModel);
         if (s.micMode) setMicMode(s.micMode);
+        if (s.sttGlossary) glossaryRef.current = s.sttGlossary;
       })
       .catch(() => {});
     return () => {
@@ -137,7 +139,20 @@ export default function NewMeetingPage() {
       const base = sttHttpBase();
 
       setPhase("transcribing");
+      // Glossary = global setting + the series' glossary (if the meeting joined one).
+      let glossary = glossaryRef.current ?? "";
+      try {
+        const detail = (await fetch(`/api/meetings/${meeting.id}`).then((r) =>
+          r.ok ? r.json() : null,
+        )) as { series?: { sttGlossary?: string | null } | null } | null;
+        glossary = [glossaryRef.current, detail?.series?.sttGlossary]
+          .filter(Boolean)
+          .join("、");
+      } catch {
+        // best-effort — the global glossary alone is fine
+      }
       const qs = new URLSearchParams({ language: sttLanguage, model });
+      if (glossary) qs.set("initialPrompt", glossary);
       const up = await fetch(`${base}/upload/${meeting.id}?${qs}`, { method: "POST", body: file });
       if (!up.ok) {
         const d = await up.json().catch(() => null);

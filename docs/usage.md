@@ -4,8 +4,11 @@
 
 1. **New meeting** → optionally set title, purpose, and per-meeting recording settings.
 2. **Start recording** → speak. The live transcript appears as you go.
-3. **Generate minutes & end** → minutes are generated in the background; you land on the
-   meeting page.
+3. End with one of:
+   - **Generate minutes & end** — minutes are generated in the background.
+   - **Diarize & end** — speaker diarization starts automatically on the meeting page
+     (enrolled voices get their names); generate minutes after reviewing the speakers.
+   - **End only** — just stop; generate or diarize later.
 
 Tips:
 - On a phone, keep the screen on while recording.
@@ -24,6 +27,10 @@ Edit* on the meeting page). Meetings in the same series share context: when gene
 minutes, the **previous meeting's minutes are given to the LLM as reference**, so remarks
 like "continuing from last time" are interpreted correctly. *New with same settings* keeps
 the series. A series disappears automatically when its last meeting is removed.
+
+Click a **↻ series chip** anywhere to open the **series page**: a timeline of every
+meeting with the overview section of its minutes, plus **per-series defaults** — a minutes
+format and a transcription glossary that override the global Settings for this series only.
 
 ## Speaker diarization
 
