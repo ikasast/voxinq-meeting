@@ -1,12 +1,12 @@
 <div align="center">
 
-# Voxinq
+# Voxinq Meeting
 
 **Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Nothing leaves your machine.**
 
 🎙️ **Record** in the browser → ⚡ **Transcribe** on your GPU → 📝 **Minutes** from your local LLM
 
-![Voxinq demo](docs/screenshots/demo.gif)
+![Voxinq Meeting demo](docs/screenshots/demo.gif)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
@@ -28,11 +28,11 @@
 - 🔍 **Search, tags, archive & trash** — find meetings fast; soft-delete with 30-day restore.
 - 🌐 **Access from your phone** — install as a PWA; reach it over [Tailscale](https://tailscale.com) with optional password auth.
 
-## 💡 Why Voxinq?
+## 💡 Why Voxinq Meeting?
 
-Cloud transcription SaaS means uploading confidential meetings — research, legal, HR, strategy — to someone else's servers. Voxinq keeps everything on hardware you control.
+Cloud transcription SaaS means uploading confidential meetings — research, legal, HR, strategy — to someone else's servers. Voxinq Meeting keeps everything on hardware you control.
 
-| | **Voxinq** | Cloud SaaS |
+| | **Voxinq Meeting** | Cloud SaaS |
 | --- | --- | --- |
 | **Privacy** | 100% local — audio never leaves your machine | Audio uploaded to a third party |
 | **Cost** | Free — runs on a consumer GPU (8 GB VRAM) | Per-user / per-minute subscription |
@@ -44,8 +44,8 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 **Prerequisites:** an NVIDIA GPU (CUDA, 8 GB ok), Node.js 20+, Python 3.11, PostgreSQL 17, and [Ollama](https://ollama.com).
 
 ```bash
-git clone https://github.com/ikasast/voxinq.git
-cd voxinq
+git clone https://github.com/ikasast/voxinq-meeting.git
+cd voxinq-meeting
 ./scripts/setup.sh    # Windows: .\scripts\setup.ps1  — checks prereqs, installs everything
 ./scripts/start.sh    # Windows: .\scripts\start.ps1  — starts the STT service + web app
 ```

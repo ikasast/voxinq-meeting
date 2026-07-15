@@ -17,7 +17,7 @@ Tips:
 
 ## Summarize an existing recording (no live capture)
 
-Drag an audio file (`wav`/`mp3`/`m4a`/…) onto the **New meeting** screen. Voxinq creates the
+Drag an audio file (`wav`/`mp3`/`m4a`/…) onto the **New meeting** screen. Voxinq Meeting creates the
 meeting, transcribes the file, and generates minutes automatically.
 
 ## Recurring series

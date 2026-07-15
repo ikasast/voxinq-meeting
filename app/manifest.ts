@@ -4,7 +4,8 @@ import type { MetadataRoute } from "next";
 // Icons are placed by the user under public/icons/ (installation works even without them).
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Voxinq",
+    name: "Voxinq Meeting",
+    // Home-screen labels truncate around ~12 chars, so keep the short name short.
     short_name: "Voxinq",
     description: "Self-hosted meeting minutes system",
     start_url: "/",

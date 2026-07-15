@@ -85,7 +85,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       `- **Transcription language:** ${meeting.sttLanguage ?? "auto (settings default)"}`,
       `- **Whisper model (current setting):** ${s.whisperModel}`,
       "",
-      `_Exported from Voxinq on ${formatDateTime(new Date())}_`,
+      `_Exported from Voxinq Meeting on ${formatDateTime(new Date())}_`,
     ]
       .filter((l): l is string => l !== null)
       .join("\n");

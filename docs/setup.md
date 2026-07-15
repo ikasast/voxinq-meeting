@@ -1,6 +1,6 @@
 # Setup
 
-Voxinq runs on a single GPU box that hosts everything: the web app, PostgreSQL, the STT
+Voxinq Meeting runs on a single GPU box that hosts everything: the web app, PostgreSQL, the STT
 service, diarization, and the LLM. A browser (incl. a phone) connects to it.
 
 ## Prerequisites
@@ -14,8 +14,8 @@ service, diarization, and the LLM. A browser (incl. a phone) connects to it.
 ## Recommended: one-shot script
 
 ```bash
-git clone https://github.com/ikasast/voxinq.git
-cd voxinq
+git clone https://github.com/ikasast/voxinq-meeting.git
+cd voxinq-meeting
 ./scripts/setup.sh      # Windows: .\scripts\setup.ps1
 ```
 

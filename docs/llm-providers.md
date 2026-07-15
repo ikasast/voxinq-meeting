@@ -52,7 +52,7 @@ Notes:
 ## Context length & long meetings
 
 - Ollama's context is sized automatically from the input (up to ~24k tokens on 8 GB).
-- If a transcript exceeds the budget, Voxinq **summarizes it in chunks then merges** — the
+- If a transcript exceeds the budget, Voxinq Meeting **summarizes it in chunks then merges** — the
   latter half of a long meeting is never silently dropped. This makes multiple LLM passes, so
   it is slower locally; an external GPU with a big-context model avoids the chunking.
 

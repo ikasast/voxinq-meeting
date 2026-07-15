@@ -1,4 +1,4 @@
-# Voxinq Documentation
+# Voxinq Meeting Documentation
 
 The [main README](../README.md) is the quick tour. These pages go deeper — pick by what you
 want to do:
@@ -12,4 +12,4 @@ want to do:
 | **Understand how it works** (components, GPU time-sharing, data flow, retention) | 🏗 [Architecture](architecture.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
 
-> Voxinq is self-hosted: audio, transcripts, and minutes stay on your own machine.
+> Voxinq Meeting is self-hosted: audio, transcripts, and minutes stay on your own machine.

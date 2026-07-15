@@ -16,9 +16,9 @@ const fontNoto = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: "Voxinq",
+  title: "Voxinq Meeting",
   description: "Self-hosted meeting minutes system",
-  appleWebApp: { capable: true, title: "Voxinq", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "Voxinq Meeting", statusBarStyle: "black-translucent" },
 };
 
 export const viewport = {
@@ -29,12 +29,12 @@ function HeaderNav({ external }: { external: boolean }) {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--header)]">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" aria-label="Voxinq home" className="flex items-center">
+        <Link href="/" aria-label="Voxinq Meeting home" className="flex items-center">
           {/* Show the logo per theme (.logo-dark/.logo-light in globals.css) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Voxinq" className="logo-dark h-9 w-auto" />
+          <img src="/logo.svg" alt="Voxinq Meeting" className="logo-dark h-9 w-auto" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-light.svg" alt="Voxinq" className="logo-light h-9 w-auto" />
+          <img src="/logo-light.svg" alt="Voxinq Meeting" className="logo-light h-9 w-auto" />
         </Link>
         <nav className="flex items-center gap-2">
           <Link href="/settings" className="btn-icon" title="Settings" aria-label="Settings">

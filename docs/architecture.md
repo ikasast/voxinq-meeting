@@ -34,7 +34,7 @@ flowchart LR
 
 ## GPU time-sharing
 
-Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM. Voxinq
+Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM. Voxinq Meeting
 **releases Whisper on meeting end** so the LLM can run. A UI lock also prevents starting a
 second GPU task (another minutes generation, transcription, or diarization) while one is
 running.

@@ -27,7 +27,7 @@ restart it.
 
 ## Minutes contain content that was never discussed
 
-Usually the business-background context leaking in, or the transcript being truncated. Voxinq
+Usually the business-background context leaking in, or the transcript being truncated. Voxinq Meeting
 sizes the LLM context from the input and chunk-summarizes long meetings; if you changed models,
 make sure the endpoint's context window is adequate. Keep `llmBackground` concise.
 
@@ -43,7 +43,7 @@ times, pass the participant count, or assign speakers manually per line.
 
 ## Out of VRAM
 
-Whisper (`large-v3` ≈ 3 GB) and the LLM (7B ≈ 5 GB) cannot both stay resident on 8 GB. Voxinq
+Whisper (`large-v3` ≈ 3 GB) and the LLM (7B ≈ 5 GB) cannot both stay resident on 8 GB. Voxinq Meeting
 releases Whisper on meeting end. If needed, use a smaller Whisper model (`medium`) or
 `OLLAMA_KEEP_ALIVE=0`.
 
