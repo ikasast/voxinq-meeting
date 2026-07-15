@@ -1,25 +1,17 @@
 # Screenshots & demo assets
 
-Images referenced by the main README. Filenames are fixed (below).
+Images referenced by the main README. **All current assets are auto-generated** from
+fictional demo meetings (no real content) with a headless-browser script, so they can be
+retaken any time the UI changes.
 
-Capture on a desktop browser with the app open, save here, then
-`git add -A && git commit && git push`.
+| Filename | What it shows |
+| --- | --- |
+| `demo.gif` | README hero: slideshow of home → new meeting → recording → minutes. Replace with a real screen recording (ScreenToGif, ~20-30 s, <10 MB) whenever you want a live-typing feel. |
+| `dashboard.png` | Home / meeting list (series stack, tags, health dots). |
+| `recording.png` | Recording screen: top bar, live transcript, end actions. |
+| `minutes.png` | Meeting detail: icon toolbar, minutes with version history. |
+| `settings.png` | Settings → Speakers (voice-profile enrollment). |
+| `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). |
 
-| Filename | What to show | Notes |
-| --- | --- | --- |
-| `demo.gif` | The full flow: New meeting → recording with live transcript → *Generate minutes & end* → minutes appear | 20–30 s, 900–1200 px wide, **under 10 MB**. Once added, swap it into the README hero (a commented slot is ready there). |
-| `dashboard.png` | Home / meeting list (left pane with search + tags, right info panel) | Used as the README header image until `demo.gif` exists. |
-| `recording.png` | Recording screen: top recording bar (Start/Stop, level meter), live transcript | |
-| `minutes.png` | Meeting detail: generated minutes (headings, version selector) + transcript below | |
-| `settings.png` | Settings → Minutes or LLM tab | |
-| `social-preview.png` | `dashboard.png` with the logo/tagline overlaid | **1280×640 px.** Upload via GitHub → repo Settings → Social preview (not referenced by the README). |
-
-Guidelines:
-
-- PNGs ~1200–1600 px wide, dark theme.
-- Use a demo/sample meeting — **no confidential content or real names**.
-- The UI is English now, so retake any stale (Japanese) screenshots.
-
-Recording the GIF (Windows): [ScreenToGif](https://www.screentogif.com/) works well —
-record the browser window, trim dead time between steps, export as GIF. If the file exceeds
-10 MB, reduce the frame rate (10–15 fps is fine) or the capture width.
+Guidelines when retaking manually: ~1200–1600 px wide, dark theme, and use demo/sample
+meetings — **no confidential content or real names**.

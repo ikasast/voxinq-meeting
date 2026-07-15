@@ -6,10 +6,7 @@
 
 🎙️ **Record** in the browser → ⚡ **Transcribe** on your GPU → 📝 **Minutes** from your local LLM
 
-<!-- When docs/screenshots/demo.gif is ready, replace the image below with:
 ![Voxinq demo](docs/screenshots/demo.gif)
--->
-![Voxinq dashboard](docs/screenshots/dashboard.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)

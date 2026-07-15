@@ -50,10 +50,14 @@ export async function MeetingListPane({
         series: { select: { id: true, name: true } },
       },
     }),
+    // Tag filter mirrors the list: archived meetings are hidden there, so a tag whose
+    // meetings are all archived must not appear (clicking it would show zero results).
     prisma.tag.findMany({
-      where: { meetings: { some: { deletedAt: null } } },
+      where: { meetings: { some: { deletedAt: null, archivedAt: null } } },
       orderBy: { name: "asc" },
-      include: { _count: { select: { meetings: { where: { deletedAt: null } } } } },
+      include: {
+        _count: { select: { meetings: { where: { deletedAt: null, archivedAt: null } } } },
+      },
     }),
   ]);
   const meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
