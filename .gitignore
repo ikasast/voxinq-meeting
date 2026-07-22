@@ -59,6 +59,9 @@ Thumbs.db
 
 # claude code
 .claude/
+# AI agent instruction files (contain host-specific / private setup notes)
+/AGENTS.md
+/CLAUDE.md
 
 # local sqlite db (legacy from the old setup; kept as the original data after migration)
 /prisma/*.db

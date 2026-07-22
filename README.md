@@ -113,7 +113,7 @@ Full reference: **[docs/configuration.md](docs/configuration.md)**.
 
 ## 📄 License
 
-Released under the [MIT License](LICENSE) — © 2026 Takafumi Sasaki.
+Released under the [MIT License](LICENSE) — © 2026 ikasast.
 
 You are free to use, modify, and distribute this software, including commercially, provided the copyright and license notice are retained. The software is provided "as is", without warranty of any kind.
 
