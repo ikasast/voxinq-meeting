@@ -6,7 +6,8 @@ retaken any time the UI changes.
 
 | Filename | What it shows |
 | --- | --- |
-| `demo.gif` | README hero: slideshow of home → new meeting → recording → minutes. Replace with a real screen recording (ScreenToGif, ~20-30 s, <10 MB) whenever you want a live-typing feel. |
+| `workflow.png` | README hero: concept illustration of the record → local-GPU (diarize / transcribe / summarize) → minutes flow. |
+| `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. Replace with a real screen recording (ScreenToGif, ~20-30 s, <10 MB) whenever you want a live-typing feel. |
 | `dashboard.png` | Home / meeting list (series stack, tags, health dots). |
 | `recording.png` | Recording screen: top bar, live transcript, end actions. |
 | `minutes.png` | Meeting detail: icon toolbar, minutes with version history. |

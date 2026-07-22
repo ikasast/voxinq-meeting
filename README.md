@@ -6,7 +6,7 @@
 
 🎙️ **Record** in the browser → ⚡ **Transcribe** on your GPU → 📝 **Minutes** from your local LLM
 
-![Voxinq Meeting demo](docs/screenshots/demo.gif)
+![Voxinq Meeting — record, transcribe, diarize and summarize meetings entirely on your own GPU](docs/screenshots/workflow.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
@@ -66,6 +66,8 @@ Then open `http://localhost:3000` → **New meeting → Start recording**, talk,
 - **Fix a bad transcript:** *Edit tools → Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and a custom format.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
+
+![Voxinq Meeting in action](docs/screenshots/demo.gif)
 
 | Recording | Minutes |
 | --- | --- |
