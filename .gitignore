@@ -66,8 +66,6 @@ Thumbs.db
 # local sqlite db (legacy from the old setup; kept as the original data after migration)
 /prisma/*.db
 /prisma/*.db-journal
-# PostgreSQL data directory (docker-compose db service)
-/pgdata/
 
 # typescript
 *.tsbuildinfo
