@@ -25,6 +25,16 @@ Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000 -State Listen).OwningProc
 The web server is holding the Prisma engine. Stop the web app, run `npx prisma generate`, then
 restart it.
 
+## Minutes generation failed
+
+The meeting page shows the **reason** under "Failed to generate minutes" (or in a banner if
+an earlier version exists) plus a **Retry** button. Common causes:
+
+- *Cannot reach Ollama* — the LLM is not running, or the Base URL in Settings is wrong.
+- *HTTP 401 / API key not set* — a cloud provider is selected without a key.
+- A timeout on a very long meeting: responses are streamed, so slow local models no longer
+  hit the old 5-minute limit; if it still fails, try a smaller detail level or a faster model.
+
 ## Minutes contain content that was never discussed
 
 Usually the business-background context leaking in, or the transcript being truncated. Voxinq Meeting
