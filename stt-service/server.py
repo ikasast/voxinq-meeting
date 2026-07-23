@@ -88,6 +88,42 @@ PRELOAD_ON_START = os.environ.get("STT_PRELOAD", "1").lower() not in ("0", "fals
 #       do NOT release immediately.
 IDLE_RELEASE_SECONDS = int(os.environ.get("STT_IDLE_RELEASE_SECONDS", "600"))
 
+# Which web origins may talk to this service from a browser.
+#
+# The browser calls this service directly (recording, diarization, downloads), so the
+# service must accept the origin the web app is served from. Allowing "*" — the previous
+# behaviour — lets ANY site you happen to visit read your recordings through your own
+# browser, so the default is now restricted to the origins a self-hosted setup actually
+# uses: localhost, private LAN addresses, and Tailscale MagicDNS names (*.ts.net).
+#
+# Set STT_ALLOWED_ORIGINS to a comma-separated list to pin it down exactly, e.g.
+#   STT_ALLOWED_ORIGINS=https://myhost.tailnet.ts.net,http://localhost:3000
+_ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("STT_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
+# Used only when STT_ALLOWED_ORIGINS is unset (zero-config default).
+_DEFAULT_ORIGIN_REGEX = (
+    r"https?://(localhost|127\.0\.0\.1|\[::1\]"
+    r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3}"
+    r"|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}"
+    r"|[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.ts\.net)(:\d+)?"
+)
+_ORIGIN_RE = re.compile(_DEFAULT_ORIGIN_REGEX)
+
+
+def _origin_allowed(origin: str | None) -> bool:
+    """Whether a browser Origin may use this service.
+
+    A missing Origin means a non-browser client (curl, the web server itself), which CORS
+    does not govern — allow it, exactly as the CORS middleware does.
+    """
+    if not origin:
+        return True
+    if _ALLOWED_ORIGINS:
+        return origin in _ALLOWED_ORIGINS
+    return bool(_ORIGIN_RE.fullmatch(origin))
+
 # Safety-net blocklist for the canned hallucinations Whisper tends to emit in silence.
 # Compared for exact equality against the plain string with symbols removed.
 HALLUCINATION_PHRASES = {
@@ -158,7 +194,9 @@ async def _lifespan(_app: FastAPI):
 app = FastAPI(title="Voxinq2 STT", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Explicit list when configured, otherwise the self-hosted default pattern above.
+    allow_origins=_ALLOWED_ORIGINS or [],
+    allow_origin_regex=None if _ALLOWED_ORIGINS else _DEFAULT_ORIGIN_REGEX,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -947,6 +985,11 @@ async def voiceprint_extract(request: Request) -> dict:
 
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
+    # WebSockets are exempt from CORS, so the browser would happily let any site open a
+    # recording session here. Apply the same origin rule as the HTTP endpoints.
+    if not _origin_allowed(ws.headers.get("origin")):
+        await ws.close(code=1008)  # policy violation
+        return
     await ws.accept()
     _touch_activity(delta_ws=+1)
     state = StreamState()
