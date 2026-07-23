@@ -77,8 +77,20 @@ defaults. Past versions are kept; switch between them with the version selector.
 ## Archive
 
 **Archive** hides a meeting from the list but keeps it in the DB — it still appears in search,
-and the **Archived** page (link under the list) shows all of them. Use it to declutter without
-deleting. Unarchive from the meeting page, the ⋯ menu on a list card, or the Archived page.
+and the **Archived** page (link under the list) shows all of them, grouped by series. Use it to
+declutter without deleting. Unarchive from the meeting page, the ⋯ menu on a list card, the
+Archived page, or a swipe (below).
+
+## Swipe actions (phones)
+
+On a touch device, swipe a row in the meeting list:
+
+- **Swipe right → Archive** (on the Archived page it unarchives instead)
+- **Swipe left → Trash** (asks for confirmation first)
+
+A **collapsed series stack acts on the whole series** — swiping it archives or trashes every
+meeting in that series at once. Expand the stack (`show N earlier`) to act on a single meeting.
+Vertical scrolling is unaffected, and mouse/desktop behaviour is unchanged.
 
 ## Trash
 

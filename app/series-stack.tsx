@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
+import { SwipeableRow } from "./swipeable-row";
 
 // A recurring series rendered as a "pile" in the meeting list: only the latest
 // meeting's card is shown, with offset layers behind it hinting at the older ones.
@@ -11,12 +12,18 @@ export function SeriesStack({
   name,
   seriesId,
   count,
+  seriesIds,
+  latestId,
+  latestTitle,
   latest,
   rest,
 }: {
   name: string;
   seriesId: string | null;
   count: number;
+  seriesIds: string[];
+  latestId: string;
+  latestTitle: string;
   latest: ReactNode;
   rest: ReactNode;
 }) {
@@ -38,7 +45,17 @@ export function SeriesStack({
             />
           </>
         ) : null}
-        {latest}
+        {/* Collapsed: the swipe acts on the whole series. Expanded: the top card is
+            just this one meeting, and each row below carries its own swipe. */}
+        {open ? (
+          <SwipeableRow ids={[latestId]} label={latestTitle}>
+            {latest}
+          </SwipeableRow>
+        ) : (
+          <SwipeableRow ids={seriesIds} label={name}>
+            {latest}
+          </SwipeableRow>
+        )}
       </div>
       <div
         className={`mt-2 flex w-full items-center gap-2 px-2 py-0.5 text-[11px] text-[var(--text-muted)] ${
