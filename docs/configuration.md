@@ -17,6 +17,13 @@ STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHIS
 `WHISPER_COMPUTE`, `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
 `STT_IDLE_RELEASE_SECONDS` (default 600), and VAD tuning (`VAD_*`).
 
+`STT_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the STT service.
+The browser talks to it directly, so it must accept the origin the web app is served from.
+Leave unset to allow the usual self-hosted origins automatically (`localhost`, private LAN
+addresses, and `*.ts.net`); set it to lock the service to an explicit list, e.g.
+`https://myhost.tailnet.ts.net,http://localhost:3000`. Everything else — including any site
+you happen to visit — is refused.
+
 ## `settings.json`
 
 Edit these in **Settings** in the UI (no restart needed). API keys are stored in plaintext

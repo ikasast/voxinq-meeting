@@ -5,6 +5,19 @@
 You are serving a dev build. `npm run dev` breaks hydration when accessed cross-origin. Always
 run a **production build**: `npm run build && npm start`.
 
+## Recording / diarization fails only from a particular URL (CORS)
+
+The STT service only accepts browser requests from the origins a self-hosted setup normally
+uses: `localhost`, private LAN addresses (10.x, 192.168.x, 172.16–31.x) and `*.ts.net`
+(Tailscale). If you open the web app from some other origin — a custom domain, or a reverse
+proxy on a public hostname — the browser console shows a CORS error and STT calls fail.
+
+Fix: list your origins explicitly for the STT service and restart it.
+
+```
+STT_ALLOWED_ORIGINS=https://myhost.tailnet.ts.net,http://localhost:3000
+```
+
 ## Transcript stays on "Preparing" and never updates
 
 The Whisper model is loading (first meeting can take ~1 minute). Audio is captured meanwhile
