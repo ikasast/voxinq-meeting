@@ -4,9 +4,7 @@
 
 **Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Nothing leaves your machine.**
 
-🎙️ **Record** in the browser → ⚡ **Transcribe** on your GPU → 📝 **Minutes** from your local LLM
-
-![Voxinq Meeting — record, transcribe, diarize and summarize meetings entirely on your own GPU](docs/screenshots/workflow.png)
+![Record an in-person or online meeting, process it locally on your GPU (speaker diarization, transcription, summarization), and get minutes with a summary, key decisions and action items — 100% private, no cloud, no API keys](docs/screenshots/workflow.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
