@@ -8,6 +8,7 @@ import { ArchiveIcon, TrashIcon } from "./icons";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { RecordingBadges } from "./recording-badges";
 import { SeriesStack } from "./series-stack";
+import { SwipeableRow } from "./swipeable-row";
 import { TagFilter } from "./tag-filter";
 
 type MeetingCardData = {
@@ -205,7 +206,15 @@ export async function MeetingListPane({
   // the plain list; during a search every hit should stay individually visible.
   const entries: ReactNode[] = [];
   if (query) {
-    for (const m of meetings) entries.push(<li key={m.id}>{card(m)}</li>);
+    for (const m of meetings) {
+      entries.push(
+        <li key={m.id}>
+          <SwipeableRow ids={[m.id]} label={m.title} archived={m.archivedAt !== null}>
+            {card(m)}
+          </SwipeableRow>
+        </li>,
+      );
+    }
   } else {
     const seriesCounts = new Map<string, number>();
     for (const m of meetings) {
@@ -214,7 +223,13 @@ export async function MeetingListPane({
     const seen = new Set<string>();
     for (const m of meetings) {
       if (!m.seriesName || (seriesCounts.get(m.seriesName) ?? 0) < 2) {
-        entries.push(<li key={m.id}>{card(m)}</li>);
+        entries.push(
+          <li key={m.id}>
+            <SwipeableRow ids={[m.id]} label={m.title}>
+              {card(m)}
+            </SwipeableRow>
+          </li>,
+        );
         continue;
       }
       if (seen.has(m.seriesName)) continue; // folded into the stack of its newest meeting
@@ -226,9 +241,16 @@ export async function MeetingListPane({
             name={m.seriesName}
             seriesId={m.seriesId}
             count={group.length}
+            // Collapsed, the pile represents the whole series: swiping it archives or
+            // trashes every meeting at once. Expanded rows act on a single meeting.
+            seriesIds={group.map((x) => x.id)}
+            latestId={group[0].id}
+            latestTitle={group[0].title}
             latest={card(group[0])}
             rest={group.slice(1).map((x) => (
-              <div key={x.id}>{card(x)}</div>
+              <SwipeableRow key={x.id} ids={[x.id]} label={x.title}>
+                {card(x)}
+              </SwipeableRow>
             ))}
           />
         </li>,
