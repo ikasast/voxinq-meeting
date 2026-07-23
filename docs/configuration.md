@@ -41,6 +41,10 @@ here (single on-prem user assumed), so keep the file private.
 - `summaryFormat` — custom heading structure (empty = default)
 - `llmBackground` — always-on business/research context (used to interpret terms, not copied into minutes)
 
+**Per-series overrides** (edited on a series page, not in `settings.json`)
+- A series can define its own **minutes format** and **transcription glossary**. The series
+  format replaces `summaryFormat`, and the series glossary is appended to `sttGlossary`.
+
 **LLM**
 - `llmProvider` — `ollama` (default) / `anthropic` / `openai`
 - `ollamaBaseUrl`, `ollamaModel`

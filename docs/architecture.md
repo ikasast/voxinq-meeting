@@ -55,6 +55,8 @@ running.
 | Recording (WAV) | `stt-service/recordings/` | auto-delete after 7 days (protect to keep) |
 | Trashed meetings | PostgreSQL (`deletedAt`) | purged after 30 days |
 | Archived meetings | PostgreSQL (`archivedAt`) | kept; hidden from list, shown in search |
+| Series (name + per-series defaults) | PostgreSQL (`series`) | removed automatically with its last meeting |
+| Voice profiles (voiceprints) | PostgreSQL (`speaker_profiles`) | until deleted in Settings → Speakers |
 | Settings / API keys | `settings.json` (gitignored) | until changed |
 
 ---
