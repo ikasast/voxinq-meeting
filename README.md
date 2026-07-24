@@ -4,6 +4,8 @@
 
 **Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Nothing leaves your machine.**
 
+[**日本語の解説はこちら →**](README.ja.md)
+
 ![Record an in-person or online meeting, process it locally on your GPU (speaker diarization, transcription, summarization), and get minutes with a summary, key decisions and action items — 100% private, no cloud, no API keys](docs/screenshots/workflow.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
