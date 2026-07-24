@@ -123,7 +123,13 @@ cd voxinq-meeting
 ### ステップ3: 起動
 
 ```powershell
-.\scripts\start.ps1     # Linux/macOS は ./scripts/start.sh
+# Windows の場合
+.\scripts\start.ps1
+```
+
+```bash
+# Linux / macOS の場合
+./scripts/start.sh
 ```
 
 ブラウザで `http://localhost:3000` を開けば準備完了です。
@@ -132,15 +138,23 @@ cd voxinq-meeting
 > 他の端末（スマホなど）からアクセスした際に画面が反応しなくなります。
 > `scripts/start` は自動的に本番ビルドで起動するので、通常はこれを使ってください。
 
-### PCの起動時に自動で立ち上げたい場合（Windows）
+### PCの起動時に自動で立ち上げたい場合
 
-タスクスケジューラに常駐登録するスクリプトを用意しています。
+**Windows** — タスクスケジューラに常駐登録するスクリプトを用意しています。
 
 ```powershell
 scripts\windows\install-db-task.ps1        # PostgreSQL
 scripts\windows\install-web-task.ps1       # Webアプリ
 stt-service\install-startup-task.ps1       # 文字起こしサービス
 scripts\windows\install-backup-task.ps1    # DBの自動バックアップ（毎晩3時）
+```
+
+**Linux** — Webアプリはコード更新時に `scripts/redeploy.sh` で再起動できます。文字起こしサービスは
+同梱の systemd ユニットを登録してください。
+
+```bash
+sudo cp stt-service/voxinq-stt.service /etc/systemd/system/
+sudo systemctl enable --now voxinq-stt
 ```
 
 詳しい手順は [docs/setup.md](docs/setup.md)（英語）にあります。
