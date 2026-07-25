@@ -17,7 +17,7 @@
 4. [インストール手順](#4-インストール手順)
 5. [基本的な使い方](#5-基本的な使い方)
 6. [便利な機能](#6-便利な機能)
-7. [スマホから使う（Tailscale）](#7-スマホから使うtailscale)
+7. [スマホから使う（Tailscale / WireGuard）](#7-スマホから使うtailscale--wireguard)
 8. [設定のカスタマイズ](#8-設定のカスタマイズ)
 9. [よくある質問（FAQ）](#9-よくある質問faq)
 10. [困ったときは](#10-困ったときは)
@@ -233,9 +233,9 @@ sudo systemctl enable --now voxinq-stt
 
 複数選ぶとZIPにまとまります。
 
-## 7. スマホから使う（Tailscale）
+## 7. スマホから使う（Tailscale / WireGuard）
 
-外出先や会議室から使うには、[Tailscale](https://tailscale.com) を使うのが簡単です。
+外出先や会議室から使うには、[Tailscale](https://tailscale.com) を使うのが**いちばん簡単**です。
 （無料で使えるVPNのようなサービスで、自分の端末同士を安全につなぎます）
 
 ```bash
@@ -256,6 +256,13 @@ NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443
 > 🔒 **セキュリティに関する注意**
 > 文字起こしサービス（8443ポート）は、**Tailscaleの外（Funnel等でインターネット公開）に出さないでください。**
 > このサービスには認証がなく、tailnet内での利用を前提としています。
+
+### Tailscale を使いたくない場合
+
+自前の **WireGuard**（Tailscaleの中身と同じVPN）など、Tailscale以外の方法でも外部アクセスできます。
+ただし Tailscale が自動でやっていたこと（HTTPS証明書の発行・文字起こしサービスの公開・内部判定）を
+手動で用意する必要があり、**閲覧だけなら簡単・録音までやるなら追加の手間**がかかります。
+各方式の比較と手順は **[docs/remote-access.md](docs/remote-access.md)（英語）** にまとめています。
 
 ## 8. 設定のカスタマイズ
 

@@ -1,0 +1,193 @@
+# Remote access (record & view from a phone)
+
+To use Voxinq Meeting from a phone or another device, that device's browser must reach two
+things on the host **over TLS**:
+
+1. the **web app** (port 3000) over HTTPS, and
+2. the **STT service** (port 8000) over WSS — the browser streams audio to it directly.
+
+Two extra rules follow from the browser security model:
+
+- **Recording needs a secure context (HTTPS).** `getUserMedia` (microphone), Wake Lock and
+  PWA install only work over `https://` (or `localhost`). Plain `http://<private-ip>` is
+  **not** a secure context, so the mic is blocked.
+- **The STT service has no authentication of its own** — it only restricts browser origins
+  (see [Configuration → `STT_ALLOWED_ORIGINS`](configuration.md)). So it must never be
+  exposed to the public internet without an auth layer in front of it.
+
+There are two families of solutions:
+
+| Family | Examples | Model |
+| --- | --- | --- |
+| **Private tunnel** | Tailscale, WireGuard | Only your own devices can reach the host; STT stays hidden from the internet |
+| **Public URL** | Cloudflare Tunnel, reverse proxy + domain | Reachable from any browser; **you must add authentication**, especially for STT |
+
+---
+
+## A. Tailscale (easiest)
+
+[Tailscale](https://tailscale.com) is managed WireGuard. It gives you, automatically, the
+three things recording needs: a valid HTTPS certificate (`*.ts.net`), TLS exposure of both
+ports, and an identity header the app trusts.
+
+```bash
+tailscale serve --https=443 localhost:3000     # web
+tailscale serve --https=8443 localhost:8000    # STT (wss)
+```
+
+Set `NEXT_PUBLIC_STT_WS_URL` to the `wss://<host>.<tailnet>.ts.net:8443/ws` URL **before
+building** (it is baked in at build time). Optionally set `APP_PASSWORD` for login on
+public/Funnel access. See [Configuration](configuration.md).
+
+> Requests that arrive through `tailscale serve` carry a `Tailscale-User-Login` header, which
+> the app treats as "internal" (recording enabled). Any other path is treated as external
+> (view-only). A public reverse proxy must therefore **strip that header** to prevent spoofing.
+
+---
+
+## B. WireGuard (self-hosted, no Tailscale)
+
+[WireGuard](https://www.wireguard.com/) is the VPN Tailscale is built on, and it ships in the
+Linux kernel. You get the same privacy model (only your devices reach the host), fully
+self-hosted, but **you provide manually what Tailscale did for free**:
+
+| What recording needs | Tailscale gave you | With plain WireGuard you must… |
+| --- | --- | --- |
+| Reach the STT service (:8000) | `tailscale serve :8443` | tunnel/expose :8000 yourself |
+| HTTPS certificate | free `*.ts.net` cert | issue your own cert (below) |
+| "Internal" detection (recording UI) | `Tailscale-User-Login` header | set `NETWORK_MODE=lan` |
+
+Because of that, pick the tier that matches your need.
+
+### Set up the tunnel (both tiers need this)
+
+**Where to run the WireGuard server**
+
+- **A machine with a public IP** (e.g. a VPS) — no router changes needed.
+- **A home/office machine** — forward a UDP port (default `51820`) on the router to it, and
+  use a dynamic-DNS name if your home IP changes.
+
+**Server (Linux)**
+
+```bash
+sudo apt install wireguard              # Debian/Ubuntu
+wg genkey | tee server.key | wg pubkey > server.pub    # keys (repeat for each client)
+
+sudo tee /etc/wireguard/wg0.conf >/dev/null <<'EOF'
+[Interface]
+Address = 10.9.0.1/24
+ListenPort = 51820
+PrivateKey = <server.key contents>
+
+[Peer]                                   # one block per device
+PublicKey = <phone public key>
+AllowedIPs = 10.9.0.2/32
+EOF
+
+sudo sysctl -w net.ipv4.ip_forward=1     # persist in /etc/sysctl.conf
+sudo wg-quick up wg0
+sudo systemctl enable wg-quick@wg0       # start on boot
+```
+
+**Phone** — install the official WireGuard app and add a tunnel (generating a QR code on the
+server with `qrencode` from the client config is the easiest way to import it):
+
+```ini
+[Interface]
+PrivateKey = <phone private key>
+Address = 10.9.0.2/32
+
+[Peer]
+PublicKey = <server.pub contents>
+Endpoint = <server public IP or DDNS name>:51820
+AllowedIPs = 10.9.0.1/32       # route only the host, not all traffic
+```
+
+### Tier 1 — view only (simplest, safest)
+
+Do nothing more. With the tunnel up, open **`http://10.9.0.1:3000`** on the phone.
+
+- The STT service (:8000) stays private — it is not exposed at all.
+- The app sees no `Tailscale-User-Login` header, so it runs in **view-only mode**: you can
+  read minutes and transcripts, but the recording UI is disabled. (Recording is still done
+  at home/office over `localhost`/LAN.)
+- If `APP_PASSWORD` is set, you log in as usual.
+
+Plain HTTP is fine here because viewing needs no secure context.
+
+### Tier 2 — recording too
+
+Recording needs HTTPS, so put **[Caddy](https://caddyserver.com/)** in front to serve both
+services over TLS using its built-in local CA, then trust that CA on each device.
+
+```caddyfile
+# Caddyfile — HTTPS via Caddy's internal CA (no public domain needed)
+https://10.9.0.1 {
+    tls internal
+    reverse_proxy localhost:3000
+}
+https://10.9.0.1:8443 {
+    tls internal
+    reverse_proxy localhost:8000
+}
+```
+
+Then:
+
+1. **Trust Caddy's root CA on every device.** Export it (`caddy trust`, or copy
+   `~/.local/share/caddy/pki/authorities/local/root.crt`) and install it on the phone
+   (Android: *Settings → Security → Install a certificate → CA certificate*; iOS: install the
+   profile, then enable it under *Settings → General → About → Certificate Trust Settings*).
+2. **Rebuild** with the STT URL pointing at the HTTPS endpoint (baked in at build time):
+   ```
+   NEXT_PUBLIC_STT_WS_URL="wss://10.9.0.1:8443/ws"
+   ```
+3. **Enable the recording UI over the tunnel** by setting `NETWORK_MODE=lan` (the tunnel is
+   already your trust boundary, so every reachable client is treated as internal). See
+   [Configuration](configuration.md).
+
+Now `https://10.9.0.1` on the phone can record end to end.
+
+> WireGuard does not automate NAT traversal, dynamic DNS, key distribution or name
+> resolution — Tailscale does all of that for you. If that manual work is unappealing but you
+> still want a self-hosted VPN, Tailscale is the pragmatic choice; WireGuard is for when you
+> want zero third-party coordination.
+
+---
+
+## C. Public URL (reachable from any browser)
+
+If you would rather not run a VPN client on each device, expose a public HTTPS URL — but
+remember the STT service has **no authentication**, so you must add one at the edge.
+
+- **[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
+  + Cloudflare Access** — a `cloudflared` daemon on the host opens an outbound tunnel, so you
+  get a public HTTPS hostname with **no port forwarding and no static IP**. Cloudflare Access
+  puts login (Google/e-mail OTP, etc.) in front of everything, which conveniently protects the
+  auth-less STT service. Easiest "safe from anywhere" option; Cloudflare sits in the path.
+- **Your own domain + reverse proxy** (Caddy/nginx + Let's Encrypt) — fully self-hosted, but
+  you must enforce authentication in front of **both** the web app and the STT routes
+  yourself, and open a port / use dynamic DNS.
+
+Whichever you pick, point `NEXT_PUBLIC_STT_WS_URL` at the public STT URL before building, and
+never leave the STT service reachable without an auth layer.
+
+---
+
+## Which should I use?
+
+| Approach | You set up | Difficulty | Phone recording | Third party |
+| --- | --- | --- | --- | --- |
+| **Tailscale** | almost nothing | ★ easiest | ✅ works out of the box | Tailscale |
+| **WireGuard — view only** | tunnel + router | ★★ | ❌ (view only) | none |
+| **WireGuard — with recording** | tunnel + Caddy/TLS + CA on devices | ★★★ | ✅ after setup | none |
+| **Cloudflare Tunnel + Access** | `cloudflared` + Access policy | ★★ | ✅ (needs HTTPS-aware config) | Cloudflare |
+| **Domain + reverse proxy** | domain + proxy + auth | ★★★ | ✅ after setup | none |
+
+- Want it to "just work" → **Tailscale**.
+- Want no third party, and only need to read minutes on the go → **WireGuard, view only**.
+- Want no third party and full recording → **WireGuard with Caddy**, accepting the extra setup.
+
+---
+
+[Docs index](README.md) · [← Setup](setup.md) · Next: [Configuration →](configuration.md)
