@@ -129,18 +129,13 @@ only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --i
 - STT service: install the provided `stt-service/voxinq-stt.service` systemd unit, then
   `sudo systemctl enable --now voxinq-stt`.
 
-## Remote access (Tailscale)
+## Remote access (record & view from a phone)
 
-Expose the host over [Tailscale](https://tailscale.com) so you can record from a phone:
+Expose the host so a phone can reach it — the quickest is [Tailscale](https://tailscale.com),
+but self-hosted **WireGuard** (no third party) and public-URL options work too. The full
+comparison and step-by-step for each is on its own page:
 
-```bash
-tailscale serve --https=443 localhost:3000     # web
-tailscale serve --https=8443 localhost:8000     # STT (wss)
-```
-
-Set `NEXT_PUBLIC_STT_WS_URL` to the `wss://<host>.<tailnet>.ts.net:8443/ws` URL **before
-building** (it is baked in at build time). Optionally set `APP_PASSWORD` for login on
-public/Funnel access. See [Configuration](configuration.md).
+**→ [Remote access](remote-access.md)**
 
 ---
 
