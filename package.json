@@ -14,7 +14,7 @@
     "@anthropic-ai/sdk": "^0.111.0",
     "@prisma/client": "^6.19.3",
     "jszip": "^3.10.1",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-markdown": "^10.1.0",
