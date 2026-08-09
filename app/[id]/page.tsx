@@ -9,6 +9,7 @@ import { ArchiveButton } from "./archive-button";
 import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 import { DownloadMeetingButton } from "./download-meeting-button";
+import { ResumeRecordingButton } from "./resume-recording-button";
 import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
@@ -74,6 +75,10 @@ export default async function MeetingDetailPage({
             <Link href={`/${meeting.id}/recording`} className="btn-ink">
               Recording screen
             </Link>
+          ) : null}
+          {meeting.endedAt && !external ? (
+            // Only rendered when the recording is still kept (the button checks STT).
+            <ResumeRecordingButton meetingId={meeting.id} />
           ) : null}
           {/* Compact icon toolbar (hover for what each does).
               External (read-only) access keeps only the download button. */}
