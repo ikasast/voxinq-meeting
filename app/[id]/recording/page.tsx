@@ -167,10 +167,17 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // Per-series glossary terms are appended to the global glossary at recording start.
       if (data.series?.sttGlossary) seriesGlossaryRef.current = data.series.sttGlossary;
       setStartedAt(new Date(data.startedAt));
-      // Already-ended meeting (e.g. navigated back here after finishing): block restart.
+      // Already-ended meeting. With ?resume=1 (Resume recording), reopen it and append a new
+      // session to the existing recording; otherwise block restart (e.g. a back-navigation).
       if (data.endedAt) {
-        endedRef.current = true;
-        setEnded(true);
+        const resume = new URLSearchParams(window.location.search).get("resume") === "1";
+        if (resume) {
+          await fetch(`/api/meetings/${meetingId}/reopen`, { method: "POST" }).catch(() => {});
+          // Stay "not ended" so autostart proceeds and the session appends to the recording.
+        } else {
+          endedRef.current = true;
+          setEnded(true);
+        }
       }
       // The per-meeting language overrides the settings default (adopted at start).
       if (data.sttLanguage) {
