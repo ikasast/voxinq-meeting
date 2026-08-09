@@ -63,3 +63,14 @@ export function formatDuration(
   const m = totalMin % 60;
   return h > 0 ? `${h} hr${m > 0 ? ` ${m} min` : ""}` : `${m} min`;
 }
+
+/** Format a duration given in milliseconds, like "2 hr 5 min" / "42 min" / "50 sec".
+ * null when unknown or non-positive. Used for actual recorded length in the meeting list. */
+export function formatDurationMs(ms: number | null | undefined): string | null {
+  if (ms == null || !(ms > 0)) return null;
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 1) return `${Math.round(ms / 1000)} sec`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h} hr${m > 0 ? ` ${m} min` : ""}` : `${m} min`;
+}

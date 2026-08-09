@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
-import { formatDateTime, formatDuration } from "@/lib/utils";
+import { formatDateTime, formatDurationMs } from "@/lib/utils";
 import { SummaryStatusPoller } from "./[id]/summary-status-poller";
 import { ArchiveIcon, TrashIcon } from "./icons";
 import { MeetingItemMenu } from "./meeting-item-menu";
@@ -17,6 +17,8 @@ type MeetingCardData = {
   startedAt: Date;
   endedAt: Date | null;
   archivedAt: Date | null;
+  // Actual recording length (ms): the stored recorded_ms, else the transcript time span.
+  durationMs: number | null;
   summaryStatus: string | null;
   seriesName: string | null;
   seriesId: string | null;
@@ -64,10 +66,31 @@ export async function MeetingListPane({
       },
     }),
   ]);
+  // Actual recording time: prefer the stored recorded length; for meetings recorded before
+  // that was captured, fall back to the transcript time span (first -> last utterance).
+  const ids = meetingsRaw.map((m) => m.id);
+  const spans = ids.length
+    ? await prisma.transcript.groupBy({
+        by: ["meetingId"],
+        where: { meetingId: { in: ids } },
+        _min: { createdAt: true },
+        _max: { createdAt: true },
+      })
+    : [];
+  const spanMs = new Map(
+    spans.map((s) => [
+      s.meetingId,
+      s._max.createdAt && s._min.createdAt
+        ? s._max.createdAt.getTime() - s._min.createdAt.getTime()
+        : 0,
+    ]),
+  );
+
   const meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
     ...m,
     seriesName: m.series?.name ?? null,
     seriesId: m.series?.id ?? null,
+    durationMs: m.recordedMs ?? spanMs.get(m.id) ?? null,
   }));
 
   // On search: find where it matched + a snippet.
@@ -158,9 +181,7 @@ export async function MeetingListPane({
           </div>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {formatDateTime(m.startedAt)}
-            {formatDuration(m.startedAt, m.endedAt)
-              ? ` · ${formatDuration(m.startedAt, m.endedAt)}`
-              : ""}{" "}
+            {formatDurationMs(m.durationMs) ? ` · ${formatDurationMs(m.durationMs)}` : ""}{" "}
             · {m._count.transcripts} utterances / {m._count.summaries} minutes
             {m.summaryStatus === "processing" && m._count.summaries === 0 ? " · generating…" : ""}
           </p>
