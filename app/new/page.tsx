@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/utils";
+import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
 import { useGpuBusy } from "../use-gpu-busy";
 
@@ -35,6 +36,7 @@ export default function NewMeetingPage() {
   // needs the GPU, so we offer to interrupt the in-progress minutes first.
   const [showInterrupt, setShowInterrupt] = useState(false);
   const [interrupting, setInterrupting] = useState(false);
+  const [interruptMeetingId, setInterruptMeetingId] = useState<string | undefined>(undefined);
 
   // Recording settings for this meeting only; not saved to the settings file.
   const [sttLanguage, setSttLanguage] = useState("auto"); // saved on the meeting
@@ -123,7 +125,7 @@ export default function NewMeetingPage() {
     }
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!title.trim()) {
@@ -131,12 +133,18 @@ export default function NewMeetingPage() {
       return;
     }
     // Recording needs the GPU. If minutes are still generating (Ollama holds the GPU),
-    // ask whether to interrupt them first instead of contending for VRAM.
-    if (gpu.minutesBusy) {
+    // ask whether to interrupt them first instead of contending for VRAM. Check freshly at
+    // click time — the polled `gpu.minutesBusy` lags and starts false. Fall back to it if
+    // the fresh check fails.
+    setSubmitting(true);
+    const mb = await currentMinutesBusy();
+    if (mb.busy || gpu.minutesBusy) {
+      setInterruptMeetingId(mb.meetingId ?? gpu.minutesMeetingId);
       setShowInterrupt(true);
+      setSubmitting(false);
       return;
     }
-    void startRecording();
+    await startRecording();
   };
 
   // Confirmed from the popup: interrupt the running minutes generation (frees the GPU),
@@ -144,11 +152,7 @@ export default function NewMeetingPage() {
   const interruptAndStart = async () => {
     setInterrupting(true);
     try {
-      await fetch("/api/claude/summary/abort", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: gpu.minutesMeetingId }),
-      }).catch(() => {});
+      await abortMinutesAndSettle(interruptMeetingId);
     } finally {
       setInterrupting(false);
       setShowInterrupt(false);
