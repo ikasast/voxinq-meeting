@@ -7,7 +7,11 @@ import type { ChatArgs, ChatProvider, LlmConfig } from "./types";
 // Authorization header only when a key is set.
 export const openaiProvider: ChatProvider = {
   name: "openai",
-  async chat({ system, user, maxTokens }: ChatArgs, cfg: LlmConfig): Promise<string> {
+  async chat(
+    { system, user, maxTokens }: ChatArgs,
+    cfg: LlmConfig,
+    signal?: AbortSignal,
+  ): Promise<string> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (cfg.openaiApiKey) headers.Authorization = `Bearer ${cfg.openaiApiKey}`;
     // Stream (SSE): slow local servers may take >5 min to produce a full answer, and
@@ -16,6 +20,7 @@ export const openaiProvider: ChatProvider = {
     const res = await fetch(`${cfg.openaiBaseUrl}/chat/completions`, {
       method: "POST",
       headers,
+      signal,
       body: JSON.stringify({
         model: cfg.openaiModel,
         max_tokens: maxTokens,

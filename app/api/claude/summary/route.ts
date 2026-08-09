@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestSummary } from "@/lib/llm";
+import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { getLlmConfig } from "@/lib/settings";
 import { parseSpeakerLabels } from "@/lib/speakers";
 
@@ -109,15 +110,21 @@ export async function POST(req: NextRequest) {
   }));
 
   after(async () => {
+    // Register an abort handle so an urgent recording can interrupt this run to free the GPU.
+    const ac = beginGeneration(meetingId);
     try {
-      const summaryText = await requestSummary(transcriptInput, {
-        description,
-        speakerLabels,
-        detail,
-        provider,
-        format: meeting.series?.summaryFormat ?? undefined,
-        previousMinutes,
-      });
+      const summaryText = await requestSummary(
+        transcriptInput,
+        {
+          description,
+          speakerLabels,
+          detail,
+          provider,
+          format: meeting.series?.summaryFormat ?? undefined,
+          previousMinutes,
+        },
+        ac.signal,
+      );
       // Record which provider/model produced this version (mirrors the resolution
       // in requestSummary: valid override wins, else the saved setting).
       const cfg = await getLlmConfig();
@@ -139,17 +146,35 @@ export async function POST(req: NextRequest) {
         data: { summaryStatus: "done" },
       });
     } catch (e) {
-      console.error("summary generation failed", e);
-      // Keep a human-readable reason for the UI (include the network-level cause,
-      // e.g. UND_ERR_HEADERS_TIMEOUT, which the top-level message often hides).
-      const cause = e instanceof Error && e.cause instanceof Error ? ` (${e.cause.message})` : "";
-      const reason = `${e instanceof Error ? e.message : String(e)}${cause}`.slice(0, 300);
-      await prisma.meeting
-        .update({
-          where: { id: meetingId },
-          data: { summaryStatus: "error", summaryError: reason },
-        })
-        .catch(() => {});
+      // Aborted on purpose (to start a recording): record a friendly, actionable reason
+      // rather than a raw AbortError, and let the user regenerate later.
+      const aborted =
+        ac.signal.aborted || (e instanceof Error && e.name === "AbortError");
+      if (aborted) {
+        await prisma.meeting
+          .update({
+            where: { id: meetingId },
+            data: {
+              summaryStatus: "error",
+              summaryError: "Interrupted to start a recording. You can regenerate the minutes.",
+            },
+          })
+          .catch(() => {});
+      } else {
+        console.error("summary generation failed", e);
+        // Keep a human-readable reason for the UI (include the network-level cause,
+        // e.g. UND_ERR_HEADERS_TIMEOUT, which the top-level message often hides).
+        const cause = e instanceof Error && e.cause instanceof Error ? ` (${e.cause.message})` : "";
+        const reason = `${e instanceof Error ? e.message : String(e)}${cause}`.slice(0, 300);
+        await prisma.meeting
+          .update({
+            where: { id: meetingId },
+            data: { summaryStatus: "error", summaryError: reason },
+          })
+          .catch(() => {});
+      }
+    } finally {
+      endGeneration(meetingId, ac);
     }
   });
 

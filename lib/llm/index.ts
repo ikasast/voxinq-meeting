@@ -143,12 +143,14 @@ async function condenseChunk(
   language: string,
   part: number,
   total: number,
+  signal?: AbortSignal,
 ): Promise<string> {
   const lang = LANG_NAME[language] ?? "日本語";
   const system = `あなたは会議の記録補助です。以下は長い会議の発言ログの一部（パート${part}/${total}）です。あとで議事録にまとめるため、この部分に含まれる内容を${lang}で漏れなく箇条書きにしてください。決定事項・議論・課題・TODO・数値・固有名詞・担当者は落とさない。要約しすぎない。前置き・見出しは不要、箇条書きのみ。この部分に無い事項は書かない。`;
   const notes = await provider.chat(
     { system, user: text, maxTokens: 1500 },
     cfg,
+    signal,
   );
   return sanitizeSummary(notes);
 }
@@ -184,16 +186,19 @@ async function condenseTranscript(
   conversation: string,
   avail: number,
   language: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const chunks = splitForCondense(conversation, avail);
   const notes: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
-    notes.push(`# パート${i + 1}\n${await condenseChunk(provider, cfg, chunks[i], language, i + 1, chunks.length)}`);
+    notes.push(
+      `# パート${i + 1}\n${await condenseChunk(provider, cfg, chunks[i], language, i + 1, chunks.length, signal)}`,
+    );
   }
   const combined = notes.join("\n\n");
   // If even the combined notes overflow (very long meeting), condense once more.
   return estTokens(combined) > avail
-    ? condenseTranscript(provider, cfg, combined, avail, language)
+    ? condenseTranscript(provider, cfg, combined, avail, language, signal)
     : combined;
 }
 
@@ -211,6 +216,8 @@ export async function requestSummary(
     // Previous meeting's minutes when this meeting belongs to a series (reference-only).
     previousMinutes?: { title: string; date: string; text: string };
   },
+  // Abort the whole generation (all LLM calls) — used to free the GPU for a recording.
+  signal?: AbortSignal,
 ): Promise<string> {
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
   const conversation = transcriptsToText(transcripts, opts?.speakerLabels ?? {}, multiSpeaker);
@@ -262,7 +269,7 @@ export async function requestSummary(
   let source = conversation;
   let condensed = false;
   if (estTokens(conversation) > avail) {
-    source = await condenseTranscript(provider, cfg, conversation, avail, language);
+    source = await condenseTranscript(provider, cfg, conversation, avail, language, signal);
     condensed = true;
   }
 
@@ -287,6 +294,7 @@ export async function requestSummary(
       prefill,
     },
     cfg,
+    signal,
   );
   return sanitizeSummary(raw);
 }

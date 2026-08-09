@@ -8,12 +8,19 @@ import { sttHttpBase } from "@/lib/stt/client";
 // to disable "start another task" actions while one is in progress.
 export type GpuBusy = {
   busy: boolean;
+  minutesBusy: boolean; // minutes generation (Ollama) is running — interruptible
+  sttBusy: boolean; // STT is recording / transcribing / diarizing
   label: string | null; // human-readable current task, e.g. "Generating minutes…"
   minutesMeetingId?: string; // meeting whose minutes are being generated (if any)
 };
 
 export function useGpuBusy(pollMs = 4000): GpuBusy {
-  const [state, setState] = useState<GpuBusy>({ busy: false, label: null });
+  const [state, setState] = useState<GpuBusy>({
+    busy: false,
+    minutesBusy: false,
+    sttBusy: false,
+    label: null,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +52,13 @@ export function useGpuBusy(pollMs = 4000): GpuBusy {
             : stt?.busyKind === "transcribe"
               ? "Transcribing…"
               : "Diarizing…";
-      setState({ busy: mBusy || sBusy, label, minutesMeetingId: minutes?.minutes?.meetingId });
+      setState({
+        busy: mBusy || sBusy,
+        minutesBusy: mBusy,
+        sttBusy: sBusy,
+        label,
+        minutesMeetingId: minutes?.minutes?.meetingId,
+      });
     };
     void check();
     const t = setInterval(() => void check(), pollMs);

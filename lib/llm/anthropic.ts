@@ -19,13 +19,20 @@ function client(apiKey: string | undefined): Anthropic {
 
 export const anthropicProvider: ChatProvider = {
   name: "anthropic",
-  async chat({ system, user, maxTokens }: ChatArgs, cfg: LlmConfig): Promise<string> {
-    const res = await client(cfg.anthropicApiKey).messages.create({
-      model: cfg.anthropicModel,
-      max_tokens: maxTokens,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
-      messages: [{ role: "user", content: user }],
-    });
+  async chat(
+    { system, user, maxTokens }: ChatArgs,
+    cfg: LlmConfig,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    const res = await client(cfg.anthropicApiKey).messages.create(
+      {
+        model: cfg.anthropicModel,
+        max_tokens: maxTokens,
+        system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+        messages: [{ role: "user", content: user }],
+      },
+      { signal },
+    );
     return res.content
       .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
       .map((b) => b.text)

@@ -27,5 +27,6 @@ export interface ChatArgs {
 
 export interface ChatProvider {
   readonly name: LlmProviderName;
-  chat(args: ChatArgs, cfg: LlmConfig): Promise<string>;
+  // `signal` lets a long generation be aborted (e.g. to free the GPU for a recording).
+  chat(args: ChatArgs, cfg: LlmConfig, signal?: AbortSignal): Promise<string>;
 }
