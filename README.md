@@ -27,7 +27,7 @@
 - 🗣️ **Speaker diarization with voice profiles** — assign speakers after the meeting ([pyannote](https://github.com/pyannote/pyannote-audio)), and enrol a voice once so it is **named automatically** in every future meeting.
 - 🔁 **Recurring series** — link meetings into a series; the previous minutes are fed to the LLM as context, and each series can carry its own minutes format and glossary.
 - 🔍 **Search, tags, archive & trash** — find meetings fast; soft-delete with 30-day restore.
-- 🌐 **Access from your phone** — install as a PWA; reach it over [Tailscale](https://tailscale.com) with optional password auth, and swipe rows to archive or delete.
+- 🌐 **Phone access & read-only sharing** — install as a PWA and reach it over [Tailscale](https://tailscale.com) with optional password auth. One click in **Settings → Remote access** publishes a password-protected, **read-only** public link (view & download only) for people outside your tailnet — recording, editing and the transcription service stay private.
 
 ## 💡 Why Voxinq Meeting?
 

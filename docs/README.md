@@ -6,7 +6,7 @@ want to do:
 | I want to… | Read |
 | --- | --- |
 | **Install it** (Windows / Linux, background services, phone access) | 📦 [Setup](setup.md) |
-| **Reach it from a phone** (Tailscale, self-hosted WireGuard, public URL) | 🌐 [Remote access](remote-access.md) |
+| **Reach it from a phone / share read-only** (Tailscale, in-app publish toggle, WireGuard, public URL) | 🌐 [Remote access](remote-access.md) |
 | **Change a setting** (every `.env` variable and `settings.json` option) | ⚙️ [Configuration](configuration.md) |
 | **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](llm-providers.md) |
 | **Learn the features** (record, upload, diarize, regenerate, archive, search) | 📖 [Usage & recipes](usage.md) |
