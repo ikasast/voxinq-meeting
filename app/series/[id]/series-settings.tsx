@@ -10,11 +10,13 @@ export function SeriesSettings({
   name,
   summaryFormat,
   sttGlossary,
+  readOnly = false,
 }: {
   id: string;
   name: string;
   summaryFormat: string | null;
   sttGlossary: string | null;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -56,7 +58,7 @@ export function SeriesSettings({
         <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">
           Series defaults
         </h2>
-        {!editing ? (
+        {!editing && !readOnly ? (
           <button type="button" onClick={() => setEditing(true)} className="btn-outline">
             Edit
           </button>

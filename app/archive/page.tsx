@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import { ArchiveButton } from "../[id]/archive-button";
@@ -23,6 +24,7 @@ type Row = {
 // Meetings that belong to a series are grouped under that series, mirroring the
 // stacked presentation of the main list.
 export default async function ArchivePage() {
+  const external = await isExternalRequest();
   const meetings: Row[] = await prisma.meeting.findMany({
     where: { deletedAt: null, archivedAt: { not: null } },
     orderBy: { archivedAt: "desc" },
@@ -82,9 +84,16 @@ export default async function ArchivePage() {
           </p>
         ) : null}
       </div>
-      <ArchiveButton id={m.id} archived variant="text" />
+      {!external ? <ArchiveButton id={m.id} archived variant="text" /> : null}
     </div>
   );
+
+  const swipeWrap = (node: React.ReactNode, id: string, title: string) =>
+    external ? node : (
+      <SwipeableRow ids={[id]} label={title} archived>
+        {node}
+      </SwipeableRow>
+    );
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -99,8 +108,10 @@ export default async function ArchivePage() {
       </div>
       <p className="text-sm text-[var(--text-muted)]">
         Archived meetings are hidden from the main list but kept forever — open them here or
-        via search. Unarchive to bring one back to the list. On a phone, swipe a row right to
-        unarchive or left to move it to Trash.
+        via search.
+        {!external
+          ? " Unarchive to bring one back to the list. On a phone, swipe a row right to unarchive or left to move it to Trash."
+          : ""}
       </p>
 
       {meetings.length === 0 ? (
@@ -122,18 +133,12 @@ export default async function ArchivePage() {
                 </Link>
                 <div className="space-y-2">
                   {g.items.map((m) => (
-                    <SwipeableRow key={m.id} ids={[m.id]} label={m.title} archived>
-                      {row(m)}
-                    </SwipeableRow>
+                    <div key={m.id}>{swipeWrap(row(m), m.id, m.title)}</div>
                   ))}
                 </div>
               </li>
             ) : (
-              <li key={g.items[0].id}>
-                <SwipeableRow ids={[g.items[0].id]} label={g.items[0].title} archived>
-                  {row(g.items[0])}
-                </SwipeableRow>
-              </li>
+              <li key={g.items[0].id}>{swipeWrap(row(g.items[0]), g.items[0].id, g.items[0].title)}</li>
             ),
           )}
         </ul>

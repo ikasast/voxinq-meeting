@@ -13,12 +13,14 @@ export function MeetingMeta({
   tags,
   series,
   seriesId,
+  readOnly = false,
 }: {
   id: string;
   description: string | null;
   tags: string[];
   series: string | null;
   seriesId: string | null;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [savedDesc, setSavedDesc] = useState(description ?? "");
@@ -120,7 +122,7 @@ export function MeetingMeta({
         <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">
           Purpose &amp; agenda
         </h2>
-        {!editing ? (
+        {!editing && !readOnly ? (
           <button type="button" onClick={() => setEditing(true)} className="btn-outline">
             Edit
           </button>

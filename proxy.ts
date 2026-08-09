@@ -2,25 +2,56 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_COOKIE, expectedAuthToken } from "./lib/auth-token";
 
-// Simple auth. Passes through if APP_PASSWORD is unset (auth disabled).
-// When set, protects everything except /login and /api/auth/* with a cookie.
+// Password auth + a read-only boundary for access from outside the private network.
+// Passes everything through when APP_PASSWORD is unset (auth disabled).
 // (In Next.js 16 middleware.ts is deprecated -> migrated to proxy.ts. Same behavior.)
+
+const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// Screens that only make sense for a writer (recording / creating a meeting). External
+// viewers are sent home rather than landing on a page whose every action would be refused.
+const WRITER_PAGES = [/^\/new$/, /^\/quick-record$/, /^\/[^/]+\/recording$/];
+
 export async function proxy(req: NextRequest) {
   const expected = await expectedAuthToken();
-  if (!expected) return NextResponse.next();
+  if (!expected) return NextResponse.next(); // auth disabled -> no restrictions
 
-  // Requests via Tailscale serve carry the Tailscale-User-Login header that Tailscale
-  // has already authenticated -> trust and pass through within the tailnet.
-  // (On a public reverse proxy, always strip this header to prevent spoofing.)
+  // Tailscale serve injects an authenticated identity header within the tailnet -> trusted,
+  // full access. A public reverse proxy MUST strip this header to prevent spoofing; Tailscale
+  // Funnel manages it for you (Funnel requests carry no such header, so they are external).
   if (req.headers.get("tailscale-user-login")) {
     return NextResponse.next();
   }
 
   const { pathname } = req.nextUrl;
+
+  // "External" = reached without a tailnet identity. Unless NETWORK_MODE=lan trusts the local
+  // network, such access is READ-ONLY: it may view pages and download exports, but every
+  // state-changing request is refused here — defence in depth behind the password, so even a
+  // logged-in viewer on an untrusted machine cannot record, generate, edit or delete.
+  const external = process.env.NETWORK_MODE !== "lan";
+  if (external) {
+    if (
+      MUTATING.has(req.method) &&
+      pathname.startsWith("/api/") &&
+      !pathname.startsWith("/api/auth/") // login/logout must still work
+    ) {
+      return NextResponse.json(
+        { error: "This server is read-only from outside your private network." },
+        { status: 403 },
+      );
+    }
+    if (WRITER_PAGES.some((re) => re.test(pathname))) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Login gate for everything else.
   if (pathname === "/login" || pathname.startsWith("/api/auth/")) {
     return NextResponse.next();
   }
-
   const token = req.cookies.get(AUTH_COOKIE)?.value;
   if (token === expected) return NextResponse.next();
 

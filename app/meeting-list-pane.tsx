@@ -30,10 +30,13 @@ export async function MeetingListPane({
   q,
   tag,
   activeId,
+  readOnly = false,
 }: {
   q?: string;
   tag?: string;
   activeId?: string;
+  // External (read-only) access: no swipe actions or per-card ⋯ menu, no Trash link.
+  readOnly?: boolean;
 }) {
   const query = (q ?? "").trim();
   const activeTag = (tag ?? "").trim();
@@ -195,25 +198,29 @@ export async function MeetingListPane({
             </p>
           ) : null}
         </Link>
-        <div className="absolute right-1.5 top-1.5">
-          <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} />
-        </div>
+        {!readOnly ? (
+          <div className="absolute right-1.5 top-1.5">
+            <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} />
+          </div>
+        ) : null}
       </div>
     );
   };
+
+  // Wrap a card in swipe gestures unless read-only (external viewers cannot archive/trash).
+  const swipeWrap = (node: ReactNode, ids: string[], label: string, archived = false) =>
+    readOnly ? node : (
+      <SwipeableRow ids={ids} label={label} archived={archived}>
+        {node}
+      </SwipeableRow>
+    );
 
   // Group recurring series into a single stacked entry (latest on top) — but only in
   // the plain list; during a search every hit should stay individually visible.
   const entries: ReactNode[] = [];
   if (query) {
     for (const m of meetings) {
-      entries.push(
-        <li key={m.id}>
-          <SwipeableRow ids={[m.id]} label={m.title} archived={m.archivedAt !== null}>
-            {card(m)}
-          </SwipeableRow>
-        </li>,
-      );
+      entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title, m.archivedAt !== null)}</li>);
     }
   } else {
     const seriesCounts = new Map<string, number>();
@@ -223,13 +230,7 @@ export async function MeetingListPane({
     const seen = new Set<string>();
     for (const m of meetings) {
       if (!m.seriesName || (seriesCounts.get(m.seriesName) ?? 0) < 2) {
-        entries.push(
-          <li key={m.id}>
-            <SwipeableRow ids={[m.id]} label={m.title}>
-              {card(m)}
-            </SwipeableRow>
-          </li>,
-        );
+        entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
         continue;
       }
       if (seen.has(m.seriesName)) continue; // folded into the stack of its newest meeting
@@ -246,11 +247,10 @@ export async function MeetingListPane({
             seriesIds={group.map((x) => x.id)}
             latestId={group[0].id}
             latestTitle={group[0].title}
+            readOnly={readOnly}
             latest={card(group[0])}
             rest={group.slice(1).map((x) => (
-              <SwipeableRow key={x.id} ids={[x.id]} label={x.title}>
-                {card(x)}
-              </SwipeableRow>
+              <div key={x.id}>{swipeWrap(card(x), [x.id], x.title)}</div>
             ))}
           />
         </li>,
@@ -313,13 +313,15 @@ export async function MeetingListPane({
           <ArchiveIcon className="h-3.5 w-3.5" />
           Archived
         </Link>
-        <Link
-          href="/trash"
-          className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
-        >
-          <TrashIcon className="h-3.5 w-3.5" />
-          Trash
-        </Link>
+        {!readOnly ? (
+          <Link
+            href="/trash"
+            className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+            Trash
+          </Link>
+        ) : null}
       </div>
     </div>
   );

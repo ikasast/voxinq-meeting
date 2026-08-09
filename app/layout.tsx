@@ -37,29 +37,24 @@ function HeaderNav({ external }: { external: boolean }) {
           <img src="/logo-light.svg" alt="Voxinq Meeting" className="logo-light h-9 w-auto" />
         </Link>
         <nav className="flex items-center gap-2">
-          <Link href="/settings" className="btn-icon" title="Settings" aria-label="Settings">
-            <GearIcon />
-          </Link>
+          {/* External (read-only) access hides settings/record/new — only viewing + downloads. */}
           {external ? null : (
-            // Recording is Tailscale-internal only, so only offer it on internal access
-            <Link
-              href="/quick-record"
-              className="btn-icon"
-              title="One-tap record"
-              aria-label="One-tap record"
-            >
-              <MicIcon />
-            </Link>
-          )}
-          {external ? (
-            // Recording is Tailscale-internal only, so disable the create action on external access
-            <span className="btn-ink cursor-not-allowed opacity-50" title="Recording is not available from an external network">
-              + New
-            </span>
-          ) : (
-            <Link href="/new" className="btn-ink">
-              + New
-            </Link>
+            <>
+              <Link href="/settings" className="btn-icon" title="Settings" aria-label="Settings">
+                <GearIcon />
+              </Link>
+              <Link
+                href="/quick-record"
+                className="btn-icon"
+                title="One-tap record"
+                aria-label="One-tap record"
+              >
+                <MicIcon />
+              </Link>
+              <Link href="/new" className="btn-ink">
+                + New
+              </Link>
+            </>
           )}
           {process.env.APP_PASSWORD ? <LogoutButton /> : null}
         </nav>
