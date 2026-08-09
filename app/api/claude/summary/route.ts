@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
             where: { id: meetingId },
             data: {
               summaryStatus: "error",
-              summaryError: "Interrupted to start a recording. You can regenerate the minutes.",
+              summaryError: "Minutes generation was stopped. You can regenerate them.",
             },
           })
           .catch(() => {});

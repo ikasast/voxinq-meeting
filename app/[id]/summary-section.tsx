@@ -70,6 +70,7 @@ export function SummarySection({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [genBusy, setGenBusy] = useState(false);
+  const [stopping, setStopping] = useState(false);
 
   // "Regenerate with options" panel: per-run detail level + provider, prefilled from saved settings.
   const [showOptions, setShowOptions] = useState(false);
@@ -171,6 +172,23 @@ export function SummarySection({
     }
   };
 
+  // Force-stop the in-flight generation (aborts the LLM call and frees the GPU). The meeting
+  // is left with the previous version; the reason is recorded so it can be regenerated.
+  const stopGeneration = async () => {
+    setStopping(true);
+    setError(null);
+    try {
+      await fetch("/api/claude/summary/abort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId }),
+      }).catch(() => {});
+      router.refresh();
+    } finally {
+      setStopping(false);
+    }
+  };
+
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">Minutes</h2>
@@ -188,23 +206,28 @@ export function SummarySection({
             filename={`${meetingTitle}-minutes.md`}
           />
           {canGenerate && !readOnly ? (
-            // Opens the options panel (detail level + provider) — the actual run
-            // starts from the panel's Regenerate button.
-            <button
-              type="button"
-              onClick={toggleOptions}
-              disabled={genBusy || processing || otherBusy}
-              className="btn-icon-accent"
-              title={
-                otherBusy
-                  ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
-                  : "Regenerate the minutes (choose detail & provider)"
-              }
-              aria-label="Regenerate"
-              aria-expanded={showOptions}
-            >
-              <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
-            </button>
+            processing ? (
+              // While generating, the regenerate button becomes a Stop button.
+              <StopButton onClick={stopGeneration} busy={stopping} />
+            ) : (
+              // Opens the options panel (detail level + provider) — the actual run
+              // starts from the panel's Regenerate button.
+              <button
+                type="button"
+                onClick={toggleOptions}
+                disabled={genBusy || otherBusy}
+                className="btn-icon-accent"
+                title={
+                  otherBusy
+                    ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
+                    : "Regenerate the minutes (choose detail & provider)"
+                }
+                aria-label="Regenerate"
+                aria-expanded={showOptions}
+              >
+                <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
+              </button>
+            )
           ) : null}
         </div>
       ) : null}
@@ -217,9 +240,12 @@ export function SummarySection({
       <>
         <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">Minutes</h2>
         {processing ? (
-          <div className="mt-4 flex items-center gap-2 text-sm text-[var(--text-muted)]">
-            <Spinner />
-            Generating minutes in the background. They will appear automatically when done…
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+              <Spinner />
+              Generating minutes in the background. They will appear automatically when done…
+            </div>
+            {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
           </div>
         ) : summaryStatus === "error" ? (
           <>
@@ -316,9 +342,10 @@ export function SummarySection({
       ) : null}
 
       {processing ? (
-        <div className="mt-3 flex items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">
           <Spinner />
-          Generating new minutes. A new version will be added below when done…
+          <span className="mr-auto">Generating new minutes. A new version will be added below when done…</span>
+          {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
         </div>
       ) : summaryStatus === "error" ? (
         <div className="mt-3 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
@@ -390,5 +417,22 @@ function GenButton({ onClick, busy, label }: { onClick: () => void; busy: boolea
         {busy ? "Starting…" : label}
       </button>
     </div>
+  );
+}
+
+// Force-stop the running minutes generation. Shown in place of the regenerate button while
+// a generation is in flight.
+function StopButton({ onClick, busy }: { onClick: () => void; busy: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      title="Stop the running minutes generation"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-3 py-1.5 text-sm font-medium text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+    >
+      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
+      {busy ? "Stopping…" : "Stop"}
+    </button>
   );
 }
