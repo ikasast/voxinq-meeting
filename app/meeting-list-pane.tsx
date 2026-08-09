@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTime, formatDurationMs } from "@/lib/utils";
-import { SummaryStatusPoller } from "./[id]/summary-status-poller";
+import { MinutesWatcher } from "./minutes-watcher";
 import { ArchiveIcon, TrashIcon } from "./icons";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
@@ -135,9 +135,9 @@ export async function MeetingListPane({
     }
   }
 
-  const generating = meetings.some(
-    (m) => m.summaryStatus === "processing" && m._count.summaries === 0,
-  );
+  // The meeting currently generating minutes (first-time OR regeneration), if any — used to
+  // seed the live watcher so it only refreshes the list when that changes.
+  const generatingId = meetings.find((m) => m.summaryStatus === "processing")?.id ?? "";
   const filtering = Boolean(query || activeTag);
   const base = activeId ? `/${activeId}` : "/";
 
@@ -182,7 +182,7 @@ export async function MeetingListPane({
                 LiveStatus refines it from STT to Recording…/Transcribing…/Diarizing…/Waiting…. */}
             {(() => {
               const base =
-                m.summaryStatus === "processing" && m._count.summaries === 0
+                m.summaryStatus === "processing"
                   ? "Generating minutes…"
                   : m.endedAt
                     ? ""
@@ -300,7 +300,7 @@ export async function MeetingListPane({
 
   return (
     <div className="space-y-3">
-      {generating ? <SummaryStatusPoller /> : null}
+      <MinutesWatcher initial={generatingId} />
       {meetings.length > 0 ? (
         <>
           <RecordingBadges ids={meetings.map((m) => m.id)} />
