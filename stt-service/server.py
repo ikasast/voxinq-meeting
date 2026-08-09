@@ -640,9 +640,12 @@ async def recording_delete(meeting_id: str) -> dict:
     return {"ok": True}
 
 
-def _run_diarizer(wav_path: Path, seg_path: Path, num_speakers: int | None) -> dict:
+def _run_diarizer(
+    wav_path: Path, seg_path: Path, num_speakers: int | None, mid: str | None = None
+) -> dict:
     """Run diarize.py in the diarization venv as a subprocess.
 
+    When `mid` is given, the process is registered so it can be cancelled (see /diarize/{id}/cancel).
     Returns {"speakers": [...], "embeddings": {label: [float,...]}} — per-utterance
     speaker labels plus per-speaker voice embeddings (may be missing/empty)."""
     env = dict(os.environ)
@@ -652,16 +655,27 @@ def _run_diarizer(wav_path: Path, seg_path: Path, num_speakers: int | None) -> d
     env["PYTHONIOENCODING"] = "utf-8"
     if num_speakers:
         env["DIA_NUM_SPEAKERS"] = str(num_speakers)
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         [str(_DIA_PYTHON), str(_DIA_SCRIPT), str(wav_path), str(seg_path)],
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
         env=env,
     )
+    if mid:
+        with _DIA_LOCK:
+            _DIA_PROCS[mid] = proc
+    try:
+        out, err = proc.communicate()
+    finally:
+        if mid:
+            with _DIA_LOCK:
+                _DIA_PROCS.pop(mid, None)
     if proc.returncode != 0:
-        raise RuntimeError((proc.stderr or "").strip()[-500:] or "diarize failed")
-    lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+        # Non-zero also covers a cancel (terminate/kill) — surface a short reason.
+        raise RuntimeError((err or "").strip()[-500:] or "diarize cancelled or failed")
+    lines = [ln for ln in (out or "").splitlines() if ln.strip()]
     if not lines:
         raise RuntimeError("diarizer returned no output")
     payload = json.loads(lines[-1])
@@ -672,11 +686,12 @@ def _run_diarizer(wav_path: Path, seg_path: Path, num_speakers: int | None) -> d
 # Synchronous HTTP would time out in the browser/proxy, so use a background job + polling.
 _DIA_LOCK = threading.Lock()
 _DIA_JOBS: dict[str, dict] = {}  # meeting_id -> {"status": running|done|error, "speakers"?, "detail"?}
+_DIA_PROCS: dict[str, subprocess.Popen] = {}  # meeting_id -> running diarizer process (for cancel)
 
 
 def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> None:
     try:
-        result = _run_diarizer(wav, seg, num_speakers)
+        result = _run_diarizer(wav, seg, num_speakers, mid)
         speakers = result["speakers"]
         embeddings = result.get("embeddings") or {}
         with open(RECORDINGS_DIR / f"{mid}.speakers.json", "w", encoding="utf-8") as f:
@@ -749,6 +764,23 @@ async def diarize_status(meeting_id: str) -> dict:
             "embeddings": _read_cached_embeddings(mid),
         }
     return {"status": "none"}
+
+
+@app.post("/diarize/{meeting_id}/cancel")
+async def diarize_cancel(meeting_id: str) -> dict:
+    """Stop a running diarization: terminate the subprocess and mark the job stopped."""
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    with _DIA_LOCK:
+        proc = _DIA_PROCS.get(mid)
+        running = (_DIA_JOBS.get(mid) or {}).get("status") == "running"
+    if proc and proc.poll() is None:
+        proc.terminate()  # the job thread then records status=error; the client shows "Stopped"
+    with _DIA_LOCK:
+        if (_DIA_JOBS.get(mid) or {}).get("status") == "running":
+            _DIA_JOBS[mid] = {"status": "error", "detail": "cancelled"}
+    return {"status": "cancelled" if (proc or running) else "idle"}
 
 
 # ---- Re-transcription from a saved recording ----
