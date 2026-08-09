@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatDuration } from "@/lib/utils";
 import { SeriesSettings } from "./series-settings";
@@ -25,6 +26,7 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
   });
   if (!series) notFound();
 
+  const external = await isExternalRequest();
   const meetings = await prisma.meeting.findMany({
     where: { seriesId: id, deletedAt: null },
     orderBy: { startedAt: "desc" },
@@ -59,6 +61,7 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         name={series.name}
         summaryFormat={series.summaryFormat}
         sttGlossary={series.sttGlossary}
+        readOnly={external}
       />
 
       {/* Timeline: newest first, each entry shows the overview of its latest minutes */}

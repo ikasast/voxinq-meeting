@@ -47,6 +47,7 @@ export function TranscriptList({
   initialTranscripts,
   initialSpeakerLabels,
   seriesGlossary,
+  readOnly = false,
 }: {
   meetingId: string;
   meetingTitle: string;
@@ -54,6 +55,8 @@ export function TranscriptList({
   initialTranscripts: Item[];
   initialSpeakerLabels: string | null;
   seriesGlossary: string | null;
+  // External (read-only) access can view/play/share but not diarize, re-transcribe or reassign.
+  readOnly?: boolean;
 }) {
   const [transcripts, setTranscripts] = useState<Item[]>(initialTranscripts);
   const [speakerLabels, setSpeakerLabels] = useState<SpeakerLabels>(
@@ -502,14 +505,16 @@ export function TranscriptList({
           ) : (
             <span />
           )}
-          <button
-            type="button"
-            onClick={() => setToolsOpen((v) => !v)}
-            className="btn-outline"
-            aria-expanded={toolsOpen}
-          >
-            Edit tools {toolsOpen ? "▲" : "▼"}
-          </button>
+          {!readOnly ? (
+            <button
+              type="button"
+              onClick={() => setToolsOpen((v) => !v)}
+              className="btn-outline"
+              aria-expanded={toolsOpen}
+            >
+              Edit tools {toolsOpen ? "▲" : "▼"}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -674,6 +679,7 @@ export function TranscriptList({
               canSeek={Boolean(recInfo?.exists)}
               onSeek={() => seekTo(wavPosition(t.createdAt))}
               onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
+              readOnly={readOnly}
             />
           ))}
         </ul>
@@ -693,6 +699,7 @@ function TranscriptRow({
   canSeek,
   onSeek,
   onReassign,
+  readOnly,
 }: {
   item: Item;
   elapsed: number;
@@ -702,6 +709,7 @@ function TranscriptRow({
   canSeek: boolean;
   onSeek: () => void;
   onReassign: (nextKey: string) => void;
+  readOnly: boolean;
 }) {
   return (
     <li className="rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm">
@@ -725,7 +733,7 @@ function TranscriptRow({
         )}
         {showSpeaker ? <SpeakerBadge speakerKey={item.speakerType} labels={labels} /> : null}
         <span className="grow" />
-        {showSpeaker ? (
+        {showSpeaker && !readOnly ? (
           <SpeakerReassignSelect
             value={item.speakerType}
             speakerKeys={reassignKeys}

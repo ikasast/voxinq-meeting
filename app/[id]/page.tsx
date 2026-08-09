@@ -52,14 +52,14 @@ export default async function MeetingDetailPage({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(300px,360px)_1fr] lg:items-start">
       <aside className="hidden lg:block">
-        <MeetingListPane q={q} tag={tag} activeId={meeting.id} />
+        <MeetingListPane q={q} tag={tag} activeId={meeting.id} readOnly={external} />
       </aside>
 
       <div className="min-w-0 space-y-6">
       {/* Stack vertically on phones (so the title-edit box and action buttons are not crammed into one row) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:flex-1">
-          <MeetingTitle id={meeting.id} title={meeting.title} />
+          <MeetingTitle id={meeting.id} title={meeting.title} readOnly={external} />
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {formatDateTime(meeting.startedAt)}
             {meeting.endedAt ? <> – {formatDateTime(meeting.endedAt)}</> : <> – (in progress)</>}
@@ -70,12 +70,13 @@ export default async function MeetingDetailPage({
           <Link href="/" className="btn-outline lg:hidden">
             Back to list
           </Link>
-          {!meeting.endedAt ? (
+          {!meeting.endedAt && !external ? (
             <Link href={`/${meeting.id}/recording`} className="btn-ink">
               Recording screen
             </Link>
           ) : null}
-          {/* Compact icon toolbar (hover for what each does) */}
+          {/* Compact icon toolbar (hover for what each does).
+              External (read-only) access keeps only the download button. */}
           <div className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
             <DownloadMeetingButton
               meetingId={meeting.id}
@@ -84,14 +85,16 @@ export default async function MeetingDetailPage({
               hasTranscript={meeting.transcripts.length > 0}
             />
             {!external ? (
-              <CloneMeetingButton
-                description={meeting.description}
-                tags={tagNames}
-                series={seriesName}
-              />
+              <>
+                <CloneMeetingButton
+                  description={meeting.description}
+                  tags={tagNames}
+                  series={seriesName}
+                />
+                <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
+                <DeleteMeetingButton id={meeting.id} title={meeting.title} />
+              </>
             ) : null}
-            <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
-            <DeleteMeetingButton id={meeting.id} title={meeting.title} />
           </div>
         </div>
       </div>
@@ -108,6 +111,7 @@ export default async function MeetingDetailPage({
         tags={tagNames}
         series={seriesName}
         seriesId={seriesId}
+        readOnly={external}
       />
 
       <section className="card p-5">
@@ -117,6 +121,7 @@ export default async function MeetingDetailPage({
           summaryStatus={meeting.summaryStatus}
           summaryError={meeting.summaryError}
           canGenerate={meeting.transcripts.length > 0}
+          readOnly={external}
           summaries={meeting.summaries.map((s) => ({
             id: s.id,
             text: s.summaryText,
@@ -132,6 +137,7 @@ export default async function MeetingDetailPage({
           meetingStartedAt={meeting.startedAt.toISOString()}
           initialSpeakerLabels={meeting.speakerLabels}
           seriesGlossary={meeting.series?.sttGlossary ?? null}
+          readOnly={external}
           initialTranscripts={meeting.transcripts.map((t) => ({
             id: t.id,
             speakerType: t.speakerType,

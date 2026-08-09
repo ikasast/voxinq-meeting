@@ -5,7 +5,15 @@ import { useState } from "react";
 
 // Title display with inline editing. Pencil button -> input field,
 // Enter/Save issues a PATCH, Esc/Cancel discards.
-export function MeetingTitle({ id, title }: { id: string; title: string }) {
+export function MeetingTitle({
+  id,
+  title,
+  readOnly = false,
+}: {
+  id: string;
+  title: string;
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(title);
@@ -52,15 +60,17 @@ export function MeetingTitle({ id, title }: { id: string; title: string }) {
     return (
       <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
         {saved}
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          aria-label="Edit meeting title"
-          title="Edit meeting title"
-          className="rounded p-1 text-base text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
-        >
-          ✎
-        </button>
+        {!readOnly ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            aria-label="Edit meeting title"
+            title="Edit meeting title"
+            className="rounded p-1 text-base text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
+          >
+            ✎
+          </button>
+        ) : null}
       </h1>
     );
   }

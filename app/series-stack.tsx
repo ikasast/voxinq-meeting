@@ -15,6 +15,7 @@ export function SeriesStack({
   seriesIds,
   latestId,
   latestTitle,
+  readOnly = false,
   latest,
   rest,
 }: {
@@ -24,6 +25,7 @@ export function SeriesStack({
   seriesIds: string[];
   latestId: string;
   latestTitle: string;
+  readOnly?: boolean;
   latest: ReactNode;
   rest: ReactNode;
 }) {
@@ -46,8 +48,11 @@ export function SeriesStack({
           </>
         ) : null}
         {/* Collapsed: the swipe acts on the whole series. Expanded: the top card is
-            just this one meeting, and each row below carries its own swipe. */}
-        {open ? (
+            just this one meeting, and each row below carries its own swipe.
+            Read-only (external) access gets no swipe at all. */}
+        {readOnly ? (
+          latest
+        ) : open ? (
           <SwipeableRow ids={[latestId]} label={latestTitle}>
             {latest}
           </SwipeableRow>

@@ -43,6 +43,34 @@ public/Funnel access. See [Configuration](configuration.md).
 > the app treats as "internal" (recording enabled). Any other path is treated as external
 > (view-only). A public reverse proxy must therefore **strip that header** to prevent spoofing.
 
+### Read-only public sharing (view & download from anywhere)
+
+To let a computer **outside** your tailnet — e.g. a locked-down work PC that cannot install
+Tailscale — read and download minutes, expose the web app with **Tailscale Funnel** and set a
+password. The STT service stays private, so recording is impossible from outside; and the app
+enforces **read-only** access for any request without a tailnet identity.
+
+```bash
+# Public HTTPS for the web app only (never Funnel the STT port).
+tailscale funnel --https=443 localhost:3000
+```
+
+Set `APP_PASSWORD` (and a strong `APP_SESSION_SECRET`) in `.env`, then rebuild. What outside
+visitors get after logging in with the password:
+
+- ✅ view meetings, minutes and transcripts; download minutes / transcript / meeting info.
+- ❌ everything that changes state — recording, minutes generation, editing, diarization,
+  delete, archive, settings — is **refused server-side** (HTTP 403), not just hidden. So even
+  the password holder on an untrusted machine cannot trigger those.
+
+This is safe to combine with the phone-over-Tailscale setup: tailnet devices keep full access
+(the identity header marks them internal), only Funnel visitors are read-only. Because Funnel
+requests never carry the `Tailscale-User-Login` header — and Tailscale controls that header —
+the internal/external boundary cannot be forged.
+
+> ⚠️ **Never Funnel the STT port (8000/8443).** It has no authentication; Funnel would put your
+> recordings and GPU on the public internet. Only the web app (3000) should be Funnelled.
+
 ---
 
 ## B. WireGuard (self-hosted, no Tailscale)

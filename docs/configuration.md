@@ -9,7 +9,7 @@ in the UI). Both are gitignored.
 | --- | --- | --- |
 | `DATABASE_URL` | — | PostgreSQL connection string (required) |
 | `NEXT_PUBLIC_STT_WS_URL` | `ws://localhost:8000/ws` | STT WebSocket URL. **Baked in at build time** — rebuild after changing. |
-| `APP_PASSWORD` | unset | Enables password login. Unset = open within your network. |
+| `APP_PASSWORD` | unset | Enables password login. Unset = open within your network. When set, access without a tailnet identity (e.g. via Tailscale Funnel / a public URL) is **read-only**: view & download only, all state-changing requests are refused (HTTP 403). |
 | `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD`. |
 | `NETWORK_MODE` | `tailscale` | `tailscale`: external (non-tailnet) access is login-gated. `lan`: any reachable client is trusted. |
 

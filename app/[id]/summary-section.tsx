@@ -35,6 +35,7 @@ export function SummarySection({
   summaryStatus,
   summaryError,
   canGenerate,
+  readOnly = false,
 }: {
   meetingId: string;
   meetingTitle: string;
@@ -42,6 +43,8 @@ export function SummarySection({
   summaryStatus: string | null;
   summaryError: string | null;
   canGenerate: boolean;
+  // External (read-only) access can view/copy/share/download but not edit or regenerate.
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(summaries[0]?.id ?? "");
@@ -173,16 +176,18 @@ export function SummarySection({
       <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">Minutes</h2>
       {current && !editing ? (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={startEdit} className="btn-icon" title="Edit" aria-label="Edit">
-            <PencilIcon />
-          </button>
+          {!readOnly ? (
+            <button type="button" onClick={startEdit} className="btn-icon" title="Edit" aria-label="Edit">
+              <PencilIcon />
+            </button>
+          ) : null}
           <CopySummaryButton text={current.text} />
           <ShareButton
             text={current.text}
             title={`${meetingTitle} minutes`}
             filename={`${meetingTitle}-minutes.md`}
           />
-          {canGenerate ? (
+          {canGenerate && !readOnly ? (
             // Opens the options panel (detail level + provider) — the actual run
             // starts from the panel's Regenerate button.
             <button
@@ -224,14 +229,14 @@ export function SummarySection({
                 <span className="mt-1 block text-xs opacity-90">Reason: {summaryError}</span>
               ) : null}
             </p>
-            {canGenerate ? <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Retry" /> : null}
+            {canGenerate && !readOnly ? <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Retry" /> : null}
           </>
         ) : (
           <>
             <p className="mt-4 text-sm text-[var(--text-muted)]">No minutes generated yet.</p>
-            {canGenerate ? (
+            {canGenerate && !readOnly ? (
               <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Generate minutes" />
-            ) : (
+            ) : readOnly ? null : (
               <p className="mt-2 text-xs text-[var(--text-muted)]">No transcript, so minutes cannot be generated.</p>
             )}
           </>
