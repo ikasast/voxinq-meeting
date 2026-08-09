@@ -78,11 +78,13 @@ export async function getFunnelState(): Promise<FunnelState> {
 }
 
 // Publish (on) or unpublish (off) the web port. Returns the resulting state.
+//
+// Going private re-asserts a tailnet-only `serve` (not `funnel ... off`): the
+// latter tears down the :443 handler entirely, which would 404 the app even on
+// the tailnet. `serve` keeps the same proxy but drops the public funnel flag.
 export async function setFunnelPublic(on: boolean): Promise<FunnelState> {
   const bin = tailscaleBin();
-  const args = on
-    ? ["funnel", "--bg", "--yes", `--https=${HTTPS_PORT}`, WEB_TARGET]
-    : ["funnel", `--https=${HTTPS_PORT}`, "off"];
-  await run(bin, args);
+  const verb = on ? "funnel" : "serve";
+  await run(bin, [verb, "--bg", "--yes", `--https=${HTTPS_PORT}`, WEB_TARGET]);
   return getFunnelState();
 }
