@@ -35,6 +35,7 @@ export default function NewMeetingPage() {
   // needs the GPU, so we offer to interrupt the in-progress minutes first.
   const [showInterrupt, setShowInterrupt] = useState(false);
   const [interrupting, setInterrupting] = useState(false);
+  const [interruptMeetingId, setInterruptMeetingId] = useState<string | undefined>(undefined);
 
   // Recording settings for this meeting only; not saved to the settings file.
   const [sttLanguage, setSttLanguage] = useState("auto"); // saved on the meeting
@@ -123,7 +124,7 @@ export default function NewMeetingPage() {
     }
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!title.trim()) {
@@ -132,11 +133,27 @@ export default function NewMeetingPage() {
     }
     // Recording needs the GPU. If minutes are still generating (Ollama holds the GPU),
     // ask whether to interrupt them first instead of contending for VRAM.
-    if (gpu.minutesBusy) {
+    // Check freshly at click time — the polled `gpu.minutesBusy` lags up to the poll
+    // interval and starts false, so relying on it races (the popup could be skipped and
+    // the recording would then contend for VRAM). Fall back to the polled value if the
+    // fresh check fails.
+    setSubmitting(true);
+    let busyMeetingId: string | undefined;
+    try {
+      const j = (await fetch("/api/busy", { cache: "no-store" }).then((r) =>
+        r.ok ? r.json() : null,
+      )) as { minutes?: { busy?: boolean; meetingId?: string } } | null;
+      if (j?.minutes?.busy) busyMeetingId = j.minutes.meetingId ?? gpu.minutesMeetingId;
+    } catch {
+      if (gpu.minutesBusy) busyMeetingId = gpu.minutesMeetingId;
+    }
+    if (busyMeetingId || gpu.minutesBusy) {
+      setInterruptMeetingId(busyMeetingId ?? gpu.minutesMeetingId);
       setShowInterrupt(true);
+      setSubmitting(false);
       return;
     }
-    void startRecording();
+    await startRecording();
   };
 
   // Confirmed from the popup: interrupt the running minutes generation (frees the GPU),
@@ -147,8 +164,11 @@ export default function NewMeetingPage() {
       await fetch("/api/claude/summary/abort", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: gpu.minutesMeetingId }),
+        body: JSON.stringify({ meetingId: interruptMeetingId }),
       }).catch(() => {});
+      // Give the GPU a moment to actually release the model's VRAM before Whisper loads,
+      // so the recording's STT connection doesn't hit a transient out-of-memory.
+      await new Promise((r) => setTimeout(r, 1200));
     } finally {
       setInterrupting(false);
       setShowInterrupt(false);
