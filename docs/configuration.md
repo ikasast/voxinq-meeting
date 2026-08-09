@@ -12,6 +12,7 @@ in the UI). Both are gitignored.
 | `APP_PASSWORD` | unset | Enables password login. Unset = open within your network. When set, access without a tailnet identity (e.g. via Tailscale Funnel / a public URL) is **read-only**: view & download only, all state-changing requests are refused (HTTP 403). |
 | `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD`. |
 | `NETWORK_MODE` | `tailscale` | `tailscale`: external (non-tailnet) access is login-gated. `lan`: any reachable client is trusted. |
+| `STT_INTERNAL_URL` | `http://localhost:8000` | Where the web server reaches the STT service (server-side), used on meeting end to read the recorded length. Set if STT runs on another host. |
 | `TAILSCALE_BIN` | auto | Path to the `tailscale` CLI, used by **Settings → Remote access** to publish/unpublish. Defaults to the OS install path, then `PATH`. |
 | `TAILSCALE_FUNNEL_PORT` | `443` | Public HTTPS port toggled by Remote access. |
 | `TAILSCALE_FUNNEL_TARGET` | `localhost:$PORT` | Local web target the Funnel points at. |

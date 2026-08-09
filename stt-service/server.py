@@ -502,13 +502,27 @@ async def _cleanup_loop() -> None:
         await asyncio.sleep(3600)
 
 
+def _wav_duration_sec(path: Path) -> float | None:
+    """Recorded length from the WAV header (frames / rate). None if unreadable."""
+    try:
+        with wave.open(str(path), "rb") as w:
+            rate = w.getframerate() or SAMPLE_RATE
+            return w.getnframes() / float(rate)
+    except Exception:  # noqa: BLE001
+        return None
+
+
 @app.get("/recordings/{meeting_id}")
 async def recording_info(meeting_id: str) -> dict:
-    """Return whether a recording exists, its protection state, and the auto-deletion schedule."""
+    """Return whether a recording exists, its protection state, the auto-deletion schedule,
+    and the recorded length (durationSec). The web app stores the length on the meeting at end."""
     mid = _safe_meeting_id(meeting_id)
     if not mid:
         raise HTTPException(status_code=400, detail="invalid meeting id")
-    return _recording_state(mid)
+    state = _recording_state(mid)
+    if state.get("exists"):
+        state["durationSec"] = _wav_duration_sec(_rec_paths(mid)["wav"])
+    return state
 
 
 @app.post("/recordings/states")
