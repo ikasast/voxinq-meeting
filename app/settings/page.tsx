@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
+import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 
 type PublicSettings = {
@@ -58,6 +59,7 @@ const TABS = [
   { id: "speakers", label: "Speakers" },
   { id: "minutes", label: "Minutes" },
   { id: "llm", label: "LLM" },
+  { id: "remote", label: "Remote access" },
   { id: "appearance", label: "Appearance" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -557,6 +559,9 @@ export default function SettingsPage() {
           </fieldset>
         </section>
         ) : null}
+
+        {/* Remote access (Tailscale Funnel publish toggle) */}
+        {tab === "remote" ? <RemoteAccess /> : null}
 
         {/* Appearance */}
         {tab === "appearance" ? (
