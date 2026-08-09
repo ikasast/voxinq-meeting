@@ -53,8 +53,12 @@ enforces **read-only** access for any request without a tailnet identity.
 ```bash
 # Public HTTPS for the web app only (never Funnel the STT port).
 tailscale funnel --bg --https=443 localhost:3000   # publish
-tailscale funnel --https=443 off                   # unpublish
+tailscale serve  --bg --https=443 localhost:3000   # unpublish (keep tailnet access)
 ```
+
+> To go private, re-assert `serve` (as above) rather than `tailscale funnel --https=443 off`:
+> the `off` form removes the `:443` handler entirely, which would 404 the app even inside your
+> tailnet. `serve` keeps the same proxy and only drops the public flag.
 
 > **Toggle it from inside the app.** Once `APP_PASSWORD` is set, a tailnet-connected device can
 > turn public access on/off under **Settings → Remote access** (it runs the commands above for
