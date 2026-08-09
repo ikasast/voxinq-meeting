@@ -52,8 +52,15 @@ enforces **read-only** access for any request without a tailnet identity.
 
 ```bash
 # Public HTTPS for the web app only (never Funnel the STT port).
-tailscale funnel --https=443 localhost:3000
+tailscale funnel --bg --https=443 localhost:3000   # publish
+tailscale funnel --https=443 off                   # unpublish
 ```
+
+> **Toggle it from inside the app.** Once `APP_PASSWORD` is set, a tailnet-connected device can
+> turn public access on/off under **Settings → Remote access** (it runs the commands above for
+> you and shows the public URL). The toggle is refused for outside visitors, so a public viewer
+> can never publish or unpublish. Set `TAILSCALE_BIN` / `TAILSCALE_FUNNEL_PORT` /
+> `TAILSCALE_FUNNEL_TARGET` if your paths or ports differ from the defaults.
 
 Set `APP_PASSWORD` (and a strong `APP_SESSION_SECRET`) in `.env`, then rebuild. What outside
 visitors get after logging in with the password:
