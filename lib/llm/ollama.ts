@@ -4,7 +4,11 @@ import type { ChatArgs, ChatProvider, LlmConfig } from "./types";
 // Defaults to a Japanese model that fits in 8GB VRAM (qwen2.5:7b-instruct ≈4.7GB).
 export const ollamaProvider: ChatProvider = {
   name: "ollama",
-  async chat({ system, user, maxTokens, prefill }: ChatArgs, cfg: LlmConfig): Promise<string> {
+  async chat(
+    { system, user, maxTokens, prefill }: ChatArgs,
+    cfg: LlmConfig,
+    signal?: AbortSignal,
+  ): Promise<string> {
     // If prefill is given, provide it as the opening of the assistant turn and let it continue.
     // 7B-class local models tend to change heading names on their own, so pin the
     // first heading to force format compliance.
@@ -32,6 +36,7 @@ export const ollamaProvider: ChatProvider = {
     const res = await fetch(`${cfg.ollamaBaseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal,
       body: JSON.stringify({
         model: cfg.ollamaModel,
         stream: true,
@@ -85,3 +90,18 @@ export const ollamaProvider: ChatProvider = {
     return content;
   },
 };
+
+// Immediately free the model's VRAM so the GPU can be handed to Whisper for a recording.
+// `keep_alive: 0` tells Ollama to unload the model right after this (prompt-less) request.
+// Best-effort: if Ollama is down or the model isn't loaded, there's nothing to do.
+export async function unloadOllama(cfg: LlmConfig): Promise<void> {
+  try {
+    await fetch(`${cfg.ollamaBaseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: cfg.ollamaModel, keep_alive: 0 }),
+    });
+  } catch {
+    // ignore
+  }
+}

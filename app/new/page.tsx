@@ -31,6 +31,10 @@ export default function NewMeetingPage() {
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Shown when the user starts a recording while minutes are still generating: recording
+  // needs the GPU, so we offer to interrupt the in-progress minutes first.
+  const [showInterrupt, setShowInterrupt] = useState(false);
+  const [interrupting, setInterrupting] = useState(false);
 
   // Recording settings for this meeting only; not saved to the settings file.
   const [sttLanguage, setSttLanguage] = useState("auto"); // saved on the meeting
@@ -102,13 +106,7 @@ export default function NewMeetingPage() {
   };
 
   // Live recording: create the meeting and open the recording page (auto-start).
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!title.trim()) {
-      setError("Please enter a title.");
-      return;
-    }
+  const startRecording = async () => {
     setSubmitting(true);
     try {
       const meeting = await createMeeting(defaultMeetingTitle());
@@ -123,6 +121,39 @@ export default function NewMeetingPage() {
       setError(err instanceof Error ? err.message : "Failed to create meeting.");
       setSubmitting(false);
     }
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!title.trim()) {
+      setError("Please enter a title.");
+      return;
+    }
+    // Recording needs the GPU. If minutes are still generating (Ollama holds the GPU),
+    // ask whether to interrupt them first instead of contending for VRAM.
+    if (gpu.minutesBusy) {
+      setShowInterrupt(true);
+      return;
+    }
+    void startRecording();
+  };
+
+  // Confirmed from the popup: interrupt the running minutes generation (frees the GPU),
+  // then start the recording.
+  const interruptAndStart = async () => {
+    setInterrupting(true);
+    try {
+      await fetch("/api/claude/summary/abort", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ meetingId: gpu.minutesMeetingId }),
+      }).catch(() => {});
+    } finally {
+      setInterrupting(false);
+      setShowInterrupt(false);
+    }
+    await startRecording();
   };
 
   // Upload flow: create meeting -> upload audio -> transcribe -> minutes -> open detail.
@@ -435,6 +466,41 @@ export default function NewMeetingPage() {
           </button>
         </div>
       </form>
+
+      {/* Interrupt-minutes confirmation. Recording needs the GPU that minutes generation
+          (Ollama) is currently using, so offer to stop it and record now. */}
+      {showInterrupt ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card w-full max-w-sm space-y-4 p-6">
+            <h2 className="text-lg font-semibold text-[var(--text-strong)]">
+              Minutes are being generated
+            </h2>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Recording uses the GPU that minutes generation is running on. Interrupt the
+              in-progress minutes and start recording now? You can regenerate those minutes
+              afterward.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowInterrupt(false)}
+                disabled={interrupting}
+                className="btn-outline"
+              >
+                Keep generating
+              </button>
+              <button
+                type="button"
+                onClick={() => void interruptAndStart()}
+                disabled={interrupting}
+                className="btn-ink"
+              >
+                {interrupting ? "Interrupting…" : "Interrupt & record"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
