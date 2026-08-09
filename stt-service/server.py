@@ -146,6 +146,8 @@ def _normalize(text: str) -> str:
 _ACT_LOCK = threading.Lock()
 _ACTIVE_WS = 0
 _LAST_ACTIVITY = 0.0  # updated on every ws open/close and preload
+# meeting_id -> number of active recording connections (refcount survives brief reconnects).
+_RECORDING_MIDS: dict[str, int] = {}
 
 
 def _touch_activity(delta_ws: int = 0) -> None:
@@ -153,6 +155,20 @@ def _touch_activity(delta_ws: int = 0) -> None:
     with _ACT_LOCK:
         _ACTIVE_WS += delta_ws
         _LAST_ACTIVITY = time.time()
+
+
+def _recording_add(mid: str) -> None:
+    with _ACT_LOCK:
+        _RECORDING_MIDS[mid] = _RECORDING_MIDS.get(mid, 0) + 1
+
+
+def _recording_remove(mid: str) -> None:
+    with _ACT_LOCK:
+        n = _RECORDING_MIDS.get(mid, 0) - 1
+        if n > 0:
+            _RECORDING_MIDS[mid] = n
+        else:
+            _RECORDING_MIDS.pop(mid, None)
 
 
 def _preload_model(name: str | None) -> None:
@@ -542,6 +558,40 @@ async def recording_states(request: Request) -> dict:
             mid = _safe_meeting_id(raw if isinstance(raw, str) else None)
             if mid:
                 out[mid] = _recording_state(mid)
+    return out
+
+
+@app.post("/activity")
+async def activity_states(request: Request) -> dict:
+    """Current live GPU activity per meeting, for the list's status labels (avoids N+1).
+
+    body (JSON): {"ids": ["<meetingId>", ...]}
+    returns: {"<id>": "recording"|"transcribe"|"diarize"|null, ...}"""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    ids = body.get("ids") if isinstance(body, dict) else None
+    jobs = _running_jobs()
+    with _ACT_LOCK:
+        recording = set(_RECORDING_MIDS)
+    transcribing = set(jobs["transcribe"])
+    diarizing = set(jobs["diarize"])
+    out: dict[str, str | None] = {}
+    if isinstance(ids, list):
+        for raw in ids[:500]:
+            mid = _safe_meeting_id(raw if isinstance(raw, str) else None)
+            if not mid:
+                continue
+            out[mid] = (
+                "recording"
+                if mid in recording
+                else "transcribe"
+                if mid in transcribing
+                else "diarize"
+                if mid in diarizing
+                else None
+            )
     return out
 
 
@@ -1062,6 +1112,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 if kind == "start":
                     state.model_name = payload.get("model")
                     state.meeting_id = _safe_meeting_id(payload.get("meetingId"))
+                    if state.meeting_id:
+                        _recording_add(state.meeting_id)  # for /activity (list "Recording…")
                     lang = payload.get("language")
                     state.language = None if lang in (None, "", "auto") else str(lang)
                     ip = payload.get("initialPrompt")
@@ -1136,6 +1188,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
         # loaded model as reconnects or concurrent connections come and go, causing an endless
         # "loading" state. Leave release to explicit end (meeting end) and the idle timer.
         _touch_activity(delta_ws=-1)
+        if state.meeting_id:
+            _recording_remove(state.meeting_id)
         # If disconnected without end arriving (network drop, screen lock, an early client
         # close, etc.), still save the audio so far so it can be used for diarization.
         # A re-recording of the same meeting is appended.

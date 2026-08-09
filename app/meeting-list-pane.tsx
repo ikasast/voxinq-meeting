@@ -6,6 +6,7 @@ import { formatDateTime, formatDurationMs } from "@/lib/utils";
 import { SummaryStatusPoller } from "./[id]/summary-status-poller";
 import { ArchiveIcon, TrashIcon } from "./icons";
 import { MeetingItemMenu } from "./meeting-item-menu";
+import { LiveStatus } from "./live-status";
 import { RecordingBadges } from "./recording-badges";
 import { SeriesStack } from "./series-stack";
 import { SwipeableRow } from "./swipeable-row";
@@ -177,13 +178,31 @@ export async function MeetingListPane({
                 <ArchiveIcon className="h-3.5 w-3.5" />
               </span>
             ) : null}
-            {m.endedAt ? null : <span className="tag-lime shrink-0">In progress</span>}
+            {/* Status pill. Baseline is server-rendered (minutes generation / open session);
+                LiveStatus refines it from STT to Recording…/Transcribing…/Diarizing…/Waiting…. */}
+            {(() => {
+              const base =
+                m.summaryStatus === "processing" && m._count.summaries === 0
+                  ? "Generating minutes…"
+                  : m.endedAt
+                    ? ""
+                    : "In progress";
+              return (
+                <span
+                  data-live-status={m.id}
+                  data-live-open={m.endedAt ? "" : "1"}
+                  data-live-base={base}
+                  className={base ? "tag-lime shrink-0" : "hidden"}
+                >
+                  {base}
+                </span>
+              );
+            })()}
           </div>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             {formatDateTime(m.startedAt)}
             {formatDurationMs(m.durationMs) ? ` · ${formatDurationMs(m.durationMs)}` : ""}{" "}
             · {m._count.transcripts} utterances / {m._count.summaries} minutes
-            {m.summaryStatus === "processing" && m._count.summaries === 0 ? " · generating…" : ""}
           </p>
           {hit?.snippet ? (
             <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{hit.snippet}</p>
@@ -282,7 +301,12 @@ export async function MeetingListPane({
   return (
     <div className="space-y-3">
       {generating ? <SummaryStatusPoller /> : null}
-      {meetings.length > 0 ? <RecordingBadges ids={meetings.map((m) => m.id)} /> : null}
+      {meetings.length > 0 ? (
+        <>
+          <RecordingBadges ids={meetings.map((m) => m.id)} />
+          <LiveStatus ids={meetings.map((m) => m.id)} />
+        </>
+      ) : null}
 
       <form action={base} className="flex flex-wrap items-center gap-2">
         {activeTag ? <input type="hidden" name="tag" value={activeTag} /> : null}
