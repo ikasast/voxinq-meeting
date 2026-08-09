@@ -257,6 +257,20 @@ NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443
 > 文字起こしサービス（8443ポート）は、**Tailscaleの外（Funnel等でインターネット公開）に出さないでください。**
 > このサービスには認証がなく、tailnet内での利用を前提としています。
 
+### Tailscale の外から「閲覧・ダウンロードだけ」共有する
+
+Tailscaleを入れられない端末（会社のPCなど）にも議事録を見せたいときは、**Tailscale Funnel**
+でWebアプリだけを公開し、`.env` に `APP_PASSWORD`（と強い `APP_SESSION_SECRET`）を設定します。
+外部からのアクセスは自動で**閲覧・ダウンロード専用**になり、録音・編集・削除・再生成は
+サーバー側で拒否されます（HTTP 403）。tailnet内の端末は従来どおり全機能を使えます。
+
+公開/非公開の切り替えは、tailnet接続の端末から **Settings → Remote access** でワンクリック
+できます（内部で `tailscale funnel`／`serve` を実行）。外部の閲覧者にはこのトグルは表示されず、
+操作もできません。
+
+> ⚠️ 公開するのは **Webアプリ（443）だけ**にしてください。文字起こしサービス（8443）は認証が
+> ないため、絶対にFunnelで公開しないこと。詳細は [docs/remote-access.md](docs/remote-access.md)（英語）へ。
+
 ### Tailscale を使いたくない場合
 
 自前の **WireGuard**（Tailscaleの中身と同じVPN）など、Tailscale以外の方法でも外部アクセスできます。
@@ -278,6 +292,7 @@ NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443
 | Speakers | 声紋の登録・削除 |
 | Minutes | 議事録の言語、詳細度、フォーマット、業務背景情報 |
 | LLM | 使用するAI（Ollama / vLLM / LM Studio / Anthropic / OpenAI）、モデル名、APIキー |
+| Remote access | Tailscale Funnelでの公開/非公開の切り替え（外部＝閲覧・DL専用。tailnet接続端末のみ表示） |
 | Appearance | ダーク／ライトテーマ |
 
 > **「業務背景情報」が便利です**
@@ -292,7 +307,7 @@ NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443
 | --- | --- |
 | `DATABASE_URL` | PostgreSQLの接続先 |
 | `NEXT_PUBLIC_STT_WS_URL` | 文字起こしサービスのアドレス（**変更時は再ビルド必須**） |
-| `APP_PASSWORD` | パスワード認証（未設定なら認証なし） |
+| `APP_PASSWORD` | パスワード認証（未設定なら認証なし）。設定時、tailnet外（Funnel/公開URL）からのアクセスは**閲覧・DL専用**になる |
 
 詳細は [docs/configuration.md](docs/configuration.md)（英語）を参照してください。
 
