@@ -65,6 +65,8 @@ export function TranscriptList({
   const [error, setError] = useState<string | null>(null);
   const [numSpeakers, setNumSpeakers] = useState<string>("");
   const [diarizing, setDiarizing] = useState(false);
+  const [stoppingDiar, setStoppingDiar] = useState(false);
+  const stopDiarRef = useRef(false); // set by the Stop button to break the polling loop
   const [diarStatus, setDiarStatus] = useState<string | null>(null);
   const [diarWarn, setDiarWarn] = useState<string | null>(null);
   const [recInfo, setRecInfo] = useState<RecordingInfo | null>(null);
@@ -325,6 +327,7 @@ export function TranscriptList({
     setError(null);
     setDiarWarn(null);
     setDiarizing(true);
+    stopDiarRef.current = false;
     setDiarStatus("Starting diarization…");
     try {
       const base = sttHttpBase();
@@ -342,10 +345,15 @@ export function TranscriptList({
         detail?: string;
       };
       while (data.status === "running") {
+        if (stopDiarRef.current) break;
         setDiarStatus("Analyzing… (longer meetings take longer; you can leave this page open)");
         await new Promise((r) => setTimeout(r, 4000));
         const sres = await fetch(`${base}/diarize/${meetingId}/status`);
         data = (await sres.json()) as typeof data;
+      }
+      if (stopDiarRef.current) {
+        setDiarStatus("Stopped.");
+        return; // don't apply partial/aborted results
       }
       if (data.status === "error") throw new Error(data.detail ?? "Diarization failed");
       if (data.status !== "done" || !Array.isArray(data.speakers)) {
@@ -424,6 +432,21 @@ export function TranscriptList({
       setDiarizing(false);
     }
   }, [meetingId, numSpeakers]);
+
+  // Force-stop a running diarization: tell STT to kill the subprocess and break the poll loop.
+  const stopDiarization = useCallback(async () => {
+    stopDiarRef.current = true;
+    setStoppingDiar(true);
+    setDiarStatus("Stopping…");
+    try {
+      await fetch(`${sttHttpBase()}/diarize/${meetingId}/cancel`, {
+        method: "POST",
+        signal: AbortSignal.timeout(6000),
+      }).catch(() => {});
+    } finally {
+      setStoppingDiar(false);
+    }
+  }, [meetingId]);
 
   const gpu = useGpuBusy();
   // Diarization and re-transcription both use the GPU. Block starting one while any other
@@ -540,14 +563,26 @@ export function TranscriptList({
                     className="w-16 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
                   />
                 </label>
-                <button
-                  type="button"
-                  onClick={() => void runDiarization()}
-                  disabled={busy}
-                  className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-                >
-                  {diarizing ? "Diarizing…" : "Auto-diarize"}
-                </button>
+                {diarizing ? (
+                  <button
+                    type="button"
+                    onClick={() => void stopDiarization()}
+                    disabled={stoppingDiar}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-3 py-1.5 text-sm font-medium text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                  >
+                    <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
+                    {stoppingDiar ? "Stopping…" : "Stop"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void runDiarization()}
+                    disabled={busy}
+                    className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                  >
+                    Auto-diarize
+                  </button>
+                )}
                 <span className="text-xs text-[var(--text-muted)]">
                   Analyzes the recording and assigns a speaker to each line (entering the count improves accuracy).
                 </span>
