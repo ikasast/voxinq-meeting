@@ -120,8 +120,10 @@ Backups land in `~\voxinq-backups` (daily kept 14 days, 1st-of-month kept a year
 only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --if-exists <file>.dump`.
 
 - Redeploy the web app after code changes: `scripts\windows\redeploy-web.ps1`
-- Restarting the STT service: kill the process owning port 8000 — the `run-stt.bat` loop
-  relaunches it with the new code in ~15s. (`Stop-ScheduledTask` can leave the process running.)
+- Redeploy **web + STT together** (use this when a pull also touched `stt-service/`):
+  `scripts\windows\redeploy-all.ps1`
+- Restarting the STT service on its own: kill the process owning port 8000 — the `run-stt.bat`
+  loop relaunches it with the new code in ~15s. (`Stop-ScheduledTask` can leave the process running.)
 
 ### Linux
 
