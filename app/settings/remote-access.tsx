@@ -14,6 +14,19 @@ type FunnelInfo = {
   url: string | null;
 };
 
+// Shared card shell. Declared at module scope (not inside the component) so it
+// keeps a stable identity across renders.
+function Wrap({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="card space-y-4 p-6">
+      <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
+        Remote access (public URL)
+      </h2>
+      {children}
+    </section>
+  );
+}
+
 export function RemoteAccess() {
   const [info, setInfo] = useState<FunnelInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,15 +73,6 @@ export function RemoteAccess() {
       setBusy(false);
     }
   };
-
-  const Wrap = ({ children }: { children: React.ReactNode }) => (
-    <section className="card space-y-4 p-6">
-      <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
-        Remote access (public URL)
-      </h2>
-      {children}
-    </section>
-  );
 
   if (error && !info) {
     return (
