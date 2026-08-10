@@ -116,9 +116,11 @@ cd voxinq-meeting
 > ```powershell
 > .\scripts\setup.ps1 -Diarization
 > ```
-> 加えて、Hugging Face で以下2つのモデルの利用規約に同意し、`HF_TOKEN` を設定する必要があります。
-> - [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1)
-> - [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0)
+> 加えて、Hugging Face で以下のモデルの利用規約に同意し、`HF_TOKEN` を設定する必要があります。
+> - [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+>
+> 旧パイプラインを使う場合は `DIA_MODEL=pyannote/speaker-diarization-3.1` を設定し、
+> [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0) にも同意してください。
 
 ### ステップ3: 起動
 

@@ -4,4 +4,6 @@
 #   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 #   pip install -r requirements.txt
 # * If there is no GPU / you don't use one, the CPU build works too (--index-url .../whl/cpu, DIA_DEVICE=cpu).
-pyannote.audio>=3.1
+# The default pipeline (speaker-diarization-community-1) needs 4.x; diarize.py still runs on
+# 3.x if DIA_MODEL is pointed back at speaker-diarization-3.1.
+pyannote.audio>=4.0

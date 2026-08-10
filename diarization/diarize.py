@@ -16,6 +16,7 @@ Usage:
 Environment variables:
     HF_TOKEN            HuggingFace access token (if unset, uses the saved one in ~/.cache/huggingface)
     DIA_DEVICE         cpu (default) / cuda
+    DIA_MODEL          pipeline to use (default: the community-1 pipeline below)
     DIA_NUM_SPEAKERS   fix the speaker count if known (optional)
     DIA_MIN_SPEAKERS / DIA_MAX_SPEAKERS  hints for the speaker-count range (optional)
 """
@@ -27,7 +28,11 @@ import math
 import os
 import sys
 
-MODEL = "pyannote/speaker-diarization-3.1"
+# community-1 (pyannote.audio 4.x) segments as well as 3.1 but confuses speakers far less
+# and counts them more reliably, which is what matters when mapping turns onto utterances.
+# Set DIA_MODEL=pyannote/speaker-diarization-3.1 to fall back.
+DEFAULT_MODEL = "pyannote/speaker-diarization-community-1"
+MODEL = os.environ.get("DIA_MODEL") or DEFAULT_MODEL
 
 
 def _auth():
@@ -46,9 +51,10 @@ def load_pipeline():
         pipeline = Pipeline.from_pretrained(MODEL, token=_auth())
     if pipeline is None:
         raise SystemExit(
-            "Failed to load the pyannote pipeline. Check the HF token and that the model terms are accepted:\n"
-            "  https://huggingface.co/pyannote/speaker-diarization-3.1\n"
-            "  https://huggingface.co/pyannote/segmentation-3.0"
+            "Failed to load the pyannote pipeline. Check the HF token and that the model terms\n"
+            f"are accepted for {MODEL}:\n"
+            f"  https://huggingface.co/{MODEL}\n"
+            "  (speaker-diarization-3.1 additionally requires pyannote/segmentation-3.0)"
         )
     device = os.environ.get("DIA_DEVICE", "cpu")
     pipeline.to(torch.device(device))
