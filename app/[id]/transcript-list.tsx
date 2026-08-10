@@ -74,27 +74,12 @@ export function TranscriptList({
   const [retransing, setRetransing] = useState(false);
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
   const [retransModel, setRetransModel] = useState("");
-  const [toolsOpen, setToolsOpen] = useState(false);
+  const [retransOpen, setRetransOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ name: string }[]>([]);
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const confirm = useConfirm();
-
-  // Enrolled voice profiles (shown in the speaker-names tools; loaded when the tools open).
-  useEffect(() => {
-    if (!toolsOpen) return;
-    let cancelled = false;
-    fetch("/api/speaker-profiles")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((list: { name: string }[] | null) => {
-        if (!cancelled && list) setProfiles(list);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [toolsOpen]);
 
   // Enroll voiceprints from this meeting's diarized clusters (named speakers only).
   const saveVoiceProfiles = useCallback(async () => {
@@ -201,6 +186,23 @@ export function TranscriptList({
   );
   // Show the speaker badge/reassign on a row only when there are 2 or more speakers.
   const multiSpeaker = reassignKeys.length > 1;
+  // The speaker-name tools appear once diarization has produced speakers to name.
+  const showSpeakerTools = managerKeys.length > 0 && !readOnly;
+
+  // Enrolled voice profiles (shown alongside the speaker names).
+  useEffect(() => {
+    if (!showSpeakerTools) return;
+    let cancelled = false;
+    fetch("/api/speaker-profiles")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((list: { name: string }[] | null) => {
+        if (!cancelled && list) setProfiles(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [showSpeakerTools]);
 
   const transcriptText = useMemo(
     () =>
@@ -313,7 +315,7 @@ export function TranscriptList({
       setDiarStatus(null);
       setDiarWarn(null);
       setRetransStatus(
-        `Done: replaced with ${applied.replaced} utterances. Run "Auto-diarize" to distinguish speakers.`,
+        `Done: replaced with ${applied.replaced} utterances. Run "Diarize" to distinguish speakers.`,
       );
     } catch (e) {
       setError(`Re-transcription failed: ${(e as Error).message}`);
@@ -454,10 +456,9 @@ export function TranscriptList({
   const gpuBlocked = gpu.busy && !diarizing && !retransing;
   const busy = diarizing || retransing || gpuBlocked;
 
-  // "Diarize & end" on the recording page lands here with ?autodiarize=1: start
-  // Auto-diarize once, with the tools section open so the progress is visible, and
-  // drop the param from the URL so a reload doesn't re-trigger (results are cached
-  // on the STT side anyway, so an accidental re-run is cheap).
+  // "Diarize" on the recording page lands here with ?autodiarize=1: start diarization once
+  // (progress is shown inline in the toolbar) and drop the param from the URL so a reload
+  // doesn't re-trigger (results are cached on the STT side anyway, so a re-run is cheap).
   const autoDiarizeTried = useRef(false);
   useEffect(() => {
     if (autoDiarizeTried.current || transcripts.length === 0) return;
@@ -467,7 +468,6 @@ export function TranscriptList({
     params.delete("autodiarize");
     const qs = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
-    setToolsOpen(true);
     void runDiarization();
   }, [transcripts.length, runDiarization]);
 
@@ -515,7 +515,9 @@ export function TranscriptList({
         </div>
       ) : null}
 
-      {/* Top toolbar: share, and toggle for the edit tools */}
+      {/* Top toolbar: share on the left; diarization (the usual next step after a meeting) on
+          the right, directly reachable. Re-transcription is rarer and destructive, so it stays
+          behind its own disclosure below. */}
       {transcripts.length > 0 || recInfo?.exists ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           {transcripts.length > 0 ? (
@@ -529,165 +531,154 @@ export function TranscriptList({
             <span />
           )}
           {!readOnly ? (
-            <button
-              type="button"
-              onClick={() => setToolsOpen((v) => !v)}
-              className="btn-outline"
-              aria-expanded={toolsOpen}
-            >
-              Edit tools {toolsOpen ? "▲" : "▼"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {transcripts.length > 0 ? (
+                <>
+                  <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+                    Participants
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={numSpeakers}
+                      onChange={(e) => setNumSpeakers(e.target.value)}
+                      disabled={busy}
+                      placeholder="auto"
+                      className="w-16 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
+                    />
+                  </label>
+                  {diarizing ? (
+                    <button
+                      type="button"
+                      onClick={() => void stopDiarization()}
+                      disabled={stoppingDiar}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-5 py-2.5 text-sm font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                    >
+                      <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
+                      {stoppingDiar ? "Stopping…" : "Stop"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void runDiarization()}
+                      disabled={busy}
+                      className="btn-ink"
+                      title="Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)"
+                    >
+                      Diarize
+                    </button>
+                  )}
+                </>
+              ) : null}
+              {recInfo?.exists ? (
+                <button
+                  type="button"
+                  onClick={() => setRetransOpen((v) => !v)}
+                  className="btn-outline"
+                  aria-expanded={retransOpen}
+                >
+                  Re-transcribe {retransOpen ? "▲" : "▼"}
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
 
-      {/* Edit tools (diarization, speaker names, re-transcription). Collapsed by default */}
-      {toolsOpen && (transcripts.length > 0 || recInfo?.exists) ? (
-        <div className="mt-3 space-y-4 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
-          {transcripts.length > 0 ? (
-            <section>
-              <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-                1. Auto-diarize speakers
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                  Participants
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={numSpeakers}
-                    onChange={(e) => setNumSpeakers(e.target.value)}
-                    disabled={busy}
-                    placeholder="auto"
-                    className="w-16 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
-                  />
-                </label>
-                {diarizing ? (
-                  <button
-                    type="button"
-                    onClick={() => void stopDiarization()}
-                    disabled={stoppingDiar}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-3 py-1.5 text-sm font-medium text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
-                  >
-                    <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
-                    {stoppingDiar ? "Stopping…" : "Stop"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => void runDiarization()}
-                    disabled={busy}
-                    className="rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-                  >
-                    Auto-diarize
-                  </button>
-                )}
-                <span className="text-xs text-[var(--text-muted)]">
-                  Analyzes the recording and assigns a speaker to each line (entering the count improves accuracy).
-                </span>
-              </div>
-              {diarStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p> : null}
-              {diarWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{diarWarn}</p> : null}
+      {diarStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p> : null}
+      {diarWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{diarWarn}</p> : null}
 
-              {managerKeys.length > 0 ? (
-                <>
-                  <p className="mb-1.5 mt-3 text-xs font-medium text-[var(--text-secondary)]">
-                    2. Speaker names (edits apply to all lines)
-                  </p>
-                  <SpeakerManager
-                    speakerKeys={managerKeys}
-                    labels={speakerLabels}
-                    onRename={renameSpeaker}
-                  />
+      {/* Speaker names — revealed as soon as diarization has produced speakers to name. */}
+      {showSpeakerTools ? (
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
+          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+            Speaker names (edits apply to all lines)
+          </p>
+          <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
 
-                  {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void saveVoiceProfiles()}
-                      disabled={profileBusy || busy}
-                      className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-                    >
-                      {profileBusy ? "Saving…" : "Save voice profiles"}
-                    </button>
-                    <span className="text-xs text-[var(--text-muted)]">
-                      Enrolls each named speaker&apos;s voiceprint from this meeting; future
-                      auto-diarize runs will name them automatically.
-                    </span>
-                  </div>
-                  {profileMsg ? (
-                    <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p>
-                  ) : null}
-                  {profiles.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
-                      {profiles.map((p) => (
-                        <span
-                          key={p.name}
-                          className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
-                        >
-                          {p.name}
-                          <button
-                            type="button"
-                            onClick={() => void deleteProfile(p.name)}
-                            aria-label={`Delete voice profile ${p.name}`}
-                            title="Delete this voice profile"
-                            className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </>
-              ) : null}
-            </section>
-          ) : null}
-
-          {recInfo?.exists ? (
-            <section className="border-t border-[var(--border)] pt-3">
-              <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-                {transcripts.length > 0 ? "3. " : ""}Re-transcribe from the recording
-              </p>
-              {transcripts.length === 0 ? (
-                <p className="mb-2 text-xs text-[var(--text-muted)]">
-                  There is no transcript, but the recording remains. You can restore it from here.
-                </p>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                  Model
-                  <select
-                    value={retransModel}
-                    onChange={(e) => setRetransModel(e.target.value)}
-                    disabled={busy}
-                    className="rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
-                  >
-                    {RETRANS_MODELS.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void retranscribe()}
-                  disabled={busy}
-                  className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+          {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void saveVoiceProfiles()}
+              disabled={profileBusy || busy}
+              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+            >
+              {profileBusy ? "Saving…" : "Save voice profiles"}
+            </button>
+            <span className="text-xs text-[var(--text-muted)]">
+              Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
+              runs will name them automatically.
+            </span>
+          </div>
+          {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
+          {profiles.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
+              {profiles.map((p) => (
+                <span
+                  key={p.name}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
                 >
-                  {retransing ? "Recognizing…" : "Re-transcribe"}
-                </button>
-                <span className="text-xs text-[var(--text-muted)]">
-                  Re-recognizes the whole recording and replaces the transcript.
+                  {p.name}
+                  <button
+                    type="button"
+                    onClick={() => void deleteProfile(p.name)}
+                    aria-label={`Delete voice profile ${p.name}`}
+                    title="Delete this voice profile"
+                    className="text-[var(--text-muted)] hover:text-[var(--error)]"
+                  >
+                    ×
+                  </button>
                 </span>
-              </div>
-              {retransStatus ? (
-                <p className="mt-2 text-xs text-[var(--accent-sub)]">{retransStatus}</p>
-              ) : null}
-            </section>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Re-transcription — separate from diarization: it re-runs speech recognition and
+          replaces the whole transcript. Collapsed by default. */}
+      {retransOpen && recInfo?.exists && !readOnly ? (
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
+          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+            Re-transcribe from the recording
+          </p>
+          {transcripts.length === 0 ? (
+            <p className="mb-2 text-xs text-[var(--text-muted)]">
+              There is no transcript, but the recording remains. You can restore it from here.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+              Model
+              <select
+                value={retransModel}
+                onChange={(e) => setRetransModel(e.target.value)}
+                disabled={busy}
+                className="rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
+              >
+                {RETRANS_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => void retranscribe()}
+              disabled={busy}
+              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+            >
+              {retransing ? "Recognizing…" : "Re-transcribe"}
+            </button>
+            <span className="text-xs text-[var(--text-muted)]">
+              Re-recognizes the whole recording and replaces the transcript.
+            </span>
+          </div>
+          {retransStatus ? (
+            <p className="mt-2 text-xs text-[var(--accent-sub)]">{retransStatus}</p>
           ) : null}
         </div>
       ) : null}

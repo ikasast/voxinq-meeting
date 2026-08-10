@@ -636,7 +636,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             audio and it may be recorded twice.
           </li>
         ) : null}
-        <li>Distinguish speakers after the meeting via “Auto-diarize” on the detail page, or per line.</li>
+        <li>Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.</li>
         <li>
           On phones, <strong>keep the screen on</strong> while recording (sleep is auto-suppressed, but on
           some devices turning the screen off stops mic capture).
