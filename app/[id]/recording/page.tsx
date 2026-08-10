@@ -374,7 +374,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       title: title || "Meeting",
       message:
         "Start generating minutes and end the meeting. Generation runs in the background; check the result on the meeting page when it finishes.",
-      confirmLabel: "Generate & end",
+      confirmLabel: "Generate minutes",
       checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
     });
     if (!ok) return;
@@ -413,7 +413,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       title: title || "Meeting",
       message:
         "End the meeting and start speaker diarization. Speakers are assigned automatically on the meeting page (enrolled voices get their names); generate minutes afterwards.",
-      confirmLabel: "Diarize & end",
+      confirmLabel: "Diarize",
       checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
     });
     if (!ok) return;
@@ -727,22 +727,25 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       {/* Sticky bottom bar: end actions */}
       <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-3 backdrop-blur">
         <div className="grow" />
+        {/* The two follow-up actions are the colored ones (they end the meeting and start work);
+            "End only" stays gray because it just stops. */}
         <button
           type="button"
           onClick={generateSummaryAndEnd}
           disabled={busy !== "none" || transcripts.length === 0}
           className="btn-ink"
+          title="End the meeting and start generating minutes in the background"
         >
-          {busy === "summary" ? "Starting…" : "Generate minutes & end"}
+          {busy === "summary" ? "Starting…" : "Generate minutes"}
         </button>
         <button
           type="button"
           onClick={diarizeAndEnd}
           disabled={busy !== "none" || transcripts.length === 0}
-          className="btn-soft"
+          className="btn-ink"
           title="End the meeting and assign speakers automatically; generate minutes after reviewing them"
         >
-          Diarize & end
+          Diarize
         </button>
         <button type="button" onClick={endWithoutSummary} disabled={busy !== "none"} className="btn-soft">
           End only
