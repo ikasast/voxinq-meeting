@@ -7,10 +7,21 @@
 #
 # git pull -> update deps -> production build -> stop old server -> start -> health check.
 # .env / settings.json / prisma/dev.db are gitignored, so pull does not remove them.
+#
+# Deploys whatever branch is checked out; pass BRANCH=<name> to allow one other than main
+# (a leftover feature branch would otherwise deploy silently and just look stale).
 set -euo pipefail
 cd "$(dirname "$0")/.."   # to the repo root
 
-echo "[1/4] git pull..."
+branch="$(git rev-parse --abbrev-ref HEAD)"
+want="${BRANCH:-main}"
+if [ "$branch" != "$want" ]; then
+  echo "On branch '$branch' but deploying '$want'. Run 'git checkout $want' first," >&2
+  echo "or pass BRANCH=$branch to deploy this branch on purpose." >&2
+  exit 1
+fi
+
+echo "[1/4] git pull ($branch)..."
 git pull --ff-only
 
 echo "[2/4] update deps & apply DB schema & production build (keeps the current server on failure)..."
