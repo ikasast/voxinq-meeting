@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/utils";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
+import { preloadSttIfIdle } from "@/lib/stt/preload";
 import { useGpuBusy } from "../use-gpu-busy";
 
 const WHISPER_MODELS = ["large-v3-turbo", "large-v3", "medium", "distil-large-v3", "small"];
@@ -82,6 +83,9 @@ export default function NewMeetingPage() {
         if (s.whisperModel) setModel(s.whisperModel);
         if (s.micMode) setMicMode(s.micMode);
         if (s.sttGlossary) glossaryRef.current = s.sttGlossary;
+        // Start loading the Whisper model now — it takes tens of seconds, and filling in
+        // this form covers most of it, so transcription is live as soon as recording starts.
+        void preloadSttIfIdle(s.whisperModel);
       })
       .catch(() => {});
     return () => {
