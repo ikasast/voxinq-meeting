@@ -63,8 +63,8 @@ Then open `http://localhost:3000` → **New meeting → Start recording**, talk,
 
 - **Record a meeting:** New meeting → Start recording → speak → *Generate minutes & end*. Minutes generate in the background.
 - **Summarize an existing file:** drag a recording onto the New meeting screen → it transcribes, then summarizes.
-- **Improve speaker labels:** open a meeting → *Edit tools → Auto-diarize* → rename speakers; regenerate minutes.
-- **Fix a bad transcript:** *Edit tools → Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
+- **Improve speaker labels:** open a meeting → *Diarize* above the transcript → rename speakers; regenerate minutes.
+- **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and a custom format.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
 
