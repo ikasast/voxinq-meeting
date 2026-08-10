@@ -34,12 +34,13 @@ format and a transcription glossary that override the global Settings for this s
 
 ## Speaker diarization
 
-On a meeting page → **Edit tools → Auto-diarize**. Enter the participant count for better
-accuracy, run it, then rename speakers. Regenerate minutes to use the names.
+On a meeting page → **Diarize**, in the toolbar above the transcript. Enter the participant
+count for better accuracy, run it (the button becomes **Stop** while it works), then rename
+the speakers in the editor that appears. Regenerate minutes to use the names.
 
 ## Voice profiles (auto-name recurring speakers)
 
-Two ways to enroll a voiceprint; afterwards **Auto-diarize automatically names any speaker
+Two ways to enroll a voiceprint; afterwards **diarization automatically names any speaker
 whose voice matches an enrolled profile** (manual names are never overwritten):
 
 1. **Guided recording (best for yourself):** Settings → **Speakers** → enter a name, read
@@ -53,8 +54,9 @@ wrong names appear).
 
 ## Re-transcribe
 
-**Edit tools → Re-transcribe** re-runs recognition over the saved recording (pick a larger
-model like `large-v3` for accuracy). This replaces the transcript; re-run diarization after.
+**Re-transcribe** (its own toggle in the transcript toolbar) re-runs recognition over the
+saved recording — pick a larger model like `large-v3` for accuracy. This replaces the whole
+transcript, so re-run diarization afterwards.
 
 > Requires the recording to still exist (WAVs auto-delete after 7 days unless protected).
 

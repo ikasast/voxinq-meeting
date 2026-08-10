@@ -19,7 +19,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!meeting) return apiError("not found", 404);
   if (!meeting.diarizationEmbeddings) {
     return apiError(
-      "No voice embeddings stored for this meeting. Run Auto-diarize (again) first — the recording must still exist.",
+      "No voice embeddings stored for this meeting. Run Diarize (again) first — the recording must still exist.",
       400,
     );
   }
@@ -28,7 +28,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   try {
     raw = JSON.parse(meeting.diarizationEmbeddings);
   } catch {
-    return apiError("Stored embeddings are corrupted. Re-run Auto-diarize.", 400);
+    return apiError("Stored embeddings are corrupted. Re-run Diarize.", 400);
   }
   const clusters = cleanClusterEmbeddings(raw);
   const labels = parseSpeakerLabels(meeting.speakerLabels);
