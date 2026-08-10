@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type RecognizerStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
+import { effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirmEx } from "../../confirm-dialog";
 import { useGpuBusy } from "../../use-gpu-busy";
 
@@ -306,7 +307,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       handleRef.current = await startMic(handlers, {
         model: whisperModelRef.current,
         meetingId,
-        language: meetingLangRef.current ?? sttLanguageRef.current,
+        language: effectiveSttLanguage(
+          whisperModelRef.current,
+          meetingLangRef.current ?? sttLanguageRef.current,
+        ),
         // Global glossary + this meeting's series glossary (if any).
         initialPrompt:
           [sttGlossaryRef.current, seriesGlossaryRef.current].filter(Boolean).join("、") ||

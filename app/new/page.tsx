@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/utils";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
+import { WHISPER_MODELS, effectiveSttLanguage, isKnownWhisperModel } from "@/lib/stt/models";
 import { preloadSttIfIdle } from "@/lib/stt/preload";
 import { useGpuBusy } from "../use-gpu-busy";
 
-const WHISPER_MODELS = ["large-v3-turbo", "large-v3", "medium", "distil-large-v3", "small"];
 const MIC_MODES: { id: string; label: string }[] = [
   { id: "standard", label: "Standard (close talk / calls)" },
   { id: "room", label: "Room (pick up distant voices)" },
@@ -190,7 +190,10 @@ export default function NewMeetingPage() {
       } catch {
         // best-effort — the global glossary alone is fine
       }
-      const qs = new URLSearchParams({ language: sttLanguage, model });
+      const qs = new URLSearchParams({
+        language: effectiveSttLanguage(model, sttLanguage) ?? sttLanguage,
+        model,
+      });
       if (glossary) qs.set("initialPrompt", glossary);
       const up = await fetch(`${base}/upload/${meeting.id}?${qs}`, { method: "POST", body: file });
       if (!up.ok) {
@@ -385,11 +388,11 @@ export default function NewMeetingPage() {
                 className={selectClass}
               >
                 {WHISPER_MODELS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                  <option key={m.value} value={m.value}>
+                    {m.label}
                   </option>
                 ))}
-                {WHISPER_MODELS.includes(model) ? null : (
+                {isKnownWhisperModel(model) ? null : (
                   <option value={model}>{model} (from settings)</option>
                 )}
               </select>

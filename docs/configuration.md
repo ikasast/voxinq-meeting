@@ -34,8 +34,12 @@ Edit these in **Settings** in the UI (no restart needed). API keys are stored in
 here (single on-prem user assumed), so keep the file private.
 
 **Transcription**
-- `whisperModel` — `large-v3-turbo` (default), `large-v3`, `medium`, `distil-large-v3`, `small`
-- `sttLanguage` — `auto` (default) / `ja` / `en`
+- `whisperModel` — `large-v3-turbo` (default), `large-v3`, `medium`, `distil-large-v3`, `small`,
+  or `kotoba-tech/kotoba-whisper-v2.0-faster` (distilled on Japanese speech: faster and more
+  accurate for Japanese, but Japanese-only and sparse on punctuation; downloaded from Hugging
+  Face on first use). Any CTranslate2 model repo id works here.
+- `sttLanguage` — `auto` (default) / `ja` / `en`. Forced to `ja` when the model is
+  Japanese-only.
 - `sttGlossary` — terms/proper nouns to bias recognition (short)
 - `micMode` — `standard` / `room` (room picks up distant voices)
 

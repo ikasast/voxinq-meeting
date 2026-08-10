@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
+import { WHISPER_MODELS, isKnownWhisperModel } from "@/lib/stt/models";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 
@@ -37,7 +38,6 @@ const SUMMARY_LANGUAGES: { id: string; label: string }[] = [
   { id: "zh", label: "Chinese (中文)" },
 ];
 
-const WHISPER_MODELS = ["large-v3-turbo", "large-v3", "medium", "distil-large-v3", "small"];
 const STT_LANGUAGES: { id: string; label: string }[] = [
   { id: "auto", label: "Auto-detect (keep the spoken language)" },
   { id: "ja", label: "Japanese (fixed)" },
@@ -223,16 +223,17 @@ export default function SettingsPage() {
               className={inputClass}
             >
               {WHISPER_MODELS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
+                <option key={m.value} value={m.value}>
+                  {m.label}
                 </option>
               ))}
-              {WHISPER_MODELS.includes(settings.whisperModel) ? null : (
+              {isKnownWhisperModel(settings.whisperModel) ? null : (
                 <option value={settings.whisperModel}>{settings.whisperModel} (custom)</option>
               )}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               8GB VRAM guide: large-v3 ≈3GB / large-v3-turbo (default; fast and accurate) ≈1.7GB / medium · distil-large-v3 ≈1.5GB / small ≈0.5GB.
+              kotoba-whisper ≈1.5GB — distilled on Japanese speech, so it is faster and more accurate for Japanese, but Japanese-only (transcription language is forced to Japanese) and it adds little punctuation. Downloaded from Hugging Face on first use.
             </p>
           </div>
 

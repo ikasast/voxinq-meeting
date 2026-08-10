@@ -11,6 +11,7 @@ import {
   speakerName,
 } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
+import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
@@ -30,14 +31,7 @@ function remainingDays(expiresAt: string): number {
   return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 86400000));
 }
 
-const RETRANS_MODELS = [
-  { value: "", label: "Same as settings" },
-  { value: "large-v3-turbo", label: "large-v3-turbo (accurate & fast)" },
-  { value: "large-v3", label: "large-v3 (accurate)" },
-  { value: "distil-large-v3", label: "distil-large-v3" },
-  { value: "medium", label: "medium" },
-  { value: "small", label: "small (light)" },
-];
+const RETRANS_MODELS = [{ value: "", label: "Same as settings" }, ...WHISPER_MODELS];
 
 // Post-meeting transcript. Supports recording playback, auto diarization, speaker renaming, and re-transcription.
 export function TranscriptList({
@@ -269,12 +263,13 @@ export function TranscriptList({
       } | null;
 
       const base = sttHttpBase();
+      const model = retransModel || settings?.whisperModel;
       const startRes = await fetch(`${base}/transcribe/${meetingId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          language: settings?.sttLanguage,
-          model: retransModel || settings?.whisperModel,
+          language: effectiveSttLanguage(model, settings?.sttLanguage),
+          model,
           // Global glossary + this meeting's series glossary (if any).
           initialPrompt:
             [settings?.sttGlossary, seriesGlossary].filter(Boolean).join("、") || undefined,
