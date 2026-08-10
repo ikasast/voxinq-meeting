@@ -87,3 +87,6 @@ next-env.d.ts
 
 # Windows primary-host runtime log
 /scripts/windows/web.log
+
+# Screen-recording sources for the demo GIF (keep the .gif, not the source video)
+docs/screenshots/*.mp4
