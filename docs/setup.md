@@ -35,7 +35,11 @@ For speaker diarization (optional, GPU torch + pyannote), add the flag:
 ```
 
 then set `HF_TOKEN` (or log in with `huggingface-cli`) and accept the terms for
-`pyannote/speaker-diarization-3.1` and `pyannote/segmentation-3.0` on Hugging Face.
+[`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
+on Hugging Face. The model downloads on first use.
+
+> Set `DIA_MODEL=pyannote/speaker-diarization-3.1` to use the older pipeline instead — it
+> needs `pyannote/segmentation-3.0` accepted as well.
 
 ## Run
 
