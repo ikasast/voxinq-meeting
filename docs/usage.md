@@ -4,9 +4,9 @@
 
 1. **New meeting** → optionally set title, purpose, and per-meeting recording settings.
 2. **Start recording** → speak. The live transcript appears as you go.
-3. End with one of:
-   - **Generate minutes & end** — minutes are generated in the background.
-   - **Diarize & end** — speaker diarization starts automatically on the meeting page
+3. End with one of (all three end the meeting):
+   - **Generate minutes** — minutes are generated in the background.
+   - **Diarize** — speaker diarization starts automatically on the meeting page
      (enrolled voices get their names); generate minutes after reviewing the speakers.
    - **End only** — just stop; generate or diarize later.
 

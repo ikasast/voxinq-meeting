@@ -5,11 +5,13 @@
 # `git pull` that touched STT is fully applied in one step.
 #
 # Usage: in scripts\windows run  .\redeploy-all.ps1
+#        .\redeploy-all.ps1 -Branch <name>   deploy a branch other than main
+param([string]$Branch = 'main')
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 
 Write-Host '===== [1/2] Web redeploy (pull, deps, migrate, build, restart) =====' -ForegroundColor Cyan
-& (Join-Path $here 'redeploy-web.ps1')
+& (Join-Path $here 'redeploy-web.ps1') -Branch $Branch
 
 Write-Host ''
 Write-Host '===== [2/2] STT restart =====' -ForegroundColor Cyan

@@ -52,7 +52,7 @@ cd voxinq-meeting
 ```
 
 Then open `http://localhost:3000` → **New meeting → Start recording**, talk, and
-**Generate minutes & end**. Minutes appear on the meeting page.
+**Generate minutes**. Minutes appear on the meeting page.
 (Or just **drop an audio file** on the New meeting screen.)
 
 📖 Manual install, background services, and phone access via Tailscale: **[docs/setup.md](docs/setup.md)**.
@@ -61,7 +61,7 @@ Then open `http://localhost:3000` → **New meeting → Start recording**, talk,
 
 ## 📖 Usage
 
-- **Record a meeting:** New meeting → Start recording → speak → *Generate minutes & end*. Minutes generate in the background.
+- **Record a meeting:** New meeting → Start recording → speak → *Generate minutes*. Minutes generate in the background.
 - **Summarize an existing file:** drag a recording onto the New meeting screen → it transcribes, then summarizes.
 - **Improve speaker labels:** open a meeting → *Edit tools → Auto-diarize* → rename speakers; regenerate minutes.
 - **Fix a bad transcript:** *Edit tools → Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.

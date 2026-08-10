@@ -1,10 +1,18 @@
 # Voxinq Web update script (Windows primary-host operation; the Windows version of redeploy.sh).
 # git pull -> update deps -> apply DB schema -> production build -> restart server.
 # Usage: in scripts\windows run .\redeploy-web.ps1
+#        .\redeploy-web.ps1 -Branch <name>   deploy a branch other than main (e.g. to test a PR)
+param([string]$Branch = 'main')
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..\..')
 
-Write-Host '[1/4] git pull...'
+# This builds whatever is checked out. A leftover feature branch would otherwise deploy
+# silently — the site looks stale and nothing reports an error — so require it explicitly.
+$current = (git rev-parse --abbrev-ref HEAD).Trim()
+if ($current -ne $Branch) {
+    throw "On branch '$current' but deploying '$Branch'. Run 'git checkout $Branch' first, or pass -Branch $current to deploy this branch on purpose."
+}
+Write-Host "[1/4] git pull ($current)..."
 git pull --ff-only
 
 Write-Host '[2/4] update deps & apply DB schema...'
