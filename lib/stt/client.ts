@@ -184,7 +184,9 @@ export async function startMic(
           // "loading" keeps the connecting state shown
           break;
         case "partial":
-          if (msg.text) handlers.onPartial(msg.text);
+          // An empty partial clears the provisional text (sent when a segment is discarded
+          // as noise, so its last partial does not linger on screen).
+          handlers.onPartial(msg.text ?? "");
           break;
         case "final":
           if (msg.text) handlers.onFinal(speakerLabelToKey(msg.speaker), msg.text);

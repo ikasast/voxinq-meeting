@@ -19,7 +19,9 @@ in the UI). Both are gitignored.
 
 STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
 `WHISPER_COMPUTE`, `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
-`STT_IDLE_RELEASE_SECONDS` (default 600), and VAD tuning (`VAD_*`).
+`STT_IDLE_RELEASE_SECONDS` (default 600), `STT_PARTIAL_MS` (default 1200 — how often a
+provisional "partial" transcription of the segment still being spoken is pushed to the
+recording screen; 0 disables partials), and VAD tuning (`VAD_*`).
 
 `STT_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the STT service.
 The browser talks to it directly, so it must accept the origin the web app is served from.

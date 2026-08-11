@@ -76,6 +76,12 @@ VAD_MIN_SPEECH_MS = int(os.environ.get("VAD_MIN_SPEECH_MS", "250"))
 STT_NO_SPEECH_THRESH = float(os.environ.get("STT_NO_SPEECH_THRESH", "0.6"))
 STT_LOGPROB_THRESH = float(os.environ.get("STT_LOGPROB_THRESH", "-1.0"))
 
+# Minimum interval between provisional ("partial") transcriptions of the segment still being
+# spoken. Without partials nothing appears until a segment is finalized (up to
+# VAD_MAX_SEGMENT_MS of continuous speech), which reads as the recognizer hanging.
+# 0 disables partials.
+STT_PARTIAL_MS = int(os.environ.get("STT_PARTIAL_MS", "1200"))
+
 # Retention days for recordings (WAV). Recordings not protected (.keep) are auto-deleted
 # after this many days. Set <= 0 to disable auto-deletion.
 RETENTION_DAYS = float(os.environ.get("STT_RECORDING_RETENTION_DAYS", "7"))
@@ -174,8 +180,17 @@ def _recording_remove(mid: str) -> None:
 def _preload_model(name: str | None) -> None:
     """Load the model in the background (failures go to the log)."""
     try:
-        whisper.get(name)
+        model = whisper.get(name)
         print(f"[preload] loaded model: {whisper.loaded_model}")
+        # One throwaway inference so the first real utterance doesn't pay the remaining lazy
+        # costs (Silero VAD's ONNX session, CUDA kernel warm-up) — those add seconds on top
+        # of the model load and only hit the very first segment.
+        try:
+            rng = np.random.default_rng(0)
+            noise = (rng.standard_normal(SAMPLE_RATE // 2) * 0.02).astype(np.float32)
+            transcribe_segment(model, noise, beam_size=1)
+        except Exception:  # noqa: BLE001  warm-up only; the model itself is loaded
+            pass
     except Exception as e:  # noqa: BLE001
         print(f"[preload] model load failed: {e}")
 
@@ -265,11 +280,13 @@ def transcribe_segment(
     audio: np.ndarray,
     language: str | None = None,
     initial_prompt: str | None = None,
+    beam_size: int = 5,
 ) -> str:
     """Transcribe a single utterance segment (float32 mono 16k) and return the joined text.
 
     language=None auto-detects the spoken language ("ja"/"en" pins it).
     Passing a glossary as initial_prompt biases recognition toward proper nouns, etc.
+    beam_size=1 (greedy) is used for disposable partials; finals keep the accurate default.
     Suppresses silence-derived hallucinations in three stages:
       - remove non-speech regions with Whisper's built-in VAD (silero)
       - discard low-confidence segments by no_speech_prob / avg_logprob
@@ -279,7 +296,7 @@ def transcribe_segment(
         audio,
         language=language,
         initial_prompt=initial_prompt or None,
-        beam_size=5,
+        beam_size=beam_size,
         vad_filter=True,  # boundaries are handled by the caller's VAD, but this also suppresses internal-silence hallucinations
         vad_parameters=dict(min_silence_duration_ms=300),
         condition_on_previous_text=False,
@@ -1096,18 +1113,59 @@ async def ws_endpoint(ws: WebSocket) -> None:
     max_seg = int(SAMPLE_RATE * VAD_MAX_SEGMENT_MS / 1000)
     min_seg = int(SAMPLE_RATE * VAD_MIN_SEGMENT_MS / 1000)
     frame = int(SAMPLE_RATE * 0.02)  # silence detection in 20ms units
+    partial_gap = int(SAMPLE_RATE * STT_PARTIAL_MS / 1000)
+
+    # Serializes GPU inference for this connection: a final and a partial must never run
+    # concurrently, and finals have priority (partials skip instead of queueing).
+    transcribe_lock = asyncio.Lock()
+    partial_task: asyncio.Task | None = None
+    last_partial_sample = 0
+
+    async def send_partial(audio: np.ndarray) -> None:
+        """Provisional transcription of the segment still being spoken (best-effort).
+
+        Greedy decoding (beam_size=1) keeps it cheap; the text is replaced by the accurate
+        final when the segment closes. Any failure is swallowed — partials are disposable.
+        """
+        if transcribe_lock.locked():
+            return  # a final (or another partial) is on the GPU; the next chunk retries
+        try:
+            async with transcribe_lock:
+                model = whisper.get(state.model_name)
+                text = await asyncio.to_thread(
+                    transcribe_segment,
+                    model,
+                    audio,
+                    state.language,
+                    state.initial_prompt,
+                    beam_size=1,
+                )
+            if text:
+                await ws.send_text(json.dumps({"type": "partial", "text": text}, ensure_ascii=False))
+        except Exception:  # noqa: BLE001
+            pass
 
     async def flush_segment() -> None:
         """Finalize the current buffer as one utterance and send a final."""
+        # Snapshot and reset immediately so the next segment accumulates while Whisper runs.
         audio = state.buffer
+        start_sample = state.seg_start_sample
+        state.buffer = np.zeros(0, dtype=np.float32)
+        state.silence_samples = 0
+        state.seg_start_sample = state.elapsed_samples
         # Pass to Whisper only when voiced time is above the threshold.
         # Not passing silent buffers (produced at each silence split) cuts off hallucinations.
         if audio.size >= min_seg and voiced_ms(audio, frame) >= VAD_MIN_SPEECH_MS:
-            model = whisper.get(state.model_name)
-            text = transcribe_segment(model, audio, state.language, state.initial_prompt)
+            # Inference runs on a thread so the event loop (this receive loop for queued
+            # frames, /health, other connections) stays responsive during the ~seconds it takes.
+            async with transcribe_lock:
+                model = whisper.get(state.model_name)
+                text = await asyncio.to_thread(
+                    transcribe_segment, model, audio, state.language, state.initial_prompt
+                )
             if text:
-                start_s = state.seg_start_sample / SAMPLE_RATE
-                end_s = (state.seg_start_sample + audio.size) / SAMPLE_RATE
+                start_s = start_sample / SAMPLE_RATE
+                end_s = (start_sample + audio.size) / SAMPLE_RATE
                 await ws.send_text(
                     json.dumps(
                         {
@@ -1124,9 +1182,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 # Recording only after a successful send prevents an utterance that never reached the client
                 # from remaining only in segments.json and shifting the numbering vs the DB utterances.
                 state.finals.append({"start": round(start_s, 2), "end": round(end_s, 2)})
-        state.buffer = np.zeros(0, dtype=np.float32)
-        state.silence_samples = 0
-        state.seg_start_sample = state.elapsed_samples
+            else:
+                # The segment produced no final (filtered as noise/hallucination) — clear any
+                # partial that was shown for it, or stale text lingers until the next final.
+                with suppress(Exception):
+                    await ws.send_text(json.dumps({"type": "partial", "text": ""}))
 
     try:
         while True:
@@ -1212,10 +1272,26 @@ async def ws_endpoint(ws: WebSocket) -> None:
             if state.buffer.size >= max_seg or (
                 state.silence_samples >= silence_limit and state.buffer.size >= min_seg
             ):
+                last_partial_sample = state.elapsed_samples
                 await flush_segment()
+            elif (
+                # Otherwise, periodically show what the in-progress segment sounds like so
+                # far — without this, continuous speech shows nothing until the segment
+                # closes (up to VAD_MAX_SEGMENT_MS), which reads as a hang.
+                STT_PARTIAL_MS > 0
+                and state.buffer.size >= SAMPLE_RATE  # at least 1s of audio to work with
+                and state.elapsed_samples - last_partial_sample >= partial_gap
+                and (partial_task is None or partial_task.done())
+                and not transcribe_lock.locked()
+                and voiced_ms(state.buffer, frame) >= VAD_MIN_SPEECH_MS
+            ):
+                last_partial_sample = state.elapsed_samples
+                partial_task = asyncio.create_task(send_partial(state.buffer.copy()))
     except WebSocketDisconnect:
         pass
     finally:
+        if partial_task is not None and not partial_task.done():
+            partial_task.cancel()
         # Do not release the model here. Releasing on every disconnect would destroy the
         # loaded model as reconnects or concurrent connections come and go, causing an endless
         # "loading" state. Leave release to explicit end (meeting end) and the idle timer.
