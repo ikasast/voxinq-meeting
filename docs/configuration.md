@@ -42,7 +42,8 @@ here (single on-prem user assumed), so keep the file private.
   Face on first use). Any CTranslate2 model repo id works here.
 - `sttLanguage` — `auto` (default) / `ja` / `en`. Forced to `ja` when the model is
   Japanese-only.
-- `sttGlossary` — terms/proper nouns to bias recognition (short)
+- `sttGlossary` — terms/proper nouns to bias recognition (short). Skipped for kotoba-whisper:
+  its distilled decoder cannot take a prompt and returns nothing when one is set.
 - `micMode` — `standard` / `room` (room picks up distant voices)
 
 **Minutes**

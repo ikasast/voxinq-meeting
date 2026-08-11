@@ -7,8 +7,9 @@
 export type WhisperModelOption = { value: string; label: string };
 
 // kotoba-whisper is distilled from Whisper on Japanese speech: notably faster and lighter
-// than large-v3 with better Japanese accuracy — but Japanese-only, and its output tends to
-// come back with little punctuation.
+// than large-v3 with better Japanese accuracy — but Japanese-only, its output tends to come
+// back with little punctuation, and its 2-layer decoder cannot take an initial_prompt (with
+// one set it returns nothing at all), so the glossary is skipped for it.
 export const KOTOBA_WHISPER = "kotoba-tech/kotoba-whisper-v2.0-faster";
 
 export const WHISPER_MODELS: WhisperModelOption[] = [
@@ -17,7 +18,10 @@ export const WHISPER_MODELS: WhisperModelOption[] = [
   { value: "medium", label: "medium" },
   { value: "distil-large-v3", label: "distil-large-v3" },
   { value: "small", label: "small (light)" },
-  { value: KOTOBA_WHISPER, label: "kotoba-whisper-v2.0 (Japanese only, fast; sparse punctuation)" },
+  {
+    value: KOTOBA_WHISPER,
+    label: "kotoba-whisper-v2.0 (Japanese only, fast; sparse punctuation, no glossary)",
+  },
 ];
 
 export function whisperModelLabel(value: string): string {
