@@ -75,8 +75,9 @@ model Tag {
 model SpeakerProfile {
   id              String   @id @default(cuid())
   name            String   @unique
-  embedding       String // JSON float array (pyannote speaker centroid)
-  sourceMeetingId String?  @map("source_meeting_id") // meeting the profile was enrolled from
+  embedding       String // JSON float array (pyannote speaker centroid), averaged over all enrollments
+  sampleCount     Int      @default(1) @map("sample_count") // enrollments folded into `embedding`
+  sourceMeetingId String?  @map("source_meeting_id") // meeting the profile was last enrolled from
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

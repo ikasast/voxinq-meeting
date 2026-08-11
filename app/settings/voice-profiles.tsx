@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
 import { TrashIcon } from "../icons";
 
-type Profile = { name: string; sourceMeetingId: string | null; updatedAt: string };
+type Profile = {
+  name: string;
+  sourceMeetingId: string | null;
+  sampleCount: number;
+  updatedAt: string;
+};
 
 // A phonetically varied passage for enrollment. The voiceprint is text-independent,
 // but ~20-30s of natural, varied speech gives a much more reliable embedding than
@@ -201,9 +206,15 @@ export function VoiceProfiles() {
               <li
                 key={p.name}
                 className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--elevated)] px-2.5 py-1 text-xs text-[var(--text-secondary)]"
-                title={p.sourceMeetingId ? "Enrolled from a meeting" : "Enrolled from guided recording"}
+                title={`${
+                  p.sourceMeetingId ? "Last enrolled from a meeting" : "Last enrolled from guided recording"
+                } · averaged over ${p.sampleCount} recording(s)`}
               >
                 {p.name}
+                {/* Enrollments accumulate, so show how much voice a profile is built from. */}
+                {p.sampleCount > 1 ? (
+                  <span className="text-[10px] text-[var(--text-muted)]">×{p.sampleCount}</span>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => void remove(p.name)}
