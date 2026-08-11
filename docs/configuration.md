@@ -19,7 +19,8 @@ in the UI). Both are gitignored.
 
 STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
 `WHISPER_COMPUTE`, `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
-`STT_IDLE_RELEASE_SECONDS` (default 600), `STT_PARTIAL_MS` (default 1200 — how often a
+`STT_IDLE_RELEASE_SECONDS` (default 600), `STT_TRANSLATE_MODEL` / `STT_TRANSLATE_THREADS`
+(translation model repo and CPU threads), `STT_PARTIAL_MS` (default 1200 — how often a
 provisional "partial" transcription of the segment still being spoken is pushed to the
 recording screen; 0 disables partials), and VAD tuning (`VAD_*`).
 
@@ -45,6 +46,11 @@ here (single on-prem user assumed), so keep the file private.
 - `sttGlossary` — terms/proper nouns to bias recognition (short). Skipped for kotoba-whisper:
   its distilled decoder cannot take a prompt and returns nothing when one is set.
 - `micMode` — `standard` / `room` (room picks up distant voices)
+- `sttTranslate` — `false` (default). Shows a Japanese translation under each non-Japanese
+  utterance, live and on the transcript; minutes are still generated from the original words.
+  Translation runs on the **CPU**, so it does not compete with transcription for the GPU.
+  Enabling it downloads a ~600MB model (NLLB-200 distilled, **CC-BY-NC — non-commercial use
+  only**) to the STT host on first use. Override the repo with `STT_TRANSLATE_MODEL`.
 
 **Minutes**
 - `summaryLanguage` — `ja` / `en` / `zh` (output language, regardless of what was spoken)

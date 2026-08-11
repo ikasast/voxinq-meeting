@@ -15,6 +15,9 @@ export type AppSettings = {
   sttLanguage: string; // "auto" | "ja" | "en" (auto = keep the spoken language)
   sttGlossary: string; // terms/proper nouns for Whisper initial_prompt (short text)
   micMode: string; // "standard" | "room" (room = tuned to pick up distant voices in a meeting room)
+  // Translate non-Japanese utterances into Japanese alongside the transcript. Off by default:
+  // it downloads a ~600MB CC-BY-NC translation model to the STT host on first use.
+  sttTranslate: boolean;
   // LLM
   llmProvider: LlmProviderName;
   ollamaBaseUrl: string;
@@ -37,6 +40,7 @@ function defaults(): AppSettings {
     sttLanguage: process.env.WHISPER_LANGUAGE ?? "auto",
     sttGlossary: "",
     micMode: "standard",
+    sttTranslate: false,
     llmProvider: ((process.env.LLM_PROVIDER ?? "ollama").toLowerCase() as LlmProviderName) || "ollama",
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
     ollamaModel: process.env.OLLAMA_MODEL ?? "qwen2.5:7b-instruct",
@@ -73,6 +77,7 @@ export async function readSettings(): Promise<AppSettings> {
     if (!VALID_SUMMARY_DETAILS.includes(merged.summaryDetail))
       merged.summaryDetail = base.summaryDetail;
     if (!VALID_MIC_MODES.includes(merged.micMode)) merged.micMode = base.micMode;
+    if (typeof merged.sttTranslate !== "boolean") merged.sttTranslate = base.sttTranslate;
     if (
       typeof merged.voiceprintThreshold !== "number" ||
       !(merged.voiceprintThreshold > 0 && merged.voiceprintThreshold < 1)

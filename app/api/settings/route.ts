@@ -36,6 +36,7 @@ export async function PATCH(req: NextRequest) {
     const v = body[key];
     if (typeof v === "string") (patch as Record<string, string>)[key] = v;
   }
+  if (typeof body.sttTranslate === "boolean") patch.sttTranslate = body.sttTranslate;
   // Update API keys only when a value is passed (empty string is ignored as "no change").
   if (typeof body.anthropicApiKey === "string" && body.anthropicApiKey.trim()) {
     patch.anthropicApiKey = body.anthropicApiKey.trim();

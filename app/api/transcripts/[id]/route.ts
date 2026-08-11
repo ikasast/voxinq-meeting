@@ -8,16 +8,26 @@ export const runtime = "nodejs";
 // STT runs on the same host, so reach it over loopback (same pattern as the meeting-end route).
 const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://localhost:8000";
 
-// Reassign the speaker of a single utterance (to manually fix diarization errors).
+// Update a single utterance: reassign its speaker (to fix diarization errors), and/or attach
+// the Japanese translation that the STT service produces a moment after the utterance itself.
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/transcripts/[id]">) {
   const { id } = await ctx.params;
 
-  const body = await readJson<{ speakerType?: unknown }>(req);
-  const speakerType = typeof body?.speakerType === "string" ? body.speakerType : "";
-  if (!isValidSpeakerKey(speakerType)) return apiError("invalid speakerType", 400);
+  const body = await readJson<{ speakerType?: unknown; translation?: unknown }>(req);
+  const data: { speakerType?: string; translation?: string } = {};
+
+  if (body?.speakerType !== undefined) {
+    const speakerType = typeof body.speakerType === "string" ? body.speakerType : "";
+    if (!isValidSpeakerKey(speakerType)) return apiError("invalid speakerType", 400);
+    data.speakerType = speakerType;
+  }
+  if (typeof body?.translation === "string" && body.translation.trim()) {
+    data.translation = body.translation.trim();
+  }
+  if (Object.keys(data).length === 0) return apiError("nothing to update", 400);
 
   try {
-    const updated = await prisma.transcript.update({ where: { id }, data: { speakerType } });
+    const updated = await prisma.transcript.update({ where: { id }, data });
     return NextResponse.json(updated);
   } catch {
     return apiError("transcript not found", 404);

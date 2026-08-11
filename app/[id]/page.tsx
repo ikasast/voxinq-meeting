@@ -147,6 +147,7 @@ export default async function MeetingDetailPage({
             id: t.id,
             speakerType: t.speakerType,
             text: t.text,
+            translation: t.translation,
             createdAt: t.createdAt.toISOString(),
           }))}
         />

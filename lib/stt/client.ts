@@ -12,7 +12,11 @@ export type SttHandlers = {
   // Provisional (interim text mid-segment).
   onPartial: (text: string) => void;
   // Finalized utterance. speakerKey is SELF_KEY when diarization is off, partner-N when on.
-  onFinal: (speakerKey: string, text: string) => void;
+  // seq numbers the utterance within this session, so a later translation can find its line.
+  onFinal: (speakerKey: string, text: string, seq?: number) => void;
+  // Japanese translation of finalized utterance `seq`, arriving separately (CPU-side, so it
+  // must never hold up the transcript).
+  onTranslation?: (seq: number, text: string) => void;
   onStatus: (status: RecognizerStatus) => void;
   onError: (message: string) => void;
   // Input audio level (RMS 0..1, ~every 100ms). For the "is sound arriving" meter.
@@ -34,7 +38,8 @@ export function sttHttpBase(): string {
 type ServerMessage =
   | { type: "status"; status: "open" | "closed" | "loading" }
   | { type: "partial"; text: string }
-  | { type: "final"; text: string; speaker?: string; start?: number; end?: number }
+  | { type: "final"; text: string; speaker?: string; seq?: number; start?: number; end?: number }
+  | { type: "translation"; seq: number; text: string }
   | { type: "error"; message: string };
 
 // Convert the server's speaker label to a speaker key.
@@ -54,6 +59,7 @@ export async function startMic(
     initialPrompt?: string;
     micMode?: string;
     source?: string; // "mic"(既定) | "display"(PC音声) | "both"(両方をミックス)
+    translate?: boolean; // translate non-Japanese utterances into Japanese (CPU-side)
   },
 ): Promise<SttHandle> {
   const log = (...args: unknown[]) => console.log("[stt]", ...args);
@@ -131,6 +137,7 @@ export async function startMic(
     meetingId: opts?.meetingId,
     language: opts?.language,
     initialPrompt: opts?.initialPrompt,
+    translate: opts?.translate ?? false,
   });
 
   let ws: WebSocket | null = null;
@@ -189,7 +196,10 @@ export async function startMic(
           handlers.onPartial(msg.text ?? "");
           break;
         case "final":
-          if (msg.text) handlers.onFinal(speakerLabelToKey(msg.speaker), msg.text);
+          if (msg.text) handlers.onFinal(speakerLabelToKey(msg.speaker), msg.text, msg.seq);
+          break;
+        case "translation":
+          if (msg.text) handlers.onTranslation?.(msg.seq, msg.text);
           break;
         case "error":
           fatal = true;

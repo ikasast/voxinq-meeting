@@ -14,7 +14,8 @@ WebSocket protocol (/ws):
   server -> client (all JSON text frames):
     {"type":"status","status":"open|closed|loading"}
     {"type":"partial","text":...}                          provisional (interim mid-segment)
-    {"type":"final","text":...,"speaker":"spk","start":s,"end":s}  finalized utterance
+    {"type":"final","text":...,"speaker":"spk","seq":n,"start":s,"end":s}  finalized utterance
+    {"type":"translation","seq":n,"text":...}              Japanese translation of final #n
     {"type":"error","message":...}
 
 Configuration (environment variables):
@@ -48,6 +49,8 @@ import numpy as np
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+
+from translator import translate_to_ja, translator_state
 
 SAMPLE_RATE = 16000
 
@@ -288,24 +291,25 @@ def _effective_prompt(model_name: str | None, prompt: str | None) -> str | None:
     return prompt
 
 
-def transcribe_segment(
+def transcribe_segment_ex(
     model,
     audio: np.ndarray,
     language: str | None = None,
     initial_prompt: str | None = None,
     beam_size: int = 5,
-) -> str:
-    """Transcribe a single utterance segment (float32 mono 16k) and return the joined text.
+) -> tuple[str, str | None]:
+    """Transcribe one utterance segment (float32 mono 16k) -> (text, detected language).
 
     language=None auto-detects the spoken language ("ja"/"en" pins it).
     Passing a glossary as initial_prompt biases recognition toward proper nouns, etc.
     beam_size=1 (greedy) is used for disposable partials; finals keep the accurate default.
+    The detected language decides whether the utterance gets translated.
     Suppresses silence-derived hallucinations in three stages:
       - remove non-speech regions with Whisper's built-in VAD (silero)
       - discard low-confidence segments by no_speech_prob / avg_logprob
       - blocklist of known canned phrases
     """
-    segments, _info = model.transcribe(
+    segments, info = model.transcribe(
         audio,
         language=language,
         initial_prompt=initial_prompt or None,
@@ -329,7 +333,19 @@ def transcribe_segment(
         if _normalize(t) in HALLUCINATION_PHRASES:
             continue
         out.append(t)
-    return "".join(out).strip()
+    return "".join(out).strip(), getattr(info, "language", None)
+
+
+def transcribe_segment(
+    model,
+    audio: np.ndarray,
+    language: str | None = None,
+    initial_prompt: str | None = None,
+    beam_size: int = 5,
+) -> str:
+    """transcribe_segment_ex for callers that only need the text."""
+    text, _lang = transcribe_segment_ex(model, audio, language, initial_prompt, beam_size)
+    return text
 
 
 def voiced_ms(audio: np.ndarray, frame: int) -> float:
@@ -349,6 +365,8 @@ class StreamState:
     meeting_id: str | None = None
     language: str | None = None  # None=auto-detect
     initial_prompt: str | None = None  # glossary (recognition bias)
+    translate: bool = False  # translate non-Japanese utterances into Japanese (CPU)
+    seq: int = 0  # per-connection utterance number, used to attach translations to finals
     buffer: np.ndarray = None  # type: ignore[assignment]
     silence_samples: int = 0
     elapsed_samples: int = 0  # cumulative from the stream start (for timestamps)
@@ -455,6 +473,7 @@ async def health() -> dict:
         "loaded": whisper.loaded_model,
         "busy": busy,
         "busyKind": kind,
+        "translate": translator_state(),
     }
 
 
@@ -905,11 +924,12 @@ def _retranscribe_job(
     language: str | None,
     model_name: str | None,
     initial_prompt: str | None,
+    translate: bool = False,
 ) -> None:
     try:
         model = whisper.get(model_name)
         audio = _read_wav_float32(wav)
-        segments, _info = model.transcribe(
+        segments, info = model.transcribe(
             audio,
             language=language,
             initial_prompt=_effective_prompt(model_name, initial_prompt) or None,
@@ -932,9 +952,13 @@ def _retranscribe_job(
                 continue
             if _normalize(text) in HALLUCINATION_PHRASES:
                 continue
-            utterances.append(
-                {"start": round(seg.start, 2), "end": round(seg.end, 2), "text": text}
-            )
+            item = {"start": round(seg.start, 2), "end": round(seg.end, 2), "text": text}
+            # Translation is CPU-side, so it can run right alongside the GPU transcription.
+            if translate:
+                ja = translate_to_ja(text, getattr(info, "language", None))
+                if ja:
+                    item["translation"] = ja
+            utterances.append(item)
 
         p = _rec_paths(mid)
         p["seg"].write_text(
@@ -979,6 +1003,7 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
     model_name = body.get("model") if isinstance(body, dict) else None
     ip = body.get("initialPrompt") if isinstance(body, dict) else None
     initial_prompt = str(ip).strip() or None if ip else None
+    translate = bool(body.get("translate")) if isinstance(body, dict) else False
 
     # Global GPU lock: don't start if another meeting's GPU job is running.
     reason = _gpu_busy_other(mid)
@@ -992,7 +1017,7 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
         _TR_JOBS[mid] = {"status": "running"}
     threading.Thread(
         target=_retranscribe_job,
-        args=(mid, wav, language, model_name, initial_prompt),
+        args=(mid, wav, language, model_name, initial_prompt, translate),
         daemon=True,
     ).start()
     return {"status": "running"}
@@ -1018,6 +1043,7 @@ async def upload_recording(
     language: str | None = None,
     model: str | None = None,
     initialPrompt: str | None = None,  # noqa: N803  query name mirrors the JSON field elsewhere
+    translate: bool = False,
 ) -> dict:
     """Accept an uploaded audio file (raw body, any format), save it as the meeting recording,
     and start transcription. Lets a meeting be created from an existing recording, skipping live
@@ -1076,7 +1102,7 @@ async def upload_recording(
         _TR_JOBS[mid] = {"status": "running"}
     threading.Thread(
         target=_retranscribe_job,
-        args=(mid, p["wav"], lang, model, ip),
+        args=(mid, p["wav"], lang, model, ip, translate),
         daemon=True,
     ).start()
     return {"status": "running"}
@@ -1178,6 +1204,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
     transcribe_lock = asyncio.Lock()
     partial_task: asyncio.Task | None = None
     last_partial_sample = 0
+    # In-flight CPU translations, awaited briefly at meeting end so late ones still arrive.
+    translation_tasks: set[asyncio.Task] = set()
 
     async def send_partial(audio: np.ndarray) -> None:
         """Provisional transcription of the segment still being spoken (best-effort).
@@ -1203,6 +1231,21 @@ async def ws_endpoint(ws: WebSocket) -> None:
         except Exception:  # noqa: BLE001
             pass
 
+    async def send_translation(seq: int, text: str, detected: str | None) -> None:
+        """Translate one finalized utterance into Japanese and send it under its seq.
+
+        On the CPU, so it can run while Whisper has the GPU. Best-effort: a failed or
+        unsupported translation simply never arrives and the original text stands alone.
+        """
+        try:
+            ja = await asyncio.to_thread(translate_to_ja, text, detected)
+            if ja:
+                await ws.send_text(
+                    json.dumps({"type": "translation", "seq": seq, "text": ja}, ensure_ascii=False)
+                )
+        except Exception:  # noqa: BLE001
+            pass
+
     async def flush_segment() -> None:
         """Finalize the current buffer as one utterance and send a final."""
         # Snapshot and reset immediately so the next segment accumulates while Whisper runs.
@@ -1218,18 +1261,21 @@ async def ws_endpoint(ws: WebSocket) -> None:
             # frames, /health, other connections) stays responsive during the ~seconds it takes.
             async with transcribe_lock:
                 model = whisper.get(state.model_name)
-                text = await asyncio.to_thread(
-                    transcribe_segment, model, audio, state.language, state.initial_prompt
+                text, detected = await asyncio.to_thread(
+                    transcribe_segment_ex, model, audio, state.language, state.initial_prompt
                 )
             if text:
                 start_s = start_sample / SAMPLE_RATE
                 end_s = (start_sample + audio.size) / SAMPLE_RATE
+                seq = state.seq
+                state.seq += 1
                 await ws.send_text(
                     json.dumps(
                         {
                             "type": "final",
                             "text": text,
                             "speaker": "spk",
+                            "seq": seq,
                             "start": round(start_s, 2),
                             "end": round(end_s, 2),
                         },
@@ -1240,6 +1286,12 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 # Recording only after a successful send prevents an utterance that never reached the client
                 # from remaining only in segments.json and shifting the numbering vs the DB utterances.
                 state.finals.append({"start": round(start_s, 2), "end": round(end_s, 2)})
+                # Translation runs on the CPU and lands separately, keyed by seq — the
+                # transcript must never wait on it.
+                if state.translate:
+                    task = asyncio.create_task(send_translation(seq, text, detected))
+                    translation_tasks.add(task)
+                    task.add_done_callback(translation_tasks.discard)
             else:
                 # The segment produced no final (filtered as noise/hallucination) — clear any
                 # partial that was shown for it, or stale text lingers until the next final.
@@ -1270,6 +1322,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     state.initial_prompt = _effective_prompt(
                         state.model_name, (str(ip).strip() or None) if ip else None
                     )
+                    state.translate = bool(payload.get("translate"))
                     started = True
                     await ws.send_text(json.dumps({"type": "status", "status": "loading"}))
                     # Model load can take tens of seconds, so run it on a separate thread
@@ -1294,6 +1347,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         await flush_segment()
                     except Exception:  # noqa: BLE001
                         pass
+                    # Let queued translations finish so the last lines are not left untranslated.
+                    # Bounded, because the client only waits ~10s for "closed" before closing.
+                    if translation_tasks:
+                        with suppress(Exception):
+                            await asyncio.wait(set(translation_tasks), timeout=8)
                     whisper.release()  # free VRAM -> yield to Ollama
                     # Save the meeting audio and utterance boundaries for diarization (only when meetingId is set).
                     if state.meeting_id:
@@ -1352,6 +1410,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
     finally:
         if partial_task is not None and not partial_task.done():
             partial_task.cancel()
+        for t in list(translation_tasks):
+            if not t.done():
+                t.cancel()
         # Do not release the model here. Releasing on every disconnect would destroy the
         # loaded model as reconnects or concurrent connections come and go, causing an endless
         # "loading" state. Leave release to explicit end (meeting end) and the idle timer.

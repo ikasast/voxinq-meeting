@@ -88,6 +88,7 @@ model Transcript {
   meetingId   String   @map("meeting_id")
   speakerType String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
   text        String
+  translation String?  // Japanese translation of a non-Japanese utterance (null = none/not needed)
   createdAt   DateTime @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)

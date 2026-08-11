@@ -59,6 +59,7 @@ export default function NewMeetingPage() {
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const glossaryRef = useRef<string | undefined>(undefined);
+  const translateRef = useRef(false);
 
   useEffect(() => {
     const supported =
@@ -86,7 +87,15 @@ export default function NewMeetingPage() {
       .catch(() => {});
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((s: { whisperModel?: string; micMode?: string; sttGlossary?: string } | null) => {
+      .then(
+        (
+          s: {
+            whisperModel?: string;
+            micMode?: string;
+            sttGlossary?: string;
+            sttTranslate?: boolean;
+          } | null,
+        ) => {
         if (cancelled || !s) return;
         // Only fill in fields the user has not touched yet. This response can land after the
         // form is already being filled in (the first request after a restart is slow), and
@@ -94,8 +103,10 @@ export default function NewMeetingPage() {
         if (s.whisperModel && !touched.current.has("model")) setModel(s.whisperModel);
         if (s.micMode && !touched.current.has("micMode")) setMicMode(s.micMode);
         if (s.sttGlossary) glossaryRef.current = s.sttGlossary;
+        translateRef.current = Boolean(s.sttTranslate);
         setSettingsLoaded(true);
-      })
+        },
+      )
       .catch(() => setSettingsLoaded(true));
     return () => {
       cancelled = true;
@@ -219,6 +230,7 @@ export default function NewMeetingPage() {
         model,
       });
       if (glossary) qs.set("initialPrompt", glossary);
+      if (translateRef.current) qs.set("translate", "true");
       const up = await fetch(`${base}/upload/${meeting.id}?${qs}`, { method: "POST", body: file });
       if (!up.ok) {
         const d = await up.json().catch(() => null);
