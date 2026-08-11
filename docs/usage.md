@@ -86,6 +86,10 @@ defaults. Past versions are kept; switch between them with the version selector.
 
 - Edit minutes text inline (pencil icon) — useful to fix an LLM slip before sharing.
 - Reassign a speaker per line, or rename speakers globally.
+- **Edit an utterance** with the pencil on its row: fix a misheard name or term so the minutes
+  are built from the right words, without re-transcribing the meeting. Enter saves,
+  Shift+Enter adds a line, Esc cancels. Rewording is safe for diarization — only deleting
+  changes positions.
 - **Delete a single utterance** with the ✕ on its row (hover on desktop, always visible on
   touch). Use it for hallucinations and mic glitches so they cannot reach the minutes; the
   audio itself is kept. The recording's matching utterance boundary is removed at the same

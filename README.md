@@ -67,7 +67,7 @@ on the next screen once it says *Model ready*, talk, and finish with **Generate 
 - **Summarize an existing file:** drag a recording onto the New meeting screen → it transcribes, then summarizes.
 - **Ask about past meetings:** open a series (↻ chip) → *Ask about these minutes* → “前回までのTODOを教えて”.
 - **Improve speaker labels:** open a meeting → *Diarize* above the transcript → rename speakers; regenerate minutes.
-- **Drop a bad line:** hover an utterance → ✕. Hallucinations and mic glitches then stay out of the minutes.
+- **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, ✕ to remove it. Minutes are then built from the right words.
 - **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and a custom format.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
