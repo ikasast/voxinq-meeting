@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
+import { AskMinutes } from "../ask-minutes";
 import { MeetingListPane } from "../meeting-list-pane";
 import { PageHeader } from "../page-header";
 import { ArchiveButton } from "./archive-button";
@@ -134,6 +135,13 @@ export default async function MeetingDetailPage({
           }))}
         />
       </section>
+
+      {/* A meeting outside a series is its own scope for questions — a one-off is a series of
+          one. Meetings in a series are asked about on the series page, where the whole history
+          is available, so no box here. */}
+      {!external && !seriesId && meeting.summaries.length > 0 ? (
+        <AskMinutes meetingId={meeting.id} scopeLabel={meeting.title} />
+      ) : null}
 
       <section className="card p-5">
         <TranscriptList

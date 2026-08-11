@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatDuration } from "@/lib/utils";
+import { AskMinutes } from "../../ask-minutes";
 import { SeriesSettings } from "./series-settings";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,11 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         {meetings.length} meeting(s) in this series. When minutes are generated, the previous
         meeting&apos;s minutes are passed to the LLM as context.
       </p>
+
+      {/* Questions span the whole series ("what were the TODOs from last time?"), so this
+          belongs here rather than on any single meeting. Hidden for external (read-only)
+          viewers: answering runs the local LLM on the GPU. */}
+      {!external ? <AskMinutes seriesId={series.id} scopeLabel={series.name} /> : null}
 
       <SeriesSettings
         id={series.id}
