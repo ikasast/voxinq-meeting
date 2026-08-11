@@ -644,6 +644,51 @@ async def recording_protect(meeting_id: str, on: bool = True) -> dict:
     return _recording_state(mid)
 
 
+@app.post("/recordings/{meeting_id}/segments/delete")
+async def recording_segment_delete(meeting_id: str, request: Request) -> dict:
+    """Drop one utterance boundary, keeping this side aligned with the web app's transcripts.
+
+    Diarization maps speakers onto utterances *by index*: segments.json entry N is DB row N.
+    Deleting a row on the web side without deleting the matching boundary here would shift
+    every later speaker by one. Only applies when the counts still agree — a recording that
+    has already drifted is left untouched and reported back as unsynced.
+
+    body: {"index": int, "expectedCount": int}
+    """
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    index = body.get("index") if isinstance(body, dict) else None
+    expected = body.get("expectedCount") if isinstance(body, dict) else None
+    if not isinstance(index, int) or not isinstance(expected, int):
+        raise HTTPException(status_code=400, detail="index and expectedCount are required")
+
+    p = _rec_paths(mid)
+    try:
+        segments = json.loads(p["seg"].read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001  no boundaries saved (or unreadable) — nothing to sync
+        return {"synced": False, "reason": "no segments"}
+    if not isinstance(segments, list) or len(segments) != expected or not 0 <= index < len(segments):
+        return {"synced": False, "reason": "count mismatch", "count": len(segments) if isinstance(segments, list) else 0}
+
+    del segments[index]
+    p["seg"].write_text(json.dumps(segments, ensure_ascii=False), encoding="utf-8")
+
+    # Speaker assignments are the same per-utterance list, so keep them in step.
+    try:
+        speakers = json.loads(p["spk"].read_text(encoding="utf-8"))
+        if isinstance(speakers, list) and len(speakers) == expected:
+            del speakers[index]
+            p["spk"].write_text(json.dumps(speakers, ensure_ascii=False), encoding="utf-8")
+    except Exception:  # noqa: BLE001  no cached diarization — nothing to keep in step
+        pass
+    return {"synced": True, "count": len(segments)}
+
+
 @app.delete("/recordings/{meeting_id}")
 async def recording_delete(meeting_id: str) -> dict:
     """Delete the full recording set (WAV, utterance boundaries, diarization results, protection marker). Called by Web on meeting deletion."""
