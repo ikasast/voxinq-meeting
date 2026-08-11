@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     tags?: unknown;
     series?: unknown;
     sttLanguage?: unknown;
+    whisperModel?: unknown;
   }>(req);
 
   const title = typeof body?.title === "string" ? body.title.trim() : "";
@@ -41,6 +42,14 @@ export async function POST(req: NextRequest) {
       ? body.sttLanguage
       : null;
 
+  // The transcription model chosen for this meeting. Stored on the meeting so it survives a
+  // reload of the recording screen — carrying it only in the URL meant re-entering that screen
+  // silently fell back to the settings default, and the meeting was recorded with that instead.
+  const whisperModel =
+    typeof body?.whisperModel === "string" && body.whisperModel.trim()
+      ? body.whisperModel.trim().slice(0, 120)
+      : null;
+
   const tagNames =
     Array.isArray(body?.tags) && body.tags.every((t) => typeof t === "string")
       ? [...new Set((body.tags as string[]).map((t) => t.trim()).filter(Boolean))].slice(0, 10)
@@ -54,6 +63,7 @@ export async function POST(req: NextRequest) {
       title,
       description,
       sttLanguage,
+      whisperModel,
       tags: tagNames.length
         ? { connectOrCreate: tagNames.map((name) => ({ where: { name }, create: { name } })) }
         : undefined,

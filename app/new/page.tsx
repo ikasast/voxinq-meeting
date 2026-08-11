@@ -120,6 +120,7 @@ export default function NewMeetingPage() {
         description: description.trim(),
         series: series.trim(),
         sttLanguage,
+        whisperModel: model,
       }),
     });
     if (!res.ok) {
