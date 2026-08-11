@@ -9,6 +9,7 @@ flowchart LR
     Web["Web app<br/>(Next.js 16 + Prisma)"]
     DB[("PostgreSQL")]
     STT["STT service<br/>(FastAPI + faster-whisper)"]
+    TR["Translation<br/>(NLLB, CPU, optional)"]
     DIA["Diarization<br/>(pyannote, separate venv)"]
     LLM["LLM<br/>(Ollama / OpenAI-compatible)"]
   end
@@ -16,7 +17,8 @@ flowchart LR
   UI -- "HTTPS: pages, minutes, edits" --> Web
   UI -- "WSS: live audio + upload" --> STT
   Web -- "SQL (Prisma)" --> DB
-  Web -- "generate minutes" --> LLM
+  Web -- "generate minutes, ask questions" --> LLM
+  STT -- "non-Japanese utterances" --> TR
   STT -- "after meeting: WAV + segments" --> DIA
 ```
 
@@ -26,10 +28,15 @@ flowchart LR
   generates minutes via the LLM. Auth is handled by `proxy.ts` (Next.js 16 "proxy").
 - **STT service** (`stt-service/server.py`) — FastAPI + faster-whisper. Streams live audio
   over WebSocket, saves the meeting WAV + utterance boundaries, and runs re-transcription and
-  file-upload jobs.
+  file-upload jobs. Sends provisional text while a sentence is still being spoken, then the
+  final wording; recognition runs on a worker thread so the service stays responsive.
+- **Translation** (`stt-service/translator.py`, optional) — NLLB-200 distilled via
+  CTranslate2, **on the CPU**, so a Japanese translation of non-Japanese utterances can be
+  produced while Whisper has the GPU. Off unless `sttTranslate` is enabled.
 - **Diarization** (`diarization/diarize.py`) — pyannote in its own venv (GPU torch), run as a
   subprocess after a meeting.
-- **LLM** — Ollama by default, or any OpenAI-compatible / Anthropic endpoint.
+- **LLM** — Ollama by default, or any OpenAI-compatible / Anthropic endpoint. Generates
+  minutes, and answers questions asked against a series' minutes (`lib/llm/ask.ts`).
 - **PostgreSQL** — meetings, transcripts, minutes (versioned), tags.
 
 ## GPU time-sharing

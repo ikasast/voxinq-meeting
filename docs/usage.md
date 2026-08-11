@@ -2,16 +2,26 @@
 
 ## Record a meeting
 
-1. **New meeting** → optionally set title, purpose, and per-meeting recording settings.
-2. **Start recording** → speak. The live transcript appears as you go.
-3. End with one of (all three end the meeting):
+1. **New meeting** → set the title, purpose, and the recording settings for this meeting
+   (model, language, mic mode, source). They are shown, not hidden behind a disclosure,
+   because picking the wrong model is silent and costly.
+2. **Set up meeting** → creates the meeting, opens the recording screen and starts loading
+   the transcription model. Recording does *not* start yet.
+3. Wait for **● Model ready** next to the button (a cold load takes tens of seconds), then
+   **Start recording** → speak. Words appear about a second behind you and firm up into the
+   final wording when you pause.
+4. End with one of (all three end the meeting):
    - **Generate minutes** — minutes are generated in the background.
    - **Diarize** — speaker diarization starts automatically on the meeting page
      (enrolled voices get their names); generate minutes after reviewing the speakers.
    - **End only** — just stop; generate or diarize later.
 
+All three land on the meeting itself, where the minutes appear as they finish.
+
 Tips:
 - On a phone, keep the screen on while recording.
+- There is deliberately no link away from the recording screen: navigating away unmounts it
+  and drops the recording. Leave via the end actions.
 - Choose the source (mic / PC audio / both) from the top bar; you can switch mid-recording.
 - For "both", use headphones to avoid the mic double-capturing PC audio.
 
@@ -49,6 +59,12 @@ whose voice matches an enrolled profile** (manual names are never overwritten):
    press **Save voice profiles** below the speaker-name editor. Needs the meeting's
    **recording (WAV) to still exist** — voiceprints are computed from audio.
 
+**Enrolling the same person again adds to their profile rather than replacing it.** The
+stored voiceprint is the average of every recording they were enrolled from, so more
+samples — different rooms, microphones, moods — make matching steadier, and one poor
+recording cannot undo a good profile. Settings shows `×N` once a profile holds more than one
+recording. To start over, delete the profile and enroll again.
+
 The match threshold is `voiceprintThreshold` in `settings.json` (default 0.5 — raise it if
 wrong names appear).
 
@@ -70,6 +86,37 @@ defaults. Past versions are kept; switch between them with the version selector.
 
 - Edit minutes text inline (pencil icon) — useful to fix an LLM slip before sharing.
 - Reassign a speaker per line, or rename speakers globally.
+- **Delete a single utterance** with the ✕ on its row (hover on desktop, always visible on
+  touch). Use it for hallucinations and mic glitches so they cannot reach the minutes; the
+  audio itself is kept. The recording's matching utterance boundary is removed at the same
+  time, because diarization maps speakers onto utterances by position — if the two could not
+  be kept in step, the UI says to re-run **Diarize** before trusting speaker names.
+
+## Ask the minutes
+
+**Series page → Ask about these minutes.** Questions like “前回までのTODOを教えて” are answered
+from the minutes of every meeting in that series, so the answer names the meeting and date
+each item came from.
+
+- A meeting that belongs to **no series** gets the same box on its own page — a one-off is
+  treated as a series of one. Meetings *inside* a series are asked about on the series page,
+  where the whole history is available.
+- Answers are grounded in the minutes only: the model is told to say when something is not
+  recorded rather than fill the gap. The footer states what it could see — how many meetings,
+  how many older ones were left out for length, how many have no minutes yet.
+- Answering uses the GPU, so it is refused while minutes are generating. Nothing is stored.
+
+## Translation
+
+With `sttTranslate` on (Settings → Transcription), each **non-Japanese** utterance gets a
+Japanese translation under it, live during the meeting and on the saved transcript. Japanese
+speech is left alone, and **minutes are still generated from the original words** — the
+transcript stays the record of what was actually said. A **Show translations** toggle appears
+on a meeting once it has any.
+
+Translation runs on the CPU, so it does not compete with transcription for the GPU. Turning
+it on downloads a ~600MB model (NLLB-200 distilled) to the STT host on first use; that model
+is **CC-BY-NC — non-commercial use only**, which is why this is off by default.
 
 ## Search, tags, filters
 
