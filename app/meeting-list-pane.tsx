@@ -291,8 +291,9 @@ export async function MeetingListPane({
             latestId={group[0].id}
             latestTitle={group[0].title}
             readOnly={readOnly}
-            // Opening one of the older meetings must not fold the series shut around it.
-            defaultOpen={group.slice(1).some((x) => x.id === activeId)}
+            // Opening any meeting in the series shows the rest of it, so its history is at
+            // hand — and picking one of the older ones cannot fold the series shut around it.
+            defaultOpen={group.some((x) => x.id === activeId)}
             latest={card(group[0], true)}
             rest={group.slice(1).map((x) => (
               <div key={x.id}>{swipeWrap(card(x, true), [x.id], x.title)}</div>
