@@ -129,9 +129,14 @@ export default function NewMeetingPage() {
     return (await res.json()) as { id: string };
   };
 
-  // Live recording: create the meeting and open the recording page (auto-start).
+  // Set up the meeting: create it and open the recording screen ready to go. Recording is
+  // started by hand there — auto-starting meant capture began while the model was still
+  // loading and before the settings could be checked.
   const startRecording = async () => {
     setSubmitting(true);
+    // Load the model for real now: from here the only thing left is pressing record, so this
+    // is the last moment a warm-up can still hide the load time.
+    void preloadSttIfIdle(model);
     try {
       const meeting = await createMeeting(defaultMeetingTitle());
       try {
@@ -139,7 +144,7 @@ export default function NewMeetingPage() {
       } catch {
         // ignore
       }
-      const qs = new URLSearchParams({ autostart: "1", model, mic: micMode, source });
+      const qs = new URLSearchParams({ model, mic: micMode, source });
       router.push(`/${meeting.id}/recording?${qs}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create meeting.");
@@ -384,11 +389,13 @@ export default function NewMeetingPage() {
           </datalist>
         </div>
 
-        {/* Recording settings for this meeting only. Defaults come from settings; changes here are not saved. */}
-        <details className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-          <summary className="cursor-pointer text-sm font-medium text-[var(--text-secondary)]">
+        {/* Recording settings for this meeting only. Defaults come from settings; changes here are
+            not saved. Always expanded: picking the wrong model here is silent and costly, so these
+            must be visible before the meeting is set up, not hidden behind a disclosure. */}
+        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">
             Recording settings (this meeting only)
-          </summary>
+          </p>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
             Defaults come from the app settings. Changes here apply to this meeting only and do not
             change the settings. (Model and language also apply to dropped files.)
@@ -497,7 +504,7 @@ export default function NewMeetingPage() {
             The transcription language is saved on the meeting. Microphone mode and source apply to
             live recording only (source can also be switched while recording).
           </p>
-        </details>
+        </div>
 
         {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
 
@@ -506,7 +513,7 @@ export default function NewMeetingPage() {
             Cancel
           </Link>
           <button type="submit" disabled={busy} className="btn-ink">
-            {submitting ? "Creating…" : "Start recording"}
+            {submitting ? "Setting up…" : "Set up meeting"}
           </button>
         </div>
       </form>
@@ -521,8 +528,8 @@ export default function NewMeetingPage() {
             </h2>
             <p className="text-sm text-[var(--text-secondary)]">
               Recording uses the GPU that minutes generation is running on. Interrupt the
-              in-progress minutes and start recording now? You can regenerate those minutes
-              afterward.
+              in-progress minutes so the meeting is ready to record? You can regenerate those
+              minutes afterward.
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -539,7 +546,7 @@ export default function NewMeetingPage() {
                 disabled={interrupting}
                 className="btn-ink"
               >
-                {interrupting ? "Interrupting…" : "Interrupt & record"}
+                {interrupting ? "Interrupting…" : "Interrupt & set up"}
               </button>
             </div>
           </div>

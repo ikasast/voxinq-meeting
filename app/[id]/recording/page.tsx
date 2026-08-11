@@ -72,14 +72,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const seriesGlossaryRef = useRef<string | undefined>(undefined);
   const sttMicModeRef = useRef<string | undefined>(undefined);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Transcription settings in effect for this recording (shown to the user). The LLM settings
+  // are not part of recording, so they are not collected here.
   const [cfg, setCfg] = useState<{
     whisperModel?: string;
     sttLanguage?: string;
     micMode?: string;
-    llmProvider?: string;
-    ollamaModel?: string;
-    anthropicModel?: string;
-    openaiModel?: string;
   } | null>(null);
   const autostartTried = useRef(false);
   const [external, setExternal] = useState(false);
@@ -211,10 +209,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             sttLanguage?: string;
             sttGlossary?: string;
             micMode?: string;
-            llmProvider?: string;
-            ollamaModel?: string;
-            anthropicModel?: string;
-            openaiModel?: string;
           } | null,
         ) => {
           if (cancelled) return;
@@ -227,7 +221,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           if (overrides.mic) sttMicModeRef.current = overrides.mic;
           if (s)
             setCfg({
-              ...s,
+              sttLanguage: s.sttLanguage,
               whisperModel: overrides.model ?? s.whisperModel,
               micMode: overrides.mic ?? s.micMode,
             });
@@ -528,12 +522,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const micLabel = cfg?.micMode === "room" ? "Room" : "Standard";
   const sourceLabel =
     source === "display" ? "PC audio" : source === "both" ? "Mic + PC audio" : "Microphone";
-  const llmModel =
-    cfg?.llmProvider === "anthropic"
-      ? cfg?.anthropicModel
-      : cfg?.llmProvider === "openai"
-        ? cfg?.openaiModel
-        : cfg?.ollamaModel;
 
   return (
     <div className="space-y-4">
@@ -601,15 +589,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             {displaySupported ? <option value="both">Mic + PC audio</option> : null}
           </select>
 
+          {/* No link to the meeting page here: navigating away unmounts this page and drops
+              the recording. Leave the meeting via the end actions at the bottom. */}
           <div className="min-w-0 flex-1 truncate text-right text-sm font-medium text-[var(--text-strong)]">
             {title || "Meeting"}
           </div>
-          <Link
-            href={`/${meetingId}`}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
-          >
-            Details
-          </Link>
         </div>
       </div>
 
@@ -647,15 +631,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         </li>
       </ul>
 
+      {/* What this recording will actually use — the choices made when the meeting was set up.
+          The minutes LLM is deliberately not shown: it plays no part in recording, and seeing
+          it here suggested the transcription settings were something else. */}
       {cfg ? (
-        <details
-          open
-          className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-muted)]"
-        >
-          <summary className="cursor-pointer text-[var(--text-secondary)]">Settings for this recording</summary>
-          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-muted)]">
+          <p className="text-[var(--text-secondary)]">Settings for this recording</p>
+          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
             <div>
-              Whisper: <span className="text-[var(--text-secondary)]">{cfg.whisperModel ?? "-"}</span>
+              Model: <span className="text-[var(--text-secondary)]">{cfg.whisperModel ?? "-"}</span>
             </div>
             <div>
               Language: <span className="text-[var(--text-secondary)]">{langLabel}</span>
@@ -666,14 +650,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             <div>
               Source: <span className="text-[var(--text-secondary)]">{sourceLabel}</span>
             </div>
-            <div className="col-span-2 sm:col-span-1">
-              Minutes LLM:{" "}
-              <span className="text-[var(--text-secondary)]">
-                {cfg.llmProvider} / {llmModel ?? "-"}
-              </span>
-            </div>
           </div>
-        </details>
+        </div>
       ) : null}
 
       {lastError ? (
