@@ -18,7 +18,14 @@ import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
 import { ShareButton } from "./share-button";
 
-type Item = { id: string; speakerType: string; text: string; createdAt: string };
+type Item = {
+  id: string;
+  speakerType: string;
+  text: string;
+  createdAt: string;
+  // Japanese translation of a non-Japanese utterance (null when none was produced).
+  translation?: string | null;
+};
 
 // State of the recording (WAV) saved on the GPU host. exists=false means not-yet-saved or expired/deleted.
 type RecordingInfo = {
@@ -73,8 +80,15 @@ export function TranscriptList({
   const [profiles, setProfiles] = useState<{ name: string }[]>([]);
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(true);
   const audioRef = useRef<HTMLAudioElement>(null);
   const confirm = useConfirm();
+
+  // Only worth offering the toggle when something in this meeting actually has a translation.
+  const hasTranslations = useMemo(
+    () => transcripts.some((t) => Boolean(t.translation)),
+    [transcripts],
+  );
 
   // Enroll voiceprints from this meeting's diarized clusters (named speakers only).
   const saveVoiceProfiles = useCallback(async () => {
@@ -294,6 +308,7 @@ export function TranscriptList({
         whisperModel?: string;
         sttLanguage?: string;
         sttGlossary?: string;
+        sttTranslate?: boolean;
       } | null;
 
       const base = sttHttpBase();
@@ -307,6 +322,7 @@ export function TranscriptList({
           // Global glossary + this meeting's series glossary (if any).
           initialPrompt:
             [settings?.sttGlossary, seriesGlossary].filter(Boolean).join("、") || undefined,
+          translate: Boolean(settings?.sttTranslate),
         }),
       });
       if (!startRes.ok) {
@@ -315,7 +331,7 @@ export function TranscriptList({
       }
       let job = (await startRes.json()) as {
         status: string;
-        utterances?: { start: number; end: number; text: string }[];
+        utterances?: { start: number; end: number; text: string; translation?: string }[];
         detail?: string;
       };
       while (job.status === "running") {
@@ -559,6 +575,19 @@ export function TranscriptList({
           ) : (
             <span />
           )}
+          <div className="flex flex-wrap items-center gap-2">
+            {hasTranslations ? (
+              <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                <input
+                  type="checkbox"
+                  checked={showTranslation}
+                  onChange={(e) => setShowTranslation(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-[var(--accent)]"
+                />
+                Show translations
+              </label>
+            ) : null}
+          </div>
           {!readOnly ? (
             <div className="flex flex-wrap items-center gap-2">
               {transcripts.length > 0 ? (
@@ -735,6 +764,7 @@ export function TranscriptList({
               onSeek={() => seekTo(wavPosition(t.createdAt))}
               onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
               onDelete={() => void deleteTranscript(t.id)}
+              showTranslation={showTranslation}
               readOnly={readOnly}
             />
           ))}
@@ -756,8 +786,10 @@ function TranscriptRow({
   onSeek,
   onReassign,
   onDelete,
+  showTranslation,
   readOnly,
 }: {
+  showTranslation: boolean;
   item: Item;
   elapsed: number;
   labels: SpeakerLabels;
@@ -814,6 +846,13 @@ function TranscriptRow({
         ) : null}
       </div>
       <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
+      {/* Japanese translation, shown under the original rather than replacing it — the
+          transcript stays the record of what was actually said. */}
+      {showTranslation && item.translation ? (
+        <p className="mt-1 border-l-2 border-[var(--border-strong)] pl-2 text-xs whitespace-pre-wrap text-[var(--text-muted)]">
+          {item.translation}
+        </p>
+      ) : null}
     </li>
   );
 }

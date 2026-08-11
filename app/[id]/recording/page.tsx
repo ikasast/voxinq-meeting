@@ -14,6 +14,8 @@ type TranscriptEntry = {
   speaker: string;
   text: string;
   at: Date;
+  seq?: number; // utterance number within this session; a translation arrives under it
+  translation?: string; // Japanese translation, when the utterance was in another language
 };
 
 function formatElapsed(seconds: number) {
@@ -75,6 +77,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const sttGlossaryRef = useRef<string | undefined>(undefined);
   const seriesGlossaryRef = useRef<string | undefined>(undefined);
   const sttMicModeRef = useRef<string | undefined>(undefined);
+  const sttTranslateRef = useRef(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [meetingLoaded, setMeetingLoaded] = useState(false);
   // Whisper model resident on the STT service, polled until it matches this meeting's model —
@@ -221,6 +224,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             sttLanguage?: string;
             sttGlossary?: string;
             micMode?: string;
+            sttTranslate?: boolean;
           } | null,
         ) => {
           if (cancelled) return;
@@ -228,6 +232,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           if (s?.sttLanguage) sttLanguageRef.current = s.sttLanguage;
           if (s?.sttGlossary) sttGlossaryRef.current = s.sttGlossary;
           if (s?.micMode) sttMicModeRef.current = s.micMode;
+          sttTranslateRef.current = Boolean(s?.sttTranslate);
           // Override with this recording's temporary settings (query).
           if (overrides.mic) sttMicModeRef.current = overrides.mic;
           if (s)
@@ -301,7 +306,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   }, []);
 
   const saveTranscript = useCallback(
-    async (speakerKey: string, text: string) => {
+    async (speakerKey: string, text: string, seq?: number) => {
       const trimmed = text.trim();
       if (!trimmed) return;
       try {
@@ -314,7 +319,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         const created = (await res.json()) as { id: string; createdAt: string };
         setTranscripts((prev) => [
           ...prev,
-          { id: created.id, speaker: speakerKey, text: trimmed, at: new Date(created.createdAt) },
+          {
+            id: created.id,
+            speaker: speakerKey,
+            text: trimmed,
+            at: new Date(created.createdAt),
+            seq,
+          },
         ]);
       } catch (e) {
         showToast(`Failed to save utterance: ${(e as Error).message}`);
@@ -323,18 +334,35 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     [meetingId, showToast],
   );
 
+  // A translation arrives after its utterance (it runs on the CPU while Whisper keeps the
+  // GPU), so it is matched back to the line by seq and saved onto the stored row.
+  const applyTranslation = useCallback((seq: number, ja: string) => {
+    setTranscripts((prev) => {
+      const row = prev.find((t) => t.seq === seq);
+      if (row) {
+        void fetch(`/api/transcripts/${row.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ translation: ja }),
+        }).catch(() => {});
+      }
+      return prev.map((t) => (t.seq === seq ? { ...t, translation: ja } : t));
+    });
+  }, []);
+
   const handlers = useMemo(
     () => ({
       onPartial: (text: string) => setPartial(text),
-      onFinal: (speakerKey: string, text: string) => {
+      onFinal: (speakerKey: string, text: string, seq?: number) => {
         setPartial("");
-        void saveTranscript(speakerKey, text);
+        void saveTranscript(speakerKey, text, seq);
       },
+      onTranslation: applyTranslation,
       onStatus: (s: RecognizerStatus) => setStatus(s),
       onError: (message: string) => showToast(message),
       onLevel: (rms: number) => setLevel(rms),
     }),
-    [saveTranscript, showToast],
+    [saveTranscript, applyTranslation, showToast],
   );
 
   // Ready = the model this meeting will use is the one resident on the STT service.
@@ -354,6 +382,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           undefined,
         micMode: sttMicModeRef.current,
         source: sourceRef.current,
+        translate: sttTranslateRef.current,
       });
     } catch (e) {
       showToast(`Cannot start the microphone: ${(e as Error).message}`);
@@ -754,6 +783,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
                   </span>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap">{t.text}</p>
+                {/* Japanese translation, when the utterance was spoken in another language.
+                    It lands a beat after the line itself. */}
+                {t.translation ? (
+                  <p className="mt-1 border-l-2 border-[var(--border-strong)] pl-2 text-xs whitespace-pre-wrap text-[var(--text-muted)]">
+                    {t.translation}
+                  </p>
+                ) : null}
               </div>
             ))}
             {partial ? (

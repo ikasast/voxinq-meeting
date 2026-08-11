@@ -12,6 +12,7 @@ type PublicSettings = {
   sttLanguage: string;
   sttGlossary: string;
   micMode: string;
+  sttTranslate: boolean;
   llmProvider: "ollama" | "anthropic" | "openai";
   ollamaBaseUrl: string;
   ollamaModel: string;
@@ -132,6 +133,7 @@ export default function SettingsPage() {
         sttLanguage: settings.sttLanguage,
         sttGlossary: settings.sttGlossary,
         micMode: settings.micMode,
+        sttTranslate: settings.sttTranslate,
         llmProvider: settings.llmProvider,
         ollamaBaseUrl: settings.ollamaBaseUrl,
         ollamaModel: settings.ollamaModel,
@@ -305,6 +307,27 @@ export default function SettingsPage() {
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               “Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.
               Placing the device in the center of the table helps.
+            </p>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={settings.sttTranslate}
+                onChange={(e) => update("sttTranslate", e.target.checked)}
+                disabled={saving}
+                className="h-4 w-4 accent-[var(--accent)]"
+              />
+              Translate non-Japanese speech into Japanese
+            </label>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Shows a Japanese translation under each non-Japanese utterance, during the meeting and
+              on the transcript. Japanese speech is left alone, and minutes are still generated from
+              the original words. Translation runs on the CPU, so it does not compete with
+              transcription for the GPU. Turning this on downloads a ~600MB translation model
+              (NLLB-200 distilled, <strong>CC-BY-NC — non-commercial use only</strong>) to the STT
+              host on first use.
             </p>
           </div>
         </section>

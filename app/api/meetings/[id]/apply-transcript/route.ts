@@ -13,12 +13,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await readJson<{ utterances?: unknown }>(req);
 
   if (!Array.isArray(body?.utterances)) return apiError("utterances is required", 400);
-  const utterances: { start: number; text: string }[] = [];
+  const utterances: { start: number; text: string; translation: string | null }[] = [];
   for (const u of body.utterances) {
     if (!u || typeof u !== "object") return apiError("invalid utterances", 400);
-    const { start, text } = u as { start?: unknown; text?: unknown };
+    const { start, text, translation } = u as {
+      start?: unknown;
+      text?: unknown;
+      translation?: unknown;
+    };
     if (typeof text !== "string" || !text.trim()) continue;
-    utterances.push({ start: typeof start === "number" && start >= 0 ? start : 0, text: text.trim() });
+    utterances.push({
+      start: typeof start === "number" && start >= 0 ? start : 0,
+      text: text.trim(),
+      translation:
+        typeof translation === "string" && translation.trim() ? translation.trim() : null,
+    });
   }
   if (utterances.length === 0) return apiError("no utterances", 400);
 
@@ -36,6 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         meetingId: id,
         speakerType: SELF_KEY,
         text: u.text,
+        translation: u.translation,
         createdAt: new Date(base + Math.round(u.start * 1000) + i),
       })),
     }),
