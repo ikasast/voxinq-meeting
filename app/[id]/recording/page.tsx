@@ -465,9 +465,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         const sumData = await sumRes.json().catch(() => null);
         throw new Error(sumData?.error ?? `HTTP ${sumRes.status}`);
       }
+      // Land on the meeting just recorded, where the minutes will appear as they finish —
+      // the list gives no sign of which meeting the generation belongs to.
       // replace() so this recording page leaves the history — pressing "back" from the
-      // list/detail must not return here and restart the meeting.
-      router.replace(`/`);
+      // detail must not return here and restart the meeting.
+      router.replace(`/${meetingId}`);
     } catch (e) {
       showToast(`Failed to start minutes generation: ${(e as Error).message}`);
       setBusy("none");
