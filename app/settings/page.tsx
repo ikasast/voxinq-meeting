@@ -233,7 +233,7 @@ export default function SettingsPage() {
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               8GB VRAM guide: large-v3 ≈3GB / large-v3-turbo (default; fast and accurate) ≈1.7GB / medium · distil-large-v3 ≈1.5GB / small ≈0.5GB.
-              kotoba-whisper ≈1.5GB — distilled on Japanese speech, so it is faster and more accurate for Japanese, but Japanese-only (transcription language is forced to Japanese) and it adds little punctuation. Downloaded from Hugging Face on first use.
+              kotoba-whisper ≈1.5GB — distilled on Japanese speech, so it is faster and more accurate for Japanese, but Japanese-only (transcription language is forced to Japanese), it adds little punctuation, and it cannot take a glossary (the terms below are skipped for it). Downloaded from Hugging Face on first use.
             </p>
             {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
             {isJapaneseOnlyModel(settings.whisperModel) ? (

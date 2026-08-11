@@ -275,6 +275,19 @@ class WhisperHolder:
 whisper = WhisperHolder()
 
 
+def _effective_prompt(model_name: str | None, prompt: str | None) -> str | None:
+    """Drop the glossary for models that cannot handle an initial_prompt.
+
+    kotoba-whisper is distilled down to a 2-layer decoder, and feeding it an initial_prompt
+    makes it return nothing at all: with the glossary set, a 33s Japanese recording produced
+    0 of 3 segments; without it, 3 of 3 were transcribed correctly. Recognition without the
+    glossary is far better than silence, so the prompt is dropped rather than the model.
+    """
+    if prompt and model_name and "kotoba" in model_name.lower():
+        return None
+    return prompt
+
+
 def transcribe_segment(
     model,
     audio: np.ndarray,
@@ -854,7 +867,7 @@ def _retranscribe_job(
         segments, _info = model.transcribe(
             audio,
             language=language,
-            initial_prompt=initial_prompt or None,
+            initial_prompt=_effective_prompt(model_name, initial_prompt) or None,
             beam_size=5,
             vad_filter=True,
             vad_parameters=dict(min_silence_duration_ms=500),
@@ -1209,7 +1222,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     lang = payload.get("language")
                     state.language = None if lang in (None, "", "auto") else str(lang)
                     ip = payload.get("initialPrompt")
-                    state.initial_prompt = (str(ip).strip() or None) if ip else None
+                    state.initial_prompt = _effective_prompt(
+                        state.model_name, (str(ip).strip() or None) if ip else None
+                    )
                     started = True
                     await ws.send_text(json.dumps({"type": "status", "status": "loading"}))
                     # Model load can take tens of seconds, so run it on a separate thread
