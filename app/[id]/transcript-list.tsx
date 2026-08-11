@@ -13,6 +13,7 @@ import {
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
+import { TrashIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
 import { ShareButton } from "./share-button";
@@ -223,6 +224,39 @@ export function TranscriptList({
       }
     },
     [transcripts],
+  );
+
+  // Remove one utterance: hallucinations and audio glitches otherwise end up in the minutes.
+  const deleteTranscript = useCallback(
+    async (transcriptId: string) => {
+      const ok = await confirm({
+        title: "Delete this utterance?",
+        message:
+          "It is removed from the transcript and will no longer be used when generating minutes. The audio itself is kept.",
+        confirmLabel: "Delete",
+        danger: true,
+      });
+      if (!ok) return;
+      const snapshot = transcripts;
+      setTranscripts((list) => list.filter((t) => t.id !== transcriptId));
+      const res = await fetch(`/api/transcripts/${transcriptId}`, { method: "DELETE" }).catch(
+        () => null,
+      );
+      if (!res || !res.ok) {
+        setTranscripts(snapshot);
+        setError(`Failed to delete (${res ? `HTTP ${res.status}` : "connection error"})`);
+        return;
+      }
+      const d = (await res.json().catch(() => null)) as { synced?: boolean } | null;
+      // The recording's utterance boundaries drive diarization by index. If they could not be
+      // updated in step, a later diarization would attribute the wrong speakers.
+      setDiarWarn(
+        d?.synced
+          ? null
+          : "The recording's utterance list could not be updated to match. Re-run Diarize before trusting speaker names.",
+      );
+    },
+    [confirm, transcripts],
   );
 
   const renameSpeaker = useCallback(
@@ -700,6 +734,7 @@ export function TranscriptList({
               canSeek={Boolean(recInfo?.exists)}
               onSeek={() => seekTo(wavPosition(t.createdAt))}
               onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
+              onDelete={() => void deleteTranscript(t.id)}
               readOnly={readOnly}
             />
           ))}
@@ -720,6 +755,7 @@ function TranscriptRow({
   canSeek,
   onSeek,
   onReassign,
+  onDelete,
   readOnly,
 }: {
   item: Item;
@@ -730,10 +766,11 @@ function TranscriptRow({
   canSeek: boolean;
   onSeek: () => void;
   onReassign: (nextKey: string) => void;
+  onDelete: () => void;
   readOnly: boolean;
 }) {
   return (
-    <li className="rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm">
+    <li className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm">
       <div className="flex items-center gap-2">
         {canSeek ? (
           <button
@@ -761,6 +798,19 @@ function TranscriptRow({
             labels={labels}
             onChange={onReassign}
           />
+        ) : null}
+        {/* Drop a misheard or garbled line so it cannot reach the minutes. Kept quiet until
+            the row is hovered on desktop; always visible on touch, which has no hover. */}
+        {!readOnly ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            title="Delete this utterance (it will no longer feed minutes generation)"
+            aria-label="Delete this utterance"
+            className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--error)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+          </button>
         ) : null}
       </div>
       <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
