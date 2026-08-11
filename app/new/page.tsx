@@ -6,7 +6,12 @@ import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/utils";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
-import { WHISPER_MODELS, effectiveSttLanguage, isKnownWhisperModel } from "@/lib/stt/models";
+import {
+  WHISPER_MODELS,
+  effectiveSttLanguage,
+  isJapaneseOnlyModel,
+  isKnownWhisperModel,
+} from "@/lib/stt/models";
 import { preloadSttIfIdle } from "@/lib/stt/preload";
 import { useGpuBusy } from "../use-gpu-busy";
 
@@ -45,6 +50,9 @@ export default function NewMeetingPage() {
   const [micMode, setMicMode] = useState("standard");
   const [source, setSource] = useState("mic");
   const [displaySupported, setDisplaySupported] = useState(true);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  // Controls the user has changed; the settings response must not overwrite these.
+  const touched = useRef<Set<string>>(new Set());
 
   // Upload-from-file flow (skip live recording).
   const [phase, setPhase] = useState<Phase>(null);
@@ -80,18 +88,28 @@ export default function NewMeetingPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((s: { whisperModel?: string; micMode?: string; sttGlossary?: string } | null) => {
         if (cancelled || !s) return;
-        if (s.whisperModel) setModel(s.whisperModel);
-        if (s.micMode) setMicMode(s.micMode);
+        // Only fill in fields the user has not touched yet. This response can land after the
+        // form is already being filled in (the first request after a restart is slow), and
+        // silently reverting a chosen model would send the recording to the wrong one.
+        if (s.whisperModel && !touched.current.has("model")) setModel(s.whisperModel);
+        if (s.micMode && !touched.current.has("micMode")) setMicMode(s.micMode);
         if (s.sttGlossary) glossaryRef.current = s.sttGlossary;
-        // Start loading the Whisper model now — it takes tens of seconds, and filling in
-        // this form covers most of it, so transcription is live as soon as recording starts.
-        void preloadSttIfIdle(s.whisperModel);
+        setSettingsLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => setSettingsLoaded(true));
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Start loading the Whisper model that this meeting will actually use — a cold load takes
+  // tens of seconds, and filling in this form covers most of it. Keyed on `model`, so picking
+  // a different one here warms that one instead (warming the settings model and then swapping
+  // at recording start would cost two loads and defeat the point).
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    void preloadSttIfIdle(model);
+  }, [settingsLoaded, model]);
 
   const createMeeting = async (fallbackTitle: string) => {
     const res = await fetch("/api/meetings", {
@@ -383,7 +401,10 @@ export default function NewMeetingPage() {
               <select
                 id="model"
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
+                onChange={(e) => {
+                  touched.current.add("model");
+                  setModel(e.target.value);
+                }}
                 disabled={busy}
                 className={selectClass}
               >
@@ -396,6 +417,15 @@ export default function NewMeetingPage() {
                   <option value={model}>{model} (from settings)</option>
                 )}
               </select>
+              {/* A Japanese-only model transcribes any other language into garbage — and with a
+                  glossary prompt it can return nothing at all, which looks like a broken mic. */}
+              {isJapaneseOnlyModel(model) ? (
+                <p className="mt-1 text-xs text-[var(--warning)]">
+                  {sttLanguage === "en"
+                    ? "This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead."
+                    : "Japanese-only model: transcription is forced to Japanese. Use large-v3-turbo for meetings in any other language."}
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -422,7 +452,10 @@ export default function NewMeetingPage() {
               <select
                 id="micMode"
                 value={micMode}
-                onChange={(e) => setMicMode(e.target.value)}
+                onChange={(e) => {
+                  touched.current.add("micMode");
+                  setMicMode(e.target.value);
+                }}
                 disabled={busy}
                 className={selectClass}
               >
