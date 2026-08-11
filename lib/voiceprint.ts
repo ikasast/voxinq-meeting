@@ -51,6 +51,30 @@ export function cleanClusterEmbeddings(raw: unknown): Record<string, number[]> {
   return out;
 }
 
+/**
+ * Fold a new enrollment into an existing voiceprint as a running mean, so a profile is the
+ * centroid of every recording it was enrolled from rather than only the latest one. More
+ * samples — different rooms, microphones, moods — make matching steadier, whereas replacing
+ * would throw that away and let one bad recording undo a good profile.
+ *
+ * Returns the merged vector and its new sample count; the vector is the plain average
+ * (cosine similarity ignores magnitude, so there is nothing to normalize).
+ * A shape mismatch means the embeddings came from different pyannote models, in which case
+ * the old vector is not comparable and the new one replaces it.
+ */
+export function mergeEmbedding(
+  previous: number[] | null,
+  previousCount: number,
+  next: number[],
+): { embedding: number[]; sampleCount: number } {
+  if (!previous || previous.length !== next.length || previousCount < 1) {
+    return { embedding: next, sampleCount: 1 };
+  }
+  const n = previousCount;
+  const merged = previous.map((v, i) => (v * n + next[i]) / (n + 1));
+  return { embedding: merged, sampleCount: n + 1 };
+}
+
 export type ProfileMatch = { name: string; similarity: number };
 
 /**

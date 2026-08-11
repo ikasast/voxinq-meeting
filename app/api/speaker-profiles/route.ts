@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,14 +11,15 @@ export const dynamic = "force-dynamic";
 // extracted by the STT host's /voiceprint (guided recording in Settings).
 export async function GET() {
   const profiles = await prisma.speakerProfile.findMany({
-    select: { name: true, sourceMeetingId: true, updatedAt: true },
+    select: { name: true, sourceMeetingId: true, sampleCount: true, updatedAt: true },
     orderBy: { name: "asc" },
   });
   return NextResponse.json(profiles);
 }
 
 // Save a profile from a directly extracted embedding (Settings → guided recording).
-// Upsert by name: re-recording under the same name refreshes the voiceprint.
+// Re-recording under the same name adds to the voiceprint (running average over every
+// enrollment) instead of replacing it, so extra recordings make matching steadier.
 export async function POST(req: NextRequest) {
   const body = await readJson<{ name?: unknown; embedding?: unknown }>(req);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -32,12 +34,25 @@ export async function POST(req: NextRequest) {
   ) {
     return apiError("invalid embedding", 400);
   }
+  const existing = await prisma.speakerProfile.findUnique({
+    where: { name },
+    select: { embedding: true, sampleCount: true },
+  });
+  const merged = mergeEmbedding(
+    existing ? parseEmbedding(existing.embedding) : null,
+    existing?.sampleCount ?? 0,
+    embedding,
+  );
   await prisma.speakerProfile.upsert({
     where: { name },
-    update: { embedding: JSON.stringify(embedding), sourceMeetingId: null },
+    update: {
+      embedding: JSON.stringify(merged.embedding),
+      sampleCount: merged.sampleCount,
+      sourceMeetingId: null,
+    },
     create: { name, embedding: JSON.stringify(embedding), sourceMeetingId: null },
   });
-  return NextResponse.json({ ok: true, name });
+  return NextResponse.json({ ok: true, name, sampleCount: merged.sampleCount });
 }
 
 export async function DELETE(req: NextRequest) {

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { defaultSpeakerName, diarizerLabelToKey, parseSpeakerLabels } from "@/lib/speakers";
-import { cleanClusterEmbeddings } from "@/lib/voiceprint";
+import { cleanClusterEmbeddings, mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
 
-// Enroll voice profiles from this meeting: for each diarized cluster whose speaker the
-// user has named, save the cluster's embedding under that name (upsert — re-enrolling
-// refreshes the voiceprint). Requires that diarization was run after voiceprint support
-// was added (the meeting must have stored cluster embeddings).
+// Enroll voice profiles from this meeting: for each diarized cluster whose speaker the user
+// has named, fold the cluster's embedding into that person's profile (re-enrolling averages
+// with the previous recordings rather than replacing them). Requires that diarization was run
+// after voiceprint support was added (the meeting must have stored cluster embeddings).
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const meeting = await prisma.meeting.findUnique({
@@ -43,9 +43,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       skipped.push(key);
       continue;
     }
+    // Re-enrolling adds to the profile instead of replacing it: the stored voiceprint is the
+    // average of every recording the person has been enrolled from.
+    const existing = await prisma.speakerProfile.findUnique({
+      where: { name },
+      select: { embedding: true, sampleCount: true },
+    });
+    const merged = mergeEmbedding(
+      existing ? parseEmbedding(existing.embedding) : null,
+      existing?.sampleCount ?? 0,
+      embedding,
+    );
     await prisma.speakerProfile.upsert({
       where: { name },
-      update: { embedding: JSON.stringify(embedding), sourceMeetingId: id },
+      update: {
+        embedding: JSON.stringify(merged.embedding),
+        sampleCount: merged.sampleCount,
+        sourceMeetingId: id,
+      },
       create: { name, embedding: JSON.stringify(embedding), sourceMeetingId: id },
     });
     saved.push(name);
