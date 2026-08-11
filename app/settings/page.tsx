@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
-import { WHISPER_MODELS, isKnownWhisperModel } from "@/lib/stt/models";
+import { WHISPER_MODELS, isJapaneseOnlyModel, isKnownWhisperModel } from "@/lib/stt/models";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 
@@ -235,6 +235,14 @@ export default function SettingsPage() {
               8GB VRAM guide: large-v3 ≈3GB / large-v3-turbo (default; fast and accurate) ≈1.7GB / medium · distil-large-v3 ≈1.5GB / small ≈0.5GB.
               kotoba-whisper ≈1.5GB — distilled on Japanese speech, so it is faster and more accurate for Japanese, but Japanese-only (transcription language is forced to Japanese) and it adds little punctuation. Downloaded from Hugging Face on first use.
             </p>
+            {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
+            {isJapaneseOnlyModel(settings.whisperModel) ? (
+              <p className="mt-1 text-xs text-[var(--warning)]">
+                This is a Japanese-only model — meetings in other languages will not transcribe.
+                It becomes the default for every new meeting; you can still pick another model
+                per meeting on the New meeting screen.
+              </p>
+            ) : null}
           </div>
 
           <div>
