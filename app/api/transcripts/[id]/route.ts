@@ -8,14 +8,28 @@ export const runtime = "nodejs";
 // STT runs on the same host, so reach it over loopback (same pattern as the meeting-end route).
 const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://localhost:8000";
 
-// Update a single utterance: reassign its speaker (to fix diarization errors), and/or attach
-// the Japanese translation that the STT service produces a moment after the utterance itself.
+const TEXT_MAX = 5000;
+
+// Update a single utterance: correct its wording, reassign its speaker (to fix diarization
+// errors), and/or attach the Japanese translation that the STT service produces a moment
+// after the utterance itself.
+//
+// Editing the text is safe for diarization: speakers map onto utterances by position, and
+// rewording changes no positions. (Deleting one does — see DELETE below.)
 export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/transcripts/[id]">) {
   const { id } = await ctx.params;
 
-  const body = await readJson<{ speakerType?: unknown; translation?: unknown }>(req);
-  const data: { speakerType?: string; translation?: string } = {};
+  const body = await readJson<{ text?: unknown; speakerType?: unknown; translation?: unknown }>(req);
+  const data: { text?: string; speakerType?: string; translation?: string } = {};
 
+  if (body?.text !== undefined) {
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    // An empty utterance is a deletion, which has to keep the recording in step — so it goes
+    // through DELETE rather than being allowed to happen silently here.
+    if (!text) return apiError("text cannot be empty — delete the utterance instead", 400);
+    if (text.length > TEXT_MAX) return apiError(`text must be ${TEXT_MAX} chars or fewer`, 400);
+    data.text = text;
+  }
   if (body?.speakerType !== undefined) {
     const speakerType = typeof body.speakerType === "string" ? body.speakerType : "";
     if (!isValidSpeakerKey(speakerType)) return apiError("invalid speakerType", 400);

@@ -13,7 +13,7 @@ import {
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
-import { TrashIcon } from "../icons";
+import { PencilIcon, TrashIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
 import { ShareButton } from "./share-button";
@@ -236,6 +236,28 @@ export function TranscriptList({
         setTranscripts(snapshot);
         setError(`Failed to change speaker (${res ? `HTTP ${res.status}` : "connection error"})`);
       }
+    },
+    [transcripts],
+  );
+
+  // Correct the wording of one utterance. Unlike deleting, this changes no positions, so the
+  // recording's utterance boundaries (which diarization maps speakers onto) stay valid.
+  const editTranscript = useCallback(
+    async (transcriptId: string, text: string): Promise<boolean> => {
+      const snapshot = transcripts;
+      setTranscripts((list) => list.map((t) => (t.id === transcriptId ? { ...t, text } : t)));
+      const res = await fetch(`/api/transcripts/${transcriptId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      }).catch(() => null);
+      if (!res || !res.ok) {
+        setTranscripts(snapshot);
+        setError(`Failed to save the edit (${res ? `HTTP ${res.status}` : "connection error"})`);
+        return false;
+      }
+      setError(null);
+      return true;
     },
     [transcripts],
   );
@@ -764,6 +786,7 @@ export function TranscriptList({
               onSeek={() => seekTo(wavPosition(t.createdAt))}
               onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
               onDelete={() => void deleteTranscript(t.id)}
+              onEdit={(text) => editTranscript(t.id, text)}
               showTranslation={showTranslation}
               readOnly={readOnly}
             />
@@ -786,6 +809,7 @@ function TranscriptRow({
   onSeek,
   onReassign,
   onDelete,
+  onEdit,
   showTranslation,
   readOnly,
 }: {
@@ -799,8 +823,32 @@ function TranscriptRow({
   onSeek: () => void;
   onReassign: (nextKey: string) => void;
   onDelete: () => void;
+  onEdit: (text: string) => Promise<boolean>;
   readOnly: boolean;
 }) {
+  // Correcting a misheard word in place. Recognition gets names and jargon wrong often
+  // enough that retyping one line beats re-transcribing the whole meeting.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.text);
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    setDraft(item.text);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed || trimmed === item.text) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    const ok = await onEdit(trimmed);
+    setSaving(false);
+    if (ok) setEditing(false);
+  };
+
   return (
     <li className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm">
       <div className="flex items-center gap-2">
@@ -831,21 +879,76 @@ function TranscriptRow({
             onChange={onReassign}
           />
         ) : null}
-        {/* Drop a misheard or garbled line so it cannot reach the minutes. Kept quiet until
-            the row is hovered on desktop; always visible on touch, which has no hover. */}
-        {!readOnly ? (
-          <button
-            type="button"
-            onClick={onDelete}
-            title="Delete this utterance (it will no longer feed minutes generation)"
-            aria-label="Delete this utterance"
-            className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--error)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-          >
-            <TrashIcon className="h-3.5 w-3.5" />
-          </button>
+        {/* Fix or drop a misheard line so the minutes are built from the right words. Kept
+            quiet until the row is hovered on desktop; always visible on touch, which has no
+            hover. */}
+        {!readOnly && !editing ? (
+          <>
+            <button
+              type="button"
+              onClick={startEdit}
+              title="Edit this utterance"
+              aria-label="Edit this utterance"
+              className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+            >
+              <PencilIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Delete this utterance (it will no longer feed minutes generation)"
+              aria-label="Delete this utterance"
+              className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--error)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+            </button>
+          </>
         ) : null}
       </div>
-      <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
+      {editing ? (
+        <div className="mt-1 space-y-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter saves (the common case is a short correction); Shift+Enter adds a line.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void save();
+              } else if (e.key === "Escape") {
+                setEditing(false);
+              }
+            }}
+            rows={Math.min(8, Math.max(2, draft.split("\n").length + 1))}
+            autoFocus
+            disabled={saving}
+            className="input resize-y text-sm"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <span className="mr-auto text-[11px] text-[var(--text-muted)]">
+              Enter to save · Shift+Enter for a new line · Esc to cancel
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              disabled={saving}
+              className="rounded-md border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={saving || !draft.trim()}
+              className="rounded-md bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
+      )}
       {/* Japanese translation, shown under the original rather than replacing it — the
           transcript stays the record of what was actually said. */}
       {showTranslation && item.translation ? (
