@@ -152,8 +152,11 @@ export async function MeetingListPane({
   };
   const hrefWith = (over: { tag?: string | null }) => `${base}${queryString(over)}`;
 
-  const card = (m: MeetingCardData) => {
+  // `inSeries` cards sit inside a SeriesStack, which already names the series in its header —
+  // repeating it on every card is noise.
+  const card = (m: MeetingCardData, inSeries = false) => {
     const active = m.id === activeId;
+    const showSeriesChip = Boolean(m.seriesName) && !inSeries;
     const hit = matched.get(m.id);
     return (
       <div className="relative">
@@ -207,11 +210,11 @@ export async function MeetingListPane({
           {hit?.snippet ? (
             <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{hit.snippet}</p>
           ) : null}
-          {m.tags.length > 0 || m.seriesName || (hit && hit.fields.length > 0) || m.endedAt ? (
+          {m.tags.length > 0 || showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
             <p className="mt-1.5 flex flex-wrap items-center gap-1">
               {/* Recording/protection icon (RecordingBadges fills it in after querying STT) */}
               <span data-rec-badge={m.id} />
-              {m.seriesName ? (
+              {showSeriesChip ? (
                 <span
                   className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
                   title={`Series: ${m.seriesName}`}
@@ -288,9 +291,11 @@ export async function MeetingListPane({
             latestId={group[0].id}
             latestTitle={group[0].title}
             readOnly={readOnly}
-            latest={card(group[0])}
+            // Opening one of the older meetings must not fold the series shut around it.
+            defaultOpen={group.slice(1).some((x) => x.id === activeId)}
+            latest={card(group[0], true)}
             rest={group.slice(1).map((x) => (
-              <div key={x.id}>{swipeWrap(card(x), [x.id], x.title)}</div>
+              <div key={x.id}>{swipeWrap(card(x, true), [x.id], x.title)}</div>
             ))}
           />
         </li>,
