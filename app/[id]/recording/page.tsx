@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type RecognizerStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
 import { effectiveSttLanguage } from "@/lib/stt/models";
+import { sttHealth } from "@/lib/stt/preload";
 import { useConfirmEx } from "../../confirm-dialog";
 import { useGpuBusy } from "../../use-gpu-busy";
 
@@ -65,17 +66,23 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const [source, setSource] = useState<"mic" | "display" | "both">("mic");
   const sourceRef = useRef(source);
   const [displaySupported, setDisplaySupported] = useState(true);
-  const whisperModelRef = useRef<string | undefined>(undefined);
+  // The model actually used = URL override > this meeting's stored model > settings default.
+  // Kept as three sources because the meeting and the settings load independently.
+  const settingsModelRef = useRef<string | undefined>(undefined);
+  const meetingModelRef = useRef<string | undefined>(undefined);
   const sttLanguageRef = useRef<string | undefined>(undefined);
   const meetingLangRef = useRef<string | undefined>(undefined); // per-meeting language (overrides settings)
   const sttGlossaryRef = useRef<string | undefined>(undefined);
   const seriesGlossaryRef = useRef<string | undefined>(undefined);
   const sttMicModeRef = useRef<string | undefined>(undefined);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [meetingLoaded, setMeetingLoaded] = useState(false);
+  // Whisper model resident on the STT service, polled until it matches this meeting's model —
+  // so the user can see the model is ready before pressing record.
+  const [loadedModel, setLoadedModel] = useState<string | null | undefined>(undefined);
   // Transcription settings in effect for this recording (shown to the user). The LLM settings
   // are not part of recording, so they are not collected here.
   const [cfg, setCfg] = useState<{
-    whisperModel?: string;
     sttLanguage?: string;
     micMode?: string;
   } | null>(null);
@@ -158,11 +165,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         startedAt: string;
         endedAt: string | null;
         sttLanguage: string | null;
+        whisperModel: string | null;
         series?: { sttGlossary: string | null } | null;
         transcripts: { id: string; speakerType: string; text: string; createdAt: string }[];
       };
       if (cancelled) return;
       setTitle(data.title);
+      // The model chosen when the meeting was set up. Stored on the meeting, so re-entering
+      // or reloading this screen still records with it rather than the settings default.
+      if (data.whisperModel) meetingModelRef.current = data.whisperModel;
       // Per-series glossary terms are appended to the global glossary at recording start.
       if (data.series?.sttGlossary) seriesGlossaryRef.current = data.series.sttGlossary;
       setStartedAt(new Date(data.startedAt));
@@ -183,6 +194,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         meetingLangRef.current = data.sttLanguage;
         setMeetingLang(data.sttLanguage);
       }
+      setMeetingLoaded(true);
       setTranscripts(
         data.transcripts.map((t) => ({
           id: t.id,
@@ -212,17 +224,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           } | null,
         ) => {
           if (cancelled) return;
-          if (s?.whisperModel) whisperModelRef.current = s.whisperModel;
+          if (s?.whisperModel) settingsModelRef.current = s.whisperModel;
           if (s?.sttLanguage) sttLanguageRef.current = s.sttLanguage;
           if (s?.sttGlossary) sttGlossaryRef.current = s.sttGlossary;
           if (s?.micMode) sttMicModeRef.current = s.micMode;
           // Override with this recording's temporary settings (query).
-          if (overrides.model) whisperModelRef.current = overrides.model;
           if (overrides.mic) sttMicModeRef.current = overrides.mic;
           if (s)
             setCfg({
               sttLanguage: s.sttLanguage,
-              whisperModel: overrides.model ?? s.whisperModel,
               micMode: overrides.mic ?? s.micMode,
             });
           setSettingsLoaded(true);
@@ -232,17 +242,49 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     return () => {
       cancelled = true;
     };
-  }, [overrides.model, overrides.mic]);
+  }, [overrides.mic]);
 
-  // Preload the Whisper model: loading takes tens of seconds, so start it on the STT
-  // side when the recording page opens (it is loaded or loading by the time recording starts).
+  // Resolved once both sources have loaded, then used everywhere (render included) so the
+  // displayed model and the one sent to STT can never disagree.
+  const [activeModel, setActiveModel] = useState<string | undefined>(undefined);
   useEffect(() => {
-    if (!settingsLoaded || external) return;
-    const qs = whisperModelRef.current
-      ? `?model=${encodeURIComponent(whisperModelRef.current)}`
-      : "";
+    if (!settingsLoaded || !meetingLoaded) return;
+    setActiveModel(overrides.model ?? meetingModelRef.current ?? settingsModelRef.current);
+  }, [settingsLoaded, meetingLoaded, overrides.model]);
+
+  // Preload the Whisper model: loading takes tens of seconds, so start it on the STT side
+  // when the recording page opens. Waits for the meeting too — preloading before its stored
+  // model is known would warm the settings default and then have to swap.
+  useEffect(() => {
+    if (!settingsLoaded || !meetingLoaded || external) return;
+    const model = activeModel;
+    const qs = model ? `?model=${encodeURIComponent(model)}` : "";
     fetch(`${sttHttpBase()}/preload${qs}`, { method: "POST" }).catch(() => {});
-  }, [settingsLoaded, external]);
+  }, [settingsLoaded, meetingLoaded, external, activeModel]);
+
+  // Track whether the model is loaded yet. Polls while it is still loading and stops once it
+  // is resident; recording itself buffers audio until the model is ready, but starting a
+  // meeting without knowing that has cost whole recordings.
+  useEffect(() => {
+    if (!settingsLoaded || !meetingLoaded || external || ended) return;
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const want = activeModel;
+    const poll = async () => {
+      const h = await sttHealth(6000);
+      if (stop) return;
+      setLoadedModel(h ? (h.loaded ?? null) : null);
+      // Keep polling until the model we need is the one resident.
+      if (!h || !h.loaded || (want && h.loaded !== want)) {
+        timer = setTimeout(() => void poll(), 3000);
+      }
+    };
+    void poll();
+    return () => {
+      stop = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [settingsLoaded, meetingLoaded, external, ended, activeModel]);
 
   // Auto-scroll
   useEffect(() => {
@@ -295,16 +337,17 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     [saveTranscript, showToast],
   );
 
+  // Ready = the model this meeting will use is the one resident on the STT service.
+  const modelReady = Boolean(loadedModel) && loadedModel === activeModel;
+
   const startRecording = useCallback(async () => {
     if (handleRef.current || endedRef.current) return; // never (re)start an ended meeting
     try {
+      const model = activeModel;
       handleRef.current = await startMic(handlers, {
-        model: whisperModelRef.current,
+        model,
         meetingId,
-        language: effectiveSttLanguage(
-          whisperModelRef.current,
-          meetingLangRef.current ?? sttLanguageRef.current,
-        ),
+        language: effectiveSttLanguage(model, meetingLangRef.current ?? sttLanguageRef.current),
         // Global glossary + this meeting's series glossary (if any).
         initialPrompt:
           [sttGlossaryRef.current, seriesGlossaryRef.current].filter(Boolean).join("、") ||
@@ -316,7 +359,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       showToast(`Cannot start the microphone: ${(e as Error).message}`);
       setStatus("error");
     }
-  }, [handlers, meetingId, showToast]);
+  }, [handlers, meetingId, showToast, activeModel]);
 
   const stopRecording = useCallback(async () => {
     const h = handleRef.current;
@@ -559,6 +602,21 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             {active ? "Stop recording" : "Start recording"}
           </button>
 
+          {/* Before recording, say whether the model is loaded — the wait for a cold load is
+              silent otherwise, and starting into it means the first minutes go unrecognized. */}
+          {!active && !ended && !external ? (
+            <span
+              className={`text-xs ${modelReady ? "text-[var(--success)]" : "text-[var(--warning)]"}`}
+              title={
+                modelReady
+                  ? `${activeModel ?? "model"} is loaded — transcription starts right away`
+                  : "The model is still loading. You can start; audio is buffered and transcribed once it is ready."
+              }
+            >
+              {modelReady ? "● Model ready" : "◌ Loading model…"}
+            </span>
+          ) : null}
+
           <div className="flex items-center gap-2 text-sm">
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusDot(status)}`} />
             <span className="text-[var(--text-secondary)]">{statusLabel(status)}</span>
@@ -638,8 +696,18 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-muted)]">
           <p className="text-[var(--text-secondary)]">Settings for this recording</p>
           <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
-            <div>
-              Model: <span className="text-[var(--text-secondary)]">{cfg.whisperModel ?? "-"}</span>
+            <div className="col-span-2 sm:col-span-1">
+              Model:{" "}
+              <span className="text-[var(--text-secondary)]">{activeModel ?? "-"}</span>{" "}
+              {modelReady ? (
+                <span className="text-[var(--success)]" title="Loaded on the GPU — transcription starts immediately">
+                  ● ready
+                </span>
+              ) : (
+                <span className="text-[var(--warning)]" title="Still loading; audio is buffered and transcribed once it is ready">
+                  ◌ loading…
+                </span>
+              )}
             </div>
             <div>
               Language: <span className="text-[var(--text-secondary)]">{langLabel}</span>
