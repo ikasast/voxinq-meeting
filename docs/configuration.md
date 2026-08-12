@@ -12,7 +12,7 @@ in the UI). Both are gitignored.
 | `APP_PASSWORD` | unset | Enables password login. Unset = open within your network. When set, access without a tailnet identity (e.g. via Tailscale Funnel / a public URL) is **read-only**: view & download only, all state-changing requests are refused (HTTP 403). |
 | `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD`. |
 | `NETWORK_MODE` | `tailscale` | `tailscale`: external (non-tailnet) access is login-gated. `lan`: any reachable client is trusted. |
-| `STT_INTERNAL_URL` | `http://localhost:8000` | Where the web server reaches the STT service (server-side), used on meeting end to read the recorded length. Set if STT runs on another host. |
+| `STT_INTERNAL_URL` | `http://127.0.0.1:8000` | Where the web server reaches the STT service (server-side), used on meeting end to read the recorded length and to keep utterance boundaries in step when a line is deleted. Set if STT runs on another host. **Literal `127.0.0.1`, not `localhost`** — see below. |
 | `TAILSCALE_BIN` | auto | Path to the `tailscale` CLI, used by **Settings → Remote access** to publish/unpublish. Defaults to the OS install path, then `PATH`. |
 | `TAILSCALE_FUNNEL_PORT` | `443` | Public HTTPS port toggled by Remote access. |
 | `TAILSCALE_FUNNEL_TARGET` | `localhost:$PORT` | Local web target the Funnel points at. |
@@ -23,6 +23,12 @@ STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHIS
 (translation model repo and CPU threads), `STT_PARTIAL_MS` (default 1200 — how often a
 provisional "partial" transcription of the segment still being spoken is pushed to the
 recording screen; 0 disables partials), and VAD tuning (`VAD_*`).
+
+> **Why `127.0.0.1` rather than `localhost` for same-host services.** The STT service and
+> Ollama bind IPv4, but on Windows `localhost` resolves to `::1` first. Any other process
+> holding the same port on IPv6 — a Docker container publishing `8000`, for instance — then
+> answers these requests instead, silently and with no error to point at. Naming the IPv4
+> address avoids the whole class of problem. Same reasoning for `ollamaBaseUrl`.
 
 `STT_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the STT service.
 The browser talks to it directly, so it must accept the origin the web app is served from.

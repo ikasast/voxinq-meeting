@@ -466,7 +466,7 @@ export default function SettingsPage() {
                 type="text"
                 value={settings.ollamaBaseUrl}
                 onChange={(e) => update("ollamaBaseUrl", e.target.value)}
-                placeholder="http://localhost:11434"
+                placeholder="http://127.0.0.1:11434"
                 className={inputClass}
               />
             </div>

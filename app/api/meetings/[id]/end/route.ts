@@ -6,7 +6,12 @@ export const runtime = "nodejs";
 
 // STT is on the same host as the web app, so reach it directly over loopback (avoids the
 // public Tailscale URL). Override with STT_INTERNAL_URL if it runs elsewhere.
-const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://localhost:8000";
+//
+// 127.0.0.1 rather than localhost on purpose. The STT service binds IPv4, but `localhost`
+// resolves to ::1 first on Windows — so any other process holding IPv6 :8000 (a container
+// publishing the same port, say) silently answers instead of the STT service, and this
+// request quietly reaches the wrong server.
+const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 // Mark a meeting as ended (set endedAt). Called from the recording screen's end action,
 // after the STT server has finished saving the WAV — so we can read its recorded length
