@@ -1,8 +1,11 @@
 # Voxinq Web update script (Windows primary-host operation; the Windows version of redeploy.sh).
 # git pull -> update deps -> apply DB schema -> production build -> restart server.
 # Usage: in scripts\windows run .\redeploy-web.ps1
-#        .\redeploy-web.ps1 -Branch <name>   deploy a branch other than main (e.g. to test a PR)
-param([string]$Branch = 'main')
+#        .\redeploy-web.ps1 -Branch <name>   deploy a branch other than release (e.g. to test a PR)
+#
+# Production tracks `release` (the latest tagged version); `main` is where development lands.
+# See docs/setup.md "Branches & releases".
+param([string]$Branch = 'release')
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..\..')
 
