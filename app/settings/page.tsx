@@ -279,7 +279,7 @@ export default function SettingsPage() {
               onChange={(e) => update("sttGlossary", e.target.value)}
               disabled={saving}
               rows={2}
-              placeholder="e.g. JST, Moonshot, Jane Doe, Voxinq Meeting"
+              placeholder="e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting"
               className="input mt-1 resize-y"
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
