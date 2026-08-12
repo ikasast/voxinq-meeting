@@ -50,3 +50,20 @@ jobs:
           python-version: "3.11"
       # Syntax-level check only: the heavy CUDA deps are not installable in CI.
       - run: python -m py_compile stt-service/server.py diarization/diarize.py
+
+  # Catches rot in the container setup (bad Dockerfile, a dependency that stopped
+  # resolving) without waiting for someone to try `docker compose up`.
+  #
+  # Only the web image is built. The STT image pulls a CUDA base plus a CUDA build of
+  # torch — far past a runner's disk budget, and it could not be exercised anyway with
+  # no GPU. It is verified on the GPU host instead.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the compose file
+        run: docker compose config --quiet
+        env:
+          POSTGRES_PASSWORD: ci-only
+      - name: Build the web image
+        run: docker build -t voxinq-web:ci .

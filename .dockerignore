@@ -1,0 +1,20 @@
+# Kept out of the build context: secrets, runtime data, and anything the image rebuilds.
+node_modules
+.next
+.git
+.github
+.claude
+.env*
+!.env.example
+settings.json
+prisma/*.db
+prisma/*.db-journal
+stt-service/.venv
+stt-service/recordings
+stt-service/*.log
+diarization/.venv
+docs
+tests
+*.log
+prod.pid
+prod.log
