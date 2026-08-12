@@ -2,7 +2,7 @@
 
 # Voxinq Meeting
 
-**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Nothing leaves your machine.**
+**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Your audio never leaves your machine, and by default nothing else does either.**
 
 [**日本語の解説はこちら →**](README.ja.md)
 
@@ -13,7 +13,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11-3776ab)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791)
 ![GPU](https://img.shields.io/badge/GPU-CUDA%20(8GB%20ok)-76b900)
-![Self-hosted](https://img.shields.io/badge/self--hosted-100%25%20offline-2ea44f)
+![Self-hosted](https://img.shields.io/badge/self--hosted-local--first-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
@@ -35,9 +35,11 @@
 
 Cloud transcription SaaS means uploading confidential meetings — research, legal, HR, strategy — to someone else's servers. Voxinq Meeting keeps everything on hardware you control.
 
+**Audio is local by construction.** The browser streams it straight to the transcription service on your own machine — the web app never proxies it, and there is no code path that sends a recording anywhere else. Minutes are local by default too (Ollama). If you *choose* to point the LLM at Anthropic, OpenAI, or a rented GPU, the finished transcript goes to that endpoint — your decision, off by default. Nothing is phoned home either way.
+
 | | **Voxinq Meeting** | Cloud SaaS |
 | --- | --- | --- |
-| **Privacy** | 100% local — audio never leaves your machine | Audio uploaded to a third party |
+| **Privacy** | Audio never leaves your machine; minutes local by default, cloud LLM opt-in | Audio uploaded to a third party |
 | **Cost** | Free — runs on a consumer GPU (8 GB VRAM) | Per-user / per-minute subscription |
 | **Record anywhere** | Any browser incl. phone (PWA + Tailscale) | Any browser — via their cloud |
 | **Models** | Pick any Whisper / LLM; swap or upgrade anytime | Fixed, vendor-chosen |
