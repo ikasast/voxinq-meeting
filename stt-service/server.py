@@ -50,7 +50,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from translator import translate_to_ja, translator_state
+from translator import preload_translator, translate_to_ja, translator_state
 
 SAMPLE_RATE = 16000
 
@@ -180,10 +180,29 @@ def _recording_remove(mid: str) -> None:
             _RECORDING_MIDS.pop(mid, None)
 
 
+# Latest model a preload was asked for. Held in a one-element list so _preload_model can
+# check whether it is still the current request without a module-level global statement.
+_PRELOAD_LOCK = threading.Lock()
+_preload_target: list[str | None] = [None]
+
+
 def _preload_model(name: str | None) -> None:
-    """Load the model in the background (failures go to the log)."""
+    """Load the model in the background (failures go to the log).
+
+    Preloads are guesses about what the next meeting will use, and callers disagree: the
+    New-meeting screen knows the chosen model, while the header and quick-record only know
+    the settings default. Loading a different model releases the current one, so two
+    disagreeing guesses used to cost two full loads each time. A superseded request is
+    therefore dropped rather than queued behind the one that replaced it.
+    """
     try:
+        with _PRELOAD_LOCK:
+            if name != _preload_target[0]:
+                return  # a newer preload asked for something else
         model = whisper.get(name)
+        with _PRELOAD_LOCK:
+            if name != _preload_target[0]:
+                return  # superseded while we waited for the load lock
         print(f"[preload] loaded model: {whisper.loaded_model}")
         # One throwaway inference so the first real utterance doesn't pay the remaining lazy
         # costs (Silero VAD's ONNX session, CUDA kernel warm-up) — those add seconds on top
@@ -219,7 +238,9 @@ async def _lifespan(_app: FastAPI):
     if PRELOAD_ON_START:
         # Right after startup Ollama is also idle, so warm the model to remove the first-meeting wait.
         _touch_activity()
-        threading.Thread(target=_preload_model, args=(None,), daemon=True).start()
+        with _PRELOAD_LOCK:
+            _preload_target[0] = DEFAULT_MODEL
+        threading.Thread(target=_preload_model, args=(DEFAULT_MODEL,), daemon=True).start()
     yield
     cleanup_task.cancel()
     idle_task.cancel()
@@ -478,13 +499,22 @@ async def health() -> dict:
 
 
 @app.post("/preload")
-async def preload(model: str | None = None) -> dict:
+async def preload(model: str | None = None, translate: bool = False) -> dict:
     """Preload the Whisper model in the background.
 
     Loading takes tens of seconds, so call this when the recording page opens to warm it up.
-    If already loaded, returns ready immediately."""
+    If already loaded, returns ready immediately.
+
+    `translate=1` also warms the translation model. It is on the CPU, so it loads alongside
+    Whisper rather than competing with it — and without this the first non-Japanese utterance
+    triggers a ~600MB download mid-meeting, whose result arrives after the meeting has ended.
+    """
     name = model or DEFAULT_MODEL
     _touch_activity()
+    if translate:
+        threading.Thread(target=preload_translator, daemon=True).start()
+    with _PRELOAD_LOCK:
+        _preload_target[0] = name
     if whisper.loaded_model == name:
         return {"status": "ready", "model": name}
     threading.Thread(target=_preload_model, args=(name,), daemon=True).start()

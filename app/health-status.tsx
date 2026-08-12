@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
-import { preloadStt, sttHealth, sttModelFromSettings } from "@/lib/stt/preload";
+import { preloadStt, sttHealth, sttWarmupFromSettings } from "@/lib/stt/preload";
 
 // Show STT / LLM health as a small indicator on the home page.
 // STT is checked browser->STT directly (same path as recording); LLM is checked via the web server.
@@ -112,8 +112,8 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
       setWarmMsg("Minutes are being generated — the GPU is busy. Try again once they finish.");
       return;
     }
-    const model = await sttModelFromSettings();
-    const res = await preloadStt(model);
+    const { model, translate } = await sttWarmupFromSettings();
+    const res = await preloadStt(model, translate);
     if (res === null) {
       setWarming(false);
       setWarmMsg("Could not reach STT.");

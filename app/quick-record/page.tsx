@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
-import { preloadStt, sttModelFromSettings } from "@/lib/stt/preload";
+import { preloadStt, sttWarmupFromSettings } from "@/lib/stt/preload";
 import { defaultMeetingTitle } from "@/lib/utils";
 
 // Landing point for the home-screen shortcut "new recording".
@@ -21,8 +21,10 @@ export default function QuickRecordPage() {
   const start = async () => {
     setPhase("starting");
     // Warm the Whisper model while the meeting is being created — the caller has already
-    // established that minutes generation isn't holding the GPU.
-    void sttModelFromSettings().then((m) => preloadStt(m));
+    // established that minutes generation isn't holding the GPU. This path records with the
+    // settings model (it creates the meeting without a per-meeting override), so the settings
+    // value is the right thing to warm.
+    void sttWarmupFromSettings().then((s) => preloadStt(s.model, s.translate));
     try {
       const res = await fetch("/api/meetings", {
         method: "POST",

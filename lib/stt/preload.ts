@@ -32,24 +32,36 @@ export async function sttHealth(timeoutMs = 8000): Promise<SttHealth | null> {
   }
 }
 
-// The Whisper model from the app settings. Passed to /preload so we warm the model the
-// recording will actually use (otherwise the service loads its default and has to swap).
-export async function sttModelFromSettings(): Promise<string | undefined> {
+// The Whisper model from the app settings, plus whether translation is on. Passed to
+// /preload so we warm what the recording will actually use (otherwise the service loads its
+// default and has to swap).
+export async function sttWarmupFromSettings(): Promise<{ model?: string; translate: boolean }> {
   try {
     const s = (await fetch("/api/settings").then((r) => (r.ok ? r.json() : null))) as {
       whisperModel?: string;
+      sttTranslate?: boolean;
     } | null;
-    return s?.whisperModel || undefined;
+    return { model: s?.whisperModel || undefined, translate: Boolean(s?.sttTranslate) };
   } catch {
-    return undefined;
+    return { translate: false };
   }
 }
 
 // Ask the STT service to load the model. Returns immediately; the load runs in a background
 // thread there ("loading"), or reports "ready" when the model is already resident.
-export async function preloadStt(model?: string): Promise<"loading" | "ready" | null> {
+//
+// `translate` also warms the translation model. It runs on the CPU, so it does not compete
+// with Whisper — and leaving it cold means the first non-Japanese utterance starts a ~600MB
+// download whose result lands after the meeting has ended.
+export async function preloadStt(
+  model?: string,
+  translate = false,
+): Promise<"loading" | "ready" | null> {
   try {
-    const qs = model ? `?model=${encodeURIComponent(model)}` : "";
+    const params = new URLSearchParams();
+    if (model) params.set("model", model);
+    if (translate) params.set("translate", "1");
+    const qs = params.size > 0 ? `?${params}` : "";
     const res = await fetch(`${sttHttpBase()}/preload${qs}`, {
       method: "POST",
       signal: AbortSignal.timeout(8000),
@@ -65,8 +77,13 @@ export async function preloadStt(model?: string): Promise<"loading" | "ready" | 
 // Fire-and-forget warm-up for the paths that lead to a recording. Skipped while minutes are
 // generating so we don't pull VRAM out from under the LLM; that case is handled by the
 // "interrupt minutes" prompt, after which the recording page preloads anyway.
-export async function preloadSttIfIdle(model?: string): Promise<void> {
+export async function preloadSttIfIdle(model?: string, translate?: boolean): Promise<void> {
   const mb = await currentMinutesBusy();
   if (mb.busy) return;
-  await preloadStt(model ?? (await sttModelFromSettings()));
+  if (model !== undefined && translate !== undefined) {
+    await preloadStt(model, translate);
+    return;
+  }
+  const s = await sttWarmupFromSettings();
+  await preloadStt(model ?? s.model, translate ?? s.translate);
 }

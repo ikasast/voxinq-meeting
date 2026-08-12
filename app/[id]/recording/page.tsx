@@ -260,10 +260,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // Preload the Whisper model: loading takes tens of seconds, so start it on the STT side
   // when the recording page opens. Waits for the meeting too — preloading before its stored
   // model is known would warm the settings default and then have to swap.
+  // Also warms the translation model when translation is on: it is the last chance before
+  // recording starts, and a cold load triggered by the first non-Japanese utterance finishes
+  // after the WebSocket has closed, so those translations are lost.
   useEffect(() => {
     if (!settingsLoaded || !meetingLoaded || external) return;
-    const model = activeModel;
-    const qs = model ? `?model=${encodeURIComponent(model)}` : "";
+    const params = new URLSearchParams();
+    if (activeModel) params.set("model", activeModel);
+    if (sttTranslateRef.current) params.set("translate", "1");
+    const qs = params.size > 0 ? `?${params}` : "";
     fetch(`${sttHttpBase()}/preload${qs}`, { method: "POST" }).catch(() => {});
   }, [settingsLoaded, meetingLoaded, external, activeModel]);
 

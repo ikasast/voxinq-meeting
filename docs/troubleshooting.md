@@ -24,6 +24,34 @@ The Whisper model is loading (first meeting can take ~1 minute). Audio is captur
 and transcribed once the model is ready. If it never proceeds, check the STT logs
 (`stt-service/stt.log`) and that the GPU has free VRAM.
 
+## Recording takes several minutes to start
+
+Only one Whisper model is resident at a time, so loading a different one releases the current
+one. If the model you pick on the New meeting screen is usually *not* the one in
+**Settings → Transcription**, the two can end up being loaded alternately, and each swap is a
+full load. Look for alternating lines in `stt-service/stt.log`:
+
+```
+[preload] loaded model: kotoba-tech/kotoba-whisper-v2.0-faster
+[preload] loaded model: large-v3-turbo
+```
+
+**Set the model you normally use as the default in Settings.** The per-meeting picker is for
+exceptions; when it disagrees with the default on every meeting, you pay for it twice.
+
+## Translations never appear
+
+Check in order:
+
+1. `sttTranslate` is on (**Settings → Transcription**) — it is off by default.
+2. The speech was actually **not Japanese**. Japanese utterances are deliberately left alone.
+3. `GET /health` on the STT service reports `"translate": {"loaded": true}`. The model is
+   warmed when the recording screen opens; if it is still cold when the meeting ends, any
+   translation still in flight is discarded when the WebSocket closes. A very short meeting
+   started immediately after an STT restart can hit this.
+4. `stt-service/stt.log` for `[translate] unavailable:` — a failed load is not retried for the
+   life of the process, so restart the service after fixing the cause.
+
 ## STT won't reflect new code after a restart
 
 `Stop-ScheduledTask` can leave the Python process running. Instead, kill the process owning
