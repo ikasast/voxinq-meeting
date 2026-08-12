@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Voxinq2 Web update script (for the Ubuntu production server)
+# Voxinq Web update script for a Linux host (the Windows equivalent is
+# scripts/windows/redeploy-web.ps1).
 #
-# Usage:
-#   Change code on Windows -> git commit && git push
-#   On Ubuntu:  ./scripts/redeploy.sh
+# Usage:  ./scripts/redeploy.sh
 #
 # git pull -> update deps -> production build -> stop old server -> start -> health check.
 # .env / settings.json / prisma/dev.db are gitignored, so pull does not remove them.
