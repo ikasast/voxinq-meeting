@@ -5,7 +5,7 @@ import type { ChatArgs, ChatProvider, LlmConfig } from "./types";
 export const ollamaProvider: ChatProvider = {
   name: "ollama",
   async chat(
-    { system, user, maxTokens, prefill }: ChatArgs,
+    { system, user, maxTokens, prefill, think }: ChatArgs,
     cfg: LlmConfig,
     signal?: AbortSignal,
   ): Promise<string> {
@@ -41,6 +41,10 @@ export const ollamaProvider: ChatProvider = {
         model: cfg.ollamaModel,
         stream: true,
         messages,
+        // Reasoning tokens are drawn from the same num_predict budget as the answer, so a
+        // thinking model can exhaust it before emitting anything. Callers that want a short
+        // structured reply pass think:false; omitted leaves the model's default alone.
+        ...(think === undefined ? {} : { think }),
         // Minutes are a structured-extraction task, so keep it stable at low temperature.
         // At the default (0.8), a 7B model on thin input tends to produce token garbage
         // like "特 Nvidia" or to copy the instructions verbatim.

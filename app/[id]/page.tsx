@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
+import { getSttGlossary } from "@/lib/settings";
 import { formatDateTime } from "@/lib/utils";
 import { AskMinutes } from "../ask-minutes";
 import { MeetingListPane } from "../meeting-list-pane";
@@ -150,6 +151,7 @@ export default async function MeetingDetailPage({
           meetingStartedAt={meeting.startedAt.toISOString()}
           initialSpeakerLabels={meeting.speakerLabels}
           seriesGlossary={meeting.series?.sttGlossary ?? null}
+          globalGlossary={await getSttGlossary()}
           readOnly={external}
           initialTranscripts={meeting.transcripts.map((t) => ({
             id: t.id,
