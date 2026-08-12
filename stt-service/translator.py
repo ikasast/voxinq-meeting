@@ -96,6 +96,16 @@ class _Translator:
             print(f"[translate] unavailable: {self._error}")
             return False
 
+    def preload(self) -> bool:
+        """Load the model now, so the first utterance of a meeting is not the trigger.
+
+        The first load downloads ~600MB and builds the CTranslate2 session, which takes
+        longer than a short meeting has left once it starts. Translations produced after the
+        WebSocket closes are simply lost, so the load has to happen before recording.
+        """
+        with self._lock:
+            return self._load_locked()
+
     def translate(self, text: str, whisper_lang: str | None) -> str | None:
         """Japanese translation of `text`, or None when it should be left alone.
 
@@ -135,6 +145,10 @@ _INSTANCE = _Translator()
 
 def translate_to_ja(text: str, whisper_lang: str | None) -> str | None:
     return _INSTANCE.translate(text, whisper_lang)
+
+
+def preload_translator() -> bool:
+    return _INSTANCE.preload()
 
 
 def translator_state() -> dict:

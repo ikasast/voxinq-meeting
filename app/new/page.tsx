@@ -115,11 +115,21 @@ export default function NewMeetingPage() {
 
   // Start loading the Whisper model that this meeting will actually use — a cold load takes
   // tens of seconds, and filling in this form covers most of it. Keyed on `model`, so picking
-  // a different one here warms that one instead (warming the settings model and then swapping
-  // at recording start would cost two loads and defeat the point).
+  // a different one here warms that one instead.
+  //
+  // Delayed, because the value arrives from settings before the user has had a chance to
+  // change it. Warming it immediately meant that anyone whose habitual choice differs from
+  // the settings default paid for two full model loads on every meeting — the service
+  // releases one model to load another, so the pair thrash. Once the user has picked a model
+  // themselves it is authoritative, so warm it promptly.
   useEffect(() => {
     if (!settingsLoaded) return;
-    void preloadSttIfIdle(model);
+    const chosen = touched.current.has("model");
+    const timer = setTimeout(
+      () => void preloadSttIfIdle(model, translateRef.current),
+      chosen ? 300 : 4000,
+    );
+    return () => clearTimeout(timer);
   }, [settingsLoaded, model]);
 
   const createMeeting = async (fallbackTitle: string) => {
@@ -147,8 +157,9 @@ export default function NewMeetingPage() {
   const startRecording = async () => {
     setSubmitting(true);
     // Load the model for real now: from here the only thing left is pressing record, so this
-    // is the last moment a warm-up can still hide the load time.
-    void preloadSttIfIdle(model);
+    // is the last moment a warm-up can still hide the load time (and the last moment the
+    // delayed warm-up above may not have fired yet).
+    void preloadSttIfIdle(model, translateRef.current);
     try {
       const meeting = await createMeeting(defaultMeetingTitle());
       try {
