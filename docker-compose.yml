@@ -43,6 +43,10 @@ services:
     environment:
       # Server-side reach to STT (container-to-container, unlike the browser's URL above).
       STT_INTERNAL_URL: http://stt:8000
+      # Seeds the default shown in Settings → LLM. Loopback is right for a native install but
+      # means "this container" here, so name the service instead — otherwise a fresh install
+      # cannot generate minutes until someone edits the setting by hand.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       # Kept on a volume rather than bind-mounted: Docker turns a bind mount of a not-yet-
       # existing file into a directory, which breaks saving from the Settings UI.
       VOXINQ_SETTINGS_PATH: /data/settings.json

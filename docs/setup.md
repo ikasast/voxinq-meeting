@@ -36,14 +36,19 @@ docker compose up -d
 Then:
 
 1. `docker compose exec ollama ollama pull qwen2.5:7b-instruct` — the minutes model.
-2. Open `http://localhost:3000` → **Settings → LLM** → set the Ollama base URL to
-   `http://ollama:11434` (containers reach each other by service name, not `localhost`).
-3. For diarization, accept the terms for
+2. For diarization, accept the terms for
    [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
    and put your token in `.env` as `HF_TOKEN`, then `docker compose up -d stt`.
 
-First use downloads several GB of model weights; they are cached in a volume, so this happens
-once. The first recording of a session still takes tens of seconds to warm the model.
+Open `http://localhost:3000` and you are ready. The compose file points the web app at the
+`ollama` and `stt` services by name, so **Settings → LLM** already holds a working endpoint —
+containers reach each other by service name, and the loopback address that suits a native
+install would mean "this container" here.
+
+Budget for the first run: the STT image carries CUDA and a GPU build of torch, so it takes
+about **20 GB of disk** and a while to build. Model weights download separately on first use
+and are cached in a volume, so that happens once. The first recording of a session still takes
+tens of seconds to warm the model.
 
 > **`NEXT_PUBLIC_STT_WS_URL` is baked in at build time.** The browser talks to the STT service
 > directly, so the default `ws://localhost:8000/ws` only works when you browse from the same

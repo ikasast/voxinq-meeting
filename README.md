@@ -74,8 +74,6 @@ on the next screen once it says *Model ready*, talk, and finish with **Generate 
 
 📖 Docker details, manual install, background services, and phone access via Tailscale: **[docs/setup.md](docs/setup.md)**.
 
-> With Docker, set **Settings → LLM** to `http://ollama:11434` — containers reach each other by service name.
-
 > ⚡ Always serve a production build (`scripts/start` does). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
 
 ## 📖 Usage
