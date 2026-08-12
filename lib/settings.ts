@@ -42,7 +42,9 @@ function defaults(): AppSettings {
     micMode: "standard",
     sttTranslate: false,
     llmProvider: ((process.env.LLM_PROVIDER ?? "ollama").toLowerCase() as LlmProviderName) || "ollama",
-    ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
+    // 127.0.0.1, not localhost: on Windows `localhost` prefers ::1, so a container publishing
+    // the same port on IPv6 would answer instead of the local Ollama.
+    ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
     ollamaModel: process.env.OLLAMA_MODEL ?? "qwen2.5:7b-instruct",
     anthropicModel: process.env.ANTHROPIC_MODEL ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",

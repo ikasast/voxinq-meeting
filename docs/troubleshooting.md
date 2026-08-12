@@ -52,6 +52,29 @@ Check in order:
 4. `stt-service/stt.log` for `[translate] unavailable:` — a failed load is not retried for the
    life of the process, so restart the service after fixing the cause.
 
+## Recording works, but the meeting length is wrong or deleting a line says it could not sync
+
+The browser reaches the STT service directly, so recording is fine — but the **web server**
+also talks to it, over loopback, to read the recorded length on meeting end and to keep
+utterance boundaries in step when you delete a line. If something else has taken port 8000,
+those two calls reach the wrong server.
+
+The trap is IPv6: the STT service binds IPv4, while `localhost` resolves to `::1` first on
+Windows. A Docker container publishing `8000` therefore shadows it for anything using the
+name. Check who is actually listening:
+
+```powershell
+Get-NetTCPConnection -LocalPort 8000 -State Listen |
+  ForEach-Object { "$($_.LocalAddress)  $((Get-Process -Id $_.OwningProcess).ProcessName)" }
+```
+
+Two entries (one `0.0.0.0`, one `::`) mean two different servers. Compare the responses:
+`curl http://127.0.0.1:8000/health` should return the STT JSON; if
+`curl http://localhost:8000/health` returns something else, that is the collision.
+
+Stop the other service, or point `STT_INTERNAL_URL` at `http://127.0.0.1:8000` explicitly.
+(That is the default, so this only bites installs that overrode it with a hostname.)
+
 ## STT won't reflect new code after a restart
 
 `Stop-ScheduledTask` can leave the Python process running. Instead, kill the process owning

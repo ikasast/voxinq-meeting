@@ -5,8 +5,9 @@ import { isValidSpeakerKey } from "@/lib/speakers";
 
 export const runtime = "nodejs";
 
-// STT runs on the same host, so reach it over loopback (same pattern as the meeting-end route).
-const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://localhost:8000";
+// STT runs on the same host, so reach it over loopback (same pattern as the meeting-end
+// route, including 127.0.0.1 rather than localhost — see the comment there).
+const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 const TEXT_MAX = 5000;
 
