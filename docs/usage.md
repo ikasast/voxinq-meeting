@@ -82,6 +82,15 @@ The **Regenerate** button opens a small panel to pick a **detail level** and **p
 for that one run — handy to try a bigger model on a specific meeting without changing your
 defaults. Past versions are kept; switch between them with the version selector.
 
+## Play back the recording
+
+While the meeting's WAV still exists, a player sits above the transcript. Each utterance shows
+its elapsed time within the recording — **click the timestamp to jump the audio there**. Use it
+to check what was actually said before correcting a line, or to settle what a decision was.
+
+> Recordings auto-delete after 7 days unless protected; once the WAV is gone the player and the
+> timestamps go with it (the text stays).
+
 ## Edit minutes / transcript
 
 - Edit minutes text inline (pencil icon) — useful to fix an LLM slip before sharing.
