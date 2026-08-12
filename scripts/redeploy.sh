@@ -8,13 +8,14 @@
 # git pull -> update deps -> production build -> stop old server -> start -> health check.
 # .env / settings.json / prisma/dev.db are gitignored, so pull does not remove them.
 #
-# Deploys whatever branch is checked out; pass BRANCH=<name> to allow one other than main
-# (a leftover feature branch would otherwise deploy silently and just look stale).
+# Production tracks `release` (the latest tagged version); `main` is where development lands.
+# Pass BRANCH=<name> to deploy something else (a leftover feature branch would otherwise
+# deploy silently and just look stale). See docs/setup.md "Branches & releases".
 set -euo pipefail
 cd "$(dirname "$0")/.."   # to the repo root
 
 branch="$(git rev-parse --abbrev-ref HEAD)"
-want="${BRANCH:-main}"
+want="${BRANCH:-release}"
 if [ "$branch" != "$want" ]; then
   echo "On branch '$branch' but deploying '$want'. Run 'git checkout $want' first," >&2
   echo "or pass BRANCH=$branch to deploy this branch on purpose." >&2

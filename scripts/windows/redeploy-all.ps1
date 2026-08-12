@@ -5,8 +5,8 @@
 # `git pull` that touched STT is fully applied in one step.
 #
 # Usage: in scripts\windows run  .\redeploy-all.ps1
-#        .\redeploy-all.ps1 -Branch <name>   deploy a branch other than main
-param([string]$Branch = 'main')
+#        .\redeploy-all.ps1 -Branch <name>   deploy a branch other than release
+param([string]$Branch = 'release')
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 

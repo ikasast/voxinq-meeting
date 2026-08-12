@@ -135,6 +135,50 @@ only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --i
 - STT service: install the provided `stt-service/voxinq-stt.service` systemd unit, then
   `sudo systemctl enable --now voxinq-stt`.
 
+## Branches & releases
+
+Two long-lived branches:
+
+- **`main`** — development. Every PR lands here.
+- **`release`** — what production runs. Always points at the latest tagged version.
+
+Tags (`v1.0.0`, `v1.1.0`, …) mark the versions; `release` just follows the newest one. The
+redeploy scripts default to `release` and refuse to build any other checkout, so a leftover
+feature branch cannot be deployed by accident — pass `-Branch <name>` (PowerShell) or
+`BRANCH=<name>` (shell) when you mean to.
+
+**Cutting a release**
+
+```bash
+# on main, with everything for this version merged
+npm version 1.1.0 --no-git-tag-version   # commit this via a PR
+git checkout release && git merge --ff-only main
+git tag -a v1.1.0 -m "v1.1.0" && git push origin release v1.1.0
+```
+
+Then deploy (`scripts\windows\redeploy-all.ps1` on the primary host, `scripts/redeploy.sh`
+on Linux) and publish the GitHub release: `gh release create v1.1.0 --title v1.1.0 --notes-file <file>`.
+
+**Hotfixing production** — branch from `release`, not `main`, so an unfinished feature cannot
+ride along:
+
+```bash
+git checkout -b hotfix-x release
+# fix, PR into release, then tag the patch
+git tag -a v1.1.1 -m "v1.1.1" && git push origin release v1.1.1
+git checkout main && git cherry-pick <fix commit>   # keep main in sync
+```
+
+**Rolling back** — `release` is an ordinary branch, so move it back to the previous tag and
+redeploy:
+
+```bash
+git checkout release && git reset --hard v1.0.0 && git push --force-with-lease
+```
+
+A rollback across a migration needs the database considered separately — `prisma migrate deploy`
+only rolls forward. Restore from the nightly `pg_dump` if the schema has to go back too.
+
 ## Remote access (record & view from a phone)
 
 Expose the host so a phone can reach it — the quickest is [Tailscale](https://tailscale.com),
