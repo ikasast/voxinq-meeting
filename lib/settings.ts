@@ -131,6 +131,11 @@ export async function getLlmBackground(): Promise<string> {
   return (await readSettings()).llmBackground?.trim() ?? "";
 }
 
+/** Global transcription glossary (empty string if unset). A series can add to it. */
+export async function getSttGlossary(): Promise<string> {
+  return (await readSettings()).sttGlossary?.trim() ?? "";
+}
+
 /** User-specified minutes format (empty string if unset). */
 export async function getSummaryFormat(): Promise<string> {
   return (await readSettings()).summaryFormat?.trim() ?? "";

@@ -23,6 +23,11 @@ export interface ChatArgs {
   // Used to force format compliance by making small local models start from a given heading.
   // Only the supporting provider (ollama) uses it; the return value includes the prefill.
   prefill?: string;
+  // Turn off a reasoning model's thinking phase (Ollama `think`). Reasoning tokens count
+  // against the same budget as the answer, so on a task that wants a short structured reply
+  // a model like qwen3 can spend the whole budget thinking and return nothing at all.
+  // Left undefined = the model's default.
+  think?: boolean;
 }
 
 export interface ChatProvider {

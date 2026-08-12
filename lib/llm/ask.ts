@@ -7,34 +7,10 @@
 // something is not there — an invented action item is worse than "not recorded".
 
 import { getLlmBackground, getLlmConfig, getSummaryLanguage } from "../settings";
-import { anthropicProvider } from "./anthropic";
-import { ollamaProvider } from "./ollama";
-import { openaiProvider } from "./openai";
-import type { ChatProvider, LlmProviderName } from "./types";
+import { CONTEXT_BUDGET, estTokens, providerFor } from "./provider";
 
-// Same budgets as minutes generation: what one pass can hold per provider.
-const CONTEXT_BUDGET: Record<LlmProviderName, number> = {
-  ollama: 24576,
-  anthropic: 180000,
-  openai: 120000,
-};
 const ANSWER_MAX_TOKENS = 2048;
 const LANG_NAME: Record<string, string> = { ja: "日本語", en: "英語", zh: "中国語" };
-
-// Japanese is ~1.7-2 chars/token; 1.8 is a safe divisor.
-const estTokens = (s: string) => Math.ceil(s.length / 1.8);
-
-function providerFor(name: LlmProviderName): ChatProvider {
-  switch (name) {
-    case "anthropic":
-      return anthropicProvider;
-    case "openai":
-      return openaiProvider;
-    case "ollama":
-    default:
-      return ollamaProvider;
-  }
-}
 
 export type MeetingForAsk = {
   title: string;

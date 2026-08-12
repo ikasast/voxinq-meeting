@@ -105,6 +105,28 @@ to check what was actually said before correcting a line, or to settle what a de
   time, because diarization maps speakers onto utterances by position — if the two could not
   be kept in step, the UI says to re-run **Diarize** before trusting speaker names.
 
+## Suggest fixes (glossary terms the recognizer missed)
+
+**Suggest fixes**, in the transcript toolbar, appears once the meeting has a transcript and you
+have a glossary (Settings → Transcription, plus any per-series terms). It asks the LLM to find
+places where a glossary term was misheard — usually written as katakana — and proposes a
+replacement for each line.
+
+- **Nothing is changed until you say so.** Each suggestion shows under its utterance with
+  **Apply** / **Dismiss**, and there is an **Apply all** for the whole set. Applying one is the
+  same edit as typing the correction yourself.
+- Only glossary terms are proposed. Suggestions that reword a line, change its length
+  substantially, or quote an utterance inaccurately are discarded before you see them, so the
+  model cannot quietly rewrite what was said.
+- This is **the only way a glossary reaches kotoba-whisper**, which ignores the glossary during
+  recognition. It also catches terms `large-v3-turbo` missed.
+- It uses the GPU, so it is refused while minutes are generating. Nothing is stored.
+
+> **The model matters here.** Measured on a small Japanese sample: `qwen3:8b` found every
+> planted term with no false positives; `qwen2.5:7b-instruct` (the setup script's default)
+> found none at all and simply reports nothing to fix. If you get no suggestions on a
+> transcript you know contains misheard terms, try a larger model in Settings → LLM.
+
 ## Ask the minutes
 
 **Series page → Ask about these minutes.** Questions like “前回までのTODOを教えて” are answered

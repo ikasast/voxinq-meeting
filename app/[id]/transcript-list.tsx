@@ -27,6 +27,10 @@ type Item = {
   translation?: string | null;
 };
 
+// A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
+// the user applies it, and applying goes through the ordinary utterance-edit path.
+type Suggestion = { transcriptId: string; before: string; after: string };
+
 // State of the recording (WAV) saved on the GPU host. exists=false means not-yet-saved or expired/deleted.
 type RecordingInfo = {
   exists: boolean;
@@ -49,6 +53,7 @@ export function TranscriptList({
   initialTranscripts,
   initialSpeakerLabels,
   seriesGlossary,
+  globalGlossary,
   readOnly = false,
 }: {
   meetingId: string;
@@ -57,6 +62,9 @@ export function TranscriptList({
   initialTranscripts: Item[];
   initialSpeakerLabels: string | null;
   seriesGlossary: string | null;
+  // Global glossary from settings. Passed in (rather than fetched) only to decide whether
+  // "Suggest fixes" has anything to check against.
+  globalGlossary: string;
   // External (read-only) access can view/play/share but not diarize, re-transcribe or reassign.
   readOnly?: boolean;
 }) {
@@ -81,6 +89,9 @@ export function TranscriptList({
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(true);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const confirm = useConfirm();
 
@@ -89,6 +100,16 @@ export function TranscriptList({
     () => transcripts.some((t) => Boolean(t.translation)),
     [transcripts],
   );
+
+  // Checking for misheard glossary terms needs a glossary to check against.
+  const hasGlossary = Boolean(globalGlossary.trim() || seriesGlossary?.trim());
+
+  // Suggestions are keyed by utterance so a row can render its own.
+  const suggestionByT = useMemo(() => {
+    const m = new Map<string, Suggestion>();
+    for (const s of suggestions) m.set(s.transcriptId, s);
+    return m;
+  }, [suggestions]);
 
   // Enroll voiceprints from this meeting's diarized clusters (named speakers only).
   const saveVoiceProfiles = useCallback(async () => {
@@ -261,6 +282,61 @@ export function TranscriptList({
     },
     [transcripts],
   );
+
+  // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
+  // written until the user applies a suggestion, which then goes through the ordinary edit
+  // path. This is also the only way a glossary reaches kotoba-whisper, which ignores the
+  // initial_prompt at recognition time.
+  const runSuggestions = useCallback(async () => {
+    setSuggesting(true);
+    setSuggestMsg(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/suggest-corrections`, {
+        method: "POST",
+      });
+      const d = (await res.json().catch(() => null)) as {
+        suggestions?: Suggestion[];
+        checked?: number;
+        error?: string;
+      } | null;
+      if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      const found = d?.suggestions ?? [];
+      setSuggestions(found);
+      setSuggestMsg(
+        found.length > 0
+          ? `${found.length} suggestion${found.length === 1 ? "" : "s"} across ${d?.checked ?? 0} utterances — review each below.`
+          : `No misheard glossary terms found across ${d?.checked ?? 0} utterances.`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSuggesting(false);
+    }
+  }, [meetingId]);
+
+  const dismissSuggestion = useCallback((transcriptId: string) => {
+    setSuggestions((list) => list.filter((s) => s.transcriptId !== transcriptId));
+  }, []);
+
+  const applySuggestion = useCallback(
+    async (s: Suggestion) => {
+      const ok = await editTranscript(s.transcriptId, s.after);
+      if (ok) dismissSuggestion(s.transcriptId);
+    },
+    [editTranscript, dismissSuggestion],
+  );
+
+  // Apply sequentially: each edit PATCHes one row, and editTranscript rolls back from a
+  // snapshot on failure, so overlapping writes would fight over that snapshot.
+  const applyAllSuggestions = useCallback(async () => {
+    for (const s of suggestions) {
+      const ok = await editTranscript(s.transcriptId, s.after);
+      if (!ok) return; // the error is already shown; leave the rest for the user to retry
+      dismissSuggestion(s.transcriptId);
+    }
+    setSuggestMsg(null);
+  }, [suggestions, editTranscript, dismissSuggestion]);
 
   // Remove one utterance: hallucinations and audio glitches otherwise end up in the minutes.
   const deleteTranscript = useCallback(
@@ -650,6 +726,17 @@ export function TranscriptList({
                   )}
                 </>
               ) : null}
+              {transcripts.length > 0 && hasGlossary ? (
+                <button
+                  type="button"
+                  onClick={() => void runSuggestions()}
+                  disabled={busy || suggesting}
+                  className="btn-outline"
+                  title="Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line"
+                >
+                  {suggesting ? "Checking…" : "Suggest fixes"}
+                </button>
+              ) : null}
               {recInfo?.exists ? (
                 <button
                   type="button"
@@ -763,6 +850,35 @@ export function TranscriptList({
         </div>
       ) : null}
 
+      {/* Suggested glossary fixes: a summary line, plus a bulk action once there are several.
+          Each suggestion also renders on its own row so it can be judged in context. */}
+      {suggestMsg ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-xs text-[var(--accent-sub)]">{suggestMsg}</p>
+          {suggestions.length > 0 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void applyAllSuggestions()}
+                className="text-xs font-semibold text-[var(--accent)] hover:underline"
+              >
+                Apply all
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSuggestions([]);
+                  setSuggestMsg(null);
+                }}
+                className="text-xs text-[var(--text-muted)] hover:underline"
+              >
+                Dismiss all
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
       {gpuBlocked ? (
         <p className="mt-2 text-xs text-[var(--warning)]">
@@ -787,6 +903,12 @@ export function TranscriptList({
               onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
               onDelete={() => void deleteTranscript(t.id)}
               onEdit={(text) => editTranscript(t.id, text)}
+              suggestion={suggestionByT.get(t.id) ?? null}
+              onApplySuggestion={() => {
+                const s = suggestionByT.get(t.id);
+                if (s) void applySuggestion(s);
+              }}
+              onDismissSuggestion={() => dismissSuggestion(t.id)}
               showTranslation={showTranslation}
               readOnly={readOnly}
             />
@@ -810,6 +932,9 @@ function TranscriptRow({
   onReassign,
   onDelete,
   onEdit,
+  suggestion,
+  onApplySuggestion,
+  onDismissSuggestion,
   showTranslation,
   readOnly,
 }: {
@@ -824,6 +949,9 @@ function TranscriptRow({
   onReassign: (nextKey: string) => void;
   onDelete: () => void;
   onEdit: (text: string) => Promise<boolean>;
+  suggestion: Suggestion | null;
+  onApplySuggestion: () => void;
+  onDismissSuggestion: () => void;
   readOnly: boolean;
 }) {
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
@@ -949,6 +1077,32 @@ function TranscriptRow({
       ) : (
         <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
       )}
+      {/* A proposed glossary fix, shown in place so it can be judged against the utterance it
+          would replace. Applying it is an ordinary edit; nothing changes until then. */}
+      {suggestion && !editing && !readOnly ? (
+        <div className="mt-1.5 rounded border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-2 py-1.5">
+          <p className="text-[11px] font-medium text-[var(--accent-sub)]">Suggested fix</p>
+          <p className="mt-0.5 text-xs whitespace-pre-wrap text-[var(--foreground)]">
+            {suggestion.after}
+          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onApplySuggestion}
+              className="rounded-md bg-[var(--accent)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              onClick={onDismissSuggestion}
+              className="rounded-md border border-[var(--border-strong)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
       {/* Japanese translation, shown under the original rather than replacing it — the
           transcript stays the record of what was actually said. */}
       {showTranslation && item.translation ? (

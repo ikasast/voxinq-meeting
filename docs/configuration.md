@@ -44,7 +44,9 @@ here (single on-prem user assumed), so keep the file private.
 - `sttLanguage` — `auto` (default) / `ja` / `en`. Forced to `ja` when the model is
   Japanese-only.
 - `sttGlossary` — terms/proper nouns to bias recognition (short). Skipped for kotoba-whisper:
-  its distilled decoder cannot take a prompt and returns nothing when one is set.
+  its distilled decoder cannot take a prompt and returns nothing when one is set. These terms
+  are also what **Suggest fixes** looks for after a meeting, which is how a glossary reaches
+  kotoba-whisper transcripts at all — see [Usage](usage.md#suggest-fixes-glossary-terms-the-recognizer-missed).
 - `micMode` — `standard` / `room` (room picks up distant voices)
 - `sttTranslate` — `false` (default). Shows a Japanese translation under each non-Japanese
   utterance, live and on the transcript; minutes are still generated from the original words.
