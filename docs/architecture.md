@@ -33,8 +33,9 @@ flowchart LR
 - **Translation** (`stt-service/translator.py`, optional) — NLLB-200 distilled via
   CTranslate2, **on the CPU**, so a Japanese translation of non-Japanese utterances can be
   produced while Whisper has the GPU. Off unless `sttTranslate` is enabled.
-- **Diarization** (`diarization/diarize.py`) — pyannote in its own venv (GPU torch), run as a
-  subprocess after a meeting.
+- **Diarization** (`diarization/diarize.py`) — pyannote
+  (`speaker-diarization-community-1` by default, `DIA_MODEL` to override) in its own venv
+  (GPU torch), run as a subprocess after a meeting.
 - **LLM** — Ollama by default, or any OpenAI-compatible / Anthropic endpoint. Generates
   minutes, and answers questions asked against a series' minutes (`lib/llm/ask.ts`).
 - **PostgreSQL** — meetings, transcripts, minutes (versioned), tags.
@@ -50,7 +51,10 @@ running.
 
 1. Browser captures mic/PC audio → 16 kHz mono PCM via an AudioWorklet → **WebSocket to STT**
    (direct, lowest latency; the web app never proxies audio).
-2. STT runs VAD + Whisper, streams back finalized utterances; the browser saves each to the DB.
+2. STT segments the stream with an **energy-based VAD** (`VAD_*` settings) to find utterance
+   boundaries, then recognizes each segment with Whisper — which applies its own **Silero VAD**
+   (`vad_filter`) inside the segment to suppress silence hallucinations. Provisional text is
+   streamed first, then the final wording; the browser saves each utterance to the DB.
 3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization.
 4. The web app calls the LLM with the transcript to produce the minutes.
 
@@ -65,6 +69,11 @@ running.
 | Series (name + per-series defaults) | PostgreSQL (`series`) | removed automatically with its last meeting |
 | Voice profiles (voiceprints) | PostgreSQL (`speaker_profiles`) | until deleted in Settings → Speakers |
 | Settings / API keys | `settings.json` (gitignored) | until changed |
+
+## Why it is built this way
+
+The reasoning behind the choices above — and the alternatives that were tried and rejected —
+is on its own page: **[Design decisions](design-decisions.md)**.
 
 ---
 

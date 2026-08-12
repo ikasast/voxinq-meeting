@@ -11,6 +11,7 @@ want to do:
 | **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](llm-providers.md) |
 | **Learn the features** (record, upload, diarize, regenerate, archive, search) | 📖 [Usage & recipes](usage.md) |
 | **Understand how it works** (components, GPU time-sharing, data flow, retention) | 🏗 [Architecture](architecture.md) |
+| **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](design-decisions.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
 
 > Voxinq Meeting is self-hosted: audio, transcripts, and minutes stay on your own machine.
