@@ -5,6 +5,7 @@ import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
 import { GearIcon, MicIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
+import { ThemeToggle } from "./theme-toggle";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
@@ -46,6 +47,10 @@ function HeaderNav({ external }: { external: boolean }) {
           <img src="/logo-light.svg" alt="Voxinq Meeting" className="logo-light h-9 w-auto" />
         </Link>
         <nav className="flex items-center gap-2">
+          {/* External visitors cannot open Settings, so the theme control comes to them.
+              Internal users keep using Settings → Appearance, which has the same three
+              choices with labels. */}
+          {external ? <ThemeToggle /> : null}
           {/* External (read-only) access hides settings/record/new — only viewing + downloads. */}
           {external ? null : (
             <>
@@ -77,10 +82,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ja" className={`${fontInter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-[var(--background)] text-[var(--foreground)]">
-        {/* Theme is per device (localStorage). Apply before paint to avoid flicker */}
+        {/* Theme is per device (localStorage), applied before paint so there is no flash of
+            the wrong one. Unset or unrecognised means "system", which is resolved here rather
+            than after hydration — otherwise a light-mode OS would flash dark on every load.
+            Kept in sync with lib/theme.ts, which cannot be imported into an inline script. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("voxinq.theme")==="light")document.documentElement.dataset.theme="light"}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("voxinq.theme");if(t!=="light"&&t!=="dark")t="system";if(t==="light"||(t==="system"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.dataset.theme="light"}catch(e){}`,
           }}
         />
         <ConfirmProvider>

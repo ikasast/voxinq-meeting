@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import { WHISPER_MODELS, isJapaneseOnlyModel, isKnownWhisperModel } from "@/lib/stt/models";
+import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 
@@ -65,7 +66,6 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
-type Theme = "dark" | "light";
 
 const inputClass = "input mt-1";
 const labelClass = "label";
@@ -89,24 +89,15 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<TabId>("stt");
 
-  // Theme is per device (localStorage). Applied the instant it is chosen, independent of server settings.
-  const [theme, setThemeState] = useState<Theme>("dark");
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("voxinq.theme") === "light") setThemeState("light");
-    } catch {
-      // ignore
-    }
-  }, []);
+  // Theme is per device (localStorage). Applied the instant it is chosen, independent of
+  // server settings — see lib/theme.ts, which the header toggle shares.
+  const [theme, setThemeState] = useState<Theme>("system");
+  useEffect(() => setThemeState(readTheme()), []);
+  // Keep following the OS while "system" is selected.
+  useEffect(() => watchSystemTheme(() => theme), [theme]);
   const applyTheme = (t: Theme) => {
     setThemeState(t);
-    try {
-      localStorage.setItem("voxinq.theme", t);
-    } catch {
-      // ignore
-    }
-    if (t === "light") document.documentElement.dataset.theme = "light";
-    else delete document.documentElement.dataset.theme;
+    setTheme(t);
   };
 
   useEffect(() => {
@@ -601,13 +592,8 @@ export default function SettingsPage() {
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Appearance</h2>
           <div>
             <p className="label">Theme</p>
-            <div className="mt-2 grid max-w-sm grid-cols-2 gap-2">
-              {(
-                [
-                  { id: "dark", label: "Dark (default)" },
-                  { id: "light", label: "Light" },
-                ] as const
-              ).map((t) => (
+            <div className="mt-2 grid max-w-sm grid-cols-3 gap-2">
+              {THEMES.map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -619,11 +605,16 @@ export default function SettingsPage() {
                   }`}
                 >
                   {t.label}
+                  {t.id === "system" ? (
+                    <span className="block text-[11px] opacity-70">default</span>
+                  ) : null}
                 </button>
               ))}
             </div>
             <p className="mt-2 text-xs text-[var(--text-muted)]">
               Applied instantly and saved per device (browser). No need to press “Save”.
+              “System” follows your OS and changes with it. Read-only visitors get the same
+              choice from the icon in the header.
             </p>
           </div>
         </section>
