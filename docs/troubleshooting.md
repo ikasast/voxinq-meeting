@@ -52,6 +52,35 @@ Check in order:
 4. `stt-service/stt.log` for `[translate] unavailable:` — a failed load is not retried for the
    life of the process, so restart the service after fixing the cause.
 
+## The site is down after a redeploy
+
+Check whether the build actually produced anything:
+
+```powershell
+Test-Path .next\BUILD_ID    # False = the build failed; `next start` cannot run
+```
+
+`redeploy-web.ps1` now stops before touching the running server if any step fails, so this
+should not happen again. If you hit it on an older copy of the script, rebuild by hand and the
+`run-web.bat` watch loop picks the new build up within ~15 seconds:
+
+```powershell
+npm run build
+```
+
+### The build fails on Google fonts (404s from fonts.gstatic.com)
+
+The layout pulls Noto Sans JP through `next/font/google`, which fetches from Google **at build
+time** and caches the result. When Google rotates those files the cached URLs start returning
+404 and the build fails with a wall of `module-not-found`, even though nothing local changed.
+
+Clear the caches and build again — the refetch picks up the current URLs:
+
+```powershell
+Remove-Item -Recurse -Force .next, node_modules\.cache
+npm run build
+```
+
 ## Recording works, but the meeting length is wrong or deleting a line says it could not sync
 
 The browser reaches the STT service directly, so recording is fine — but the **web server**
