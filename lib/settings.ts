@@ -7,7 +7,11 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
 
-const SETTINGS_PATH = path.join(process.cwd(), "settings.json");
+// Overridable so a container can keep settings on a mounted volume. Bind-mounting a single
+// file would be the obvious alternative, but Docker silently creates a *directory* when the
+// host file does not exist yet, which leaves saving from the Settings UI broken.
+const SETTINGS_PATH =
+  process.env.VOXINQ_SETTINGS_PATH ?? path.join(process.cwd(), "settings.json");
 
 export type AppSettings = {
   // STT

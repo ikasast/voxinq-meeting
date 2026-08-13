@@ -90,3 +90,6 @@ next-env.d.ts
 
 # Screen-recording sources for the demo GIF (keep the .gif, not the source video)
 docs/screenshots/*.mp4
+
+# Local compose overrides (ports, extra services) — machine-specific, not shared
+docker-compose.override.yml

@@ -3,15 +3,68 @@
 Voxinq Meeting runs on a single GPU box that hosts everything: the web app, PostgreSQL, the STT
 service, diarization, and the LLM. A browser (incl. a phone) connects to it.
 
+Two ways in: **Docker Compose** (one command, everything in containers) or a **native
+install** (what the author's own machine runs). Both need an NVIDIA GPU.
+
 ## Prerequisites
 
 - **NVIDIA GPU** with CUDA (8 GB VRAM is enough)
+
+For a native install, additionally:
+
 - **Node.js** 20+
 - **Python** 3.11
 - **PostgreSQL** 17 (running, with a database you can connect to)
 - **[Ollama](https://ollama.com)** (default LLM) — or any OpenAI-compatible endpoint
 
-## Recommended: one-shot script
+## Docker (fewest moving parts)
+
+Brings up PostgreSQL, the web app, the STT service and Ollama together. You still need the
+NVIDIA driver on the host, but not Node, Python, PostgreSQL or Ollama.
+
+**Additionally required:** [Docker Compose](https://docs.docker.com/compose/) and the
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+(on Windows: Docker Desktop with the WSL2 backend, where GPU support is built in).
+
+```bash
+git clone https://github.com/ikasast/voxinq-meeting.git
+cd voxinq-meeting
+cp .env.example .env       # set POSTGRES_PASSWORD, and point DATABASE_URL at the `db` service
+docker compose up -d
+```
+
+Then:
+
+1. `docker compose exec ollama ollama pull qwen2.5:7b-instruct` — the minutes model.
+2. For diarization, accept the terms for
+   [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
+   and put your token in `.env` as `HF_TOKEN`, then `docker compose up -d stt`.
+
+Open `http://localhost:3000` and you are ready. The compose file points the web app at the
+`ollama` and `stt` services by name, so **Settings → LLM** already holds a working endpoint —
+containers reach each other by service name, and the loopback address that suits a native
+install would mean "this container" here.
+
+Budget for the first run: the STT image carries CUDA and a GPU build of torch, so it takes
+about **20 GB of disk** and a while to build. Model weights download separately on first use
+and are cached in a volume, so that happens once. The first recording of a session still takes
+tens of seconds to warm the model.
+
+> **`NEXT_PUBLIC_STT_WS_URL` is baked in at build time.** The browser talks to the STT service
+> directly, so the default `ws://localhost:8000/ws` only works when you browse from the same
+> machine. To record from a phone, set it to the address that machine will use and rebuild:
+> `docker compose up -d --build web`.
+
+Useful commands:
+
+```bash
+docker compose logs -f web stt     # follow logs
+docker compose up -d --build       # rebuild after pulling changes
+docker compose down                # stop (volumes, and so your data, are kept)
+docker compose up -d web           # web only — for a viewer-only host pointing DATABASE_URL elsewhere
+```
+
+## Native install: one-shot script
 
 ```bash
 git clone https://github.com/ikasast/voxinq-meeting.git

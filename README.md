@@ -46,7 +46,20 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 
 ## 🚀 Get started
 
-**Prerequisites:** an NVIDIA GPU (CUDA, 8 GB ok), Node.js 20+, Python 3.11, PostgreSQL 17, and [Ollama](https://ollama.com).
+**Prerequisites:** an NVIDIA GPU (CUDA, 8 GB is enough) with its driver installed.
+
+**With Docker** — brings up the database, web app, transcription service and Ollama together.
+Also needs Docker Compose and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).
+
+```bash
+git clone https://github.com/ikasast/voxinq-meeting.git
+cd voxinq-meeting
+cp .env.example .env    # set POSTGRES_PASSWORD, point DATABASE_URL at the `db` service
+docker compose up -d
+docker compose exec ollama ollama pull qwen2.5:7b-instruct
+```
+
+**Native** — no containers; needs Node.js 20+, Python 3.11, PostgreSQL 17 and [Ollama](https://ollama.com) on the host.
 
 ```bash
 git clone https://github.com/ikasast/voxinq-meeting.git
@@ -59,7 +72,7 @@ Then open `http://localhost:3000` → **New meeting → Set up meeting**, press 
 on the next screen once it says *Model ready*, talk, and finish with **Generate minutes**.
 (Or just **drop an audio file** on the New meeting screen.)
 
-📖 Manual install, background services, and phone access via Tailscale: **[docs/setup.md](docs/setup.md)**.
+📖 Docker details, manual install, background services, and phone access via Tailscale: **[docs/setup.md](docs/setup.md)**.
 
 > ⚡ Always serve a production build (`scripts/start` does). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
 

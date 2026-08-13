@@ -1,0 +1,112 @@
+# Voxinq Meeting — full stack in one command.
+#
+#   cp .env.example .env    # set POSTGRES_PASSWORD (and DATABASE_URL to the `db` service)
+#   docker compose up -d
+#
+# Requires the NVIDIA Container Toolkit on the host for the `stt` and `ollama` services.
+# See docs/setup.md → "Docker".
+#
+# Note on ports: the browser connects to the STT service **directly** over WebSocket (the web
+# app never proxies audio), so port 8000 has to be reachable from the browser — it is not an
+# internal-only service. NEXT_PUBLIC_STT_WS_URL must point at wherever that is, and because it
+# is baked into the bundle at build time, changing it needs `--build`.
+
+services:
+  # Meeting data.
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-voxinq}
+      POSTGRES_USER: ${POSTGRES_USER:-voxinq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Published on loopback so host tools (psql, pg_dump backups) can reach it.
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-voxinq} -d ${POSTGRES_DB:-voxinq}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Web app. Runs `prisma migrate deploy` on start.
+  web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_STT_WS_URL: ${NEXT_PUBLIC_STT_WS_URL:-ws://localhost:8000/ws}
+        APP_PASSWORD: ${APP_PASSWORD:-}
+        APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
+    env_file: .env
+    environment:
+      # Server-side reach to STT (container-to-container, unlike the browser's URL above).
+      STT_INTERNAL_URL: http://stt:8000
+      # Seeds the default shown in Settings → LLM. Loopback is right for a native install but
+      # means "this container" here, so name the service instead — otherwise a fresh install
+      # cannot generate minutes until someone edits the setting by hand.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      # Kept on a volume rather than bind-mounted: Docker turns a bind mount of a not-yet-
+      # existing file into a directory, which breaks saving from the Settings UI.
+      VOXINQ_SETTINGS_PATH: /data/settings.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - settings:/data
+    # No `depends_on: db` requirement beyond ordering: an external-viewer deployment points
+    # DATABASE_URL at another host and runs `docker compose up -d web` alone.
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+    restart: unless-stopped
+
+  # Transcription + diarization (GPU).
+  stt:
+    build:
+      context: .
+      dockerfile: stt-service/Dockerfile
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
+      # The browser's origin must be allowed; it calls this service directly.
+      STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - recordings:/data/recordings
+      # Several GB of Whisper / pyannote weights — without this they re-download on every
+      # container rebuild.
+      - hfcache:/data/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # Local LLM for minutes. Point Settings → LLM at http://ollama:11434.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  settings:
+  recordings:
+  hfcache:
+  ollama:
