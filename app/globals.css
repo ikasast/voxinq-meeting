@@ -77,11 +77,20 @@ html[data-theme="light"] {
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-error: var(--error);
-  --font-sans: var(--font-inter), var(--font-noto-jp), system-ui, sans-serif;
+  /* Latin from the bundled Inter; Japanese from whatever the device already has.
+     Bundling a Japanese face costs 5.4 MB even as a variable font, and every platform
+     ships a good one.
+
+     Yu Gothic is deliberately absent. It is what Windows would otherwise pick, and
+     BIZ UDPGothic (Windows 10 1809+) reads better here. Android has none of these names
+     and lands on Noto Sans CJK through the final `sans-serif`. */
+  --font-jp: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo,
+    "Noto Sans CJK JP", "Noto Sans JP";
+  --font-sans: var(--font-inter), var(--font-jp), system-ui, sans-serif;
 }
 
 body {
-  font-family: var(--font-inter), var(--font-noto-jp), system-ui, sans-serif;
+  font-family: var(--font-inter), var(--font-jp), system-ui, sans-serif;
   color: var(--foreground);
   background: var(--background);
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Noto_Sans_JP } from "next/font/google";
+import localFont from "next/font/local";
 import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -7,12 +7,21 @@ import { GearIcon, MicIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
-// Latin uses Inter, Japanese falls back to Noto Sans JP (see globals.css).
-const fontInter = Inter({ variable: "--font-inter", subsets: ["latin"] });
-const fontNoto = Noto_Sans_JP({
-  variable: "--font-noto-jp",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+// Latin text uses Inter, shipped with the repo rather than fetched from Google.
+//
+// `next/font/google` downloads at BUILD time and caches the URLs it was given. When Google
+// rotated the Noto Sans JP files those cached URLs began returning 404 and the build failed —
+// on a project whose whole point is not depending on anyone else's servers. A local file
+// cannot break that way, and the build no longer needs the network at all.
+//
+// Only the latin subset is bundled (48 KB): the interface is English, and Japanese content is
+// rendered by the OS fonts listed in globals.css. Bundling Japanese too would have meant
+// 5.4 MB even as a variable font.
+const fontInter = localFont({
+  src: "./fonts/Inter-latin-variable.woff2",
+  variable: "--font-inter",
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -66,7 +75,7 @@ function HeaderNav({ external }: { external: boolean }) {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const external = await isExternalRequest();
   return (
-    <html lang="ja" className={`${fontInter.variable} ${fontNoto.variable} h-full antialiased`}>
+    <html lang="ja" className={`${fontInter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-[var(--background)] text-[var(--foreground)]">
         {/* Theme is per device (localStorage). Apply before paint to avoid flicker */}
         <script
