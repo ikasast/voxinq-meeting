@@ -123,6 +123,38 @@ scripts\windows\install-backup-task.ps1    # nightly DB backup (03:00, pg_dump +
 Backups land in `~\voxinq-backups` (daily kept 14 days, 1st-of-month kept a year — a dump is
 only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --if-exists <file>.dump`.
 
+> **The nightly dump is the database only.** Restoring from it alone leaves every meeting
+> present but silent: the audio lives on disk, not in PostgreSQL, and without it playback,
+> re-transcription, diarization and voiceprint enrolment are all unavailable. For a rebuild
+> or a move to another machine, use the full export below.
+
+## Moving or rebuilding an instance
+
+State lives in three places, so a complete copy needs all three: **PostgreSQL** (meetings,
+transcripts, minutes, series, tags, voice profiles), **`stt-service/recordings/`** (the WAVs
+and the utterance boundaries diarization maps speakers onto), and **`settings.json`** (models,
+glossary, API keys).
+
+```powershell
+scripts\windows\export-all.ps1                      # -> ~\voxinq-backups\voxinq-full-<timestamp>\
+scripts\windows\export-all.ps1 -NoRecordings        # database + config only, much smaller
+```
+
+To restore into a fresh install — after `setup.ps1` has created `.env` and the database:
+
+```powershell
+# stop the web app and the STT service first
+scripts\windows\import-all.ps1 -From <bundle directory>
+npx prisma migrate deploy    # no-op when the dump is current
+```
+
+The import refuses to run while anything is listening on 3000 or 8000, asks for confirmation
+before dropping the target database, and leaves `.env` alone — `DATABASE_URL` and the baked-in
+STT URL belong to the machine, not to the data.
+
+> The bundle contains **every meeting transcript, your API keys and the database password**.
+> It is as sensitive as the database itself; keep it local or encrypt it before it moves.
+
 - Redeploy the web app after code changes: `scripts\windows\redeploy-web.ps1`
 - Redeploy **web + STT together** (use this when a pull also touched `stt-service/`):
   `scripts\windows\redeploy-all.ps1`
