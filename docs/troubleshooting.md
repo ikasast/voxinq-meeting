@@ -68,13 +68,10 @@ should not happen again. If you hit it on an older copy of the script, rebuild b
 npm run build
 ```
 
-### The build fails on Google fonts (404s from fonts.gstatic.com)
+### The build fails on fonts (404s from fonts.gstatic.com)
 
-The layout pulls Noto Sans JP through `next/font/google`, which fetches from Google **at build
-time** and caches the result. When Google rotates those files the cached URLs start returning
-404 and the build fails with a wall of `module-not-found`, even though nothing local changed.
-
-Clear the caches and build again — the refetch picks up the current URLs:
+Fixed at the source: fonts are no longer fetched from Google at build time. If you are on a
+build from before that change, clear the caches so the stale URLs are refetched:
 
 ```powershell
 Remove-Item -Recurse -Force .next, node_modules\.cache

@@ -101,6 +101,25 @@ else's minutes), and per-user settings — and 8 GB still allows only one record
 it is ever added, the cheap path is the `Tailscale-User-Login` header that already arrives on
 every tailnet request.
 
+## Fonts are bundled for Latin, borrowed from the OS for Japanese
+
+`next/font/google` downloads at **build** time and caches the URLs it was handed. Google
+rotated the Noto Sans JP files, every cached URL began returning 404, and the build failed —
+taking production down with it, on a project whose premise is not depending on anyone else's
+servers. A build that needs the network is a build that someone else can break.
+
+Inter is now committed to the repo (`app/fonts/`, latin subset, 48 KB) and loaded through
+`next/font/local`, so the build reaches nothing external.
+
+Japanese is **not** bundled. The face alone costs 5.4 MB as a variable font and 16 MB as three
+static weights, and every platform already ships a good one — so `globals.css` names them
+instead: Hiragino Sans, BIZ UDPGothic, Meiryo, then `sans-serif` for Android's Noto Sans CJK.
+Yu Gothic is deliberately left out of that list; it is what Windows would otherwise choose.
+
+The trade is that Japanese rendering varies a little between devices. Bundling the variable
+face is a one-line change in `layout.tsx` for anyone who would rather have it identical
+everywhere.
+
 ## Docker was removed, then brought back for a different reason
 
 The Docker files were deleted once because the primary host runs natively (Task Scheduler,
