@@ -1,0 +1,25 @@
+# Build the images locally instead of pulling the published ones.
+#
+# For working on the code, or for running a change that has not been released yet. Everyone
+# else should use docker-compose.yml on its own, which pulls from ghcr.io.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# The `image:` names from the base file are reused as the build tags, so switching back to
+# the published images is just dropping this file from the command.
+services:
+  web:
+    build:
+      context: .
+      args:
+        # Only meaningful for a local build. The published image leaves this at its default
+        # and reads STT_WS_URL at runtime instead, because an image cannot know the URL its
+        # eventual user will need.
+        NEXT_PUBLIC_STT_WS_URL: ${NEXT_PUBLIC_STT_WS_URL:-ws://localhost:8000/ws}
+        APP_PASSWORD: ${APP_PASSWORD:-}
+        APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
+
+  stt:
+    build:
+      context: .
+      dockerfile: stt-service/Dockerfile

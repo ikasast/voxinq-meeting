@@ -67,6 +67,7 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.build.yml config --quiet
         env:
           POSTGRES_PASSWORD: ci-only
       - name: Build the web image

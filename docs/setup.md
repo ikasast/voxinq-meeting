@@ -26,12 +26,29 @@ NVIDIA driver on the host, but not Node, Python, PostgreSQL or Ollama.
 [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 (on Windows: Docker Desktop with the WSL2 backend, where GPU support is built in).
 
+**No clone needed** — the images are published, so two files are the whole install:
+
+```bash
+mkdir voxinq && cd voxinq
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
+# edit .env: set POSTGRES_PASSWORD, and point DATABASE_URL at the `db` service
+docker compose up -d
+```
+
+<details>
+<summary>Building from a checkout instead</summary>
+
+For development, or to run a change that has not been released:
+
 ```bash
 git clone https://github.com/ikasast/voxinq-meeting.git
 cd voxinq-meeting
-cp .env.example .env       # set POSTGRES_PASSWORD, and point DATABASE_URL at the `db` service
-docker compose up -d
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
+
+</details>
 
 Then:
 
@@ -45,10 +62,24 @@ Open `http://localhost:3000` and you are ready. The compose file points the web 
 containers reach each other by service name, and the loopback address that suits a native
 install would mean "this container" here.
 
-Budget for the first run: the STT image carries CUDA and a GPU build of torch, so it takes
-about **20 GB of disk** and a while to build. Model weights download separately on first use
-and are cached in a volume, so that happens once. The first recording of a session still takes
-tens of seconds to warm the model.
+Budget for the first run: the STT image carries CUDA and a GPU build of torch, so it is about
+**20 GB** to pull. Model weights download separately on first use and are cached in a volume,
+so that happens once. The first recording of a session still takes tens of seconds to warm the
+model.
+
+`docker compose up -d` follows `latest`. Pin a version with `VOXINQ_VERSION=v1.2.0` in `.env`.
+
+### Recording from a phone
+
+The browser talks to the STT service **directly**, so it needs a URL it can actually reach —
+`localhost` only works when you browse from the same machine. Set the address the phone will
+use:
+
+```bash
+STT_WS_URL=wss://myhost.tailnet.ts.net:8443/ws
+```
+
+Applied on `docker compose up -d` — no rebuild, because the container reads it at request time.
 
 ### Already using one of these ports?
 
@@ -60,23 +91,14 @@ name, so only access from the host moves:
 WEB_PORT=3100
 DB_PORT=127.0.0.1:5433
 OLLAMA_PORT=127.0.0.1:11435
-STT_PORT=8100
-NEXT_PUBLIC_STT_WS_URL=ws://localhost:8100/ws   # must match STT_PORT
+STT_PORT=8100          # STT_WS_URL follows this unless you set one explicitly
 ```
-
-`NEXT_PUBLIC_STT_WS_URL` is baked in at build time, so after changing `STT_PORT` run
-`docker compose up -d --build web`. The others take effect on a plain `up -d`.
-
-> **`NEXT_PUBLIC_STT_WS_URL` is baked in at build time.** The browser talks to the STT service
-> directly, so the default `ws://localhost:8000/ws` only works when you browse from the same
-> machine. To record from a phone, set it to the address that machine will use and rebuild:
-> `docker compose up -d --build web`.
 
 Useful commands:
 
 ```bash
 docker compose logs -f web stt     # follow logs
-docker compose up -d --build       # rebuild after pulling changes
+docker compose pull && docker compose up -d   # upgrade to the current images
 docker compose down                # stop (volumes, and so your data, are kept)
 docker compose up -d web           # web only — for a viewer-only host pointing DATABASE_URL elsewhere
 ```

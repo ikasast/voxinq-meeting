@@ -27,12 +27,28 @@ export type SttHandle = {
   stop: () => Promise<void>;
 };
 
-const WS_URL = process.env.NEXT_PUBLIC_STT_WS_URL ?? "ws://localhost:8000/ws";
+// Where the browser reaches the STT service. NEXT_PUBLIC_* is inlined at build time, which
+// is fine when you build from source but useless in a published image — every user would be
+// stuck with whatever URL the image was built with, and recording from a phone needs a URL
+// that only they know. So the server may also inject one at runtime (see app/layout.tsx),
+// and that wins when present.
+declare global {
+  interface Window {
+    __VOXINQ_STT_WS__?: string;
+  }
+}
+
+const BUILT_IN_WS_URL = process.env.NEXT_PUBLIC_STT_WS_URL ?? "ws://localhost:8000/ws";
+
+function wsUrl(): string {
+  if (typeof window !== "undefined" && window.__VOXINQ_STT_WS__) return window.__VOXINQ_STT_WS__;
+  return BUILT_IN_WS_URL;
+}
 
 // Derive the http(s) base from the WS URL, for HTTP endpoints such as diarization.
 // e.g. wss://host:8443/ws -> https://host:8443
 export function sttHttpBase(): string {
-  return WS_URL.replace(/\/ws\/?$/, "").replace(/^ws/, "http");
+  return wsUrl().replace(/\/ws\/?$/, "").replace(/^ws/, "http");
 }
 
 type ServerMessage =
@@ -161,9 +177,9 @@ export async function startMic(
   };
 
   const connect = () => {
-    log(retries > 0 ? `reconnecting (${retries}/${MAX_RETRIES})` : "connecting", WS_URL);
+    log(retries > 0 ? `reconnecting (${retries}/${MAX_RETRIES})` : "connecting", wsUrl());
     handlers.onStatus(retries > 0 ? "reconnecting" : "connecting");
-    const sock = new WebSocket(WS_URL);
+    const sock = new WebSocket(wsUrl());
     sock.binaryType = "arraybuffer";
     ws = sock;
     opened = false;
