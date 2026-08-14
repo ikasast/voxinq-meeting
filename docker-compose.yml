@@ -10,6 +10,17 @@
 # app never proxies audio), so port 8000 has to be reachable from the browser — it is not an
 # internal-only service. NEXT_PUBLIC_STT_WS_URL must point at wherever that is, and because it
 # is baked into the bundle at build time, changing it needs `--build`.
+#
+# Every published port is overridable from .env, because these are ordinary ports that a
+# machine may already be using — a local PostgreSQL on 5432 is common enough that the
+# documented `docker compose up -d` would otherwise fail on a bind error before anything
+# starts. The services always reach each other by name on the compose network, so moving a
+# host port changes nothing internally:
+#
+#   WEB_PORT=3100          # then browse http://localhost:3100
+#   STT_PORT=8100          # then NEXT_PUBLIC_STT_WS_URL=ws://localhost:8100/ws, rebuild web
+#   DB_PORT=127.0.0.1:5433
+#   OLLAMA_PORT=127.0.0.1:11435
 
 services:
   # Meeting data.
@@ -23,7 +34,7 @@ services:
       - pgdata:/var/lib/postgresql/data
     # Published on loopback so host tools (psql, pg_dump backups) can reach it.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${DB_PORT:-127.0.0.1:5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-voxinq} -d ${POSTGRES_DB:-voxinq}"]
       interval: 5s
@@ -51,7 +62,7 @@ services:
       # existing file into a directory, which breaks saving from the Settings UI.
       VOXINQ_SETTINGS_PATH: /data/settings.json
     ports:
-      - "3000:3000"
+      - "${WEB_PORT:-3000}:3000"
     volumes:
       - settings:/data
     # No `depends_on: db` requirement beyond ordering: an external-viewer deployment points
@@ -73,7 +84,7 @@ services:
       # The browser's origin must be allowed; it calls this service directly.
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}
     ports:
-      - "8000:8000"
+      - "${STT_PORT:-8000}:8000"
     volumes:
       - recordings:/data/recordings
       # Several GB of Whisper / pyannote weights — without this they re-download on every
@@ -94,7 +105,7 @@ services:
     volumes:
       - ollama:/root/.ollama
     ports:
-      - "127.0.0.1:11434:11434"
+      - "${OLLAMA_PORT:-127.0.0.1:11434}:11434"
     deploy:
       resources:
         reservations:
