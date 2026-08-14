@@ -67,7 +67,8 @@ Budget for the first run: the STT image carries CUDA and a GPU build of torch, s
 so that happens once. The first recording of a session still takes tens of seconds to warm the
 model.
 
-`docker compose up -d` follows `latest`. Pin a version with `VOXINQ_VERSION=v1.2.0` in `.env`.
+`docker compose up -d` follows `latest`, which only ever moves to a published release. Pin a
+version with `VOXINQ_VERSION=v1.3.0` in `.env`.
 
 ### Recording from a phone
 
@@ -282,6 +283,11 @@ git tag -a v1.1.0 -m "v1.1.0" && git push origin release v1.1.0
 
 Then deploy (`scripts\windows\redeploy-all.ps1` on the primary host, `scripts/redeploy.sh`
 on Linux) and publish the GitHub release: `gh release create v1.1.0 --title v1.1.0 --notes-file <file>`.
+
+Publishing the release is what builds and pushes the container images, and the only thing that
+moves `latest` — so it is the step that makes the Docker install above serve the new version.
+The **Publish images** workflow can also be run by hand for a trial build; that publishes the
+tag you name and leaves `latest` where it is.
 
 **Hotfixing production** — branch from `release`, not `main`, so an unfinished feature cannot
 ride along:
