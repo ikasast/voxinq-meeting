@@ -50,6 +50,23 @@ about **20 GB of disk** and a while to build. Model weights download separately 
 and are cached in a volume, so that happens once. The first recording of a session still takes
 tens of seconds to warm the model.
 
+### Already using one of these ports?
+
+Compose fails on a bind error rather than sharing a port, and **a local PostgreSQL on 5432 is
+the common case**. Set the ones you need in `.env`; the containers still reach each other by
+name, so only access from the host moves:
+
+```bash
+WEB_PORT=3100
+DB_PORT=127.0.0.1:5433
+OLLAMA_PORT=127.0.0.1:11435
+STT_PORT=8100
+NEXT_PUBLIC_STT_WS_URL=ws://localhost:8100/ws   # must match STT_PORT
+```
+
+`NEXT_PUBLIC_STT_WS_URL` is baked in at build time, so after changing `STT_PORT` run
+`docker compose up -d --build web`. The others take effect on a plain `up -d`.
+
 > **`NEXT_PUBLIC_STT_WS_URL` is baked in at build time.** The browser talks to the STT service
 > directly, so the default `ws://localhost:8000/ws` only works when you browse from the same
 > machine. To record from a phone, set it to the address that machine will use and rebuild:
