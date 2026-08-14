@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag to publish (e.g. v1.3.0). Also tagged latest."
+        description: "Image tag to publish (e.g. v1.3.0-rc1). Does not move latest."
         required: true
 
 env:
@@ -33,16 +33,25 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Resolve tag
-        id: tag
-        run: echo "value=${{ github.event.release.tag_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
+      - name: Resolve tags
+        id: tags
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          IMAGE: ${{ env.IMAGE_BASE }}/web
+        run: |
+          {
+            echo "list<<EOF"
+            echo "$IMAGE:$TAG"
+            # Only a published release moves `latest`. A manual run publishes its own tag
+            # alone, so a trial build cannot become the image everyone pulls by default.
+            if [ "$GITHUB_EVENT_NAME" = release ]; then echo "$IMAGE:latest"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE_BASE }}/web:${{ steps.tag.outputs.value }}
-            ${{ env.IMAGE_BASE }}/web:latest
+          tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # No NEXT_PUBLIC_STT_WS_URL here on purpose: baking one into a published image
@@ -74,16 +83,24 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Resolve tag
-        id: tag
-        run: echo "value=${{ github.event.release.tag_name || inputs.tag }}" >> "$GITHUB_OUTPUT"
+      - name: Resolve tags
+        id: tags
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          IMAGE: ${{ env.IMAGE_BASE }}/stt
+        run: |
+          {
+            echo "list<<EOF"
+            echo "$IMAGE:$TAG"
+            # Same as the web job: `latest` follows releases only.
+            if [ "$GITHUB_EVENT_NAME" = release ]; then echo "$IMAGE:latest"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: stt-service/Dockerfile
           push: true
-          tags: |
-            ${{ env.IMAGE_BASE }}/stt:${{ steps.tag.outputs.value }}
-            ${{ env.IMAGE_BASE }}/stt:latest
+          tags: ${{ steps.tags.outputs.list }}
           # No gha cache: the layers are far past the 10 GB cache limit, so it would evict
           # itself every run and cost time rather than save it.
