@@ -1,15 +1,23 @@
 # Voxinq Meeting — full stack in one command.
 #
-#   cp .env.example .env    # set POSTGRES_PASSWORD (and DATABASE_URL to the `db` service)
+# This file and .env are all you need; the images come from ghcr.io, so there is no clone and
+# no Node or Python on the host:
+#
+#   curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
+#   curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
+#   # edit .env, then
 #   docker compose up -d
+#
+# To build from a checkout instead (development, or an unreleased change), add the build
+# override: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 #
 # Requires the NVIDIA Container Toolkit on the host for the `stt` and `ollama` services.
 # See docs/setup.md → "Docker".
 #
 # Note on ports: the browser connects to the STT service **directly** over WebSocket (the web
 # app never proxies audio), so port 8000 has to be reachable from the browser — it is not an
-# internal-only service. NEXT_PUBLIC_STT_WS_URL must point at wherever that is, and because it
-# is baked into the bundle at build time, changing it needs `--build`.
+# internal-only service. STT_WS_URL below tells the browser where that is, and unlike the
+# build-time NEXT_PUBLIC_ value it takes effect on a restart.
 #
 # Every published port is overridable from .env, because these are ordinary ports that a
 # machine may already be using — a local PostgreSQL on 5432 is common enough that the
@@ -18,7 +26,7 @@
 # host port changes nothing internally:
 #
 #   WEB_PORT=3100          # then browse http://localhost:3100
-#   STT_PORT=8100          # then NEXT_PUBLIC_STT_WS_URL=ws://localhost:8100/ws, rebuild web
+#   STT_PORT=8100          # STT_WS_URL follows it automatically unless you set one
 #   DB_PORT=127.0.0.1:5433
 #   OLLAMA_PORT=127.0.0.1:11435
 
@@ -44,16 +52,14 @@ services:
 
   # Web app. Runs `prisma migrate deploy` on start.
   web:
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_STT_WS_URL: ${NEXT_PUBLIC_STT_WS_URL:-ws://localhost:8000/ws}
-        APP_PASSWORD: ${APP_PASSWORD:-}
-        APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
+    image: ghcr.io/ikasast/voxinq-meeting/web:${VOXINQ_VERSION:-latest}
     env_file: .env
     environment:
-      # Server-side reach to STT (container-to-container, unlike the browser's URL above).
+      # Server-side reach to STT (container-to-container, unlike the browser's URL below).
       STT_INTERNAL_URL: http://stt:8000
+      # Where the BROWSER should reach STT. Read at request time, so the published image does
+      # not need rebuilding to change it — set STT_WS_URL in .env and restart web.
+      STT_WS_URL: ${STT_WS_URL:-ws://localhost:${STT_PORT:-8000}/ws}
       # Seeds the default shown in Settings → LLM. Loopback is right for a native install but
       # means "this container" here, so name the service instead — otherwise a fresh install
       # cannot generate minutes until someone edits the setting by hand.
@@ -75,9 +81,7 @@ services:
 
   # Transcription + diarization (GPU).
   stt:
-    build:
-      context: .
-      dockerfile: stt-service/Dockerfile
+    image: ghcr.io/ikasast/voxinq-meeting/stt:${VOXINQ_VERSION:-latest}
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
       WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}

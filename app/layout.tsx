@@ -82,6 +82,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="ja" className={`${fontInter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-[var(--background)] text-[var(--foreground)]">
+        {/* Where the browser should reach the STT service, read from the environment at
+            request time. The build-time NEXT_PUBLIC_ value still applies when this is unset,
+            so building from source is unchanged — but a published image cannot bake in a URL
+            that only the person running it knows, and recording from a phone needs exactly
+            that. Set STT_WS_URL to override without rebuilding. */}
+        {process.env.STT_WS_URL ? (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__VOXINQ_STT_WS__=${JSON.stringify(process.env.STT_WS_URL)}`,
+            }}
+          />
+        ) : null}
         {/* Theme is per device (localStorage), applied before paint so there is no flash of
             the wrong one. Unset or unrecognised means "system", which is resolved here rather
             than after hydration — otherwise a light-mode OS would flash dark on every load.
