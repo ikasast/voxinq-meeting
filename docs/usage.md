@@ -185,6 +185,32 @@ transcript, minutes, and recording for good.
 
 Copy or share minutes and transcripts, or download them as files (`.md` / `.txt`).
 
+## Backup & restore
+
+**Settings → Data** exports everything the instance holds — meetings, transcripts, minutes,
+series, tags, voice profiles, your settings, and optionally the audio — as a single encrypted
+`.voxbak` file.
+
+The file is encrypted with a password you choose there. That is not decoration: the export
+contains every transcript and your API keys in the clear, and it is meant to be copied to
+another machine or a drive, where this server's login no longer protects it. **There is no way
+to recover the password** — nothing on the server can open the file either.
+
+Restoring is a **merge**. Meetings the instance does not already have are added; existing
+meetings, series, tags and voice profiles are left exactly as they are. So it is safe to run
+against a live install, and running the same file twice does nothing the second time. Settings
+are only replaced if you tick the box.
+
+Use it to move an instance to a new machine, or as a backup that — unlike a database dump —
+also carries the audio, without which a restored meeting cannot be played, re-transcribed or
+diarized.
+
+> Both export and restore are refused for anyone reaching the app from outside your private
+> network, even with the password: the file is the whole database.
+
+For an unattended nightly database dump alongside this, see
+[Setup → Moving or rebuilding an instance](setup.md#moving-or-rebuilding-an-instance).
+
 ---
 
 [Docs index](README.md) · [← LLM providers](llm-providers.md) · Next: [Architecture →](architecture.md)
