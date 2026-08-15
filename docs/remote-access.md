@@ -31,13 +31,26 @@ three things recording needs: a valid HTTPS certificate (`*.ts.net`), TLS exposu
 ports, and an identity header the app trusts.
 
 ```bash
-tailscale serve --https=443 localhost:3000     # web
-tailscale serve --https=8443 localhost:8000    # STT (wss)
+tailscale serve --bg --https=443 localhost:3000     # web
+tailscale serve --bg --https=8443 localhost:8000    # STT (wss)
 ```
 
-Set `NEXT_PUBLIC_STT_WS_URL` to the `wss://<host>.<tailnet>.ts.net:8443/ws` URL **before
-building** (it is baked in at build time). Optionally set `APP_PASSWORD` for login on
-public/Funnel access. See [Configuration](configuration.md).
+Your address is `<host>.<tailnet>.ts.net`: `tailscale status` prints the host on its first
+line, and the tailnet name is at the top of the
+[admin console](https://login.tailscale.com/admin/machines). **MagicDNS and HTTPS Certificates
+must be enabled** in the console's [DNS](https://login.tailscale.com/admin/dns) page, or
+`--https` cannot get a certificate. `tailscale serve status` confirms the result.
+
+Then point the app at the STT address, which differs by install:
+
+| Install | Variable | Applied by |
+| --- | --- | --- |
+| **Docker** | `STT_WS_URL=wss://<host>.<tailnet>.ts.net:8443/ws` | `docker compose up -d` — read at request time, **no rebuild** |
+| **Native** | `NEXT_PUBLIC_STT_WS_URL=wss://<host>.<tailnet>.ts.net:8443/ws` | **`npm run build`** — compiled into the browser bundle |
+
+Optionally set `APP_PASSWORD` for login on public/Funnel access. See
+[Configuration](configuration.md). The full step-by-step, including the phone side, is in
+[Setup → Recording from a phone](setup.md#recording-from-a-phone-tailscale-walkthrough).
 
 > Requests that arrive through `tailscale serve` carry a `Tailscale-User-Login` header, which
 > the app treats as "internal" (recording enabled). Any other path is treated as external
@@ -66,8 +79,10 @@ tailscale serve  --bg --https=443 localhost:3000   # unpublish (keep tailnet acc
 > can never publish or unpublish. Set `TAILSCALE_BIN` / `TAILSCALE_FUNNEL_PORT` /
 > `TAILSCALE_FUNNEL_TARGET` if your paths or ports differ from the defaults.
 
-Set `APP_PASSWORD` (and a strong `APP_SESSION_SECRET`) in `.env`, then rebuild. What outside
-visitors get after logging in with the password:
+Set `APP_PASSWORD` (and a strong `APP_SESSION_SECRET`) in `.env`, then restart the app
+(`docker compose up -d`, or `npm run build && npm start` natively — these are read on the
+server, so Docker needs no rebuild). What outside visitors get after logging in with the
+password:
 
 - ✅ view meetings, minutes and transcripts; download minutes / transcript / meeting info.
 - ❌ everything that changes state — recording, minutes generation, editing, diarization,

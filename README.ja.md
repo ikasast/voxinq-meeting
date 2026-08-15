@@ -83,6 +83,59 @@ Anthropic や OpenAI などクラウドに切り替えられます（その場�
 
 ## 4. インストール手順
 
+導入方法は 2 つあります。
+
+| | Docker | ネイティブ |
+| --- | --- | --- |
+| 入れるもの | Docker Desktop（WSL2）だけ | Node.js / Python / PostgreSQL / Ollama |
+| 手順 | ファイル 2 つを置いて 1 コマンド | セットアップスクリプト |
+| 初回ダウンロード | 約 20GB | 数 GB（モデル分） |
+| 向いている人 | **とにかく動かしたい人** | コードを触りたい人 |
+
+迷ったら **Docker** を選んでください。以下の「4-A」が Docker、「4-B」がネイティブです。
+
+### 4-A. Docker で入れる（推奨）
+
+**前提**: NVIDIA ドライバ + Docker Desktop（WSL2 バックエンド。GPU 対応は組み込み済み）。
+
+イメージは公開済みなので、**リポジトリの取得は不要**です。ファイル 2 つだけで入ります。
+
+```bash
+mkdir voxinq && cd voxinq
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
+```
+
+`.env` を編集して、次の 2 行を設定します（パスワードは同じ値にすること）。
+
+```
+POSTGRES_PASSWORD="好きなパスワード"
+DATABASE_URL="postgresql://voxinq:好きなパスワード@db:5432/voxinq"
+```
+
+> ⚠️ `@db:5432` の `db` は**コンテナのサービス名**です。ここを `localhost` にすると、
+> Web コンテナが自分自身を見に行ってしまい接続できません。
+
+```bash
+docker compose up -d
+docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAIモデル
+```
+
+`http://localhost:3000` を開けば使えます。話者分離を使う場合は
+[pyannote のモデル](https://huggingface.co/pyannote/speaker-diarization-community-1)の利用規約に
+同意し、取得したトークンを `.env` の `HF_TOKEN` に設定してください。
+
+すでに 5432 番ポートを PostgreSQL が使っている場合など、ポートが衝突するときは
+`.env` に `DB_PORT="127.0.0.1:5433"` のように書けば回避できます。
+
+更新は次の 2 コマンドです（データはボリュームに残るので消えません）。
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+### 4-B. ネイティブで入れる
+
 ### ステップ1: リポジトリを取得
 
 ```bash
@@ -296,18 +349,39 @@ sudo systemctl enable --now voxinq-stt
 外出先や会議室から使うには、[Tailscale](https://tailscale.com) を使うのが**いちばん簡単**です。
 （無料で使えるVPNのようなサービスで、自分の端末同士を安全につなぎます）
 
+**手順1**: PC とスマホの両方に Tailscale を入れ、同じアカウントでログイン（PC 側は `tailscale up`）。
+
+**手順2**: **自分のアドレスを調べます。** これが分からないと次に進めません。
+アドレスは `<ホスト名>.<テイルネット名>.ts.net` という形です。
+
 ```bash
-tailscale serve --https=443 localhost:3000      # Webアプリ
-tailscale serve --https=8443 localhost:8000     # 文字起こしサービス
+tailscale status
 ```
 
-設定後、`.env` の `NEXT_PUBLIC_STT_WS_URL` を Tailscale のアドレスに変更し、**再ビルド**してください。
+最初の行が自分の PC で、そこにホスト名が出ます。テイルネット名は
+[管理コンソール](https://login.tailscale.com/admin/machines)の上部に表示されています
+（`tail1a2b3c.ts.net` のような文字列）。合わせると `myhost.tail1a2b3c.ts.net` になります。
+管理コンソールで機器名にカーソルを合わせると、完全な名前をコピーできます。
 
-```
-NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"
+**手順3**: 管理コンソールの [DNS](https://login.tailscale.com/admin/dns) で
+**MagicDNS** と **HTTPS Certificates** を有効化します。これが無いと次のコマンドが
+証明書を取得できません。
+
+**手順4**: 2 つのポートを公開します。
+
+```bash
+tailscale serve --bg --https=443 localhost:3000      # Webアプリ
+tailscale serve --bg --https=8443 localhost:8000     # 文字起こしサービス
 ```
 
-> ⚠️ この設定は**ビルド時に埋め込まれる**ため、変更したら必ず再ビルドが必要です。
+`tailscale serve status` で、意図どおり転送されているか確認できます。
+
+**手順5**: 文字起こしサービスのアドレスをアプリに教えます。**導入方法によって変数が違います。**
+
+| 導入方法 | 設定する変数 | 反映方法 |
+| --- | --- | --- |
+| **Docker** | `STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"` | `docker compose up -d`（**再ビルド不要**。実行時に読まれます） |
+| **ネイティブ** | `NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"` | **`npm run build` で再ビルドが必要**（ビルド時に埋め込まれるため） |
 
 スマホのブラウザで開いたあと「ホーム画面に追加」すると、**アプリのように使えます**（PWA対応）。
 

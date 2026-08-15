@@ -68,19 +68,95 @@ so that happens once. The first recording of a session still takes tens of secon
 model.
 
 `docker compose up -d` follows `latest`, which only ever moves to a published release. Pin a
-version with `VOXINQ_VERSION=v1.3.0` in `.env`.
+version with `VOXINQ_VERSION=v1.3.1` in `.env`.
 
-### Recording from a phone
+Optional, but worth setting before you put real meetings in: `APP_PASSWORD` (plus a random
+`APP_SESSION_SECRET`) turns on password login for anything reaching the app without a tailnet
+identity, and makes that access read-only. They are ordinary `.env` entries — compose passes
+the whole file to the web container. See [Configuration](configuration.md).
+
+### Recording from a phone (Tailscale walkthrough)
 
 The browser talks to the STT service **directly**, so it needs a URL it can actually reach —
-`localhost` only works when you browse from the same machine. Set the address the phone will
-use:
+`localhost` only works when you browse from the same machine. Recording also needs HTTPS,
+because browsers refuse microphone access on plain HTTP from anything but localhost.
+
+[Tailscale](https://tailscale.com) gives you both at once: a private network between your own
+devices, and a real HTTPS certificate for a `*.ts.net` name. This walks through it end to end.
+
+**1. Install Tailscale on the host and on the phone**, then sign both into the same account:
 
 ```bash
-STT_WS_URL=wss://myhost.tailnet.ts.net:8443/ws
+tailscale up
 ```
 
-Applied on `docker compose up -d` — no rebuild, because the container reads it at request time.
+**2. Find your host's name.** This is the part the `STT_WS_URL` placeholder cannot tell you.
+Your machine's full name is `<host>.<tailnet>.ts.net`, and `tailscale status` prints it — your
+own machine is the first line:
+
+```bash
+tailscale status
+```
+
+```
+100.88.208.114  myhost   tagged-devices  linux  -
+```
+
+Combine that with your tailnet name, shown at the top of the
+[admin console](https://login.tailscale.com/admin/machines) (something like `tail1a2b3c.ts.net`
+unless you renamed it), giving `myhost.tail1a2b3c.ts.net`. Hovering a machine in the admin
+console also copies the full name directly.
+
+**3. Enable MagicDNS and HTTPS certificates.** Both live in the admin console under
+[DNS](https://login.tailscale.com/admin/dns) and both are required — `tailscale serve --https`
+cannot issue a certificate without them.
+
+**4. Publish the two ports:**
+
+```bash
+tailscale serve --bg --https=443 localhost:3000    # the web app
+tailscale serve --bg --https=8443 localhost:8000   # the STT service (wss)
+```
+
+Verify:
+
+```bash
+tailscale serve status
+```
+
+```
+https://myhost.tail1a2b3c.ts.net (tailnet only)
+|-- / proxy http://localhost:3000
+
+https://myhost.tail1a2b3c.ts.net:8443 (tailnet only)
+|-- / proxy http://localhost:8000
+```
+
+**5. Point the app at the STT address the phone will use** — the `:8443` one, with the `wss://`
+scheme and the `/ws` path:
+
+```bash
+STT_WS_URL=wss://myhost.tail1a2b3c.ts.net:8443/ws
+```
+
+```bash
+docker compose up -d
+```
+
+> **Docker reads this at request time**, so a restart is enough — no rebuild. On a **native**
+> install the equivalent is `NEXT_PUBLIC_STT_WS_URL`, which is compiled into the JavaScript
+> bundle at build time and therefore needs `npm run build` again after any change.
+
+**6. On the phone**, open `https://myhost.tail1a2b3c.ts.net` and use **Add to Home Screen** —
+the app is a PWA and runs full-screen from there.
+
+If the page loads but recording fails, the STT service is rejecting the browser's origin. It
+allows `localhost`, private LAN ranges and `*.ts.net` automatically; if you set
+`STT_ALLOWED_ORIGINS` yourself, your web address has to be in that list. See
+[Troubleshooting](troubleshooting.md).
+
+Sharing with someone **outside** your tailnet (read-only, via Tailscale Funnel), or using
+WireGuard instead of Tailscale: **[Remote access](remote-access.md)**.
 
 ### Already using one of these ports?
 
@@ -224,9 +300,49 @@ only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --i
 ## Moving or rebuilding an instance
 
 State lives in three places, so a complete copy needs all three: **PostgreSQL** (meetings,
-transcripts, minutes, series, tags, voice profiles), **`stt-service/recordings/`** (the WAVs
+transcripts, minutes, series, tags, voice profiles), **the recordings directory** (the WAVs
 and the utterance boundaries diarization maps speakers onto), and **`settings.json`** (models,
 glossary, API keys).
+
+### Docker
+
+Each of the three is a named volume, so nothing lives in the directory you installed into —
+`docker compose down` and even deleting that directory keeps your data. `docker volume ls`
+shows them: `pgdata`, `recordings`, `settings`, plus `hfcache` and `ollama` for model weights
+(large, and re-downloadable, so not worth backing up).
+
+Nightly database dump — the host does not need PostgreSQL installed, because `pg_dump` runs
+inside the container:
+
+```bash
+docker compose exec -T db sh -c "pg_dump -U voxinq -Fc voxinq > /tmp/voxinq.dump"
+docker compose cp db:/tmp/voxinq.dump ./voxinq-$(date +%Y%m%d).dump
+docker compose exec -T db rm -f /tmp/voxinq.dump
+```
+
+> Take the dump **inside** the container rather than piping it out through your shell: a
+> `pg_dump ... > file` redirection in PowerShell re-encodes the stream as text and corrupts the
+> archive.
+
+Restoring that dump into a fresh stack — start the database alone first, so the web container
+does not create an empty schema underneath you:
+
+```bash
+docker compose up -d db
+docker compose cp voxinq-20260815.dump db:/tmp/r.dump
+docker compose exec -T db pg_restore -U voxinq -d voxinq --clean --if-exists --no-owner --no-privileges /tmp/r.dump
+docker compose up -d
+```
+
+The dump carries Prisma's migration table, so the `prisma migrate deploy` that the web
+container runs on start correctly becomes a no-op.
+
+Recordings and settings move with `docker compose cp` in the same way — `stt:/data/recordings`
+and `web:/data/settings.json`. If you are restoring settings from a native install, change
+`ollamaBaseUrl` to `http://ollama:11434` first: inside a container, a loopback address means
+the container itself.
+
+### Native
 
 ```powershell
 scripts\windows\export-all.ps1                      # -> ~\voxinq-backups\voxinq-full-<timestamp>\
@@ -311,12 +427,15 @@ only rolls forward. Restore from the nightly `pg_dump` if the schema has to go b
 
 ## Remote access (record & view from a phone)
 
-Expose the host so a phone can reach it — the quickest is [Tailscale](https://tailscale.com),
-but self-hosted **WireGuard** (no third party) and public-URL options work too. The full
-comparison and step-by-step for each is on its own page:
+Recording from a phone over Tailscale is walked through above:
+**[Recording from a phone](#recording-from-a-phone-tailscale-walkthrough)**.
+
+For sharing read-only with someone outside your tailnet (Tailscale Funnel), self-hosted
+**WireGuard** with no third party, or a public URL behind your own proxy — including the
+comparison between them:
 
 **→ [Remote access](remote-access.md)**
 
 ---
 
-[Docs index](README.md) · Next: [Configuration →](configuration.md)
+[Docs index](README.md) · Next: [Remote access →](remote-access.md)
