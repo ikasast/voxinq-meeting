@@ -688,6 +688,95 @@ async def recording_audio(meeting_id: str) -> FileResponse:
     return FileResponse(wav, media_type="audio/wav", filename=f"{mid}.wav")
 
 
+def _read_json_file(path: Path):
+    """Parse a sidecar JSON file, or None when it is absent or unreadable."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError):
+        return None
+
+
+@app.get("/recordings/{meeting_id}/sidecars")
+async def recording_sidecars(meeting_id: str) -> dict:
+    """Return the JSON files that live beside a recording, for the web app's backup export.
+
+    The WAV is fetched separately (/recordings/{id}/audio); these are small and inlined."""
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    p = _rec_paths(mid)
+    return {
+        "exists": p["wav"].exists(),
+        "keep": p["keep"].exists(),
+        "segments": _read_json_file(p["seg"]),
+        "speakers": _read_json_file(p["spk"]),
+        "embeddings": _read_json_file(p["emb"]),
+    }
+
+
+@app.post("/recordings/{meeting_id}/restore")
+async def recording_restore(meeting_id: str, request: Request) -> dict:
+    """Write a recording back from a backup. Raw WAV body.
+
+    Deliberately not /upload/{id}: that one decodes the audio and starts transcription, which
+    would burn GPU time re-deriving a transcript the backup already contains — and would
+    overwrite it. This only puts the file back where it was.
+
+    An existing recording is left alone rather than overwritten, so importing the same bundle
+    twice is a no-op."""
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    p = _rec_paths(mid)
+    if p["wav"].exists():
+        return {"status": "exists", "skipped": True}
+
+    data = await request.body()
+    if not data:
+        raise HTTPException(status_code=400, detail="empty body")
+    # Check it really is a WAV before writing: a mangled upload here would surface much later,
+    # as a player that will not play and a diarization that cannot read its input.
+    if len(data) < 12 or data[0:4] != b"RIFF" or data[8:12] != b"WAVE":
+        raise HTTPException(status_code=400, detail="not a WAV file")
+
+    RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = p["wav"].with_suffix(".wav.part")
+    tmp.write_bytes(data)
+    tmp.replace(p["wav"])
+    return {"status": "restored", "skipped": False, "bytes": len(data)}
+
+
+@app.post("/recordings/{meeting_id}/sidecars")
+async def recording_sidecars_write(meeting_id: str, request: Request) -> dict:
+    """Write the JSON files beside a restored recording (backup import).
+
+    Existing files are kept: the utterance boundaries and speaker assignments on this host
+    describe the WAV that is already here, and a re-import must not disturb them."""
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    try:
+        payload = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid JSON")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="expected an object")
+
+    RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+    p = _rec_paths(mid)
+    written = []
+    for key, path_key in (("segments", "seg"), ("speakers", "spk"), ("embeddings", "emb")):
+        value = payload.get(key)
+        if value is None or p[path_key].exists():
+            continue
+        p[path_key].write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        written.append(key)
+    if payload.get("keep") is True and not p["keep"].exists():
+        p["keep"].touch()
+        written.append("keep")
+    return {"status": "ok", "written": written}
+
+
 @app.post("/recordings/{meeting_id}/protect")
 async def recording_protect(meeting_id: str, on: bool = True) -> dict:
     """Toggle recording protection (exempt from auto-delete). On un-protect, keep it for the retention period from that point."""

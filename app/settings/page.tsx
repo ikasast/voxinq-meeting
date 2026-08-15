@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import { WHISPER_MODELS, isJapaneseOnlyModel, isKnownWhisperModel } from "@/lib/stt/models";
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
+import { DataBackup } from "./data-backup";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 
@@ -62,6 +63,7 @@ const TABS = [
   { id: "minutes", label: "Minutes" },
   { id: "llm", label: "LLM" },
   { id: "remote", label: "Remote access" },
+  { id: "data", label: "Data" },
   { id: "appearance", label: "Appearance" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -585,6 +587,8 @@ export default function SettingsPage() {
 
         {/* Remote access (Tailscale Funnel publish toggle) */}
         {tab === "remote" ? <RemoteAccess /> : null}
+
+        {tab === "data" ? <DataBackup /> : null}
 
         {/* Appearance */}
         {tab === "appearance" ? (
