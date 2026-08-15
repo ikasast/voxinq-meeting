@@ -36,10 +36,16 @@ RUN python3.11 -m venv /app/stt-service/.venv \
 
 # --- Diarization venv (CUDA torch + pyannote) -----------------------------------------
 # pyannote.audio 4.x needs torch>=2.8, which is cu128 and up.
+#
+# torchcodec is listed here rather than left to pyannote's dependency resolution: it ships
+# compiled CUDA libraries, and PyPI serves the build for whatever CUDA release is current,
+# which is newer than the cu128 torch above. Installing it from the same index keeps the two
+# on one CUDA version — otherwise it lands linked against a libcudart that is not in the
+# image, fails to load, and diarization dies at "torchcodec is not available".
 COPY diarization/requirements.txt /app/diarization/requirements.txt
 RUN python3.11 -m venv /app/diarization/.venv \
     && /app/diarization/.venv/bin/pip install --upgrade pip \
-    && /app/diarization/.venv/bin/pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128 \
+    && /app/diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128 \
     && /app/diarization/.venv/bin/pip install -r /app/diarization/requirements.txt
 
 # Source last so dependency layers stay cached across code edits.
