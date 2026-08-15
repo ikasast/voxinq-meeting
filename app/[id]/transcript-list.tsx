@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { mergeLiveTranscripts, type ServerSnapshot } from "@/lib/live-merge";
 import { formatOffset, formatTime } from "@/lib/utils";
 import {
   type SpeakerLabels,
@@ -50,6 +52,7 @@ export function TranscriptList({
   meetingId,
   meetingTitle,
   meetingStartedAt,
+  meetingEndedAt,
   initialTranscripts,
   initialSpeakerLabels,
   seriesGlossary,
@@ -59,6 +62,8 @@ export function TranscriptList({
   meetingId: string;
   meetingTitle: string;
   meetingStartedAt: string;
+  // null while the meeting is still being recorded (on this device or another one).
+  meetingEndedAt: string | null;
   initialTranscripts: Item[];
   initialSpeakerLabels: string | null;
   seriesGlossary: string | null;
@@ -599,6 +604,97 @@ export function TranscriptList({
   const gpuBlocked = gpu.busy && !diarizing && !retransing;
   const busy = diarizing || retransing || gpuBlocked;
 
+  // --- Following a meeting that is being recorded elsewhere ---------------------------------
+  //
+  // The recording device saves each utterance as soon as it is final, so any other device can
+  // follow the meeting by polling for the transcript. Only the recording device holds the
+  // WebSocket to STT; this side never talks to it, which is why a read-only viewer outside the
+  // tailnet gets live updates too.
+  //
+  // In-progress text (what the speaker is saying right now) is deliberately not shown: it is
+  // never persisted, so it exists only inside the recording browser.
+  const router = useRouter();
+  const [endedAt, setEndedAt] = useState<string | null>(meetingEndedAt);
+  const [liveOffline, setLiveOffline] = useState(false);
+  // What the server last told us, as the base for merging: see lib/live-merge.
+  const serverSnapshot = useRef<ServerSnapshot>(new Map());
+
+  useEffect(() => {
+    if (endedAt) return;
+    // A recorder that crashed leaves endedAt null forever. Stop chasing it after a day.
+    if (Date.now() - Date.parse(meetingStartedAt) > 86400_000) return;
+
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let misses = 0;
+
+    const tick = async () => {
+      if (stopped) return;
+      // Nothing to show while the tab is hidden; the visibility listener polls on return.
+      if (document.visibilityState !== "visible") return schedule();
+
+      const res = await fetch(`/api/meetings/${meetingId}/live`, {
+        signal: AbortSignal.timeout(6000),
+        cache: "no-store",
+      }).catch(() => null);
+
+      if (stopped) return;
+      if (!res || !res.ok) {
+        misses += 1;
+        if (misses >= 2) setLiveOffline(true);
+        return schedule();
+      }
+
+      const data = (await res.json().catch(() => null)) as {
+        endedAt: string | null;
+        speakerLabels: string | null;
+        transcripts: Item[];
+      } | null;
+      if (stopped || !data) return schedule();
+
+      misses = 0;
+      setLiveOffline(false);
+      setTranscripts((list) => {
+        const { next, snapshot } = mergeLiveTranscripts(list, serverSnapshot.current, data.transcripts);
+        serverSnapshot.current = snapshot;
+        return next;
+      });
+      // Diarization only runs after a meeting ends, so labels can only have been set by a
+      // reload of an already-ended meeting — but adopting them costs nothing.
+      if (data.speakerLabels) setSpeakerLabels(parseSpeakerLabels(data.speakerLabels));
+
+      if (data.endedAt) {
+        stopped = true;
+        setEndedAt(data.endedAt);
+        // Re-render the server component so the header dates, the minutes section and the
+        // recording player reflect the finished meeting.
+        router.refresh();
+        return;
+      }
+      schedule();
+    };
+
+    const schedule = () => {
+      if (!stopped) timer = setTimeout(tick, 4000);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !stopped) {
+        clearTimeout(timer);
+        void tick();
+      }
+    };
+
+    void tick();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [endedAt, meetingId, meetingStartedAt, router]);
+
+  const live = !endedAt;
+
   // "Diarize" on the recording page lands here with ?autodiarize=1: start diarization once
   // (progress is shown inline in the toolbar) and drop the param from the URL so a reload
   // doesn't re-trigger (results are cached on the STT side anyway, so a re-run is cheap).
@@ -618,6 +714,23 @@ export function TranscriptList({
     <details open>
       <summary className="cursor-pointer text-lg font-semibold text-[var(--text-strong)]">
         Transcript ({transcripts.length})
+        {live ? (
+          <span
+            className="ml-2 inline-flex items-center gap-1.5 align-middle text-xs font-medium text-[var(--text-muted)]"
+            title={
+              liveOffline
+                ? "Cannot reach the server — retrying"
+                : "This meeting is being recorded; new utterances appear as they are transcribed"
+            }
+          >
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${
+                liveOffline ? "bg-[var(--text-muted)]" : "animate-pulse bg-red-500"
+              }`}
+            />
+            {liveOffline ? "Reconnecting…" : "Live"}
+          </span>
+        ) : null}
       </summary>
 
       {/* Recording player + protection state (only when a recording remains) */}
