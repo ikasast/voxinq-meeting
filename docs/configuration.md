@@ -7,8 +7,9 @@ in the UI). Both are gitignored.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | — | PostgreSQL connection string (required) |
-| `NEXT_PUBLIC_STT_WS_URL` | `ws://localhost:8000/ws` | STT WebSocket URL. **Baked in at build time** — rebuild after changing. |
+| `DATABASE_URL` | — | PostgreSQL connection string (required). Under Docker this names the compose service: `postgresql://voxinq:PASSWORD@db:5432/voxinq` — a loopback address would mean the web container itself. |
+| `STT_WS_URL` | falls back to the build-time value | **Docker path.** STT WebSocket URL the *browser* connects to. Read at request time, so `docker compose up -d` applies it — no rebuild. Set this to record from a phone: `wss://<host>.<tailnet>.ts.net:8443/ws`. |
+| `NEXT_PUBLIC_STT_WS_URL` | `ws://localhost:8000/ws` | **Native path.** Same URL, compiled into the browser bundle — **rebuild after changing**. Ignored when `STT_WS_URL` is set. |
 | `APP_PASSWORD` | unset | Enables password login. Unset = open within your network. When set, access without a tailnet identity (e.g. via Tailscale Funnel / a public URL) is **read-only**: view & download only, all state-changing requests are refused (HTTP 403). |
 | `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD`. |
 | `NETWORK_MODE` | `tailscale` | `tailscale`: external (non-tailnet) access is login-gated. `lan`: any reachable client is trusted. |
@@ -16,6 +17,15 @@ in the UI). Both are gitignored.
 | `TAILSCALE_BIN` | auto | Path to the `tailscale` CLI, used by **Settings → Remote access** to publish/unpublish. Defaults to the OS install path, then `PATH`. |
 | `TAILSCALE_FUNNEL_PORT` | `443` | Public HTTPS port toggled by Remote access. |
 | `TAILSCALE_FUNNEL_TARGET` | `localhost:$PORT` | Local web target the Funnel points at. |
+
+Docker-only, read by `docker-compose.yml` rather than by the app:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | — | Password for the bundled database. Compose refuses to start without it; use the same value in `DATABASE_URL`. |
+| `HF_TOKEN` | unset | Hugging Face token, needed once to download the gated pyannote diarization model. Accept the model terms first. |
+| `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v1.3.1`. |
+| `WEB_PORT` / `STT_PORT` / `DB_PORT` / `OLLAMA_PORT` | `3000` / `8000` / `127.0.0.1:5432` / `127.0.0.1:11434` | Host ports. Only affect access from the host — containers always reach each other by service name. |
 
 STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
 `WHISPER_COMPUTE`, `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
@@ -31,6 +41,8 @@ recording screen; 0 disables partials), and VAD tuning (`VAD_*`).
 > address avoids the whole class of problem. Same reasoning for `ollamaBaseUrl`.
 
 `STT_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the STT service.
+(This one is read by the **STT service**, not the web app; under Docker it is passed to the
+`stt` container by `docker-compose.yml`.)
 The browser talks to it directly, so it must accept the origin the web app is served from.
 Leave unset to allow the usual self-hosted origins automatically (`localhost`, private LAN
 addresses, and `*.ts.net`); set it to lock the service to an explicit list, e.g.
@@ -90,4 +102,4 @@ See **[LLM providers](llm-providers.md)** for provider details.
 
 ---
 
-[Docs index](README.md) · [← Setup](setup.md) · Next: [LLM providers →](llm-providers.md)
+[Docs index](README.md) · [← Remote access](remote-access.md) · Next: [LLM providers →](llm-providers.md)

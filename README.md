@@ -50,14 +50,21 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 
 **With Docker** — brings up the database, web app, transcription service and Ollama together.
 Also needs Docker Compose and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).
+The images are published, so there is no clone and no Node or Python on the host — two files
+are the whole install:
 
 ```bash
-git clone https://github.com/ikasast/voxinq-meeting.git
-cd voxinq-meeting
-cp .env.example .env    # set POSTGRES_PASSWORD, point DATABASE_URL at the `db` service
+mkdir voxinq && cd voxinq
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
+# edit .env: set POSTGRES_PASSWORD, and point DATABASE_URL at the `db` service
 docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b-instruct
+docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model
 ```
+
+The first pull is about 20 GB. For speaker diarization, accept the terms for
+[pyannote](https://huggingface.co/pyannote/speaker-diarization-community-1) and put your token
+in `.env` as `HF_TOKEN`.
 
 **Native** — no containers; needs Node.js 20+, Python 3.11, PostgreSQL 17 and [Ollama](https://ollama.com) on the host.
 
@@ -72,7 +79,9 @@ Then open `http://localhost:3000` → **New meeting → Set up meeting**, press 
 on the next screen once it says *Model ready*, talk, and finish with **Generate minutes**.
 (Or just **drop an audio file** on the New meeting screen.)
 
-📖 Docker details, manual install, background services, and phone access via Tailscale: **[docs/setup.md](docs/setup.md)**.
+📖 Docker details, manual install and background services: **[docs/setup.md](docs/setup.md)**.
+To record from your phone, you need an HTTPS address it can reach — the Tailscale walkthrough
+is **[here](docs/setup.md#recording-from-a-phone-tailscale-walkthrough)**.
 
 > ⚡ Always serve a production build (`scripts/start` does). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
 
