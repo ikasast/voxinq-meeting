@@ -902,6 +902,22 @@ _DIA_JOBS: dict[str, dict] = {}  # meeting_id -> {"status": running|done|error, 
 _DIA_PROCS: dict[str, subprocess.Popen] = {}  # meeting_id -> running diarizer process (for cancel)
 
 
+def _needs_hf_token(err: str) -> bool:
+    """Is this the "no Hugging Face token" failure wearing a traceback?
+
+    It is the first wall almost every new install hits: recording and minutes work without a
+    token, so nothing goes wrong until the first diarization, and what surfaces is the tail of
+    a Python exception about a gated repo. Callers turn a True here into an instruction.
+    """
+    low = err.lower()
+    return (
+        "gated repo" in low
+        or "is restricted" in low
+        or "awaiting a review" in low
+        or ("401" in low and "huggingface" in low)
+    )
+
+
 def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> None:
     try:
         result = _run_diarizer(wav, seg, num_speakers, mid)
@@ -915,8 +931,12 @@ def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> No
         with _DIA_LOCK:
             _DIA_JOBS[mid] = {"status": "done", "speakers": speakers, "embeddings": embeddings}
     except Exception as e:  # noqa: BLE001
+        detail = str(e)[-300:]
+        job: dict = {"status": "error", "detail": detail}
+        if _needs_hf_token(str(e)):
+            job["code"] = "hf_token_required"
         with _DIA_LOCK:
-            _DIA_JOBS[mid] = {"status": "error", "detail": str(e)[-300:]}
+            _DIA_JOBS[mid] = job
 
 
 @app.post("/diarize/{meeting_id}")
@@ -1292,6 +1312,13 @@ async def voiceprint_extract(request: Request) -> dict:
     try:
         embedding = await asyncio.to_thread(_run)
     except Exception as e:  # noqa: BLE001
+        # Enrolment loads the same gated pyannote model diarization does, so it hits the same
+        # wall on a tokenless install — say so instead of returning the traceback tail.
+        if _needs_hf_token(str(e)):
+            raise HTTPException(
+                status_code=503,
+                detail="Voice profiles need a Hugging Face token. See Setup -> Diarization needs a Hugging Face token.",
+            )
         raise HTTPException(status_code=500, detail=f"Voiceprint extraction failed: {str(e)[-300:]}")
     finally:
         tmp.unlink(missing_ok=True)

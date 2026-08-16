@@ -228,7 +228,7 @@ export function DataBackup() {
           </span>
         </label>
 
-        <button type="button" className="btn btn-primary" onClick={runExport} disabled={busy}>
+        <button type="button" className="btn-ink" onClick={runExport} disabled={busy}>
           {exporting ? "Exporting…" : "Export backup"}
         </button>
       </div>
@@ -280,7 +280,7 @@ export function DataBackup() {
           </span>
         </label>
 
-        <button type="button" className="btn" onClick={runImport} disabled={busy}>
+        <button type="button" className="btn-outline" onClick={runImport} disabled={busy}>
           {importing ? "Restoring…" : "Restore from backup"}
         </button>
       </div>
