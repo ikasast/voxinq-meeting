@@ -15,6 +15,9 @@ export type LiveItem = {
   text: string;
   createdAt: string;
   translation?: string | null;
+  // Position in the recording. Set once when the utterance is saved and never edited, so it
+  // rides along with the row rather than taking part in the merge.
+  audioStartMs?: number | null;
 };
 
 /** What the server said last poll, per utterance id — the base of the three-way merge. */

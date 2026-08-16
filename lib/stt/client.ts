@@ -13,7 +13,15 @@ export type SttHandlers = {
   onPartial: (text: string) => void;
   // Finalized utterance. speakerKey is SELF_KEY when diarization is off, partner-N when on.
   // seq numbers the utterance within this session, so a later translation can find its line.
-  onFinal: (speakerKey: string, text: string, seq?: number) => void;
+  // `audio` is where this utterance sits in the recording. Persist it: the alternative — deriving
+  // a position from when the row reached the database — is late by the utterance's own length
+  // plus however long recognition took, which put clicks up to ten seconds before the speech.
+  onFinal: (
+    speakerKey: string,
+    text: string,
+    seq?: number,
+    audio?: { startMs: number; endMs: number },
+  ) => void;
   // Japanese translation of finalized utterance `seq`, arriving separately (CPU-side, so it
   // must never hold up the transcript).
   onTranslation?: (seq: number, text: string) => void;
@@ -212,7 +220,13 @@ export async function startMic(
           handlers.onPartial(msg.text ?? "");
           break;
         case "final":
-          if (msg.text) handlers.onFinal(speakerLabelToKey(msg.speaker), msg.text, msg.seq);
+          if (msg.text) {
+            const audio =
+              typeof msg.start === "number" && typeof msg.end === "number"
+                ? { startMs: Math.round(msg.start * 1000), endMs: Math.round(msg.end * 1000) }
+                : undefined;
+            handlers.onFinal(speakerLabelToKey(msg.speaker), msg.text, msg.seq, audio);
+          }
           break;
         case "translation":
           if (msg.text) handlers.onTranslation?.(msg.seq, msg.text);

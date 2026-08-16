@@ -90,6 +90,10 @@ model Transcript {
   speakerType String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
   text        String
   translation String?  // Japanese translation of a non-Japanese utterance (null = none/not needed)
+  // Where this utterance sits in the recording. Null on rows written before this was stored, and
+  // on any row whose utterance was not saved to a WAV; the player falls back to segments.json.
+  audioStartMs Int?    @map("audio_start_ms")
+  audioEndMs   Int?    @map("audio_end_ms")
   createdAt   DateTime @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)

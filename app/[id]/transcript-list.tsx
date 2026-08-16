@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { audioPosition, displayOffset } from "@/lib/audio-position";
 import { mergeLiveTranscripts, type ServerSnapshot } from "@/lib/live-merge";
 import { formatOffset, formatTime } from "@/lib/utils";
 import {
@@ -27,6 +28,8 @@ type Item = {
   createdAt: string;
   // Japanese translation of a non-Japanese utterance (null when none was produced).
   translation?: string | null;
+  // Where this utterance starts in the recording. Null on rows saved before this was stored.
+  audioStartMs?: number | null;
 };
 
 // A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
@@ -39,6 +42,7 @@ type RecordingInfo = {
   protected?: boolean;
   expiresAt?: string | null;
   firstUtteranceStart?: number; // start seconds of the first utterance within the WAV (for mapping playback position)
+  segments?: { start: number; end: number }[]; // utterance boundaries, for rows with no stored offset
 };
 
 function remainingDays(expiresAt: string): number {
@@ -152,8 +156,6 @@ export function TranscriptList({
     }
   }, []);
 
-  const startedMs = useMemo(() => Date.parse(meetingStartedAt), [meetingStartedAt]);
-
   // Fetch the recording (WAV) retention state from STT (stays hidden if unreachable, e.g. external access).
   useEffect(() => {
     let cancelled = false;
@@ -168,20 +170,22 @@ export function TranscriptList({
     };
   }, [meetingId]);
 
-  // The transcript timeline uses "elapsed time within the recording".
-  // The origin (0:00) is the first utterance, so it is unaffected by the meeting-creation-to-recording-start gap (wall-clock skew).
-  const anchorMs = useMemo(
-    () => (transcripts.length > 0 ? Date.parse(transcripts[0].createdAt) : startedMs),
-    [transcripts, startedMs],
+  // Timeline positions come from where each utterance actually sits in the recording — see
+  // lib/audio-position.ts for the order of sources and why the wall-clock estimate is last.
+  const positionSources = useMemo(
+    () => ({
+      segments: recInfo?.segments ?? null,
+      firstUtteranceStart: recInfo?.firstUtteranceStart ?? null,
+    }),
+    [recInfo],
   );
   const elapsedSeconds = useCallback(
-    (createdAt: string) => Math.max(0, (Date.parse(createdAt) - anchorMs) / 1000),
-    [anchorMs],
+    (index: number) => displayOffset(transcripts, index, positionSources) ?? 0,
+    [transcripts, positionSources],
   );
-  // Playback position within the WAV = first utterance's start in the WAV + elapsed time.
   const wavPosition = useCallback(
-    (createdAt: string) => (recInfo?.firstUtteranceStart ?? 0) + elapsedSeconds(createdAt),
-    [recInfo, elapsedSeconds],
+    (index: number) => audioPosition(transcripts, index, positionSources) ?? 0,
+    [transcripts, positionSources],
   );
 
   const seekTo = useCallback((seconds: number) => {
@@ -1033,16 +1037,16 @@ export function TranscriptList({
         <p className="mt-4 text-sm text-[var(--text-muted)]">No transcript.</p>
       ) : (
         <ul className="mt-4 space-y-2">
-          {transcripts.map((t) => (
+          {transcripts.map((t, i) => (
             <TranscriptRow
               key={t.id}
               item={t}
-              elapsed={elapsedSeconds(t.createdAt)}
+              elapsed={elapsedSeconds(i)}
               labels={speakerLabels}
               reassignKeys={reassignKeys}
               showSpeaker={multiSpeaker}
               canSeek={Boolean(recInfo?.exists)}
-              onSeek={() => seekTo(wavPosition(t.createdAt))}
+              onSeek={() => seekTo(wavPosition(i))}
               onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
               onDelete={() => void deleteTranscript(t.id)}
               onEdit={(text) => editTranscript(t.id, text)}

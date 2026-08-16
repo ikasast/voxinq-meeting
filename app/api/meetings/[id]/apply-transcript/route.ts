@@ -13,17 +13,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await readJson<{ utterances?: unknown }>(req);
 
   if (!Array.isArray(body?.utterances)) return apiError("utterances is required", 400);
-  const utterances: { start: number; text: string; translation: string | null }[] = [];
+  const utterances: { start: number; end: number; text: string; translation: string | null }[] = [];
   for (const u of body.utterances) {
     if (!u || typeof u !== "object") return apiError("invalid utterances", 400);
-    const { start, text, translation } = u as {
+    const { start, end, text, translation } = u as {
       start?: unknown;
+      end?: unknown;
       text?: unknown;
       translation?: unknown;
     };
     if (typeof text !== "string" || !text.trim()) continue;
+    const startSec = typeof start === "number" && start >= 0 ? start : 0;
     utterances.push({
-      start: typeof start === "number" && start >= 0 ? start : 0,
+      start: startSec,
+      end: typeof end === "number" && end >= startSec ? end : startSec,
       text: text.trim(),
       translation:
         typeof translation === "string" && translation.trim() ? translation.trim() : null,
@@ -46,6 +49,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         speakerType: SELF_KEY,
         text: u.text,
         translation: u.translation,
+        audioStartMs: Math.round(u.start * 1000),
+        audioEndMs: Math.round(u.end * 1000),
+        // Spacing the rows by their audio offsets keeps `orderBy: createdAt` in the order the
+        // words were spoken, which diarization relies on to map speakers onto utterances.
         createdAt: new Date(base + Math.round(u.start * 1000) + i),
       })),
     }),
