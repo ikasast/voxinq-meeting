@@ -90,6 +90,46 @@ setting** — editable globally and overridable per series. A fixed schema would
 feature that makes the output fit each meeting. Format adherence is handled where it actually
 breaks: the first heading is pinned via an assistant prefill, and temperature is held at 0.3.
 
+## Restoring a backup merges; it does not replace
+
+**Settings → Data** exports the instance as one encrypted file and restores one by **adding what
+is missing**: meetings whose id is already present are skipped, series and tags are matched by
+name, and voice profiles keep the local copy on a name collision. Running the same file twice
+changes nothing the second time.
+
+Replace-everything is the easier semantic and the wrong default here. The common uses are moving
+to a new machine, and pulling one meeting back after deleting it by mistake — and in the second
+one, a restore that wipes everything newer is a second, larger accident. Merging means a restore
+can be run against a live install without a rehearsal.
+
+The file is encrypted with a password because of what is in it: every transcript, and the API
+keys from `settings.json`, in the clear. It is meant to be copied somewhere else, where this
+server's login no longer protects it. **The password cannot be recovered** — not by the server,
+which never sees it, and not by anyone else. A backup you cannot open is a real cost, and it is
+the price of a backup that leaking does not expose everything.
+
+## Live transcript polls the database, not the STT service
+
+While one device records, others watching the meeting page see utterances appear. They do not
+stream from the STT service; they poll the ordinary meeting API every few seconds.
+
+The recording device already saves each utterance as it is finalised, so the database is a
+complete record within a round-trip of the words being recognised — no new transport was needed
+for the useful part. Streaming from STT would have added one: a broadcast fan-out on a service
+that today only writes to the socket that asked, plus a second live path to keep correct.
+
+It also would not reach the audience. Read-only viewers outside the tailnet can load the page but
+cannot reach the STT service at all, and they are exactly the people watching rather than
+recording. Polling works for everyone.
+
+What this gives up is the provisional text that appears on the recording device as someone
+speaks. That text is a partial hypothesis, rewritten as the model hears more of the sentence, and
+it is never saved. Watching it change is useful when you are the one recording and can correct
+course; it is noise for someone reading along.
+
+A poll is merged, not applied: a response in flight cannot undo an edit made in the meantime
+(`lib/live-merge.ts`).
+
 ## Single user, by design
 
 There is no user model, no per-meeting ownership, and one `settings.json`. The threat model is
@@ -120,15 +160,64 @@ The trade is that Japanese rendering varies a little between devices. Bundling t
 face is a one-line change in `layout.tsx` for anyone who would rather have it identical
 everywhere.
 
-## Docker was removed, then brought back for a different reason
+## Docker was removed, brought back to distribute, and then adopted
 
-The Docker files were deleted once because the primary host runs natively (Task Scheduler,
+The Docker files were deleted once because the primary host ran natively (Task Scheduler,
 `redeploy-*.ps1`) and nothing used them. They returned as a **distribution** mechanism: the
 prerequisite list (CUDA, Node, Python, PostgreSQL, Ollama) is the biggest barrier for anyone
-else adopting this. Native deployment remains what the author's own machine runs.
+else adopting this.
+
+Building that for other people turned out to be the argument for using it. Running the compose
+stack to test it made the native setup look like what it was — a pile of scheduled tasks, a
+hand-placed PostgreSQL and redeploy scripts that each host had to be talked through — so in
+August 2026 the author's own machine moved to Docker too, and the native path is now maintained
+for people who install that way rather than because it is what production runs.
+
+The native scripts stay: `setup.ps1`/`setup.sh` still work, and someone who would rather not run
+containers is not worse off. What changed is which one gets exercised daily.
 
 Desktop installers (`.exe` / `.dmg`) are out of scope: macOS has no CUDA, so a `.dmg` would mean
 reimplementing the STT and diarization stack on Metal — a different project.
+
+## Considered and not doing (yet)
+
+Reasonable suggestions that keep coming back, with what stops them. Each has a condition that
+would change the answer.
+
+**Published accuracy benchmarks** (WER/CER, diarization error rate, hallucination rate on
+Japanese meetings). It is the most common suggestion and the most attractive one: "runs on 8 GB"
+means little without a number next to it. What stops it is the corpus. Real meetings here are
+confidential and cannot be published, and public Japanese speech corpora are read speech or
+scripted dialogue — the acoustics that actually cost accuracy in this app (a room mic, crosstalk,
+someone on a laptop speaker) are the ones they do not have. A benchmark on the wrong audio is
+worse than none: it would be quoted. *Changes if* a suitable recorded-meeting corpus with
+reference transcripts becomes available, or if enough consenting recordings accumulate to build
+one.
+
+**A GPU task queue in the UI.** There is no queue to show. GPU work is mutually exclusive, not
+ordered: a second task is refused with a 409 rather than lined up, because the useful behaviour
+when transcription is running is to tell you, not to start minutes twenty minutes later. The
+header already reports what holds the GPU and disables the buttons that would fail
+(`app/use-gpu-busy.ts`). Drawing a queue would mean building one first, and waiting in line is
+not better than being told to try again. *Changes if* tasks are ever made to run unattended.
+
+**Evidence timestamps in the minutes** — each claim linked to the utterance it came from.
+Attractive, and it is the transcript that carries verification today: every line is timestamped
+and clicking one plays that moment. Generating those references reliably is a different matter. A
+7B model asked to cite line numbers while summarising gets them subtly wrong, and the checking
+layer (does this line exist, does it support this claim) ends up larger and less reliable than
+the feature. The glossary-correction feature is the shape that does work: the model finds
+candidates, the server validates them against the text, the user approves. *Changes if* a local
+model that can hold references accurately becomes practical here.
+
+**Speaker names inferred by the LLM** from context ("thanks, Tanaka" → speaker 1 is Tanaka).
+Plausible, and wrong often enough to be a problem: a name in the text is as likely to be someone
+being discussed as someone speaking. Voice profiles solve the same problem from the audio, where
+the evidence actually is.
+
+**pgvector / retrieval for Ask** — see above; **cloud LLM as the default** — contradicts the
+premise; **Prisma 7** — a major upgrade for no feature this needs, and `dependabot.yml` already
+declines majors.
 
 ---
 
