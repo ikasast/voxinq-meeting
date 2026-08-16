@@ -83,6 +83,7 @@ export function TranscriptList({
   const [stoppingDiar, setStoppingDiar] = useState(false);
   const stopDiarRef = useRef(false); // set by the Stop button to break the polling loop
   const [diarStatus, setDiarStatus] = useState<string | null>(null);
+  const [needsHfToken, setNeedsHfToken] = useState(false);
   const [diarWarn, setDiarWarn] = useState<string | null>(null);
   const [recInfo, setRecInfo] = useState<RecordingInfo | null>(null);
   const [recBusy, setRecBusy] = useState(false);
@@ -493,6 +494,7 @@ export function TranscriptList({
         speakers?: string[];
         embeddings?: Record<string, number[]>;
         detail?: string;
+        code?: string;
       };
       while (data.status === "running") {
         if (stopDiarRef.current) break;
@@ -504,6 +506,13 @@ export function TranscriptList({
       if (stopDiarRef.current) {
         setDiarStatus("Stopped.");
         return; // don't apply partial/aborted results
+      }
+      if (data.code === "hf_token_required") {
+        // Nothing before this point needs a token, so this is where a fresh install finds
+        // out. Say what to do rather than handing over the tail of a Python traceback.
+        setNeedsHfToken(true);
+        setDiarStatus(null);
+        return;
       }
       if (data.status === "error") throw new Error(data.detail ?? "Diarization failed");
       if (data.status !== "done" || !Array.isArray(data.speakers)) {
@@ -867,6 +876,27 @@ export function TranscriptList({
 
       {diarStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p> : null}
       {diarWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{diarWarn}</p> : null}
+
+      {needsHfToken ? (
+        <div className="mt-2 rounded-lg border border-[var(--warning)] bg-[var(--elevated)] p-3 text-xs">
+          <p className="font-medium text-[var(--text-strong)]">
+            Speaker separation needs a Hugging Face token
+          </p>
+          <p className="mt-1 text-[var(--text-secondary)]">
+            The model that tells speakers apart is free, but its authors require you to accept
+            their terms first. It is a one-time setup of a few minutes; everything else — recording,
+            transcription, minutes — works without it.
+          </p>
+          <a
+            className="mt-2 inline-block text-[var(--accent)] underline"
+            href="https://github.com/ikasast/voxinq-meeting/blob/release/docs/setup.md#diarization-needs-a-hugging-face-token"
+            target="_blank"
+            rel="noreferrer"
+          >
+            How to set it up →
+          </a>
+        </div>
+      ) : null}
 
       {/* Speaker names — revealed as soon as diarization has produced speakers to name. */}
       {showSpeakerTools ? (

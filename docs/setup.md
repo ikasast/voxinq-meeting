@@ -50,30 +50,88 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 
 </details>
 
-Then:
+### Filling in `.env`
 
-1. `docker compose exec ollama ollama pull qwen2.5:7b-instruct` — the minutes model.
-2. For diarization, accept the terms for
-   [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
-   and put your token in `.env` as `HF_TOKEN`, then `docker compose up -d stt`.
+The file you downloaded has every setting commented out with an explanation. You do not need
+most of them. Work down this table: **two entries are required**, the rest can wait until you
+want the feature they belong to.
 
-Open `http://localhost:3000` and you are ready. The compose file points the web app at the
-`ollama` and `stt` services by name, so **Settings → LLM** already holds a working endpoint —
-containers reach each other by service name, and the loopback address that suits a native
-install would mean "this container" here.
+| Setting | Needed? | What to put there |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | **Required** | Invent one. It is the password for the database container this install creates, so it does not have to match anything that already exists |
+| `DATABASE_URL` | **Required** | `postgresql://voxinq:THAT-SAME-PASSWORD@db:5432/voxinq`. `db` is the compose service name — `localhost` here would mean "the web container itself" and cannot work |
+| `HF_TOKEN` | For speaker separation | A free Hugging Face token, after accepting the model terms. Leave it out for now if you like — everything except telling speakers apart works without it. [Steps below](#diarization-needs-a-hugging-face-token) |
+| `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](#recording-from-a-phone-tailscale-walkthrough) |
+| `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
+| `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v1.4.0` |
+| `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
+
+Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
+lives in **Settings** in the app, not in `.env`. Full reference: [Configuration](configuration.md).
+
+Then start it:
+
+```bash
+docker compose up -d
+docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the model that writes minutes
+```
+
+Open `http://localhost:3000` and you are ready. **Settings → LLM** already points at the
+bundled Ollama, because the compose file addresses it by service name.
 
 Budget for the first run: the STT image carries CUDA and a GPU build of torch, so it is about
 **20 GB** to pull. Model weights download separately on first use and are cached in a volume,
 so that happens once. The first recording of a session still takes tens of seconds to warm the
 model.
 
-`docker compose up -d` follows `latest`, which only ever moves to a published release. Pin a
-version with `VOXINQ_VERSION=v1.3.1` in `.env`.
+### What works right after installing
 
-Optional, but worth setting before you put real meetings in: `APP_PASSWORD` (plus a random
-`APP_SESSION_SECRET`) turns on password login for anything reaching the app without a tailnet
-identity, and makes that access read-only. They are ordinary `.env` entries — compose passes
-the whole file to the web container. See [Configuration](configuration.md).
+Worth knowing in which order things start needing setup, so a missing step looks like a missing
+step rather than a broken install:
+
+| Step | Works immediately? |
+| --- | --- |
+| Recording and live transcription | ✅ |
+| Playing a recording back, editing utterances | ✅ |
+| Generating minutes | ✅ once `ollama pull` has finished |
+| Recording **from a phone** | Needs `STT_WS_URL` — the phone cannot reach `localhost` |
+| **Telling speakers apart** (diarization) | Needs `HF_TOKEN` — see next section |
+| Voice profiles (naming speakers automatically) | Needs `HF_TOKEN`, same model |
+
+### Diarization needs a Hugging Face token
+
+Speaker separation uses [pyannote](https://huggingface.co/pyannote), which is free but *gated*:
+its authors ask you to accept their terms before downloading it. Nothing else in Voxinq needs
+this, so a fresh install works fine until the first time you press **Diarize** — which is a
+confusing moment if you do not know the model is waiting on a signature.
+
+One-time setup, a few minutes:
+
+1. Create a free account at [huggingface.co](https://huggingface.co/join) if you do not have one.
+2. Accept the terms on **each** of these pages (they are separate models; the pipeline loads all
+   three). Each is a form asking who you are and what you plan to use it for, approved instantly:
+   - [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
+   - [`pyannote/speaker-diarization-3.1`](https://huggingface.co/pyannote/speaker-diarization-3.1)
+   - [`pyannote/segmentation-3.0`](https://huggingface.co/pyannote/segmentation-3.0)
+3. Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) —
+   **New token → type "Read"**. Copy it; the site shows it once.
+4. Put it in `.env` and restart the transcription service:
+
+   ```bash
+   HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ```
+
+   ```bash
+   docker compose up -d stt
+   ```
+
+The first diarization then downloads the model (a few hundred MB, once) before it starts, so
+that run takes longer than later ones.
+
+> Accepting the terms without creating a token, or creating a token without accepting the terms,
+> both fail the same way. If diarization still reports a missing token, check that the account
+> that accepted the terms is the account the token belongs to.
 
 ### Recording from a phone (Tailscale walkthrough)
 

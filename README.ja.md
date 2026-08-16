@@ -106,29 +106,84 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 ```
 
-`.env` を編集して、次の 2 行を設定します（パスワードは同じ値にすること）。
+#### `.env` に何を書くか
 
-```
-POSTGRES_PASSWORD="好きなパスワード"
-DATABASE_URL="postgresql://voxinq:好きなパスワード@db:5432/voxinq"
-```
+ダウンロードした `.env` は、ほとんどの項目がコメントアウトされた状態です。**必須は 2 つだけ**で、
+残りは「その機能を使いたくなったとき」に足せば十分です。上から順に見ていってください。
+
+| 項目 | 必要？ | 何を書くか |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | **必須** | 自分で決めます。これから作るデータベースコンテナ用のパスワードなので、既存の何かと一致させる必要はありません |
+| `DATABASE_URL` | **必須** | `postgresql://voxinq:上と同じパスワード@db:5432/voxinq` |
+| `HF_TOKEN` | 話者分離を使うなら | Hugging Face の無料トークン。**後回しで構いません** — 話者を区別する機能以外はこれ無しで動きます。→ [取得手順](#hf_token-の取り方話者分離に必要) |
+| `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [7章](#7-スマホから使うtailscale--wireguard) |
+| `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
+| `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
+| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v1.4.0`）。未指定なら最新版 |
+| `NEXT_PUBLIC_STT_WS_URL` | **Docker では無視** | ネイティブ導入専用の項目です |
 
 > ⚠️ `@db:5432` の `db` は**コンテナのサービス名**です。ここを `localhost` にすると、
 > Web コンテナが自分自身を見に行ってしまい接続できません。
+
+文字起こしモデル・用語集・議事録の書式・LLM の選択などは `.env` ではなく、
+**アプリの「Settings」画面**で設定します。
 
 ```bash
 docker compose up -d
 docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAIモデル
 ```
 
-`http://localhost:3000` を開けば使えます。話者分離を使う場合は
-[pyannote のモデル](https://huggingface.co/pyannote/speaker-diarization-community-1)の利用規約に
-同意し、取得したトークンを `.env` の `HF_TOKEN` に設定してください。
+`http://localhost:3000` を開けば使えます。
 
-すでに 5432 番ポートを PostgreSQL が使っている場合など、ポートが衝突するときは
-`.env` に `DB_PORT="127.0.0.1:5433"` のように書けば回避できます。
+#### インストール直後、どこまで動くか
 
-更新は次の 2 コマンドです（データはボリュームに残るので消えません）。
+「設定し忘れ」を「壊れている」と誤解しないための一覧です。
+
+| やること | すぐ使える？ |
+| --- | --- |
+| 録音・リアルタイム文字起こし | ✅ |
+| 録音の再生、発言の編集 | ✅ |
+| 議事録の生成 | ✅（`ollama pull` の完了後） |
+| **スマホから**録音 | `STT_WS_URL` が必要（スマホから `localhost` には届かないため） |
+| **話者を区別する**（話者分離） | `HF_TOKEN` が必要 → 次項 |
+| 声紋登録（話者の自動命名） | `HF_TOKEN` が必要（同じモデルを使います） |
+
+#### `HF_TOKEN` の取り方（話者分離に必要）
+
+話者分離には [pyannote](https://huggingface.co/pyannote) というモデルを使います。無料ですが
+**利用規約への同意が必要**なモデルで、同意していないとダウンロードできません。
+
+Voxinq の他の機能はこれを使わないので、**インストール直後は問題なく動き、初めて「話者分離」を
+押したときに初めて失敗します**。モデルが同意待ちだと知らないと、何が起きたのか分からない場面です。
+
+一度だけ、数分の作業です。
+
+1. [huggingface.co](https://huggingface.co/join) で無料アカウントを作る（すでにあれば不要）
+2. 次の **3 つすべて**のページで利用規約に同意する（別々のモデルで、3 つとも読み込まれます）。
+   用途を書くフォームが出ますが、その場で承認されます。
+   - [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
+   - [`pyannote/speaker-diarization-3.1`](https://huggingface.co/pyannote/speaker-diarization-3.1)
+   - [`pyannote/segmentation-3.0`](https://huggingface.co/pyannote/segmentation-3.0)
+3. [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) で
+   **New token → 種別「Read」** を選んでトークンを作る。**表示は一度きり**なのでコピーしておく
+4. `.env` に書いて、文字起こしサービスを再起動する
+
+   ```
+   HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ```
+
+   ```bash
+   docker compose up -d stt
+   ```
+
+初回の話者分離だけ、モデル（数百MB）のダウンロードが入るため時間がかかります。
+
+> 「規約に同意したがトークンを作っていない」「トークンは作ったが規約に同意していない」は
+> どちらも同じエラーになります。**同意したアカウントとトークンのアカウントが同じか**も確認してください。
+
+#### 更新のしかた
+
+データはボリュームに残るので消えません。
 
 ```bash
 docker compose pull && docker compose up -d
