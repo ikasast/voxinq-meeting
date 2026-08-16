@@ -362,6 +362,19 @@ transcripts, minutes, series, tags, voice profiles), **the recordings directory*
 and the utterance boundaries diarization maps speakers onto), and **`settings.json`** (models,
 glossary, API keys).
 
+### From the app (easiest, and covers all three)
+
+**Settings → Data** exports the lot — every meeting, the recordings, and your settings — as one
+password-encrypted `.voxbak` file, and restores one by merging it into whatever is already
+there. No shell, no database client, and the same on every platform. Full description:
+[Usage → Backup & restore](usage.md#backup--restore).
+
+That is the right answer for moving to another machine, for a copy you keep off the box, and
+for rebuilding after a mistake.
+
+Reach for the commands below instead when you want something the button cannot do: an
+**unattended nightly** dump, or a database-only copy without the audio.
+
 ### Docker
 
 Each of the three is a named volume, so nothing lives in the directory you installed into —
