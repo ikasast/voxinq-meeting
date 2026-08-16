@@ -311,14 +311,25 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   }, []);
 
   const saveTranscript = useCallback(
-    async (speakerKey: string, text: string, seq?: number) => {
+    async (
+      speakerKey: string,
+      text: string,
+      seq?: number,
+      audio?: { startMs: number; endMs: number },
+    ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
       try {
         const res = await fetch("/api/transcripts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meetingId, speakerType: speakerKey, text: trimmed }),
+          body: JSON.stringify({
+            meetingId,
+            speakerType: speakerKey,
+            text: trimmed,
+            audioStartMs: audio?.startMs,
+            audioEndMs: audio?.endMs,
+          }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const created = (await res.json()) as { id: string; createdAt: string };
@@ -358,9 +369,14 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const handlers = useMemo(
     () => ({
       onPartial: (text: string) => setPartial(text),
-      onFinal: (speakerKey: string, text: string, seq?: number) => {
+      onFinal: (
+        speakerKey: string,
+        text: string,
+        seq?: number,
+        audio?: { startMs: number; endMs: number },
+      ) => {
         setPartial("");
-        void saveTranscript(speakerKey, text, seq);
+        void saveTranscript(speakerKey, text, seq, audio);
       },
       onTranslation: applyTranslation,
       onStatus: (s: RecognizerStatus) => setStatus(s),

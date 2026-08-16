@@ -408,12 +408,29 @@ def _safe_meeting_id(mid: str | None) -> str | None:
     return None
 
 
+def _existing_recording_samples(meeting_id: str) -> int:
+    """Length of the recording already on disk, in samples. 0 when there is none.
+
+    A resumed meeting appends to that file, so this is where the next session's timeline starts.
+    """
+    path = RECORDINGS_DIR / f"{meeting_id}.wav"
+    try:
+        with wave.open(str(path), "rb") as w:
+            if w.getframerate() != SAMPLE_RATE or w.getnchannels() != 1:
+                return 0
+            return w.getnframes()
+    except Exception:  # noqa: BLE001  missing or unreadable — start from zero
+        return 0
+
+
 def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]) -> None:
     """Save the meeting audio (WAV) and finalized-utterance boundaries (JSON) on this PC.
 
-    So a meeting split across multiple recording sessions still maps to its utterances,
-    it **appends to the existing recording** instead of overwriting (new-session times are
-    offset by the existing length). When the recording changes, cached diarization results are invalidated.
+    So a meeting split across multiple recording sessions still maps to its utterances, it
+    **appends to the existing recording** instead of overwriting. The incoming boundaries are
+    already offsets into the whole recording — the session's clock was started at the existing
+    length (see the `start` handler) — so they are stored as they arrive. When the recording
+    changes, cached diarization results are invalidated.
     """
     if not chunks:
         return
@@ -425,19 +442,17 @@ def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]
     audio = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
     new_pcm = (np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
 
-    # If an existing recording is present, read it to prepend and compute the time offset.
+    # If an existing recording is present, read it so the new audio is appended to it.
     prev_pcm = b""
     prev_finals: list[dict] = []
-    offset_sec = 0.0
     if wav_path.exists() and seg_path.exists():
         try:
             with wave.open(str(wav_path), "rb") as w:
                 if w.getframerate() == SAMPLE_RATE and w.getnchannels() == 1:
                     prev_pcm = w.readframes(w.getnframes())
-                    offset_sec = w.getnframes() / SAMPLE_RATE
-            prev_finals = json.loads(seg_path.read_text(encoding="utf-8"))
+                    prev_finals = json.loads(seg_path.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001  if corrupted, treat as new
-            prev_pcm, prev_finals, offset_sec = b"", [], 0.0
+            prev_pcm, prev_finals = b"", []
 
     with wave.open(str(wav_path), "wb") as w:
         w.setnchannels(1)
@@ -445,11 +460,7 @@ def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]
         w.setframerate(SAMPLE_RATE)
         w.writeframes(prev_pcm + new_pcm)
 
-    adjusted = [
-        {"start": round(f["start"] + offset_sec, 2), "end": round(f["end"] + offset_sec, 2)}
-        for f in finals
-    ]
-    seg_path.write_text(json.dumps(prev_finals + adjusted, ensure_ascii=False), encoding="utf-8")
+    seg_path.write_text(json.dumps(prev_finals + finals, ensure_ascii=False), encoding="utf-8")
 
     # The recording content changed, so invalidate the previous diarization-result cache.
     for stale in (spk_path, RECORDINGS_DIR / f"{meeting_id}.embeddings.json"):
@@ -556,12 +567,20 @@ def _recording_state(mid: str) -> dict:
         if not protected and RETENTION_DAYS > 0
         else None
     )
-    # Start seconds of the first utterance within the WAV. Used to map transcript elapsed time -> playback position.
+    # Utterance boundaries within the WAV. The web app seeks with the offsets stored on each
+    # transcript row, and falls back to these positionally for meetings recorded before those
+    # were kept — the same index correspondence diarization relies on.
     first_start = 0.0
+    segments: list[dict] = []
     try:
         segs = json.loads(p["seg"].read_text(encoding="utf-8"))
         if isinstance(segs, list) and segs and isinstance(segs[0], dict):
-            first_start = float(segs[0].get("start", 0.0))
+            segments = [
+                {"start": float(s.get("start", 0.0)), "end": float(s.get("end", 0.0))}
+                for s in segs
+                if isinstance(s, dict)
+            ]
+            first_start = segments[0]["start"] if segments else 0.0
     except Exception:  # noqa: BLE001
         pass
     return {
@@ -570,6 +589,7 @@ def _recording_state(mid: str) -> dict:
         "expiresAt": expires,
         "sizeBytes": st.st_size,
         "firstUtteranceStart": round(first_start, 2),
+        "segments": segments,
     }
 
 
@@ -1469,6 +1489,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         state.model_name, (str(ip).strip() or None) if ip else None
                     )
                     state.translate = bool(payload.get("translate"))
+                    # Resuming a meeting, or reconnecting after a drop, appends to the existing
+                    # WAV. Start this session's clock at the end of that audio so every timestamp
+                    # is an offset into the finished recording rather than into this session —
+                    # the web app stores these on the utterance and seeks the player with them.
+                    if state.meeting_id:
+                        prior = _existing_recording_samples(state.meeting_id)
+                        state.elapsed_samples = prior
+                        state.seg_start_sample = prior
                     started = True
                     await ws.send_text(json.dumps({"type": "status", "status": "loading"}))
                     # Model load can take tens of seconds, so run it on a separate thread
