@@ -160,6 +160,36 @@ export function DownloadMeetingButton({
                 </label>
               ))}
             </div>
+            {/* Document formats — one artefact each, so they sit outside the checkbox set
+                rather than joining the zip. */}
+            {hasMinutes ? (
+              <>
+                <div className="my-2 border-t border-[var(--border)]" />
+                <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                  Minutes as a document
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`/api/meetings/${meetingId}/export?format=docx`}
+                    className="btn-outline !px-3 !py-1 text-xs"
+                    onClick={() => setOpen(false)}
+                  >
+                    Word (.docx)
+                  </a>
+                  <a
+                    href={`/${meetingId}/print`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-outline !px-3 !py-1 text-xs"
+                    onClick={() => setOpen(false)}
+                    title="Opens a print view — choose “Save as PDF” as the destination"
+                  >
+                    PDF (print)
+                  </a>
+                </div>
+              </>
+            ) : null}
+
             {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
             <div className="mt-3 flex justify-end gap-2">
               <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-outline !px-3 !py-1 text-xs">

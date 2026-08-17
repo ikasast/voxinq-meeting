@@ -367,3 +367,45 @@ html[data-theme="light"] .logo-dark {
     font-weight: 600;
   }
 }
+
+/* --- Print (the "export as PDF" path) ---------------------------------------------------
+   Rendering PDF on the server would mean embedding a Japanese font, which this project
+   deliberately does not ship. The browser has the fonts and a PDF writer already, so the
+   print sheet at /[id]/print is the export: dark UI chrome off, ink on paper. */
+@media print {
+  .no-print,
+  header nav,
+  footer nav {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .print-sheet {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* The app's palette is built for a dark surface; on paper it has to be readable ink. */
+  .print-sheet :is(h1, h2, h3, h4, h5, h6, p, li, td, th, strong, em, blockquote) {
+    color: #000 !important;
+  }
+
+  .print-sheet a {
+    color: #000 !important;
+    text-decoration: underline;
+  }
+
+  /* Keep a heading with the text it introduces, and never split a list item across pages. */
+  .print-sheet :is(h1, h2, h3, h4) {
+    break-after: avoid-page;
+  }
+  .print-sheet li,
+  .print-sheet blockquote {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 18mm 16mm;
+  }
+}
