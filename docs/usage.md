@@ -105,6 +105,29 @@ to check what was actually said before correcting a line, or to settle what a de
   time, because diarization maps speakers onto utterances by position — if the two could not
   be kept in step, the UI says to re-run **Diarize** before trusting speaker names.
 
+## Find & replace
+
+**Edit tools → Find & replace** fixes a term the recognizer got wrong the same way throughout —
+a company name heard as "ネクサス" in forty places rather than NEXUS.
+
+Type the term and its replacement, then **Preview**: it reports how many utterances match and
+shows the first few before/after. Nothing is written until you press replace.
+
+- Matching ignores case by default (**Match case** turns that off), and the replacement is
+  written exactly as you typed it — searching `nexus` and replacing with `NEXUS` fixes `Nexus`
+  too.
+- The term is plain text, never a pattern. `(JPY)` finds those characters, not a group.
+- Rewording is safe for diarization; only deleting an utterance changes positions.
+- A replacement that would **empty** an utterance is skipped rather than turned into a deletion
+  — deleting has to remove the matching boundary in the recording, so it stays a deliberate act
+  (the ✕ on the row).
+
+The preview and the write are planned server-side from the stored transcript, so a tab left
+open while someone edited a line cannot write back a stale copy.
+
+For a misheard **glossary** term specifically, **Suggest fixes** below is usually better: it
+finds the mistakes for you rather than needing to be told what they are.
+
 ## Suggest fixes (glossary terms the recognizer missed)
 
 **Suggest fixes**, in the transcript toolbar, appears once the meeting has a transcript and you
