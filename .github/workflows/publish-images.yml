@@ -38,13 +38,17 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           IMAGE: ${{ env.IMAGE_BASE }}/web
+          # Only a full release moves `latest`. A manual run publishes its own tag alone, and a
+          # pre-release must not become what `docker compose up -d` pulls — an alpha of the next
+          # major would otherwise land on every install that never asked for it.
+          # The event_name test is load-bearing: on workflow_dispatch there is no release object,
+          # and GitHub's `==` treats that null as equal to false.
+          MOVES_LATEST: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
         run: |
           {
             echo "list<<EOF"
             echo "$IMAGE:$TAG"
-            # Only a published release moves `latest`. A manual run publishes its own tag
-            # alone, so a trial build cannot become the image everyone pulls by default.
-            if [ "$GITHUB_EVENT_NAME" = release ]; then echo "$IMAGE:latest"; fi
+            if [ "$MOVES_LATEST" = true ]; then echo "$IMAGE:latest"; fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
@@ -88,12 +92,13 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           IMAGE: ${{ env.IMAGE_BASE }}/stt
+          # Same rule as the web job: full releases only, never a manual run or a pre-release.
+          MOVES_LATEST: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
         run: |
           {
             echo "list<<EOF"
             echo "$IMAGE:$TAG"
-            # Same as the web job: `latest` follows releases only.
-            if [ "$GITHUB_EVENT_NAME" = release ]; then echo "$IMAGE:latest"; fi
+            if [ "$MOVES_LATEST" = true ]; then echo "$IMAGE:latest"; fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v6
