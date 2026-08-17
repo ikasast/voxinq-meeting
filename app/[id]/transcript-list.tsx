@@ -88,6 +88,19 @@ export function TranscriptList({
   const stopDiarRef = useRef(false); // set by the Stop button to break the polling loop
   const [diarStatus, setDiarStatus] = useState<string | null>(null);
   const [needsHfToken, setNeedsHfToken] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const [findText, setFindText] = useState("");
+  const [replaceText, setReplaceText] = useState("");
+  const [replaceCase, setReplaceCase] = useState(false);
+  const [replaceBusy, setReplaceBusy] = useState(false);
+  const [replacePreview, setReplacePreview] = useState<{
+    matchedRows: number;
+    totalMatches: number;
+    changeCount: number;
+    changes: { id: string; before: string; after: string; count: number }[];
+    skipped: { id: string; reason: string }[];
+  } | null>(null);
+  const [replaceMsg, setReplaceMsg] = useState<string | null>(null);
   const [diarWarn, setDiarWarn] = useState<string | null>(null);
   const [recInfo, setRecInfo] = useState<RecordingInfo | null>(null);
   const [recBusy, setRecBusy] = useState(false);
@@ -270,6 +283,59 @@ export function TranscriptList({
     },
     [transcripts],
   );
+
+  // Preview a find-and-replace. The server plans it against the rows it holds, so what is shown
+  // is what would actually be written — not this tab's possibly-stale copy of the transcript.
+  const previewReplace = useCallback(async () => {
+    if (!findText) return;
+    setReplaceBusy(true);
+    setReplaceMsg(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/replace`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          find: findText,
+          replace: replaceText,
+          caseSensitive: replaceCase,
+          dryRun: true,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setReplacePreview(await res.json());
+    } catch (e) {
+      setReplaceMsg(`Preview failed: ${(e as Error).message}`);
+      setReplacePreview(null);
+    } finally {
+      setReplaceBusy(false);
+    }
+  }, [meetingId, findText, replaceText, replaceCase]);
+
+  const applyReplace = useCallback(async () => {
+    setReplaceBusy(true);
+    setReplaceMsg(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/replace`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ find: findText, replace: replaceText, caseSensitive: replaceCase }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = (await res.json()) as { updated: number; skipped: { reason: string }[] };
+      // Reflect the change locally rather than refetching — the rows are already on screen.
+      const applied = new Map(replacePreview?.changes.map((c) => [c.id, c.after]) ?? []);
+      setTranscripts((list) =>
+        list.map((t) => (applied.has(t.id) ? { ...t, text: applied.get(t.id)! } : t)),
+      );
+      const skippedNote = d.skipped.length > 0 ? `, ${d.skipped.length} skipped` : "";
+      setReplaceMsg(`Replaced in ${d.updated} utterance${d.updated === 1 ? "" : "s"}${skippedNote}.`);
+      setReplacePreview(null);
+    } catch (e) {
+      setReplaceMsg(`Replace failed: ${(e as Error).message}`);
+    } finally {
+      setReplaceBusy(false);
+    }
+  }, [meetingId, findText, replaceText, replaceCase, replacePreview]);
 
   // Correct the wording of one utterance. Unlike deleting, this changes no positions, so the
   // recording's utterance boundaries (which diarization maps speakers onto) stay valid.
@@ -863,6 +929,17 @@ export function TranscriptList({
                   {suggesting ? "Checking…" : "Suggest fixes"}
                 </button>
               ) : null}
+              {transcripts.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setReplaceOpen((v) => !v)}
+                  className="btn-outline"
+                  aria-expanded={replaceOpen}
+                  title="Fix a term that was misheard the same way throughout"
+                >
+                  Find &amp; replace {replaceOpen ? "▲" : "▼"}
+                </button>
+              ) : null}
               {recInfo?.exists ? (
                 <button
                   type="button"
@@ -947,6 +1024,119 @@ export function TranscriptList({
                 </span>
               ))}
             </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Find and replace — for a term misheard the same way throughout. Rewriting text moves
+          no positions, so the recording's utterance boundaries stay valid. */}
+      {replaceOpen && !readOnly ? (
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
+          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+            Find &amp; replace in this transcript
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="block">
+              <span className="label">Find</span>
+              <input
+                className="input mt-1"
+                value={findText}
+                onChange={(e) => {
+                  setFindText(e.target.value);
+                  setReplacePreview(null);
+                }}
+                placeholder="ネクサス"
+                disabled={replaceBusy}
+              />
+            </label>
+            <label className="block">
+              <span className="label">Replace with</span>
+              <input
+                className="input mt-1"
+                value={replaceText}
+                onChange={(e) => {
+                  setReplaceText(e.target.value);
+                  setReplacePreview(null);
+                }}
+                placeholder="NEXUS"
+                disabled={replaceBusy}
+              />
+            </label>
+          </div>
+
+          <label className="mt-2 flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={replaceCase}
+              onChange={(e) => {
+                setReplaceCase(e.target.checked);
+                setReplacePreview(null);
+              }}
+              disabled={replaceBusy}
+            />
+            <span>Match case</span>
+          </label>
+
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => void previewReplace()}
+              disabled={replaceBusy || !findText}
+            >
+              {replaceBusy ? "Checking…" : "Preview"}
+            </button>
+            {replacePreview && replacePreview.changeCount > 0 ? (
+              <button
+                type="button"
+                className="btn-ink"
+                onClick={() => void applyReplace()}
+                disabled={replaceBusy}
+              >
+                Replace in {replacePreview.changeCount} utterance
+                {replacePreview.changeCount === 1 ? "" : "s"}
+              </button>
+            ) : null}
+          </div>
+
+          {replacePreview ? (
+            <div className="mt-2.5 text-xs">
+              {replacePreview.totalMatches === 0 ? (
+                <p className="text-[var(--text-muted)]">No matches.</p>
+              ) : (
+                <>
+                  <p className="text-[var(--text-secondary)]">
+                    {replacePreview.totalMatches} match
+                    {replacePreview.totalMatches === 1 ? "" : "es"} in {replacePreview.matchedRows}{" "}
+                    utterance{replacePreview.matchedRows === 1 ? "" : "s"}.
+                  </p>
+                  <ul className="mt-1.5 space-y-1">
+                    {replacePreview.changes.slice(0, 5).map((c) => (
+                      <li key={c.id} className="text-[var(--text-muted)]">
+                        <span className="line-through">{c.before.slice(0, 60)}</span>
+                        {" → "}
+                        <span className="text-[var(--text-strong)]">{c.after.slice(0, 60)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {replacePreview.changeCount > 5 ? (
+                    <p className="mt-1 text-[var(--text-muted)]">
+                      …and {replacePreview.changeCount - 5} more
+                    </p>
+                  ) : null}
+                  {replacePreview.skipped.length > 0 ? (
+                    <p className="mt-1 text-[var(--warning)]">
+                      {replacePreview.skipped.length} skipped — a replacement cannot empty an
+                      utterance (delete it instead) or exceed the length limit.
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {replaceMsg ? (
+            <p className="mt-2 text-xs text-[var(--accent-sub)]">{replaceMsg}</p>
           ) : null}
         </div>
       ) : null}
