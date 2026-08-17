@@ -206,7 +206,21 @@ transcript, minutes, and recording for good.
 
 ## Share / export
 
-Copy or share minutes and transcripts, or download them as files (`.md` / `.txt`).
+Copy or share minutes and transcripts, or download them as files (`.md` / `.txt`) — tick what
+you want in the ⬇ menu; several parts arrive as a zip.
+
+For minutes that have to be filed or sent to someone rather than read in the app, the same menu
+offers two document formats:
+
+- **Word (`.docx`)** — headings, bullets, numbered lists and bold come across as real Word
+  formatting, not as Markdown characters. No font is embedded, so Word uses the reader's own —
+  Japanese included.
+- **PDF (print)** — opens a print view; choose **Save as PDF** as the destination.
+
+> Why PDF goes through your browser rather than being generated on the server: a PDF has to
+> carry its own fonts, and a Japanese face is 5.4 MB that this project deliberately does not
+> ship (see [Design decisions](design-decisions.md)). Your browser already has the fonts and a
+> PDF writer, so it produces better Japanese output than we could.
 
 ## Backup & restore
 

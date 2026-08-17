@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
+import { minutesDocx } from "@/lib/minutes-docx";
 import { prisma } from "@/lib/prisma";
 import { readSettings } from "@/lib/settings";
 import { collectSpeakerKeys, parseSpeakerLabels, speakerName } from "@/lib/speakers";
@@ -35,6 +36,39 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const labels = parseSpeakerLabels(meeting.speakerLabels);
   const latest = meeting.summaries[0];
+
+  const safeTitleEarly = meeting.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 80);
+  const dispoHeader = (name: string) =>
+    `attachment; filename="${encodeURIComponent(name)}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+
+  // Word document of the minutes — for the meeting that gets filed rather than read on screen.
+  // Its own path rather than another entry in the zip: it is a single artefact, and mixing a
+  // binary into the text bundle would mean deciding what a "minutes.md plus minutes.docx"
+  // download is supposed to mean.
+  if (new URL(req.url).searchParams.get("format") === "docx") {
+    if (!latest) return apiError("no minutes to export yet", 400);
+    const duration = formatDuration(meeting.startedAt, meeting.endedAt);
+    const subtitle = [
+      formatDateTime(meeting.startedAt) + (duration ? ` (${duration})` : ""),
+      meeting.series ? meeting.series.name : null,
+    ]
+      .filter(Boolean)
+      .join("  ·  ");
+
+    const buf = await minutesDocx({
+      title: meeting.title,
+      subtitle,
+      markdown: latest.summaryText,
+      footnote: `Exported from Voxinq Meeting on ${formatDateTime(new Date())}`,
+    });
+    return new NextResponse(new Uint8Array(buf), {
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Disposition": dispoHeader(`${safeTitleEarly}-minutes.docx`),
+      },
+    });
+  }
 
   const files = new Map<string, string>();
 
