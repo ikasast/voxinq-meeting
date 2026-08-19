@@ -1,3 +1,4 @@
+import { antiAliasStages } from "@/lib/audio/lowpass";
 import { diarizerLabelToKey, SELF_KEY } from "@/lib/speakers";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
@@ -29,6 +30,8 @@ export type SttHandlers = {
   onError: (message: string) => void;
   // Input audio level (RMS 0..1, ~every 100ms). For the "is sound arriving" meter.
   onLevel?: (rms: number) => void;
+  /** Fraction of samples that hit the rails in the last ~100 ms. */
+  onClipping?: (ratio: number) => void;
 };
 
 export type SttHandle = {
@@ -148,9 +151,30 @@ export async function startMic(
     channelCount: 1,
     channelCountMode: "explicit",
     channelInterpretation: "speakers",
+    // Filter before decimating — see lib/audio/lowpass.ts for why, and for the tests.
+    processorOptions: { stages: antiAliasStages(ctx.sampleRate) ?? [] },
   });
+
+  // Mixing used to be a bare sum of every source into the worklet, which meant mic and PC audio
+  // both at full scale could add past 1.0 and hit the hard clip inside it. Now each source gets
+  // headroom and the sum passes through a limiter, so a loud moment is rounded off rather than
+  // squared off — clipping is the one distortion recognition cannot see past.
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -6;
+  limiter.knee.value = 3;
+  limiter.ratio.value = 12; // effectively a limiter above the threshold
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.15;
+  limiter.connect(node);
+
   const srcNodes = streams.map((s) => ctx.createMediaStreamSource(s));
-  srcNodes.forEach((sn) => sn.connect(node));
+  srcNodes.forEach((sn) => {
+    const gain = ctx.createGain();
+    // Two sources summing need room; one on its own does not have to be quieter than it was.
+    gain.gain.value = streams.length > 1 ? 0.7 : 1;
+    sn.connect(gain);
+    gain.connect(limiter);
+  });
   // Do not connect to destination, to avoid echo.
 
   // Passing meetingId lets the STT service save the meeting audio for later diarization.
@@ -282,8 +306,11 @@ export async function startMic(
   }
 
   // PCM (Int16LE) from the worklet. Send immediately if opened, otherwise queue to backlog.
-  node.port.onmessage = (e: MessageEvent<ArrayBuffer>) => {
-    const buf = e.data;
+  node.port.onmessage = (e: MessageEvent<{ pcm: ArrayBuffer; clipRatio: number }>) => {
+    const { pcm: buf, clipRatio } = e.data;
+    // Clipping is destroyed information, not a level to be turned down later — surface it while
+    // the meeting is still running and the input can be fixed.
+    if (clipRatio > 0.001) handlers.onClipping?.(clipRatio);
     if (opened && ws && ws.readyState === WebSocket.OPEN) {
       ws.send(buf);
     } else if (!stopped && !fatal) {
