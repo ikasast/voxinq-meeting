@@ -39,9 +39,10 @@ mechanisms are in play and are easy to mistake for one:
 1. **Utterance boundaries** — an energy/RMS-based VAD in `stt-service/server.py` decides where
    one utterance ends and the next begins (`VAD_SILENCE_MS`, `VAD_ENERGY_THRESH`, and the rest
    of the `VAD_*` settings). This is what makes text appear at natural pauses.
-2. **Within-segment silence** — `vad_filter=True` hands each segment to faster-whisper's own
-   **Silero** VAD before recognition, which is the main defence against silence-derived
-   hallucinations.
+2. **Within-segment silence** — on faster-whisper, `vad_filter=True` hands each segment to its
+   built-in **Silero** VAD before recognition, which is the main defence against silence-derived
+   hallucinations. whisper.cpp ships its Silero VAD as a separate model that is not wired up
+   yet, so on that backend layer 1 and the filters below are what remain.
 
 On top of those, low-confidence segments are dropped by `no_speech_prob` / `avg_logprob`, and a
 blocklist catches the canned phrases Whisper emits over silence. Adding another VAD library
@@ -71,19 +72,32 @@ recovers it.
 Sidechain ducking, which a desktop capture app can do, is not attempted here: Web Audio has no
 native sidechain, and the useful part (headroom and a limiter) does not need one.
 
-## Whisper stays; no ASR backend abstraction (yet)
+## Two recognition backends, chosen by the hardware
 
-faster-whisper covers both cases that matter here: `large-v3-turbo` for multilingual meetings
-with glossary support, and `kotoba-whisper` for Japanese-only. The obvious 2026 alternatives do
-not fit this box:
+faster-whisper covers both cases that matter on the original box: `large-v3-turbo` for
+multilingual meetings with glossary support, and `kotoba-whisper` for Japanese-only. What it
+does not cover is any machine without an NVIDIA card — CTranslate2 has no Metal and no Vulkan
+path, so a Mac or an AMD/Intel GPU is left on a slow CPU fallback. That, rather than any
+shortcoming in recognition quality, is why a second backend exists.
+
+whisper.cpp (through pywhispercpp) runs on Metal, Vulkan and CPU, and takes a numpy array
+directly — so the streaming path hands over the buffers it already builds.
+
+**The choice follows the hardware and defaults to leaving CUDA alone.** With a CUDA device
+present the service picks faster-whisper, which is about 30% quicker there; everywhere else it
+picks whisper.cpp. `STT_BACKEND` overrides, and a backend that is asked for but not installed
+falls back rather than refusing to start. So a CUDA host behaves exactly as it did before any
+of this existed, and that is asserted in `stt-service/test_backends.py`.
+
+This is deliberately not the "abstraction layer" that was previously declined here. The
+interface is four methods, and it exists because there are now two real implementations to
+abstract over — which was the condition stated for writing one.
+
+The alternatives that still do not fit:
 
 - **VibeVoice-ASR** — 7B. It cannot share 8 GB with anything, and OOMs on long audio even on
   much larger cards.
 - **Parakeet** — strong on English, unproven for Japanese meetings, which is the primary use.
-
-An abstraction layer is worth writing when there is a second real implementation to abstract
-over. Until one exists that runs here, `lib/stt/models.ts` (the model registry) is the seam,
-and swapping models is a settings change.
 
 ## kotoba-whisper is never given the glossary
 

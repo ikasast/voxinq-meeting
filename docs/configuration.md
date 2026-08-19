@@ -28,7 +28,8 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 | `WEB_PORT` / `STT_PORT` / `DB_PORT` / `OLLAMA_PORT` | `3000` / `8000` / `127.0.0.1:5432` / `127.0.0.1:11434` | Host ports. Only affect access from the host — containers always reach each other by service name. |
 
 STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
-`WHISPER_COMPUTE`, `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
+`WHISPER_COMPUTE` (unset = int8_float16 on CUDA, int8 on CPU), `STT_BACKEND` (unset = choose by
+hardware: faster-whisper on CUDA, whisper.cpp on Metal/Vulkan/CPU), `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
 `STT_IDLE_RELEASE_SECONDS` (default 600), `STT_TRANSLATE_MODEL` / `STT_TRANSLATE_THREADS`
 (translation model repo and CPU threads), `STT_PARTIAL_MS` (default 1200 — how often a
 provisional "partial" transcription of the segment still being spoken is pushed to the

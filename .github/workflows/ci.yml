@@ -49,7 +49,13 @@ jobs:
         with:
           python-version: "3.11"
       # Syntax-level check only: the heavy CUDA deps are not installable in CI.
-      - run: python -m py_compile stt-service/server.py diarization/diarize.py
+      - run: python -m py_compile stt-service/server.py stt-service/backends.py diarization/diarize.py
+
+      # Backend selection decides what a given machine runs, including the promise that a CUDA
+      # host still gets faster-whisper. It needs neither models nor a GPU, so it can be checked
+      # properly here rather than left to a syntax check.
+      - run: pip install numpy
+      - run: python stt-service/test_backends.py
 
   # Catches rot in the container setup (bad Dockerfile, a dependency that stopped
   # resolving) without waiting for someone to try `docker compose up`.
