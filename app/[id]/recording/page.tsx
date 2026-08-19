@@ -65,6 +65,9 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const [status, setStatus] = useState<RecognizerStatus | "idle">("idle");
   const [partial, setPartial] = useState<string>("");
   const [level, setLevel] = useState(0); // input audio level (RMS 0..1)
+  // Set while the input is hitting the rails. Clipping cannot be undone afterwards, so this is
+  // shown during the meeting rather than reported as a quality problem later.
+  const [clipping, setClipping] = useState(false);
   const [source, setSource] = useState<"mic" | "display" | "both">("mic");
   const sourceRef = useRef(source);
   const [displaySupported, setDisplaySupported] = useState(true);
@@ -382,6 +385,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       onStatus: (s: RecognizerStatus) => setStatus(s),
       onError: (message: string) => showToast(message),
       onLevel: (rms: number) => setLevel(rms),
+      onClipping: () => {
+        setClipping(true);
+        window.setTimeout(() => setClipping(false), 4000);
+      },
     }),
     [saveTranscript, applyTranslation, showToast],
   );
@@ -677,14 +684,27 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             </span>
             {active ? (
               <div
-                className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--elevated)]"
-                title="Input audio level (movement means sound is arriving)"
+                className={`h-1.5 w-16 overflow-hidden rounded-full bg-[var(--elevated)] ${
+                  clipping ? "ring-1 ring-[var(--warning)]" : ""
+                }`}
+                title={
+                  clipping
+                    ? "The input is clipping — turn the source down; recognition cannot recover a clipped word"
+                    : "Input audio level (movement means sound is arriving)"
+                }
               >
                 <div
-                  className="h-full rounded-full bg-[var(--accent)]"
+                  className={`h-full rounded-full ${
+                    clipping ? "bg-[var(--warning)]" : "bg-[var(--accent)]"
+                  }`}
                   style={{ width: `${Math.min(100, Math.round(level * 300))}%` }}
                 />
               </div>
+            ) : null}
+            {active && clipping ? (
+              <span className="text-[10px] font-medium text-[var(--warning)]">
+                Input too loud
+              </span>
             ) : null}
           </div>
 

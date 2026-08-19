@@ -47,6 +47,30 @@ On top of those, low-confidence segments are dropped by `no_speech_prob` / `avg_
 blocklist catches the canned phrases Whisper emits over silence. Adding another VAD library
 would duplicate layer 2.
 
+## Capture is filtered and limited before it leaves the browser
+
+Recording downsamples to the 16 kHz Whisper wants. That was a plain decimation — every third
+sample of a 48 kHz stream — with no low-pass first, so everything above 8 kHz folded back into
+the band that was kept. An input at 14 kHz arrives as 2 kHz, in the middle of speech. It is not
+audible as anything, which is why it went unnoticed; it shows up as words that come back
+slightly wrong.
+
+A 6th-order Butterworth now runs before the decimation, cut at 6.4 kHz. The order and cutoff
+were picked by measuring where each fold lands rather than by the textbook "just under
+Nyquist": 4 kHz is untouched, 6 kHz loses 2 dB (sibilance, which Japanese needs), and the
+14 kHz fold is 56 dB down instead of 35. Coefficients are designed on the main thread
+(`lib/audio/lowpass.ts`, with the response asserted in tests) and handed to the worklet, which
+only runs the recurrence.
+
+Mixing was a bare sum: mic and PC audio both at full scale could add past 1.0 and hit a hard
+clip. Each source now gets headroom and the sum passes a limiter, so a loud moment is rounded
+rather than squared. What clipping remains is **reported** — the level meter turns amber during
+the meeting — because a clipped word is destroyed, not merely loud, and no later processing
+recovers it.
+
+Sidechain ducking, which a desktop capture app can do, is not attempted here: Web Audio has no
+native sidechain, and the useful part (headroom and a limiter) does not need one.
+
 ## Whisper stays; no ASR backend abstraction (yet)
 
 faster-whisper covers both cases that matter here: `large-v3-turbo` for multilingual meetings
