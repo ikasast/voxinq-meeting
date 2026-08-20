@@ -75,7 +75,11 @@ model Tag {
 model SpeakerProfile {
   id              String   @id @default(cuid())
   name            String   @unique
-  embedding       String // JSON float array (pyannote speaker centroid), averaged over all enrollments
+  embedding       String // JSON float array (speaker centroid), averaged over all enrollments
+  // Which model produced `embedding`. Two models can share a dimension and mean entirely
+  // different things, so without this a model change makes every profile stop matching with
+  // nothing to explain why. Null = enrolled before this was recorded, i.e. pyannote.
+  embeddingModel  String?  @map("embedding_model")
   sampleCount     Int      @default(1) @map("sample_count") // enrollments folded into `embedding`
   sourceMeetingId String?  @map("source_meeting_id") // meeting the profile was last enrolled from
   createdAt       DateTime @default(now()) @map("created_at")

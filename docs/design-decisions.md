@@ -168,6 +168,32 @@ course; it is noise for someone reading along.
 A poll is merged, not applied: a response in flight cannot undo an edit made in the meantime
 (`lib/live-merge.ts`).
 
+## A voiceprint records which model made it
+
+Enrolled voiceprints are compared by cosine similarity, and until now the only guard against
+comparing two incompatible ones was their length. That guard does not hold, and the measurement
+is worth keeping:
+
+| | |
+| --- | --- |
+| pyannote community-1 vs sherpa-onnx WeSpeaker, **same 12 s clip** | **0.39** |
+| WeSpeaker, same speaker across two clips | 0.84 |
+| WeSpeaker, two different speakers | 0.60 |
+| Dimensions | **256 for both** |
+
+Two different spaces wearing the same shape. `cosineSimilarity` only refuses on a length
+mismatch and `mergeEmbedding` only replaced on a shape change, so swapping the embedding model
+would have left every enrolled profile quietly failing to match, with nothing to explain it.
+
+So a profile now stores the model that produced it, comparisons are refused across models, and
+the match threshold belongs to the model rather than being one global number: 0.5 separates
+speakers for pyannote, while for WeSpeaker two *different* people scored 0.60 — the same 0.5
+would introduce false matches rather than merely be imprecise.
+
+Profiles enrolled before this are read as pyannote, which is what they are, so recording it
+costs nobody their voiceprints. Changing the diarization model still requires re-enrolment —
+that is inherent — but it will say so instead of going silently wrong.
+
 ## Single user, by design
 
 There is no user model, no per-meeting ownership, and one `settings.json`. The threat model is
