@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
-import { WHISPER_MODELS, isJapaneseOnlyModel, isKnownWhisperModel } from "@/lib/stt/models";
+import {
+  WHISPER_MODELS,
+  isJapaneseOnlyModel,
+  isKnownWhisperModel,
+  modelSizeGuide,
+  whisperModel,
+} from "@/lib/stt/models";
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { DataBackup } from "./data-backup";
 import { RemoteAccess } from "./remote-access";
@@ -227,9 +233,15 @@ export default function SettingsPage() {
               )}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              8GB VRAM guide: large-v3 ≈3GB / large-v3-turbo (default; fast and accurate) ≈1.7GB / medium · distil-large-v3 ≈1.5GB / small ≈0.5GB.
-              kotoba-whisper ≈1.5GB — distilled on Japanese speech, so it is faster and more accurate for Japanese, but Japanese-only (transcription language is forced to Japanese), it adds little punctuation, and it cannot take a glossary (the terms below are skipped for it). Downloaded from Hugging Face on first use.
+              Roughly how much memory each needs: {modelSizeGuide()}. On an 8GB card this is
+              what has to fit beside whatever else is loaded. Downloaded on first use and
+              cached afterwards.
             </p>
+            {whisperModel(settings.whisperModel)?.note ? (
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                {whisperModel(settings.whisperModel)!.note}
+              </p>
+            ) : null}
             {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
             {isJapaneseOnlyModel(settings.whisperModel) ? (
               <p className="mt-1 text-xs text-[var(--warning)]">
