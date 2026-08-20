@@ -46,6 +46,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+
+from backends import Segment, choose_backend
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -65,7 +67,15 @@ _DIA_SCRIPT = _DIA_DIR / "diarize.py"
 
 DEFAULT_MODEL = os.environ.get("WHISPER_MODEL", "large-v3-turbo")
 DEVICE = os.environ.get("WHISPER_DEVICE", "cuda")
-COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE", "int8_float16")
+# Unset means "suit the device": int8_float16 is a CUDA compute type and fails to load on CPU,
+# so it can no longer be a fixed default. backends.choose_backend resolves it.
+COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE") or None
+
+# Which recognition engine runs. Unset picks by hardware: faster-whisper on CUDA (measurably
+# quicker there), whisper.cpp everywhere else (CTranslate2 has no GPU path off CUDA). A CUDA
+# host therefore behaves exactly as it did before this existed.
+STT_BACKEND = os.environ.get("STT_BACKEND")
+backend = choose_backend(STT_BACKEND, DEVICE, COMPUTE_TYPE)
 
 VAD_SILENCE_MS = int(os.environ.get("VAD_SILENCE_MS", "700"))
 VAD_MAX_SEGMENT_MS = int(os.environ.get("VAD_MAX_SEGMENT_MS", "12000"))
@@ -274,15 +284,13 @@ class WhisperHolder:
             if self._model is not None and self._model_name == name:
                 return self._model
             self._release_locked()
-            from faster_whisper import WhisperModel
-
-            self._model = WhisperModel(name, device=DEVICE, compute_type=COMPUTE_TYPE)
+            self._model = backend.load(name)
             self._model_name = name
             return self._model
 
     def _release_locked(self) -> None:
         if self._model is not None:
-            del self._model
+            backend.unload(self._model)
             self._model = None
             self._model_name = None
 
@@ -330,14 +338,13 @@ def transcribe_segment_ex(
       - discard low-confidence segments by no_speech_prob / avg_logprob
       - blocklist of known canned phrases
     """
-    segments, info = model.transcribe(
+    segments, detected = backend.transcribe(
+        model,
         audio,
         language=language,
         initial_prompt=initial_prompt or None,
         beam_size=beam_size,
-        vad_filter=True,  # boundaries are handled by the caller's VAD, but this also suppresses internal-silence hallucinations
-        vad_parameters=dict(min_silence_duration_ms=300),
-        condition_on_previous_text=False,
+        vad_min_silence_ms=300,
         no_speech_threshold=STT_NO_SPEECH_THRESH,
     )
     out: list[str] = []
@@ -345,16 +352,15 @@ def transcribe_segment_ex(
         t = seg.text.strip()
         if not t:
             continue
-        # Silence hallucination: drop segments with high no-speech prob AND low avg logprob
-        if (
-            getattr(seg, "no_speech_prob", 0.0) >= STT_NO_SPEECH_THRESH
-            and getattr(seg, "avg_logprob", 0.0) <= STT_LOGPROB_THRESH
-        ):
+        # Silence hallucination: drop segments with high no-speech prob AND low avg logprob.
+        # A backend that cannot report confidence leaves both at their defaults, which keeps
+        # the segment -- the blocklist below is then the only guard.
+        if seg.no_speech_prob >= STT_NO_SPEECH_THRESH and seg.avg_logprob <= STT_LOGPROB_THRESH:
             continue
         if _normalize(t) in HALLUCINATION_PHRASES:
             continue
         out.append(t)
-    return "".join(out).strip(), getattr(info, "language", None)
+    return "".join(out).strip(), detected
 
 
 def transcribe_segment(
@@ -501,7 +507,9 @@ async def health() -> dict:
     return {
         "status": "ok",
         "model": DEFAULT_MODEL,
-        "device": DEVICE,
+        "backend": backend.name,
+        "device": backend.device,
+        "compute": backend.compute,
         "loaded": whisper.loaded_model,
         "busy": busy,
         "busyKind": kind,
@@ -1088,14 +1096,13 @@ def _retranscribe_job(
     try:
         model = whisper.get(model_name)
         audio = _read_wav_float32(wav)
-        segments, info = model.transcribe(
+        segments, detected = backend.transcribe(
+            model,
             audio,
             language=language,
             initial_prompt=_effective_prompt(model_name, initial_prompt) or None,
             beam_size=5,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500),
-            condition_on_previous_text=False,
+            vad_min_silence_ms=500,
             no_speech_threshold=STT_NO_SPEECH_THRESH,
         )
         utterances: list[dict] = []
@@ -1104,17 +1111,14 @@ def _retranscribe_job(
             if not text:
                 continue
             # Same hallucination suppression as the streaming side (drop low-confidence + block canned phrases).
-            if (
-                getattr(seg, "no_speech_prob", 0.0) >= STT_NO_SPEECH_THRESH
-                and getattr(seg, "avg_logprob", 0.0) <= STT_LOGPROB_THRESH
-            ):
+            if seg.no_speech_prob >= STT_NO_SPEECH_THRESH and seg.avg_logprob <= STT_LOGPROB_THRESH:
                 continue
             if _normalize(text) in HALLUCINATION_PHRASES:
                 continue
             item = {"start": round(seg.start, 2), "end": round(seg.end, 2), "text": text}
             # Translation is CPU-side, so it can run right alongside the GPU transcription.
             if translate:
-                ja = translate_to_ja(text, getattr(info, "language", None))
+                ja = translate_to_ja(text, detected)
                 if ja:
                     item["translation"] = ja
             utterances.append(item)
@@ -1230,9 +1234,7 @@ async def upload_recording(
     src = RECORDINGS_DIR / f"{mid}.upload"
     src.write_bytes(data)
     try:
-        from faster_whisper.audio import decode_audio
-
-        audio = decode_audio(str(src), sampling_rate=SAMPLE_RATE)  # float32 mono 16k
+        audio = backend.decode_audio(str(src))  # float32 mono 16k
     except Exception as e:  # noqa: BLE001
         src.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Could not read the audio: {str(e)[-200:]}")
@@ -1288,9 +1290,7 @@ async def voiceprint_extract(request: Request) -> dict:
     tmp = RECORDINGS_DIR / "__voiceprint__.wav"
     src.write_bytes(data)
     try:
-        from faster_whisper.audio import decode_audio
-
-        audio = decode_audio(str(src), sampling_rate=SAMPLE_RATE)  # float32 mono 16k
+        audio = backend.decode_audio(str(src))  # float32 mono 16k
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Could not read the audio: {str(e)[-200:]}")
     finally:

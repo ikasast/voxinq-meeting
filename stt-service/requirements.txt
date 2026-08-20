@@ -1,4 +1,17 @@
+# Recognition backends. faster-whisper is the default on CUDA, where it is the quickest;
+# pywhispercpp covers everything else (Metal, Vulkan, plain CPU), which is the only way this
+# service runs on a Mac or an AMD/Intel GPU. Both are installed so the choice can be made at
+# startup from the hardware -- see backends.py.
 faster-whisper>=1.2.1
+pywhispercpp>=1.5.0
+
+# Reached directly by translator.py and by the audio decoder, but until now they arrived only
+# as faster-whisper's own dependencies. Named here so that dropping or swapping a backend
+# cannot silently take them away.
+ctranslate2>=4.6.0
+tokenizers>=0.22.1
+huggingface_hub>=0.36.0
+
 fastapi>=0.141.1
 uvicorn[standard]>=0.52.0
 numpy>=2.4.6

@@ -1,0 +1,261 @@
+"""Speech recognition backends.
+
+Voxinq ran on faster-whisper alone, which means CTranslate2, which means CUDA or a slow CPU
+path -- no Metal, no Vulkan. That is the single reason the app cannot run on a Mac or on an
+AMD/Intel GPU, so recognition is now reached through a small interface with two implementations
+behind it.
+
+**On a CUDA machine nothing changes.** faster-whisper stays the default there because it is
+about 30% faster than whisper.cpp on that hardware; whisper.cpp is what makes everywhere else
+possible, not a replacement. The choice is automatic unless STT_BACKEND says otherwise.
+
+What a backend has to provide is small, because the parts that matter -- utterance boundaries,
+partials, the hallucination filters, translation -- all live outside the model call:
+
+    load(name) -> handle      unload(handle)
+    transcribe(handle, audio, ...) -> (segments, detected_language)
+    decode_audio(path) -> float32 mono @ 16 kHz
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+SAMPLE_RATE = 16000
+
+
+@dataclass
+class Segment:
+    """One recognised span. The fields the caller's filters read, and nothing else.
+
+    no_speech_prob and avg_logprob default to values that keep a segment: a backend that
+    cannot report confidence should not have everything it produces silently discarded.
+    """
+
+    text: str
+    start: float = 0.0
+    end: float = 0.0
+    no_speech_prob: float = 0.0
+    avg_logprob: float = 0.0
+
+
+def cuda_available() -> bool:
+    """Is there a usable CUDA device? Asked of CTranslate2, which is already a dependency."""
+    try:
+        import ctranslate2
+
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:  # noqa: BLE001  no ctranslate2, no driver, or no device
+        return False
+
+
+def _ffmpeg_decode(path: str) -> np.ndarray:
+    """Decode any audio file to float32 mono 16 kHz via ffmpeg.
+
+    whisper.cpp has no decoder of its own -- it wants samples. ffmpeg is already required by
+    the image, and is what faster-whisper's own decoder uses one layer down.
+    """
+    exe = shutil.which("ffmpeg")
+    if not exe:
+        raise RuntimeError("ffmpeg is required to read audio files but was not found on PATH")
+    proc = subprocess.run(
+        [
+            exe, "-nostdin", "-threads", "1", "-i", path,
+            "-f", "f32le", "-ac", "1", "-ar", str(SAMPLE_RATE), "-",
+        ],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        tail = (proc.stderr or b"").decode("utf-8", "replace")[-300:]
+        raise RuntimeError(f"ffmpeg could not read the audio: {tail}")
+    return np.frombuffer(proc.stdout, dtype=np.float32).copy()
+
+
+class FasterWhisperBackend:
+    """CTranslate2 Whisper. Fastest on CUDA, which is why it stays the default there."""
+
+    name = "faster-whisper"
+
+    def __init__(self, device: str, compute: str) -> None:
+        self.device = device
+        self.compute = compute
+
+    def load(self, model_name: str) -> Any:
+        from faster_whisper import WhisperModel
+
+        return WhisperModel(model_name, device=self.device, compute_type=self.compute)
+
+    def unload(self, model: Any) -> None:
+        del model  # the refcount drop frees VRAM; the API has no explicit free
+
+    def transcribe(
+        self,
+        model: Any,
+        audio: np.ndarray,
+        *,
+        language: str | None,
+        initial_prompt: str | None,
+        beam_size: int,
+        vad_min_silence_ms: int,
+        no_speech_threshold: float,
+    ) -> tuple[list[Segment], str | None]:
+        segments, info = model.transcribe(
+            audio,
+            language=language,
+            initial_prompt=initial_prompt or None,
+            beam_size=beam_size,
+            # Boundaries come from the caller's VAD; this one suppresses the hallucinations
+            # that silence *inside* a segment would otherwise produce.
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=vad_min_silence_ms),
+            condition_on_previous_text=False,
+            no_speech_threshold=no_speech_threshold,
+        )
+        out = [
+            Segment(
+                text=s.text,
+                start=float(getattr(s, "start", 0.0) or 0.0),
+                end=float(getattr(s, "end", 0.0) or 0.0),
+                no_speech_prob=float(getattr(s, "no_speech_prob", 0.0) or 0.0),
+                avg_logprob=float(getattr(s, "avg_logprob", 0.0) or 0.0),
+            )
+            for s in segments
+        ]
+        return out, getattr(info, "language", None)
+
+    def decode_audio(self, path: str) -> np.ndarray:
+        from faster_whisper.audio import decode_audio
+
+        return decode_audio(path, sampling_rate=SAMPLE_RATE)
+
+
+# Our model ids name CTranslate2 repositories; whisper.cpp wants ggml. Where the same model
+# exists in both worlds under a different name, translate the ones we ship.
+GGML_ALIASES = {
+    "kotoba-tech/kotoba-whisper-v2.0-faster": "kotoba-tech/kotoba-whisper-v2.0-ggml",
+}
+
+
+class WhisperCppBackend:
+    """whisper.cpp via pywhispercpp -- Metal on Apple silicon, Vulkan, or plain CPU.
+
+    It takes a numpy array directly, so the streaming path hands over the buffers it already
+    builds and nothing round-trips through a WAV file.
+    """
+
+    name = "whisper.cpp"
+
+    def __init__(self, device: str) -> None:
+        # ggml picks its accelerator at build time; there is no device argument to pass. This
+        # is carried only so "what is it running on" stays answerable in /health.
+        self.device = device
+        self.compute = "ggml"
+
+    def load(self, model_name: str) -> Any:
+        from pywhispercpp.model import Model
+
+        return Model(
+            GGML_ALIASES.get(model_name, model_name),
+            print_realtime=False,
+            print_progress=False,
+            print_timestamps=False,
+        )
+
+    def unload(self, model: Any) -> None:
+        del model
+
+    def transcribe(
+        self,
+        model: Any,
+        audio: np.ndarray,
+        *,
+        language: str | None,
+        initial_prompt: str | None,
+        beam_size: int,
+        vad_min_silence_ms: int,
+        no_speech_threshold: float,
+    ) -> tuple[list[Segment], str | None]:
+        del vad_min_silence_ms, no_speech_threshold  # whisper.cpp's VAD is a separate model
+        params: dict[str, Any] = {
+            "n_threads": max(1, (os.cpu_count() or 4) // 2),
+            "translate": False,
+            "no_context": True,  # the equivalent of condition_on_previous_text=False
+        }
+        if language:
+            params["language"] = language
+        if initial_prompt:
+            params["initial_prompt"] = initial_prompt
+        if beam_size and beam_size > 1:
+            params["beam_search"] = {"beam_size": beam_size}
+
+        segments = model.transcribe(audio, **params)
+        out: list[Segment] = []
+        for s in segments:
+            text = getattr(s, "text", "") or ""
+            if not text.strip():
+                continue
+            # pywhispercpp reports centiseconds.
+            out.append(
+                Segment(
+                    text=text,
+                    start=float(getattr(s, "t0", 0) or 0) / 100.0,
+                    end=float(getattr(s, "t1", 0) or 0) / 100.0,
+                )
+            )
+        # The detected language sits on the model after a run, not on the segments.
+        detected = None
+        for attr in ("language", "detected_language"):
+            value = getattr(model, attr, None)
+            if isinstance(value, str) and value:
+                detected = value
+                break
+        return out, detected or language
+
+    def decode_audio(self, path: str) -> np.ndarray:
+        return _ffmpeg_decode(path)
+
+
+def _importable(module: str) -> bool:
+    from importlib.util import find_spec
+
+    try:
+        return find_spec(module) is not None
+    except Exception:  # noqa: BLE001  a broken install should not stop the service booting
+        return False
+
+
+def choose_backend(requested: str | None, device: str, compute: str | None):
+    """Pick a backend, honouring STT_BACKEND and otherwise following the hardware.
+
+    CUDA keeps faster-whisper because it is measurably quicker there; everything else gets
+    whisper.cpp because CTranslate2 has no GPU path outside CUDA. A backend that is asked for
+    but is not installed falls back rather than refusing to start -- an STT service that will
+    not boot is worse than one running on the other engine.
+    """
+    want = (requested or "").strip().lower()
+    has_cuda = device == "cuda" and cuda_available()
+
+    if want in ("faster-whisper", "faster_whisper", "fw"):
+        chosen = "faster-whisper"
+    elif want in ("whisper.cpp", "whispercpp", "cpp"):
+        chosen = "whisper.cpp"
+    else:
+        chosen = "faster-whisper" if has_cuda else "whisper.cpp"
+
+    if chosen == "whisper.cpp" and not _importable("pywhispercpp"):
+        chosen = "faster-whisper"
+    elif chosen == "faster-whisper" and not _importable("faster_whisper"):
+        chosen = "whisper.cpp"
+
+    if chosen == "faster-whisper":
+        # int8_float16 needs CUDA: on CPU it does not merely run slowly, it fails to load.
+        resolved = compute or ("int8_float16" if has_cuda else "int8")
+        return FasterWhisperBackend(device if has_cuda else "cpu", resolved)
+    return WhisperCppBackend("cuda" if has_cuda else "cpu")
