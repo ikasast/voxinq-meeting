@@ -1,10 +1,14 @@
 // Voice-profile (voiceprint) helpers: cosine matching between diarization cluster
-// embeddings and enrolled speaker profiles. Embeddings are pyannote speaker centroids
-// (float arrays), stored as JSON strings in the DB.
+// embeddings and enrolled speaker profiles. Embeddings are speaker centroids (float arrays),
+// stored as JSON strings in the DB alongside the id of the model that produced them.
+//
+// Two embeddings from different models are not comparable even when they are the same length —
+// see lib/embedding-models.ts, which is where that lesson and the per-model thresholds live.
 
-// Same-speaker cosine similarity for pyannote centroids is typically well above this;
-// different speakers land far below. Conservative enough to avoid false renames.
-export const VOICEPRINT_MATCH_THRESHOLD = 0.5;
+import { LEGACY_EMBEDDING_MODEL, comparable, thresholdFor } from "./embedding-models";
+
+/** Kept for callers that predate per-model thresholds; prefer thresholdFor(modelId). */
+export const VOICEPRINT_MATCH_THRESHOLD = thresholdFor(LEGACY_EMBEDDING_MODEL);
 
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return -1;
@@ -59,14 +63,21 @@ export function cleanClusterEmbeddings(raw: unknown): Record<string, number[]> {
  *
  * Returns the merged vector and its new sample count; the vector is the plain average
  * (cosine similarity ignores magnitude, so there is nothing to normalize).
- * A shape mismatch means the embeddings came from different pyannote models, in which case
- * the old vector is not comparable and the new one replaces it.
+ *
+ * Averaging vectors from different models would produce a centroid of nothing, so a change of
+ * model replaces rather than merges. Shape alone cannot detect that — two models can share a
+ * dimension and mean entirely different things — so the model ids are compared.
  */
 export function mergeEmbedding(
   previous: number[] | null,
   previousCount: number,
   next: number[],
+  previousModel?: string | null,
+  nextModel?: string | null,
 ): { embedding: number[]; sampleCount: number } {
+  if (!comparable(previousModel, nextModel)) {
+    return { embedding: next, sampleCount: 1 };
+  }
   if (!previous || previous.length !== next.length || previousCount < 1) {
     return { embedding: next, sampleCount: 1 };
   }
@@ -84,14 +95,21 @@ export type ProfileMatch = { name: string; similarity: number };
  */
 export function matchProfiles(
   clusters: Record<string, number[]>,
-  profiles: { name: string; embedding: number[] }[],
-  threshold = VOICEPRINT_MATCH_THRESHOLD,
+  profiles: { name: string; embedding: number[]; embeddingModel?: string | null }[],
+  /** Which model produced the clusters. Profiles from any other model are skipped. */
+  clusterModel?: string | null,
+  /** Override the model's own threshold (settings still allow tuning). */
+  threshold?: number,
 ): Record<string, ProfileMatch> {
   const candidates: { cluster: string; name: string; similarity: number }[] = [];
   for (const [cluster, vec] of Object.entries(clusters)) {
     for (const p of profiles) {
+      // A profile from another model is not merely a poor match, it is meaningless here —
+      // and with equal dimensions the score would look ordinary rather than impossible.
+      if (!comparable(clusterModel, p.embeddingModel)) continue;
+      const limit = threshold ?? thresholdFor(p.embeddingModel);
       const sim = cosineSimilarity(vec, p.embedding);
-      if (sim >= threshold) candidates.push({ cluster, name: p.name, similarity: sim });
+      if (sim >= limit) candidates.push({ cluster, name: p.name, similarity: sim });
     }
   }
   candidates.sort((a, b) => b.similarity - a.similarity);

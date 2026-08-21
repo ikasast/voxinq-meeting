@@ -3,6 +3,7 @@ import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { getVoiceprintThreshold } from "@/lib/settings";
 import { diarizerLabelToKey, parseSpeakerLabels } from "@/lib/speakers";
+import { CURRENT_EMBEDDING_MODEL } from "@/lib/embedding-models";
 import { cleanClusterEmbeddings, matchProfiles, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
@@ -26,13 +27,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let matched: Record<string, string> = {};
   if (Object.keys(clusters).length > 0) {
     const rows = await prisma.speakerProfile.findMany({
-      select: { name: true, embedding: true },
+      select: { name: true, embedding: true, embeddingModel: true },
     });
     const profiles = rows
-      .map((r) => ({ name: r.name, embedding: parseEmbedding(r.embedding) }))
-      .filter((p): p is { name: string; embedding: number[] } => p.embedding !== null);
+      .map((r) => ({
+        name: r.name,
+        embedding: parseEmbedding(r.embedding),
+        embeddingModel: r.embeddingModel,
+      }))
+      .filter((p): p is { name: string; embedding: number[]; embeddingModel: string | null } =>
+        p.embedding !== null,
+      );
 
-    const matches = matchProfiles(clusters, profiles, await getVoiceprintThreshold());
+    // Profiles produced by a different model are skipped rather than scored: with equal
+    // dimensions a cross-model comparison returns an ordinary-looking number, not an error.
+    const matches = matchProfiles(
+      clusters,
+      profiles,
+      CURRENT_EMBEDDING_MODEL,
+      await getVoiceprintThreshold(),
+    );
     for (const [cluster, m] of Object.entries(matches)) {
       const key = diarizerLabelToKey(cluster);
       if (!labels[key]?.trim()) {

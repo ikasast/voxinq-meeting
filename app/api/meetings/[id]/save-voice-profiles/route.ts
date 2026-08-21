@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { defaultSpeakerName, diarizerLabelToKey, parseSpeakerLabels } from "@/lib/speakers";
+import { CURRENT_EMBEDDING_MODEL } from "@/lib/embedding-models";
 import { cleanClusterEmbeddings, mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
@@ -47,21 +48,29 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // average of every recording the person has been enrolled from.
     const existing = await prisma.speakerProfile.findUnique({
       where: { name },
-      select: { embedding: true, sampleCount: true },
+      select: { embedding: true, sampleCount: true, embeddingModel: true },
     });
     const merged = mergeEmbedding(
       existing ? parseEmbedding(existing.embedding) : null,
       existing?.sampleCount ?? 0,
       embedding,
+      existing?.embeddingModel,
+      CURRENT_EMBEDDING_MODEL,
     );
     await prisma.speakerProfile.upsert({
       where: { name },
       update: {
         embedding: JSON.stringify(merged.embedding),
         sampleCount: merged.sampleCount,
+        embeddingModel: CURRENT_EMBEDDING_MODEL,
         sourceMeetingId: id,
       },
-      create: { name, embedding: JSON.stringify(embedding), sourceMeetingId: id },
+      create: {
+        name,
+        embedding: JSON.stringify(embedding),
+        embeddingModel: CURRENT_EMBEDDING_MODEL,
+        sourceMeetingId: id,
+      },
     });
     saved.push(name);
   }
