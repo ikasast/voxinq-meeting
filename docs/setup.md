@@ -60,7 +60,6 @@ want the feature they belong to.
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | **Required** | Invent one. It is the password for the database container this install creates, so it does not have to match anything that already exists |
 | `DATABASE_URL` | **Required** | `postgresql://voxinq:THAT-SAME-PASSWORD@db:5432/voxinq`. `db` is the compose service name — `localhost` here would mean "the web container itself" and cannot work |
-| `HF_TOKEN` | For speaker separation | A free Hugging Face token, after accepting the model terms. Leave it out for now if you like — everything except telling speakers apart works without it. [Steps below](#diarization-needs-a-hugging-face-token) |
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](#recording-from-a-phone-tailscale-walkthrough) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
@@ -80,8 +79,8 @@ docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the model that wr
 Open `http://localhost:3000` and you are ready. **Settings → LLM** already points at the
 bundled Ollama, because the compose file addresses it by service name.
 
-Budget for the first run: the STT image carries CUDA and a GPU build of torch, so it is about
-**20 GB** to pull. Model weights download separately on first use and are cached in a volume,
+Budget for the first run: the STT image carries the CUDA runtime for transcription, so it is a
+large pull. Model weights download separately on first use and are cached in a volume,
 so that happens once. The first recording of a session still takes tens of seconds to warm the
 model.
 
@@ -96,42 +95,21 @@ step rather than a broken install:
 | Playing a recording back, editing utterances | ✅ |
 | Generating minutes | ✅ once `ollama pull` has finished |
 | Recording **from a phone** | Needs `STT_WS_URL` — the phone cannot reach `localhost` |
-| **Telling speakers apart** (diarization) | Needs `HF_TOKEN` — see next section |
-| Voice profiles (naming speakers automatically) | Needs `HF_TOKEN`, same model |
+| **Telling speakers apart** (diarization) | ✅ |
+| Voice profiles (naming speakers automatically) | ✅ |
 
-### Diarization needs a Hugging Face token
+### Speaker separation
 
-Speaker separation uses [pyannote](https://huggingface.co/pyannote), which is free but *gated*:
-its authors ask you to accept their terms before downloading it. Nothing else in Voxinq needs
-this, so a fresh install works fine until the first time you press **Diarize** — which is a
-confusing moment if you do not know the model is waiting on a signature.
+Nothing to set up. **Diarize** on a finished meeting splits it by speaker; name them once and
+**Voice profiles** will recognise those people in later meetings.
 
-One-time setup, a few minutes:
+It runs on the CPU, at roughly five times faster than real time, and deliberately does not ask
+for the GPU — it runs after the meeting, which is when the GPU is wanted for writing the
+minutes.
 
-1. Create a free account at [huggingface.co](https://huggingface.co/join) if you do not have one.
-2. Accept the terms on **each** of these pages (they are separate models; the pipeline loads all
-   three). Each is a form asking who you are and what you plan to use it for, approved instantly:
-   - [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
-   - [`pyannote/speaker-diarization-3.1`](https://huggingface.co/pyannote/speaker-diarization-3.1)
-   - [`pyannote/segmentation-3.0`](https://huggingface.co/pyannote/segmentation-3.0)
-3. Create a token at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) —
-   **New token → type "Read"**. Copy it; the site shows it once.
-4. Put it in `.env` and restart the transcription service:
-
-   ```bash
-   HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-   ```
-
-   ```bash
-   docker compose up -d stt
-   ```
-
-The first diarization then downloads the model (a few hundred MB, once) before it starts, so
-that run takes longer than later ones.
-
-> Accepting the terms without creating a token, or creating a token without accepting the terms,
-> both fail the same way. If diarization still reports a missing token, check that the account
-> that accepted the terms is the account the token belongs to.
+> Earlier versions needed a Hugging Face account and token here, for a model whose terms had to
+> be accepted before the first Diarize would work. That requirement is gone: the models ship
+> with the image and are ungated.
 
 ### Recording from a phone (Tailscale walkthrough)
 
@@ -255,18 +233,15 @@ The script is **idempotent** (safe to re-run) and does, in order:
 5. Creates the STT venv (`stt-service/.venv`) and installs its requirements.
 6. Pulls the default LLM (`ollama pull qwen2.5:7b-instruct`).
 
-For speaker diarization (optional, GPU torch + pyannote), add the flag:
+For speaker diarization (optional), add the flag:
 
 ```bash
 ./scripts/setup.sh --diarization      # Windows: .\scripts\setup.ps1 -Diarization
 ```
 
-then set `HF_TOKEN` (or log in with `huggingface-cli`) and accept the terms for
-[`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1)
-on Hugging Face. The model downloads on first use.
-
-> Set `DIA_MODEL=pyannote/speaker-diarization-3.1` to use the older pipeline instead — it
-> needs `pyannote/segmentation-3.0` accepted as well.
+That installs sherpa-onnx into `diarization/.venv` and downloads two ONNX models (~33 MB). No
+account and no token: it used to need a Hugging Face login and accepted model terms, and no
+longer does.
 
 ## Run
 

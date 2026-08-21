@@ -2,7 +2,7 @@
 # One-shot Voxinq setup (Linux/macOS). Idempotent — safe to re-run.
 #
 #   ./scripts/setup.sh                # web app + DB schema + STT venv + Ollama model
-#   ./scripts/setup.sh --diarization  # also build the diarization venv (GPU torch)
+#   ./scripts/setup.sh --diarization  # also build the diarization venv (ONNX, CPU)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -63,17 +63,16 @@ stt-service/.venv/bin/pip install -q -r stt-service/requirements.txt
 ok "STT dependencies installed"
 
 if [ "$WITH_DIARIZATION" -eq 1 ]; then
-  step "Diarization venv (diarization/.venv, GPU torch)"
+  step "Diarization venv (diarization/.venv, ONNX Runtime)"
   if [ -x diarization/.venv/bin/python ]; then
     ok "venv already exists"
   else
     "$PY" -m venv diarization/.venv
     ok "venv created"
   fi
-  diarization/.venv/bin/pip install -q torch torchaudio --index-url https://download.pytorch.org/whl/cu128
   diarization/.venv/bin/pip install -q -r diarization/requirements.txt
-  ok "diarization dependencies installed"
-  warn "remember: set HF_TOKEN and accept the pyannote model terms on Hugging Face (see docs/setup.md)"
+  diarization/.venv/bin/python diarization/fetch_models.py
+  ok "diarization dependencies and models installed"
 fi
 
 step "Default LLM model (ollama pull)"

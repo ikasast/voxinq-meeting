@@ -890,9 +890,9 @@ def _run_diarizer(
     Returns {"speakers": [...], "embeddings": {label: [float,...]}} — per-utterance
     speaker labels plus per-speaker voice embeddings (may be missing/empty)."""
     env = dict(os.environ)
-    # Diarization runs after the meeting when Whisper is already released, so default to GPU (cuda).
-    # Override via the DIA_DEVICE env var (can fall back to cpu).
-    env.setdefault("DIA_DEVICE", "cuda")
+    # Diarization is CPU work now (ONNX Runtime), and fast enough that it does not want the
+    # GPU: measured at 0.18x realtime, on a job that runs once after the meeting, exactly when
+    # the GPU is wanted for generating minutes instead.
     env["PYTHONIOENCODING"] = "utf-8"
     if num_speakers:
         env["DIA_NUM_SPEAKERS"] = str(num_speakers)
@@ -951,13 +951,19 @@ def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> No
         result = _run_diarizer(wav, seg, num_speakers, mid)
         speakers = result["speakers"]
         embeddings = result.get("embeddings") or {}
+        embedding_model = result.get("embeddingModel")
         with open(RECORDINGS_DIR / f"{mid}.speakers.json", "w", encoding="utf-8") as f:
             json.dump(speakers, f, ensure_ascii=False)
         # Per-speaker voice embeddings for voice-profile enrollment/recognition on the web side.
         with open(RECORDINGS_DIR / f"{mid}.embeddings.json", "w", encoding="utf-8") as f:
             json.dump(embeddings, f, ensure_ascii=False)
         with _DIA_LOCK:
-            _DIA_JOBS[mid] = {"status": "done", "speakers": speakers, "embeddings": embeddings}
+            _DIA_JOBS[mid] = {
+                "status": "done",
+                "speakers": speakers,
+                "embeddings": embeddings,
+                "embeddingModel": embedding_model,
+            }
     except Exception as e:  # noqa: BLE001
         detail = str(e)[-300:]
         job: dict = {"status": "error", "detail": detail}
@@ -995,7 +1001,12 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
         speakers = json.loads(cached.read_text(encoding="utf-8"))
         embeddings = _read_cached_embeddings(mid)
         with _DIA_LOCK:
-            _DIA_JOBS[mid] = {"status": "done", "speakers": speakers, "embeddings": embeddings}
+            _DIA_JOBS[mid] = {
+                "status": "done",
+                "speakers": speakers,
+                "embeddings": embeddings,
+                "embeddingModel": embedding_model,
+            }
         return {"status": "done", "speakers": speakers, "embeddings": embeddings}
 
     with _DIA_LOCK:
@@ -1311,7 +1322,6 @@ async def voiceprint_extract(request: Request) -> dict:
 
     def _run() -> list[float]:
         env = dict(os.environ)
-        env.setdefault("DIA_DEVICE", "cuda")
         env["PYTHONIOENCODING"] = "utf-8"
         proc = subprocess.run(
             [str(_DIA_PYTHON), str(_DIA_SCRIPT), "--embed", str(tmp)],

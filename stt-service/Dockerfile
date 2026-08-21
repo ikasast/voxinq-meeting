@@ -4,8 +4,8 @@
 # interpreter at <repo root>/diarization/.venv/bin/python. Keeping the repo layout inside the
 # container means that path resolves exactly as it does on a native install — no code changes.
 #
-# The two venvs stay separate on purpose: the STT venv holds CTranslate2, the diarization venv
-# holds a CUDA build of torch, and mixing them has produced conflicting CUDA runtimes before.
+# The two venvs stay separate on purpose: the STT venv holds CTranslate2 and the diarization
+# venv holds ONNX Runtime, and mixing their native dependencies has caused conflicts before.
 #
 # Needs the NVIDIA Container Toolkit on the host; see docs/setup.md.
 
@@ -34,23 +34,23 @@ RUN python3.11 -m venv /app/stt-service/.venv \
     && /app/stt-service/.venv/bin/pip install --upgrade pip \
     && /app/stt-service/.venv/bin/pip install -r /app/stt-service/requirements.txt
 
-# --- Diarization venv (CUDA torch + pyannote) -----------------------------------------
-# pyannote.audio 4.x needs torch>=2.8, which is cu128 and up.
-#
-# torchcodec is listed here rather than left to pyannote's dependency resolution: it ships
-# compiled CUDA libraries, and PyPI serves the build for whatever CUDA release is current,
-# which is newer than the cu128 torch above. Installing it from the same index keeps the two
-# on one CUDA version — otherwise it lands linked against a libcudart that is not in the
-# image, fails to load, and diarization dies at "torchcodec is not available".
+# --- Diarization venv (ONNX Runtime) --------------------------------------------------
+# This used to install PyTorch, torchaudio and torchcodec from the CUDA 12.8 index for
+# pyannote -- several gigabytes, a version chain that broke twice, and a gated model that
+# needed a Hugging Face token before the first Diarize would work at all. sherpa-onnx does the
+# same job on ONNX Runtime in tens of megabytes, with ungated models.
 COPY diarization/requirements.txt /app/diarization/requirements.txt
 RUN python3.11 -m venv /app/diarization/.venv \
     && /app/diarization/.venv/bin/pip install --upgrade pip \
-    && /app/diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128 \
     && /app/diarization/.venv/bin/pip install -r /app/diarization/requirements.txt
 
 # Source last so dependency layers stay cached across code edits.
 COPY stt-service/ /app/stt-service/
 COPY diarization/ /app/diarization/
+
+# The two ONNX models, baked in rather than fetched on first use: ~33 MB together, and a
+# diarization that works offline beats one that needs the network at the wrong moment.
+RUN /app/diarization/.venv/bin/python /app/diarization/fetch_models.py
 
 # Recordings and the Hugging Face model cache are volumes in compose — without the cache
 # volume, every restart re-downloads several GB of model weights.

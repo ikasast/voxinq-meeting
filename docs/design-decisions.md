@@ -20,12 +20,24 @@ questions all queue behind each other. That is the price of not requiring a bigg
 Translation is the exception — it runs on the **CPU** (NLLB-200 distilled via CTranslate2)
 precisely so it can happen *during* a meeting without competing for VRAM.
 
-## Diarization runs after the meeting, not during it
+## Diarization runs after the meeting, not during it — and on the CPU
 
 Real-time speaker diarization is expensive and, on this hardware, would compete with the
 transcription that has to keep up with live speech. Since the transcript is reviewed after the
-meeting anyway, speakers are assigned in a batch pass at the end (pyannote, in its own venv,
-as a subprocess).
+meeting anyway, speakers are assigned in a batch pass at the end, in its own venv, as a
+subprocess.
+
+It runs on **sherpa-onnx** — pyannote's segmentation model converted to ONNX, WeSpeaker
+embeddings, and clustering — rather than the pyannote pipeline it started on. That pipeline
+needed PyTorch, a CUDA build of torch and torchcodec, and a Hugging Face token for a gated
+model: several gigabytes of the STT image, a dependency chain that broke twice, and a new
+install that worked perfectly until the first time someone pressed Diarize and got an
+authentication error for a model they had never heard of.
+
+Measured on a real 105-second meeting: 17 s on CPU (0.18x realtime), the same five speakers,
+and 11 of 12 utterances attributed identically. It no longer asks for the GPU at all, which is
+the right trade for a job that runs once, after the meeting, exactly when the GPU is wanted for
+generating minutes.
 
 Speakers map onto utterances **by index**: `segments.json[N]` corresponds to the Nth transcript
 row. This is why deleting an utterance also deletes the matching boundary in the recording, and

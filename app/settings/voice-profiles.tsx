@@ -8,6 +8,8 @@ type Profile = {
   name: string;
   sourceMeetingId: string | null;
   sampleCount: number;
+  /** Built by an older embedding model, so it can no longer be matched against. */
+  stale?: boolean;
   updatedAt: string;
 };
 
@@ -201,16 +203,39 @@ export function VoiceProfiles() {
         ) : profiles.length === 0 ? (
           <p className="mt-1 text-xs text-[var(--text-muted)]">No profiles yet.</p>
         ) : (
+          <>
+          {profiles.some((p) => p.stale) ? (
+            <p className="mt-1.5 text-xs text-[var(--warning)]">
+              Speaker recognition changed model in this version, and voiceprints do not carry
+              across. The profiles marked <strong>re-record</strong> are kept but no longer
+              match anyone — record those people again to restore automatic naming.
+            </p>
+          ) : null}
           <ul className="mt-1.5 flex flex-wrap gap-1.5">
             {profiles.map((p) => (
               <li
                 key={p.name}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] bg-[var(--elevated)] px-2.5 py-1 text-xs text-[var(--text-secondary)]"
-                title={`${
-                  p.sourceMeetingId ? "Last enrolled from a meeting" : "Last enrolled from guided recording"
-                } · averaged over ${p.sampleCount} recording(s)`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+                  p.stale
+                    ? "border-[var(--warning)] bg-[var(--elevated)] text-[var(--text-muted)]"
+                    : "border-[var(--border-strong)] bg-[var(--elevated)] text-[var(--text-secondary)]"
+                }`}
+                title={
+                  p.stale
+                    ? "Recorded by an earlier speaker-recognition model, so it can no longer be matched. Record this person again to restore automatic naming."
+                    : `${
+                        p.sourceMeetingId
+                          ? "Last enrolled from a meeting"
+                          : "Last enrolled from guided recording"
+                      } · averaged over ${p.sampleCount} recording(s)`
+                }
               >
                 {p.name}
+                {p.stale ? (
+                  <span className="text-[10px] font-medium text-[var(--warning)]">
+                    re-record
+                  </span>
+                ) : null}
                 {/* Enrollments accumulate, so show how much voice a profile is built from. */}
                 {p.sampleCount > 1 ? (
                   <span className="text-[10px] text-[var(--text-muted)]">×{p.sampleCount}</span>
@@ -226,6 +251,7 @@ export function VoiceProfiles() {
               </li>
             ))}
           </ul>
+          </>
         )}
       </div>
 
