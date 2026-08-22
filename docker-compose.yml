@@ -84,6 +84,8 @@ services:
     image: ghcr.io/ikasast/voxinq-meeting/stt:${VOXINQ_VERSION:-latest}
     environment:
       HF_TOKEN: ${HF_TOKEN:-}
+      # Unset means "choose from the hardware": pyannote on CUDA, sherpa-onnx without it.
+      DIA_BACKEND: ${DIA_BACKEND:-}
       WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
       # The browser's origin must be allowed; it calls this service directly.
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}

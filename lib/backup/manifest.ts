@@ -29,6 +29,9 @@ export type BundleMeeting = {
   summaryStatus: string | null;
   summaryError: string | null;
   diarizationEmbeddings: string | null;
+  // Optional: absent in bundles written before diarization had two backends. Reads as
+  // pyannote on import, which is what produced every embedding back then.
+  diarizationEmbeddingModel?: string | null;
   startedAt: string;
   endedAt: string | null;
   recordedMs: number | null;

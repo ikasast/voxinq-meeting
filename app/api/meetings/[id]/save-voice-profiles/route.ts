@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { defaultSpeakerName, diarizerLabelToKey, parseSpeakerLabels } from "@/lib/speakers";
-import { CURRENT_EMBEDDING_MODEL } from "@/lib/embedding-models";
+import { embeddingModel } from "@/lib/embedding-models";
 import { cleanClusterEmbeddings, mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
@@ -15,7 +15,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const meeting = await prisma.meeting.findUnique({
     where: { id },
-    select: { id: true, speakerLabels: true, diarizationEmbeddings: true },
+    select: {
+      id: true,
+      speakerLabels: true,
+      diarizationEmbeddings: true,
+      diarizationEmbeddingModel: true,
+    },
   });
   if (!meeting) return apiError("not found", 404);
   if (!meeting.diarizationEmbeddings) {
@@ -33,6 +38,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
   const clusters = cleanClusterEmbeddings(raw);
   const labels = parseSpeakerLabels(meeting.speakerLabels);
+  // The model these embeddings came from, recorded when the diarization run was stored. Null
+  // on meetings diarized before the backends split, which resolves to pyannote — correct,
+  // since that was the only thing that produced them.
+  const clusterModel = embeddingModel(meeting.diarizationEmbeddingModel).id;
 
   const saved: string[] = [];
   const skipped: string[] = [];
@@ -55,20 +64,20 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       existing?.sampleCount ?? 0,
       embedding,
       existing?.embeddingModel,
-      CURRENT_EMBEDDING_MODEL,
+      clusterModel,
     );
     await prisma.speakerProfile.upsert({
       where: { name },
       update: {
         embedding: JSON.stringify(merged.embedding),
         sampleCount: merged.sampleCount,
-        embeddingModel: CURRENT_EMBEDDING_MODEL,
+        embeddingModel: clusterModel,
         sourceMeetingId: id,
       },
       create: {
         name,
         embedding: JSON.stringify(embedding),
-        embeddingModel: CURRENT_EMBEDDING_MODEL,
+        embeddingModel: clusterModel,
         sourceMeetingId: id,
       },
     });

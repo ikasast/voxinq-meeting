@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { CURRENT_EMBEDDING_MODEL, comparable } from "@/lib/embedding-models";
+import { LEGACY_EMBEDDING_MODEL, parseEmbeddingModelId } from "@/lib/embedding-models";
 import { mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
@@ -21,12 +21,12 @@ export async function GET() {
     },
     orderBy: { name: "asc" },
   });
-  // A profile from an older embedding model is not compared against anything — it would be a
-  // meaningless number, not a poor score. Say so here so it can be shown rather than silently
-  // never matching again.
+  // Whether a profile can still be matched depends on which diarization backend the STT host
+  // runs, which this server does not know — the caller asks that service and compares. So the
+  // model is reported as-is, normalised only for the profiles enrolled before it was recorded.
   const profiles = rows.map((p) => ({
     ...p,
-    stale: !comparable(p.embeddingModel, CURRENT_EMBEDDING_MODEL),
+    embeddingModel: p.embeddingModel ?? LEGACY_EMBEDDING_MODEL,
   }));
   return NextResponse.json(profiles);
 }
@@ -35,7 +35,9 @@ export async function GET() {
 // Re-recording under the same name adds to the voiceprint (running average over every
 // enrollment) instead of replacing it, so extra recordings make matching steadier.
 export async function POST(req: NextRequest) {
-  const body = await readJson<{ name?: unknown; embedding?: unknown }>(req);
+  const body = await readJson<{ name?: unknown; embedding?: unknown; embeddingModel?: unknown }>(
+    req,
+  );
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name) return apiError("name is required", 400);
   if (name.length > 60) return apiError("name too long (max 60)", 400);
@@ -48,6 +50,10 @@ export async function POST(req: NextRequest) {
   ) {
     return apiError("invalid embedding", 400);
   }
+  // Which model extracted this vector, as reported by the STT service that extracted it.
+  // Falls back to pyannote when the caller does not say — an older client, and pyannote is
+  // what every release before the backends split used.
+  const model = parseEmbeddingModelId(body?.embeddingModel) ?? LEGACY_EMBEDDING_MODEL;
   const existing = await prisma.speakerProfile.findUnique({
     where: { name },
     select: { embedding: true, sampleCount: true, embeddingModel: true },
@@ -57,20 +63,20 @@ export async function POST(req: NextRequest) {
     existing?.sampleCount ?? 0,
     embedding,
     existing?.embeddingModel,
-    CURRENT_EMBEDDING_MODEL,
+    model,
   );
   await prisma.speakerProfile.upsert({
     where: { name },
     update: {
       embedding: JSON.stringify(merged.embedding),
       sampleCount: merged.sampleCount,
-      embeddingModel: CURRENT_EMBEDDING_MODEL,
+      embeddingModel: model,
       sourceMeetingId: null,
     },
     create: {
       name,
       embedding: JSON.stringify(embedding),
-      embeddingModel: CURRENT_EMBEDDING_MODEL,
+      embeddingModel: model,
       sourceMeetingId: null,
     },
   });

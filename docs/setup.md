@@ -100,16 +100,42 @@ step rather than a broken install:
 
 ### Speaker separation
 
-Nothing to set up. **Diarize** on a finished meeting splits it by speaker; name them once and
-**Voice profiles** will recognise those people in later meetings.
+**Diarize** on a finished meeting splits it by speaker; name them once and **Voice profiles**
+will recognise those people in later meetings.
 
-It runs on the CPU, at roughly five times faster than real time, and deliberately does not ask
-for the GPU — it runs after the meeting, which is when the GPU is wanted for writing the
-minutes.
+Which engine does the work depends on the machine, and so does whether you need to set anything
+up:
 
-> Earlier versions needed a Hugging Face account and token here, for a model whose terms had to
-> be accepted before the first Diarize would work. That requirement is gone: the models ship
-> with the image and are ungated.
+| your machine | engine | setup |
+| --- | --- | --- |
+| NVIDIA GPU | pyannote | needs a Hugging Face token — see below |
+| anything else (Mac, AMD/Intel GPU, CPU) | sherpa-onnx | nothing; the models ship with the image |
+
+pyannote is noticeably more accurate on long meetings, which is why it is preferred where it
+can run. It cannot run usefully without CUDA — on a CPU it takes about as long as the meeting
+itself — so machines without a GPU get sherpa-onnx, which runs at roughly five times real time
+and needs no account anywhere.
+
+Set `DIA_BACKEND=pyannote` or `DIA_BACKEND=sherpa` in `.env` to override the choice. Forcing
+one that cannot run is an error rather than a silent fallback.
+
+#### Getting a Hugging Face token (NVIDIA GPUs only)
+
+Free, and about three minutes. Without it, Diarize on a CUDA machine fails with an
+authentication error for a model you have never heard of.
+
+1. Create an account at [huggingface.co](https://huggingface.co/join).
+2. Open [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+   and accept the terms. The page grants access immediately.
+3. Go to [Settings → Access Tokens](https://huggingface.co/settings/tokens), create a token
+   with the **Read** role, and copy it (it starts with `hf_`).
+4. Put it in `.env` and restart:
+
+   ```bash
+   HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+   ```
+
+Everything except speaker separation and voice profiles works without it.
 
 ### Recording from a phone (Tailscale walkthrough)
 
@@ -239,9 +265,14 @@ For speaker diarization (optional), add the flag:
 ./scripts/setup.sh --diarization      # Windows: .\scripts\setup.ps1 -Diarization
 ```
 
-That installs sherpa-onnx into `diarization/.venv` and downloads two ONNX models (~33 MB). No
-account and no token: it used to need a Hugging Face login and accepted model terms, and no
-longer does.
+That installs sherpa-onnx into `diarization/.venv` and downloads two ONNX models (~33 MB) — no
+account, no token. On a machine with an NVIDIA GPU, also install the more accurate pyannote
+backend into the same venv and set `HF_TOKEN` (see [Speaker separation](#speaker-separation)):
+
+```bash
+diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128
+diarization/.venv/bin/pip install -r diarization/requirements-pyannote.txt
+```
 
 ## Run
 

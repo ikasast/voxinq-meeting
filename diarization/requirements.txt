@@ -1,11 +1,15 @@
-# Speaker diarization, on sherpa-onnx (ONNX Runtime).
+# Speaker diarization. Two backends, and the hardware picks between them at run time -- see
+# diarize.py.
 #
-#   pip install -r requirements.txt
-#   python fetch_models.py     # the two ONNX models, both ungated
+#   pip install -r requirements.txt              # sherpa-onnx backend, runs anywhere
+#   python fetch_models.py                       # its two ONNX models, both ungated
+#   pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements-pyannote.txt     # pyannote backend, CUDA hosts only
 #
-# This replaced pyannote.audio, and with it PyTorch, torchaudio, torchcodec and a CUDA wheel
-# chain — tens of megabytes instead of several gigabytes, no gated model, and no Hugging Face
-# token needed before the first Diarize.
+# Install both on a machine with an NVIDIA GPU: pyannote is chosen there and is markedly more
+# accurate on long meetings. Install only the first two lines on a Mac, an AMD/Intel GPU or a
+# plain CPU server -- pyannote runs at roughly real time on CPU, so a 60-minute meeting would
+# take about 60 minutes, and sherpa-onnx does the job in a fraction of that.
 #
 # The separate venv is kept: this and the STT service each pull their own ONNX Runtime build,
 # and mixing them has caused version conflicts before.
