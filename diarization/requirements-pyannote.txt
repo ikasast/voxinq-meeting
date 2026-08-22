@@ -1,0 +1,18 @@
+# The pyannote diarization backend. Optional, and only worth installing where there is CUDA.
+#
+# Install into the same venv as requirements.txt, after torch:
+#   pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128
+#   pip install -r requirements-pyannote.txt
+#
+# pyannote.audio 4.x requires torch>=2.8 -> cu124 stops at 2.6, so use cu128.
+#
+# Install torchcodec from that index too, not from PyPI. pyannote reads audio through it, and
+# the PyPI wheel is built for the newest CUDA -- pairing that with cu128 torch produces a
+# library that cannot load, and every diarization run fails with "torchcodec is not available".
+#
+# The default pipeline (speaker-diarization-community-1) needs 4.x; backend_pyannote.py still
+# runs on 3.x if DIA_MODEL is pointed back at speaker-diarization-3.1.
+#
+# This pipeline is a gated model, so a Hugging Face token is required for this backend only.
+# Hosts running the sherpa-onnx backend need no token at all.
+pyannote.audio>=4.0

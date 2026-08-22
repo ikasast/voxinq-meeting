@@ -20,28 +20,80 @@ questions all queue behind each other. That is the price of not requiring a bigg
 Translation is the exception — it runs on the **CPU** (NLLB-200 distilled via CTranslate2)
 precisely so it can happen *during* a meeting without competing for VRAM.
 
-## Diarization runs after the meeting, not during it — and on the CPU
+## Diarization runs after the meeting, not during it
 
 Real-time speaker diarization is expensive and, on this hardware, would compete with the
 transcription that has to keep up with live speech. Since the transcript is reviewed after the
 meeting anyway, speakers are assigned in a batch pass at the end, in its own venv, as a
 subprocess.
 
-It runs on **sherpa-onnx** — pyannote's segmentation model converted to ONNX, WeSpeaker
-embeddings, and clustering — rather than the pyannote pipeline it started on. That pipeline
-needed PyTorch, a CUDA build of torch and torchcodec, and a Hugging Face token for a gated
-model: several gigabytes of the STT image, a dependency chain that broke twice, and a new
-install that worked perfectly until the first time someone pressed Diarize and got an
-authentication error for a model they had never heard of.
-
-Measured on a real 105-second meeting: 17 s on CPU (0.18x realtime), the same five speakers,
-and 11 of 12 utterances attributed identically. It no longer asks for the GPU at all, which is
-the right trade for a job that runs once, after the meeting, exactly when the GPU is wanted for
-generating minutes.
-
 Speakers map onto utterances **by index**: `segments.json[N]` corresponds to the Nth transcript
 row. This is why deleting an utterance also deletes the matching boundary in the recording, and
 why editing text does not — rewording changes no positions.
+
+## Diarization has two backends, chosen by the hardware
+
+`diarization/diarize.py` dispatches to one of two implementations:
+
+| | chosen when | needs | accuracy |
+| --- | --- | --- | --- |
+| `backend_pyannote` | a CUDA device is present | torch + torchcodec, `HF_TOKEN` (gated model) | the reference |
+| `backend_sherpa` | otherwise | ONNX Runtime, no token | usable, sometimes much worse |
+
+`DIA_BACKEND=pyannote|sherpa` forces one. An explicit choice that cannot run is an error rather
+than a silent downgrade — someone who asked for pyannote wants its accuracy, and quietly
+substituting the other one would surface much later as unexplained speaker labels.
+
+This shape is the result of getting it wrong first, and the record is worth keeping.
+
+**v2.0.0-beta.1 replaced pyannote outright with sherpa-onnx.** The reasons were good: the
+pyannote pipeline needed PyTorch, a CUDA build of torch and torchcodec, and a Hugging Face
+token for a gated model — 20.8 GB of STT image, a dependency chain that had already broken
+twice, and a new install that worked perfectly until the first time someone pressed Diarize and
+got an authentication error for a model they had never heard of. ONNX Runtime does the same job
+in tens of megabytes with ungated models, on any OS and any GPU vendor, which is the whole
+point of the 2.0 line. It measured well: on a 105-second meeting, 17 s on CPU (0.18x realtime),
+the same five speakers, 11 of 12 utterances attributed identically.
+
+**That validation was the mistake.** One 105-second meeting with twelve utterances is not
+evidence about hour-long meetings, and the embedding model chosen — WeSpeaker trained on
+VoxCeleb — is trained on English speakers, for an application whose recordings are Japanese.
+On real meetings, against pyannote's labels:
+
+| meeting | pyannote | sherpa + VoxCeleb (beta.1) |
+| --- | --- | --- |
+| 12 min, 3 people | 61 / 38 / 9 | 87 / 20 / 1 — 40% agreement |
+| 49 min, 3 people | 3 speakers | 2 speakers, split 430 / 20 |
+
+Four embedding models were then measured against pyannote's labels on the 12-minute meeting:
+
+| embedding model | assignment | agreement |
+| --- | --- | --- |
+| WeSpeaker CN-Celeb | 62 / 38 / 8 | **91%** |
+| NeMo TitaNet | 65 / 42 / 1 | 86% |
+| WeSpeaker VoxCeleb (beta.1) | 87 / 20 / 1 | 40% |
+| 3D-Speaker CAM++ | 101 / 7 | 59% |
+
+CN-Celeb — Chinese, not English, but far closer to Japanese phonetically — was clearly better,
+and sherpa's clustering was rebuilt around it: deliberately over-split, then merged by
+duration-weighted centroids where averaging has cancelled the per-turn noise that makes a
+usable threshold impossible to find. On the 12-minute meeting that reached 86%. On the
+49-minute meeting that had failed, it produced **one** speaker for all 450 utterances — worse
+than what it was fixing.
+
+So the swap was reverted, but not thrown away. Losing diarization entirely on a Mac, an AMD or
+Intel GPU, or a CPU-only server would cost more than the accuracy gap costs there, and pyannote
+is not an answer on those machines: it runs at roughly real time on CPU, turning a 60-minute
+meeting into a 60-minute wait, and MPS is not usable. Keeping both means the accurate path
+stays exactly as accurate as v1.5 was, and the portable path exists at all.
+
+What that costs, and is accepted: the published STT image carries torch again and is large.
+`--build-arg WITH_PYANNOTE=0` builds it without, for hosts where sherpa is the only backend
+that would ever be selected.
+
+The lesson that generalises: **validate a component swap on the largest real input available,
+not the most convenient one.** The 105-second meeting was chosen because it was quick to run,
+and every failure mode that mattered only appears at length.
 
 ## VAD is two layers, both already present
 
@@ -203,8 +255,19 @@ speakers for pyannote, while for WeSpeaker two *different* people scored 0.60 �
 would introduce false matches rather than merely be imprecise.
 
 Profiles enrolled before this are read as pyannote, which is what they are, so recording it
-costs nobody their voiceprints. Changing the diarization model still requires re-enrolment —
-that is inherent — but it will say so instead of going silently wrong.
+costs nobody their voiceprints.
+
+Since diarization gained a second backend there is **no single current model**: which one
+produced a vector depends on the STT host's hardware, not on the build. So the id travels with
+the embedding — stamped by the diarizer, returned by `/voiceprint` and `/diarize/{id}/status`,
+stored on the profile and on the meeting (`diarization_embedding_model`). Nothing infers it.
+The settings screen asks the STT service what it produces now and marks anything else
+**re-record**; if that service cannot be reached it marks nothing, because telling someone
+their voiceprints are dead over a brief outage would send them off to re-record for no reason.
+
+This is also the machinery that made the failed backend swap visible instead of silent, and
+`tests/embedding-models.test.ts` reads `EMBEDDING_MODEL_ID` out of both backend `.py` files to
+check they still name models this side knows — the drift that started the whole problem.
 
 ## Single user, by design
 

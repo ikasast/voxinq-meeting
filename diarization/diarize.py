@@ -1,21 +1,25 @@
 """Speaker diarization - split a finished meeting into speaker turns, in one pass at the end.
 
-Runs on sherpa-onnx: pyannote's segmentation model converted to ONNX, WeSpeaker embeddings,
-and clustering. The pyannote *pipeline* it replaced needed PyTorch, a CUDA build of torch, and
-a Hugging Face token for a gated model - which is most of why the STT image was 20 GB and why
-the first Diarize on a new install failed with an authentication error.
+Two backends live behind this script, and the hardware picks between them:
 
-What this buys:
+    CUDA present  ->  backend_pyannote   accurate, needs torch + a Hugging Face token
+    otherwise     ->  backend_sherpa     ONNX only, runs anywhere, less accurate
 
-  * No torch, no torchcodec, no CUDA wheels. ONNX Runtime is tens of megabytes.
-  * No gated model, so no HF token: diarization works on a fresh install with nothing to sign.
-  * Runs anywhere ONNX runs, which is the point of the whole 2.0 line.
-  * Measured on a real 105 s meeting: 18.5 s on CPU (RTF 0.18), finding the same five speakers
-    the pyannote pipeline did.
+That split is the whole point. v2.0.0-beta.1 tried to replace pyannote outright with ONNX and
+shipped a regression: on a 49-minute three-person meeting the ONNX backend put every utterance
+on one speaker. Rather than lose diarization on machines that have no CUDA, or lose accuracy
+on machines that do, both are kept and the choice is made from what the host can run.
+See docs/design-decisions.md, "Diarization: two backends, chosen by hardware".
 
-The trade is that voiceprints do not carry over. WeSpeaker embeddings and pyannote's are both
-256 numbers and score 0.39 against each other on the same clip - a different space wearing the
-same shape - so enrolled profiles have to be recorded again. See lib/embedding-models.ts.
+The backends agree on a contract:
+
+    diarize(audio_path) -> (turns, embeddings)      turns: [(start, end, raw_label)]
+    embed_clip(path)    -> [float, ...]
+    available()         -> (ok, reason)
+    EMBEDDING_MODEL_ID, NAME
+
+Everything downstream of that - label normalisation, mapping turns onto utterances, the JSON
+on stdout - is shared and lives here.
 
 Usage:
     # Standalone check: split audio into speaker turns
@@ -29,161 +33,69 @@ Usage:
     # Voice-profile enrollment: one voiceprint from a single-speaker clip
     python diarize.py --embed path/to/clip.wav
 
-Environment variables:
-    DIA_MODEL_DIR       where the ONNX models live (default: ./models next to this file)
-    DIA_NUM_SPEAKERS    fix the speaker count if known (optional)
-    DIA_CLUSTER_THRESHOLD  clustering distance when the count is unknown (default 0.5)
-    DIA_THREADS         ONNX threads (default: half the cores)
+    # Which backend would run here, and what will voiceprints be stamped with?
+    python diarize.py --backend-info
 
-`DIA_DEVICE` is accepted and ignored: ONNX Runtime here is the CPU provider, and at RTF 0.18
-a GPU would save seconds on a job that runs once, after the meeting, while the GPU is wanted
-for generating minutes.
+Environment variables:
+    DIA_BACKEND         pyannote / sherpa / auto (default: auto, as described above)
+
+    ...plus whatever the chosen backend reads; see backend_pyannote.py and backend_sherpa.py.
 """
 
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
-import wave
-from pathlib import Path
 
-import numpy as np
-
-SAMPLE_RATE = 16000
-
-MODEL_DIR = Path(os.environ.get("DIA_MODEL_DIR") or (Path(__file__).parent / "models"))
-SEGMENTATION_MODEL = MODEL_DIR / "segmentation.onnx"
-EMBEDDING_MODEL = MODEL_DIR / "embedding.onnx"
-
-# The id recorded against any voiceprint this produces. It must match the value in
-# lib/embedding-models.ts, which is what stops a profile from one model being compared with a
-# vector from another - equal dimensions mean nothing else would notice.
-EMBEDDING_MODEL_ID = "sherpa-wespeaker-resnet34"
+BACKENDS = ("pyannote", "sherpa")
 
 
-def _threads() -> int:
-    if os.environ.get("DIA_THREADS"):
-        return max(1, int(os.environ["DIA_THREADS"]))
-    return max(1, (os.cpu_count() or 4) // 2)
+def _import(name: str):
+    """Import a backend module, whether this file runs as a script or as a package member."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    if name == "pyannote":
+        import backend_pyannote as mod
+    else:
+        import backend_sherpa as mod
+    return mod
 
 
-def read_wav(path: str) -> np.ndarray:
-    """Read a mono 16 kHz WAV as float32. The recordings this runs on are always that."""
-    with wave.open(path, "rb") as w:
-        if w.getnchannels() != 1 or w.getframerate() != SAMPLE_RATE:
-            raise SystemExit(
-                f"expected mono {SAMPLE_RATE} Hz audio, got {w.getnchannels()}ch "
-                f"{w.getframerate()} Hz: {path}"
-            )
-        raw = w.readframes(w.getnframes())
-    return np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+def select_backend():
+    """The backend to use here, from DIA_BACKEND or from what the hardware can run.
 
-
-def _require_models() -> None:
-    missing = [p.name for p in (SEGMENTATION_MODEL, EMBEDDING_MODEL) if not p.exists()]
-    if missing:
-        raise SystemExit(
-            f"diarization models not found in {MODEL_DIR}: {', '.join(missing)}\n"
-            "Fetch them with: python diarization/fetch_models.py"
-        )
-
-
-def _embedding_extractor():
-    import sherpa_onnx
-
-    _require_models()
-    return sherpa_onnx.SpeakerEmbeddingExtractor(
-        sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-            model=str(EMBEDDING_MODEL), num_threads=_threads()
-        )
-    )
-
-
-def embed_clip(audio_path: str) -> list[float]:
-    """One voiceprint from a clip that is assumed to hold a single speaker."""
-    ex = _embedding_extractor()
-    pcm = read_wav(audio_path)
-    stream = ex.create_stream()
-    stream.accept_waveform(sample_rate=SAMPLE_RATE, waveform=pcm)
-    stream.input_finished()
-    return [float(x) for x in ex.compute(stream)]
-
-
-def diarize(audio_path: str):
-    """Split audio into speaker turns and extract a voiceprint per speaker.
-
-    Returns (turns, embeddings):
-      turns:      [(start, end, raw_label)]
-      embeddings: {raw_label: [float, ...]} mean embedding per cluster, for enrolling and
-                  recognising voice profiles on the web side.
+    An explicit choice that cannot run is an error, not a silent downgrade: someone who set
+    DIA_BACKEND=pyannote wants pyannote's accuracy, and quietly giving them the other one
+    would surface much later as unexplained speaker labels.
     """
-    import sherpa_onnx
+    want = (os.environ.get("DIA_BACKEND") or "auto").strip().lower()
+    if want not in ("auto", *BACKENDS):
+        raise SystemExit(f"DIA_BACKEND must be one of auto, {', '.join(BACKENDS)} (got {want!r})")
 
-    _require_models()
-    num_speakers = int(os.environ.get("DIA_NUM_SPEAKERS") or -1)
-    config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
-        segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
-            pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
-                model=str(SEGMENTATION_MODEL)
-            ),
-            num_threads=_threads(),
-        ),
-        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-            model=str(EMBEDDING_MODEL), num_threads=_threads()
-        ),
-        # num_clusters=-1 means "work it out"; the threshold then decides where one speaker
-        # ends and another begins. A known participant count is far more reliable, which is
-        # why the UI asks for it.
-        clustering=sherpa_onnx.FastClusteringConfig(
-            num_clusters=num_speakers if num_speakers > 0 else -1,
-            threshold=float(os.environ.get("DIA_CLUSTER_THRESHOLD") or 0.5),
-        ),
-        min_duration_on=0.3,
-        min_duration_off=0.5,
-    )
-    if not config.validate():
-        raise SystemExit("invalid diarization configuration")
+    if want in BACKENDS:
+        mod = _import(want)
+        ok, reason = mod.available()
+        if not ok:
+            raise SystemExit(f"DIA_BACKEND={want} was requested but cannot run: {reason}")
+        return mod
 
-    pcm = read_wav(audio_path)
-    result = sherpa_onnx.OfflineSpeakerDiarization(config).process(pcm)
-    turns = [
-        (float(s.start), float(s.end), f"SPEAKER_{int(s.speaker):02d}")
-        for s in result.sort_by_start_time()
-    ]
+    reasons = []
+    pyannote = _import("pyannote")
+    ok, reason = pyannote.available()
+    if ok and pyannote.cuda_available():
+        return pyannote
+    # Only when there is a CUDA device: on CPU this backend runs at roughly real time, which
+    # would turn a 60-minute meeting into a 60-minute wait without anyone having asked for it.
+    reasons.append("pyannote: " + (reason or "no CUDA device"))
 
-    # sherpa returns turns, not centroids, so the voiceprint for a speaker is built here: the
-    # mean of the embeddings of that speaker's turns, weighted by how long each one is. Longer
-    # speech is more of the person and less of the room.
-    embeddings: dict[str, list[float]] = {}
-    if turns:
-        ex = _embedding_extractor()
-        sums: dict[str, np.ndarray] = {}
-        weights: dict[str, float] = {}
-        for start, end, label in turns:
-            # Too short to characterise a voice; including it drags the centroid around.
-            if end - start < 1.0:
-                continue
-            clip = pcm[int(start * SAMPLE_RATE) : int(end * SAMPLE_RATE)]
-            if clip.size < SAMPLE_RATE:
-                continue
-            stream = ex.create_stream()
-            stream.accept_waveform(sample_rate=SAMPLE_RATE, waveform=clip)
-            stream.input_finished()
-            vec = np.asarray(ex.compute(stream), dtype=np.float64)
-            if not np.all(np.isfinite(vec)):
-                continue
-            w = end - start
-            sums[label] = sums.get(label, np.zeros_like(vec)) + vec * w
-            weights[label] = weights.get(label, 0.0) + w
-        for label, total in sums.items():
-            vec = total / weights[label]
-            values = [float(x) for x in vec]
-            if any(not math.isfinite(x) for x in values) or all(x == 0.0 for x in values):
-                continue
-            embeddings[label] = values
-    return turns, embeddings
+    sherpa = _import("sherpa")
+    ok, reason = sherpa.available()
+    if ok:
+        return sherpa
+    reasons.append(f"sherpa: {reason}")
+    raise SystemExit("no diarization backend can run here - " + "; ".join(reasons))
 
 
 def normalize_labels(turns):
@@ -216,15 +128,23 @@ def assign_speakers(turns, segments):
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("usage: python diarize.py <audio> [segments.json] | --embed <audio>")
+        print("usage: python diarize.py <audio> [segments.json] | --embed <audio> | --backend-info")
         raise SystemExit(1)
+
+    if sys.argv[1] == "--backend-info":
+        # What the STT service reports on /health, so the web side knows which model new
+        # voiceprints carry and can mark older ones as no longer comparable.
+        backend = select_backend()
+        print(json.dumps({"backend": backend.NAME, "embeddingModel": backend.EMBEDDING_MODEL_ID}))
+        return
 
     if sys.argv[1] == "--embed":
         if len(sys.argv) < 3:
             print("usage: python diarize.py --embed <audio>")
             raise SystemExit(1)
+        backend = select_backend()
         try:
-            vec = embed_clip(sys.argv[2])
+            vec = backend.embed_clip(sys.argv[2])
         except SystemExit:
             raise
         except Exception as e:  # noqa: BLE001  the caller shows this to a person
@@ -233,16 +153,19 @@ def main() -> None:
         if not vec:
             print(json.dumps({"error": "no voice embedding could be extracted"}))
             raise SystemExit(2)
-        print(json.dumps({"embedding": vec, "embeddingModel": EMBEDDING_MODEL_ID}))
+        print(json.dumps({"embedding": vec, "embeddingModel": backend.EMBEDDING_MODEL_ID}))
         return
 
+    backend = select_backend()
     audio_path = sys.argv[1]
-    turns, embeddings = diarize(audio_path)
+    turns, embeddings = backend.diarize(audio_path)
 
     if len(sys.argv) >= 3:
         with open(sys.argv[2], encoding="utf-8") as f:
             segments = json.load(f)
         speakers = assign_speakers(turns, segments)
+        # Emit embeddings keyed by the normalized labels ("speaker0", ...) so the web side can
+        # enroll and match voice profiles per displayed speaker.
         label_map = normalize_labels(turns)
         norm_embeddings = {label_map[k]: v for k, v in embeddings.items() if k in label_map}
         print(
@@ -250,7 +173,7 @@ def main() -> None:
                 {
                     "speakers": speakers,
                     "embeddings": norm_embeddings,
-                    "embeddingModel": EMBEDDING_MODEL_ID,
+                    "embeddingModel": backend.EMBEDDING_MODEL_ID,
                 },
                 ensure_ascii=False,
             )
@@ -262,7 +185,13 @@ def main() -> None:
             for s, e, label in turns
         ]
         n = len(set(label_map.values()))
-        print(json.dumps({"num_speakers": n, "turns": out}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"backend": backend.NAME, "num_speakers": n, "turns": out},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
 
 
 if __name__ == "__main__":

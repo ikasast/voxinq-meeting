@@ -1,9 +1,10 @@
-"""Download the two ONNX models diarization needs.
+"""Download the two ONNX models the sherpa-onnx diarization backend needs.
 
-Both are ungated — no account, no token, no terms to accept. That is a deliberate part of the
-move to sherpa-onnx: the pyannote pipeline this replaced needed a Hugging Face token for a
-gated model, which meant a new install worked fine until the first time someone pressed
-Diarize and got an authentication error for a model they had never heard of.
+Both are ungated - no account, no token, no terms to accept - which is why this backend is the
+one that runs on a host without CUDA. The pyannote backend is more accurate and is preferred
+where there is a GPU, but its pipeline is a gated model: a new install works fine until the
+first time someone presses Diarize and gets an authentication error for a model they have
+never heard of. See diarization/diarize.py for how the two are chosen between.
 
 Run:  python diarization/fetch_models.py
 """
@@ -27,11 +28,23 @@ SEGMENTATION_TAR = (
 )
 SEGMENTATION_MEMBER = "sherpa-onnx-pyannote-segmentation-3-0/model.onnx"
 
-# WeSpeaker ResNet34. Apache-2.0; the "reverb" model in the same release is non-commercial and
-# is deliberately not used here.
+# WeSpeaker ResNet34 trained on **CN-Celeb**, not VoxCeleb.
+#
+# The English VoxCeleb build shipped first and was measurably bad at this app's actual job.
+# On a 12-minute Japanese meeting where pyannote separated three people 61/38/9, it produced
+# 87/20/1 — one speaker absorbing nearly everything — even when told there were exactly three.
+# The CN-Celeb build of the same architecture gives 62/38/8 on the same audio: 91% agreement
+# with pyannote against 40%.
+#
+# The reason shows up in the embeddings themselves. Measured across a real meeting, same
+# speaker vs different speaker: VoxCeleb 0.84/0.60 (a margin of 0.24), CN-Celeb 0.78/0.42 (a
+# margin of 0.36). A model trained on English speakers does not separate Japanese ones well
+# enough for clustering to survive a long meeting.
+#
+# Apache-2.0. The "reverb" model in the same release is non-commercial and is not used.
 EMBEDDING_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
-    "speaker-recongition-models/wespeaker_en_voxceleb_resnet34_LM.onnx"
+    "speaker-recongition-models/wespeaker_zh_cnceleb_resnet34_LM.onnx"
 )
 
 

@@ -241,6 +241,7 @@ export async function runImport(input: ImportInput): Promise<ImportResult> {
             summaryStatus: m.summaryStatus,
             summaryError: m.summaryError,
             diarizationEmbeddings: m.diarizationEmbeddings,
+            diarizationEmbeddingModel: m.diarizationEmbeddingModel ?? null,
             startedAt: new Date(m.startedAt),
             endedAt: m.endedAt ? new Date(m.endedAt) : null,
             recordedMs: m.recordedMs,

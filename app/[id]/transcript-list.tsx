@@ -563,6 +563,10 @@ export function TranscriptList({
         status: string;
         speakers?: string[];
         embeddings?: Record<string, number[]>;
+        // Which model produced those embeddings — pyannote or sherpa-onnx, depending on the
+        // STT host's hardware. Stored with them so a voiceprint is never compared with a
+        // vector from the other model, which would score like a stranger.
+        embeddingModel?: string | null;
         detail?: string;
         code?: string;
       };
@@ -619,7 +623,10 @@ export function TranscriptList({
         const embRes = await fetch(`/api/meetings/${meetingId}/diarization-embeddings`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ embeddings: data.embeddings ?? {} }),
+          body: JSON.stringify({
+            embeddings: data.embeddings ?? {},
+            embeddingModel: data.embeddingModel ?? null,
+          }),
         });
         if (embRes.ok) {
           const emb = (await embRes.json()) as {

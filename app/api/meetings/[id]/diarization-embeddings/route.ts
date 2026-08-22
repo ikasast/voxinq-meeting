@@ -3,7 +3,7 @@ import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { getVoiceprintThreshold } from "@/lib/settings";
 import { diarizerLabelToKey, parseSpeakerLabels } from "@/lib/speakers";
-import { CURRENT_EMBEDDING_MODEL } from "@/lib/embedding-models";
+import { parseEmbeddingModelId } from "@/lib/embedding-models";
 import { cleanClusterEmbeddings, matchProfiles, parseEmbedding } from "@/lib/voiceprint";
 
 export const runtime = "nodejs";
@@ -13,8 +13,12 @@ export const runtime = "nodejs";
 // speakerLabels — but never overwrite a name the user already set on this meeting.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await readJson<{ embeddings?: unknown }>(req);
+  const body = await readJson<{ embeddings?: unknown; embeddingModel?: unknown }>(req);
   const clusters = cleanClusterEmbeddings(body?.embeddings);
+  // Which space these vectors are in. It comes from the diarizer, because the answer depends
+  // on the STT host's hardware rather than on this build. An unrecognised value parses to
+  // null, which reads as pyannote — the same as a run from before the backends split.
+  const clusterModel = parseEmbeddingModelId(body?.embeddingModel);
 
   const meeting = await prisma.meeting.findUnique({
     where: { id },
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const matches = matchProfiles(
       clusters,
       profiles,
-      CURRENT_EMBEDDING_MODEL,
+      clusterModel,
       await getVoiceprintThreshold(),
     );
     for (const [cluster, m] of Object.entries(matches)) {
@@ -60,6 +64,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id },
     data: {
       diarizationEmbeddings: Object.keys(clusters).length ? JSON.stringify(clusters) : null,
+      // Stored with them, so enrolling a profile from this meeting later still knows which
+      // model the vectors belong to.
+      diarizationEmbeddingModel: Object.keys(clusters).length ? clusterModel : null,
       speakerLabels: JSON.stringify(labels),
     },
   });

@@ -68,6 +68,7 @@ async function collectDb(): Promise<BundleDb> {
       summaryStatus: m.summaryStatus,
       summaryError: m.summaryError,
       diarizationEmbeddings: m.diarizationEmbeddings,
+      diarizationEmbeddingModel: m.diarizationEmbeddingModel,
       startedAt: m.startedAt.toISOString(),
       endedAt: m.endedAt?.toISOString() ?? null,
       recordedMs: m.recordedMs,

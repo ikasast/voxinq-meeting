@@ -2,7 +2,7 @@
 # One-shot Voxinq setup (Linux/macOS). Idempotent — safe to re-run.
 #
 #   ./scripts/setup.sh                # web app + DB schema + STT venv + Ollama model
-#   ./scripts/setup.sh --diarization  # also build the diarization venv (ONNX, CPU)
+#   ./scripts/setup.sh --diarization  # also build the diarization venv (adds pyannote if an NVIDIA GPU is present)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -73,6 +73,17 @@ if [ "$WITH_DIARIZATION" -eq 1 ]; then
   diarization/.venv/bin/pip install -q -r diarization/requirements.txt
   diarization/.venv/bin/python diarization/fetch_models.py
   ok "diarization dependencies and models installed"
+
+  # On an NVIDIA machine, add the pyannote backend too: it is markedly more accurate on long
+  # meetings and is what diarize.py picks when CUDA is there. Several gigabytes, so it is not
+  # installed anywhere it would never be selected.
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    step "pyannote backend (NVIDIA GPU detected)"
+    diarization/.venv/bin/pip install -q torch torchaudio torchcodec \
+      --index-url https://download.pytorch.org/whl/cu128
+    diarization/.venv/bin/pip install -q -r diarization/requirements-pyannote.txt
+    ok "pyannote installed — set HF_TOKEN before the first Diarize (see docs/setup.md)"
+  fi
 fi
 
 step "Default LLM model (ollama pull)"

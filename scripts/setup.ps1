@@ -1,7 +1,7 @@
 # One-shot Voxinq setup (Windows). Idempotent — safe to re-run.
 #
 #   .\scripts\setup.ps1                 # web app + DB schema + STT venv + Ollama model
-#   .\scripts\setup.ps1 -Diarization    # also build the diarization venv (ONNX, CPU)
+#   .\scripts\setup.ps1 -Diarization    # also build the diarization venv (adds pyannote if an NVIDIA GPU is present)
 param(
   [switch]$Diarization
 )
@@ -77,6 +77,18 @@ if ($Diarization) {
   & $diaPy diarization\fetch_models.py
   if ($LASTEXITCODE -ne 0) { exit 1 }
   Ok "diarization dependencies and models installed"
+
+  # On an NVIDIA machine, add the pyannote backend too: it is markedly more accurate on long
+  # meetings and is what diarize.py picks when CUDA is there. Several gigabytes, so it is not
+  # installed anywhere it would never be selected.
+  if (Get-Command nvidia-smi -ErrorAction SilentlyContinue) {
+    Step "pyannote backend (NVIDIA GPU detected)"
+    & $diaPy -m pip install -q torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+    & $diaPy -m pip install -q -r diarization\requirements-pyannote.txt
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+    Ok "pyannote installed - set HF_TOKEN before the first Diarize (see docs/setup.md)"
+  }
 }
 
 Step "Default LLM model (ollama pull)"
