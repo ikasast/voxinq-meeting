@@ -62,9 +62,10 @@ docker compose up -d
 docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model
 ```
 
-The first pull is about 20 GB. For speaker diarization, accept the terms for
-[pyannote](https://huggingface.co/pyannote/speaker-diarization-community-1) and put your token
-in `.env` as `HF_TOKEN`.
+The first pull is about 20 GB. Speaker diarization on an NVIDIA GPU uses pyannote: accept the
+terms for [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+and put your token in `.env` as `HF_TOKEN`. Without an NVIDIA GPU it runs on ungated ONNX
+models instead and needs no token — see [Speaker separation](docs/setup.md#speaker-separation).
 
 **Native** — no containers; needs Node.js 20+, Python 3.11, PostgreSQL 17 and [Ollama](https://ollama.com) on the host.
 

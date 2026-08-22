@@ -8,9 +8,11 @@ type Profile = {
   name: string;
   sourceMeetingId: string | null;
   sampleCount: number;
-  /** Built by an older embedding model, so it can no longer be matched against. */
-  stale?: boolean;
+  /** The model that built this voiceprint. */
+  embeddingModel: string;
   updatedAt: string;
+  /** Filled in here: that model is not what the STT host produces now, so it cannot match. */
+  stale?: boolean;
 };
 
 // A phonetically varied passage for enrollment. The voiceprint is text-independent,
@@ -73,11 +75,25 @@ export function VoiceProfiles() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const secondsRef = useRef(0);
 
+  // A voiceprint can only be matched against vectors from the same model, and which model the
+  // STT host produces depends on its hardware — pyannote where there is CUDA, sherpa-onnx
+  // otherwise. So ask that host, then mark the profiles it can no longer recognise. If it
+  // cannot be reached, nothing is marked: claiming a profile is dead because a service was
+  // briefly down would send someone off to re-record for no reason.
   const loadProfiles = () => {
-    fetch("/api/speaker-profiles", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((list: Profile[] | null) => setProfiles(list ?? []))
-      .catch(() => setProfiles([]));
+    Promise.all([
+      fetch("/api/speaker-profiles", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+      fetch(`${sttHttpBase()}/health`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ]).then(([list, health]: [Profile[] | null, { embeddingModel?: string | null } | null]) => {
+      const current = health?.embeddingModel ?? null;
+      setProfiles(
+        (list ?? []).map((p) => ({ ...p, stale: current ? p.embeddingModel !== current : false })),
+      );
+    });
   };
   useEffect(loadProfiles, []);
   // Stop capture if the user navigates away mid-recording.
@@ -158,11 +174,16 @@ export function VoiceProfiles() {
         const d = await res.json().catch(() => null);
         throw new Error(d?.detail ?? `Extraction failed (HTTP ${res.status})`);
       }
-      const { embedding } = (await res.json()) as { embedding: number[] };
+      const { embedding, embeddingModel } = (await res.json()) as {
+        embedding: number[];
+        embeddingModel?: string | null;
+      };
+      // The model comes back with the vector: which diarization backend extracted it depends
+      // on the STT host's hardware, so only that host can say.
       const save = await fetch("/api/speaker-profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), embedding }),
+        body: JSON.stringify({ name: name.trim(), embedding, embeddingModel }),
       });
       if (!save.ok) {
         const d = await save.json().catch(() => null);
@@ -206,9 +227,10 @@ export function VoiceProfiles() {
           <>
           {profiles.some((p) => p.stale) ? (
             <p className="mt-1.5 text-xs text-[var(--warning)]">
-              Speaker recognition changed model in this version, and voiceprints do not carry
-              across. The profiles marked <strong>re-record</strong> are kept but no longer
-              match anyone — record those people again to restore automatic naming.
+              The profiles marked <strong>re-record</strong> were built by a different
+              speaker-recognition model than this machine is running now, and voiceprints do not
+              carry across models. They are kept, but they no longer match anyone — record those
+              people again to restore automatic naming.
             </p>
           ) : null}
           <ul className="mt-1.5 flex flex-wrap gap-1.5">
@@ -222,7 +244,7 @@ export function VoiceProfiles() {
                 }`}
                 title={
                   p.stale
-                    ? "Recorded by an earlier speaker-recognition model, so it can no longer be matched. Record this person again to restore automatic naming."
+                    ? "Built by a different speaker-recognition model than this machine runs, so it can no longer be matched. Record this person again to restore automatic naming."
                     : `${
                         p.sourceMeetingId
                           ? "Last enrolled from a meeting"

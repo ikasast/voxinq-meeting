@@ -489,6 +489,54 @@ def rms(frame: np.ndarray) -> float:
     return float(np.sqrt(np.mean(frame * frame)))
 
 
+_DIA_INFO: dict | None = None
+
+
+def _diarization_info() -> dict:
+    """Which diarization backend would run here, and the embedding model it stamps.
+
+    Asked of diarize.py rather than worked out here, because the answer depends on what is
+    importable inside the diarization venv — which this process cannot see. Cached: the
+    subprocess costs a second or two (it may import torch) and /health is polled.
+
+    The web side needs this to tell a voiceprint that can still be matched from one enrolled
+    under a different backend. On failure it returns nulls rather than raising: a health check
+    that 500s because diarization is misconfigured hides everything else it reports.
+    """
+    global _DIA_INFO
+    if _DIA_INFO is not None:
+        return _DIA_INFO
+    info = {"diarizationBackend": None, "embeddingModel": None}
+    try:
+        if not _DIA_PYTHON.exists() or not _DIA_SCRIPT.exists():
+            return info  # not cached: a later install should be picked up
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "utf-8"
+        proc = subprocess.run(
+            [str(_DIA_PYTHON), str(_DIA_SCRIPT), "--backend-info"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            timeout=120,
+        )
+        if proc.returncode == 0:
+            lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+            payload = json.loads(lines[-1]) if lines else {}
+            info = {
+                "diarizationBackend": payload.get("backend"),
+                "embeddingModel": payload.get("embeddingModel"),
+            }
+    except Exception:  # noqa: BLE001  see the docstring: never break /health over this
+        pass
+    # Only a real answer is cached. Caching a failure would freeze the nulls in for the life of
+    # the process, and the web side reads nulls as "cannot tell" — so one bad moment at startup
+    # would leave stale voiceprints unmarked until someone restarted the service.
+    if info["diarizationBackend"]:
+        _DIA_INFO = info
+    return info
+
+
 @app.get("/health")
 async def health() -> dict:
     jobs = _running_jobs()
@@ -514,6 +562,8 @@ async def health() -> dict:
         "busy": busy,
         "busyKind": kind,
         "translate": translator_state(),
+        # Runs a subprocess the first time, so keep it off the event loop.
+        **await asyncio.to_thread(_diarization_info),
     }
 
 
@@ -562,6 +612,20 @@ def _read_cached_embeddings(mid: str) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError):
         return {}
+
+
+def _read_cached_embedding_model(mid: str) -> str | None:
+    """Which embedding model produced the cached embeddings, or None if it was not recorded.
+
+    None means the run predates this file, which in practice means pyannote — every release
+    before v2.0.0 had no other backend. The web side reads it that way (LEGACY_EMBEDDING_MODEL
+    in lib/embedding-models.ts), so an old meeting's voiceprints stay usable.
+    """
+    path = RECORDINGS_DIR / f"{mid}.embedding-model"
+    try:
+        return path.read_text(encoding="utf-8").strip() or None
+    except FileNotFoundError:
+        return None
 
 
 def _recording_state(mid: str) -> dict:
@@ -887,12 +951,14 @@ def _run_diarizer(
     """Run diarize.py in the diarization venv as a subprocess.
 
     When `mid` is given, the process is registered so it can be cancelled (see /diarize/{id}/cancel).
-    Returns {"speakers": [...], "embeddings": {label: [float,...]}} — per-utterance
-    speaker labels plus per-speaker voice embeddings (may be missing/empty)."""
+    Returns {"speakers": [...], "embeddings": {label: [float,...]}, "embeddingModel": str|None}
+    — per-utterance speaker labels plus per-speaker voice embeddings (may be missing/empty),
+    and which embedding model produced them."""
     env = dict(os.environ)
-    # Diarization is CPU work now (ONNX Runtime), and fast enough that it does not want the
-    # GPU: measured at 0.18x realtime, on a job that runs once after the meeting, exactly when
-    # the GPU is wanted for generating minutes instead.
+    # Which backend runs, and therefore whether this uses the GPU, is decided inside
+    # diarize.py from the hardware — see DIA_BACKEND there. Either way it runs once, after
+    # the meeting, which is also when the GPU is wanted for generating minutes; the global
+    # GPU lock in diarize_start is what keeps those two apart.
     env["PYTHONIOENCODING"] = "utf-8"
     if num_speakers:
         env["DIA_NUM_SPEAKERS"] = str(num_speakers)
@@ -920,7 +986,14 @@ def _run_diarizer(
     if not lines:
         raise RuntimeError("diarizer returned no output")
     payload = json.loads(lines[-1])
-    return {"speakers": payload["speakers"], "embeddings": payload.get("embeddings") or {}}
+    return {
+        "speakers": payload["speakers"],
+        "embeddings": payload.get("embeddings") or {},
+        # Which model these vectors live in. Voiceprints from the two backends are the same
+        # length and score like strangers against each other, so this is the only thing that
+        # keeps the web side from comparing them — see lib/embedding-models.ts.
+        "embeddingModel": payload.get("embeddingModel"),
+    }
 
 
 # Diarization can take several to a dozen-plus minutes on CPU (~0.5x the audio length).
@@ -957,6 +1030,10 @@ def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> No
         # Per-speaker voice embeddings for voice-profile enrollment/recognition on the web side.
         with open(RECORDINGS_DIR / f"{mid}.embeddings.json", "w", encoding="utf-8") as f:
             json.dump(embeddings, f, ensure_ascii=False)
+        # Recorded next to them so a cached result can still say which space its vectors are
+        # in, long after the process that produced them is gone.
+        if embedding_model:
+            (RECORDINGS_DIR / f"{mid}.embedding-model").write_text(embedding_model, encoding="utf-8")
         with _DIA_LOCK:
             _DIA_JOBS[mid] = {
                 "status": "done",
@@ -1000,6 +1077,7 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
     if cached.exists() and not force:
         speakers = json.loads(cached.read_text(encoding="utf-8"))
         embeddings = _read_cached_embeddings(mid)
+        embedding_model = _read_cached_embedding_model(mid)
         with _DIA_LOCK:
             _DIA_JOBS[mid] = {
                 "status": "done",
@@ -1007,7 +1085,12 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
                 "embeddings": embeddings,
                 "embeddingModel": embedding_model,
             }
-        return {"status": "done", "speakers": speakers, "embeddings": embeddings}
+        return {
+            "status": "done",
+            "speakers": speakers,
+            "embeddings": embeddings,
+            "embeddingModel": embedding_model,
+        }
 
     with _DIA_LOCK:
         _DIA_JOBS[mid] = {"status": "running"}
@@ -1026,7 +1109,11 @@ async def diarize_status(meeting_id: str) -> dict:
     if job:
         return {
             "status": job["status"],
-            **{k: job[k] for k in ("speakers", "embeddings", "detail") if k in job},
+            **{
+                k: job[k]
+                for k in ("speakers", "embeddings", "embeddingModel", "detail")
+                if k in job
+            },
         }
     cached = RECORDINGS_DIR / f"{mid}.speakers.json"
     if cached.exists():
@@ -1034,6 +1121,7 @@ async def diarize_status(meeting_id: str) -> dict:
             "status": "done",
             "speakers": json.loads(cached.read_text(encoding="utf-8")),
             "embeddings": _read_cached_embeddings(mid),
+            "embeddingModel": _read_cached_embedding_model(mid),
         }
     return {"status": "none"}
 
@@ -1320,7 +1408,7 @@ async def voiceprint_extract(request: Request) -> dict:
         w.setframerate(SAMPLE_RATE)
         w.writeframes(pcm)
 
-    def _run() -> list[float]:
+    def _run() -> dict:
         env = dict(os.environ)
         env["PYTHONIOENCODING"] = "utf-8"
         proc = subprocess.run(
@@ -1337,13 +1425,13 @@ async def voiceprint_extract(request: Request) -> dict:
         vec = payload.get("embedding")
         if not isinstance(vec, list) or not vec:
             raise RuntimeError(payload.get("error") or "no embedding returned")
-        return vec
+        return payload
 
     try:
-        embedding = await asyncio.to_thread(_run)
+        result = await asyncio.to_thread(_run)
     except Exception as e:  # noqa: BLE001
-        # Enrolment loads the same gated pyannote model diarization does, so it hits the same
-        # wall on a tokenless install — say so instead of returning the traceback tail.
+        # On the pyannote backend, enrolment loads the same gated model diarization does, so a
+        # tokenless install hits the same wall — say so instead of returning a traceback tail.
         if _needs_hf_token(str(e)):
             raise HTTPException(
                 status_code=503,
@@ -1353,7 +1441,13 @@ async def voiceprint_extract(request: Request) -> dict:
     finally:
         tmp.unlink(missing_ok=True)
 
-    return {"embedding": embedding, "seconds": round(seconds, 1)}
+    # The model id travels with the vector. Storing a voiceprint without it is what made the
+    # backend swap in v2.0.0-beta.1 fail silently instead of visibly.
+    return {
+        "embedding": result["embedding"],
+        "embeddingModel": result.get("embeddingModel"),
+        "seconds": round(seconds, 1),
+    }
 
 
 @app.websocket("/ws")

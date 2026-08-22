@@ -21,6 +21,7 @@ model Meeting {
   summaryError  String?   @map("summary_error") // why the last generation failed (shown in the UI; cleared on the next run)
   seriesId    String?   @map("series_id") // recurring-series membership (null = standalone)
   diarizationEmbeddings String? @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
+  diarizationEmbeddingModel String? @map("diarization_embedding_model") // which model produced them (null = pyannote, i.e. before there was a choice) — see lib/embedding-models.ts
   embedding      String?  @map("embedding") // unused: leftover from the removed AI (semantic) search
   embeddingModel String?  @map("embedding_model") // unused: leftover from the removed AI (semantic) search
   startedAt   DateTime  @default(now()) @map("started_at")
