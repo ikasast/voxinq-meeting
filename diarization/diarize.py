@@ -1,8 +1,21 @@
-"""Speaker diarization (pyannote.audio) - diarize the whole audio in one pass after a meeting.
+"""Speaker diarization - split a finished meeting into speaker turns, in one pass at the end.
 
-Runs in a dedicated venv (diarization/.venv) to keep dependencies separate from the STT
-service (faster-whisper). Accuracy is a compromise given the single-mic in-person assumption.
-It is a post-meeting batch job, so CPU is fine.
+Runs on sherpa-onnx: pyannote's segmentation model converted to ONNX, WeSpeaker embeddings,
+and clustering. The pyannote *pipeline* it replaced needed PyTorch, a CUDA build of torch, and
+a Hugging Face token for a gated model - which is most of why the STT image was 20 GB and why
+the first Diarize on a new install failed with an authentication error.
+
+What this buys:
+
+  * No torch, no torchcodec, no CUDA wheels. ONNX Runtime is tens of megabytes.
+  * No gated model, so no HF token: diarization works on a fresh install with nothing to sign.
+  * Runs anywhere ONNX runs, which is the point of the whole 2.0 line.
+  * Measured on a real 105 s meeting: 18.5 s on CPU (RTF 0.18), finding the same five speakers
+    the pyannote pipeline did.
+
+The trade is that voiceprints do not carry over. WeSpeaker embeddings and pyannote's are both
+256 numbers and score 0.39 against each other on the same clip - a different space wearing the
+same shape - so enrolled profiles have to be recorded again. See lib/embedding-models.ts.
 
 Usage:
     # Standalone check: split audio into speaker turns
@@ -13,12 +26,18 @@ Usage:
     python diarize.py path/to/audio.wav segments.json
     #   -> prints the assigned ["speaker0","speaker1",...] per segment as JSON to stdout
 
+    # Voice-profile enrollment: one voiceprint from a single-speaker clip
+    python diarize.py --embed path/to/clip.wav
+
 Environment variables:
-    HF_TOKEN            HuggingFace access token (if unset, uses the saved one in ~/.cache/huggingface)
-    DIA_DEVICE         cpu (default) / cuda
-    DIA_MODEL          pipeline to use (default: the community-1 pipeline below)
-    DIA_NUM_SPEAKERS   fix the speaker count if known (optional)
-    DIA_MIN_SPEAKERS / DIA_MAX_SPEAKERS  hints for the speaker-count range (optional)
+    DIA_MODEL_DIR       where the ONNX models live (default: ./models next to this file)
+    DIA_NUM_SPEAKERS    fix the speaker count if known (optional)
+    DIA_CLUSTER_THRESHOLD  clustering distance when the count is unknown (default 0.5)
+    DIA_THREADS         ONNX threads (default: half the cores)
+
+`DIA_DEVICE` is accepted and ignored: ONNX Runtime here is the CPU provider, and at RTF 0.18
+a GPU would save seconds on a job that runs once, after the meeting, while the GPU is wanted
+for generating minutes.
 """
 
 from __future__ import annotations
@@ -27,99 +46,148 @@ import json
 import math
 import os
 import sys
+import wave
+from pathlib import Path
 
-# community-1 (pyannote.audio 4.x) segments as well as 3.1 but confuses speakers far less
-# and counts them more reliably, which is what matters when mapping turns onto utterances.
-# Set DIA_MODEL=pyannote/speaker-diarization-3.1 to fall back.
-DEFAULT_MODEL = "pyannote/speaker-diarization-community-1"
-MODEL = os.environ.get("DIA_MODEL") or DEFAULT_MODEL
+import numpy as np
+
+SAMPLE_RATE = 16000
+
+MODEL_DIR = Path(os.environ.get("DIA_MODEL_DIR") or (Path(__file__).parent / "models"))
+SEGMENTATION_MODEL = MODEL_DIR / "segmentation.onnx"
+EMBEDDING_MODEL = MODEL_DIR / "embedding.onnx"
+
+# The id recorded against any voiceprint this produces. It must match the value in
+# lib/embedding-models.ts, which is what stops a profile from one model being compared with a
+# vector from another - equal dimensions mean nothing else would notice.
+EMBEDDING_MODEL_ID = "sherpa-wespeaker-resnet34"
 
 
-def _auth():
-    # Use HF_TOKEN if set, otherwise None (= use the token saved by huggingface_hub).
-    return os.environ.get("HF_TOKEN") or None
+def _threads() -> int:
+    if os.environ.get("DIA_THREADS"):
+        return max(1, int(os.environ["DIA_THREADS"]))
+    return max(1, (os.cpu_count() or 4) // 2)
 
 
-def load_pipeline():
-    import torch
-    from pyannote.audio import Pipeline
+def read_wav(path: str) -> np.ndarray:
+    """Read a mono 16 kHz WAV as float32. The recordings this runs on are always that."""
+    with wave.open(path, "rb") as w:
+        if w.getnchannels() != 1 or w.getframerate() != SAMPLE_RATE:
+            raise SystemExit(
+                f"expected mono {SAMPLE_RATE} Hz audio, got {w.getnchannels()}ch "
+                f"{w.getframerate()} Hz: {path}"
+            )
+        raw = w.readframes(w.getnframes())
+    return np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
 
-    # The auth argument differs by version: 3.x=use_auth_token / 4.x=token. Support both.
-    try:
-        pipeline = Pipeline.from_pretrained(MODEL, use_auth_token=_auth())
-    except TypeError:
-        pipeline = Pipeline.from_pretrained(MODEL, token=_auth())
-    if pipeline is None:
+
+def _require_models() -> None:
+    missing = [p.name for p in (SEGMENTATION_MODEL, EMBEDDING_MODEL) if not p.exists()]
+    if missing:
         raise SystemExit(
-            "Failed to load the pyannote pipeline. Check the HF token and that the model terms\n"
-            f"are accepted for {MODEL}:\n"
-            f"  https://huggingface.co/{MODEL}\n"
-            "  (speaker-diarization-3.1 additionally requires pyannote/segmentation-3.0)"
+            f"diarization models not found in {MODEL_DIR}: {', '.join(missing)}\n"
+            "Fetch them with: python diarization/fetch_models.py"
         )
-    device = os.environ.get("DIA_DEVICE", "cpu")
-    pipeline.to(torch.device(device))
-    return pipeline
+
+
+def _embedding_extractor():
+    import sherpa_onnx
+
+    _require_models()
+    return sherpa_onnx.SpeakerEmbeddingExtractor(
+        sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+            model=str(EMBEDDING_MODEL), num_threads=_threads()
+        )
+    )
+
+
+def embed_clip(audio_path: str) -> list[float]:
+    """One voiceprint from a clip that is assumed to hold a single speaker."""
+    ex = _embedding_extractor()
+    pcm = read_wav(audio_path)
+    stream = ex.create_stream()
+    stream.accept_waveform(sample_rate=SAMPLE_RATE, waveform=pcm)
+    stream.input_finished()
+    return [float(x) for x in ex.compute(stream)]
 
 
 def diarize(audio_path: str):
-    """Split audio into speaker turns and extract per-speaker voice embeddings.
+    """Split audio into speaker turns and extract a voiceprint per speaker.
 
     Returns (turns, embeddings):
       turns:      [(start, end, raw_label)]
-      embeddings: {raw_label: [float, ...]} mean speaker embedding (voiceprint) per
-                  cluster, or {} if the installed pyannote version cannot provide them.
-                  Used for voice-profile enrollment / recognition on the web side.
+      embeddings: {raw_label: [float, ...]} mean embedding per cluster, for enrolling and
+                  recognising voice profiles on the web side.
     """
-    pipeline = load_pipeline()
-    kwargs = {}
-    if os.environ.get("DIA_NUM_SPEAKERS"):
-        kwargs["num_speakers"] = int(os.environ["DIA_NUM_SPEAKERS"])
-    if os.environ.get("DIA_MIN_SPEAKERS"):
-        kwargs["min_speakers"] = int(os.environ["DIA_MIN_SPEAKERS"])
-    if os.environ.get("DIA_MAX_SPEAKERS"):
-        kwargs["max_speakers"] = int(os.environ["DIA_MAX_SPEAKERS"])
+    import sherpa_onnx
 
-    # 3.x: pipeline(file, return_embeddings=True) returns (Annotation, centroids).
-    # 4.x: ignores that kwarg and returns a DiarizeOutput with .speaker_embeddings.
-    try:
-        result = pipeline(audio_path, return_embeddings=True, **kwargs)
-    except TypeError:
-        result = pipeline(audio_path, **kwargs)
+    _require_models()
+    num_speakers = int(os.environ.get("DIA_NUM_SPEAKERS") or -1)
+    config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
+        segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
+            pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
+                model=str(SEGMENTATION_MODEL)
+            ),
+            num_threads=_threads(),
+        ),
+        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+            model=str(EMBEDDING_MODEL), num_threads=_threads()
+        ),
+        # num_clusters=-1 means "work it out"; the threshold then decides where one speaker
+        # ends and another begins. A known participant count is far more reliable, which is
+        # why the UI asks for it.
+        clustering=sherpa_onnx.FastClusteringConfig(
+            num_clusters=num_speakers if num_speakers > 0 else -1,
+            threshold=float(os.environ.get("DIA_CLUSTER_THRESHOLD") or 0.5),
+        ),
+        min_duration_on=0.3,
+        min_duration_off=0.5,
+    )
+    if not config.validate():
+        raise SystemExit("invalid diarization configuration")
 
-    centroids = None
-    if isinstance(result, tuple) and len(result) == 2:  # 3.x
-        annotation, centroids = result
-        labels_source = annotation
-    elif hasattr(result, "speaker_diarization"):  # 4.x DiarizeOutput
-        full = result.speaker_diarization
-        centroids = getattr(result, "speaker_embeddings", None)
-        labels_source = full  # centroid rows are ordered by full.labels()
-        # For assigning speakers to utterances, the non-overlapping exclusive version is easier.
-        annotation = getattr(result, "exclusive_speaker_diarization", None) or full
-    else:
-        annotation = result
-        labels_source = result
-
+    pcm = read_wav(audio_path)
+    result = sherpa_onnx.OfflineSpeakerDiarization(config).process(pcm)
     turns = [
-        (float(turn.start), float(turn.end), str(label))
-        for turn, _, label in annotation.itertracks(yield_label=True)
+        (float(s.start), float(s.end), f"SPEAKER_{int(s.speaker):02d}")
+        for s in result.sort_by_start_time()
     ]
 
+    # sherpa returns turns, not centroids, so the voiceprint for a speaker is built here: the
+    # mean of the embeddings of that speaker's turns, weighted by how long each one is. Longer
+    # speech is more of the person and less of the room.
     embeddings: dict[str, list[float]] = {}
-    if centroids is not None:
-        for i, label in enumerate(labels_source.labels()):
-            if i >= len(centroids):
-                break
-            vec = [float(x) for x in centroids[i]]
-            # Skip padded/degenerate rows (all-zero or non-finite).
-            if not vec or any(not math.isfinite(x) for x in vec) or all(x == 0.0 for x in vec):
+    if turns:
+        ex = _embedding_extractor()
+        sums: dict[str, np.ndarray] = {}
+        weights: dict[str, float] = {}
+        for start, end, label in turns:
+            # Too short to characterise a voice; including it drags the centroid around.
+            if end - start < 1.0:
                 continue
-            embeddings[str(label)] = vec
+            clip = pcm[int(start * SAMPLE_RATE) : int(end * SAMPLE_RATE)]
+            if clip.size < SAMPLE_RATE:
+                continue
+            stream = ex.create_stream()
+            stream.accept_waveform(sample_rate=SAMPLE_RATE, waveform=clip)
+            stream.input_finished()
+            vec = np.asarray(ex.compute(stream), dtype=np.float64)
+            if not np.all(np.isfinite(vec)):
+                continue
+            w = end - start
+            sums[label] = sums.get(label, np.zeros_like(vec)) + vec * w
+            weights[label] = weights.get(label, 0.0) + w
+        for label, total in sums.items():
+            vec = total / weights[label]
+            values = [float(x) for x in vec]
+            if any(not math.isfinite(x) for x in values) or all(x == 0.0 for x in values):
+                continue
+            embeddings[label] = values
     return turns, embeddings
 
 
 def normalize_labels(turns):
-    """Renumber pyannote's "SPEAKER_00" etc. to "speaker0","speaker1"... in first-seen order."""
+    """Renumber raw labels to "speaker0","speaker1"... in first-seen order."""
     order: dict[str, str] = {}
     for _s, _e, label in turns:
         if label not in order:
@@ -152,17 +220,20 @@ def main() -> None:
         raise SystemExit(1)
 
     if sys.argv[1] == "--embed":
-        # Voice-profile enrollment: extract ONE voiceprint from a single-speaker clip.
         if len(sys.argv) < 3:
             print("usage: python diarize.py --embed <audio>")
             raise SystemExit(1)
-        os.environ["DIA_NUM_SPEAKERS"] = "1"
-        _turns, embeddings = diarize(sys.argv[2])
-        vec = next(iter(embeddings.values()), None)
-        if vec is None:
+        try:
+            vec = embed_clip(sys.argv[2])
+        except SystemExit:
+            raise
+        except Exception as e:  # noqa: BLE001  the caller shows this to a person
+            print(json.dumps({"error": f"no voice embedding could be extracted: {e}"}))
+            raise SystemExit(2)
+        if not vec:
             print(json.dumps({"error": "no voice embedding could be extracted"}))
             raise SystemExit(2)
-        print(json.dumps({"embedding": vec}))
+        print(json.dumps({"embedding": vec, "embeddingModel": EMBEDDING_MODEL_ID}))
         return
 
     audio_path = sys.argv[1]
@@ -172,11 +243,18 @@ def main() -> None:
         with open(sys.argv[2], encoding="utf-8") as f:
             segments = json.load(f)
         speakers = assign_speakers(turns, segments)
-        # Emit embeddings keyed by the normalized labels ("speaker0", ...) so the web
-        # side can enroll/match voice profiles per displayed speaker.
         label_map = normalize_labels(turns)
         norm_embeddings = {label_map[k]: v for k, v in embeddings.items() if k in label_map}
-        print(json.dumps({"speakers": speakers, "embeddings": norm_embeddings}, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "speakers": speakers,
+                    "embeddings": norm_embeddings,
+                    "embeddingModel": EMBEDDING_MODEL_ID,
+                },
+                ensure_ascii=False,
+            )
+        )
     else:
         label_map = normalize_labels(turns)
         out = [

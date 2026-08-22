@@ -23,7 +23,7 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | — | Password for the bundled database. Compose refuses to start without it; use the same value in `DATABASE_URL`. |
-| `HF_TOKEN` | unset | Hugging Face token, needed once to download the gated pyannote diarization model. Accept the model terms first. |
+| `HF_TOKEN` | unset | No longer needed. Diarization moved to ungated ONNX models; kept only for anyone pointing `WHISPER_MODEL` at a gated Hugging Face repo. |
 | `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v1.3.1`. |
 | `WEB_PORT` / `STT_PORT` / `DB_PORT` / `OLLAMA_PORT` | `3000` / `8000` / `127.0.0.1:5432` / `127.0.0.1:11434` | Host ports. Only affect access from the host — containers always reach each other by service name. |
 

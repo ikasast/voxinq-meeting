@@ -106,9 +106,23 @@ describe("mergeEmbedding replaces across a model change", () => {
     expect(r.sampleCount).toBe(1);
   });
 
-  it("keeps merging profiles enrolled before the column existed", () => {
-    // A null model is the current one, so this change does not quietly reset anyone's profile.
-    const r = mergeEmbedding([0, 0], 3, [4, 4], null, CURRENT_EMBEDDING_MODEL);
+  it("keeps merging when the model has not actually changed", () => {
+    // A profile with no recorded model is pyannote, so it merges with pyannote.
+    const r = mergeEmbedding([0, 0], 3, [4, 4], null, "pyannote-community-1");
     expect(r.sampleCount).toBe(4);
+  });
+
+  it("starts over for a legacy profile now that the service produces a different model", () => {
+    // This is the re-enrolment the model swap requires, and it is the point: averaging a
+    // pyannote centroid with a WeSpeaker vector would produce a centroid of nothing.
+    const r = mergeEmbedding([0, 0], 3, [4, 4], null, CURRENT_EMBEDDING_MODEL);
+    expect(r.embedding).toEqual([4, 4]);
+    expect(r.sampleCount).toBe(1);
+  });
+
+  it("the service is producing the model the diarizer stamps on its output", () => {
+    // diarization/diarize.py writes EMBEDDING_MODEL_ID; if the two drift, every new profile is
+    // labelled with a model that did not make it.
+    expect(CURRENT_EMBEDDING_MODEL).toBe("sherpa-wespeaker-resnet34");
   });
 });

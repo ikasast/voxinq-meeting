@@ -58,7 +58,7 @@ export const LEGACY_EMBEDDING_MODEL: EmbeddingModelId = "pyannote-community-1";
  * profiles are recognisably *older* rather than merely wrong. Update it in the same change
  * that swaps the model, never separately.
  */
-export const CURRENT_EMBEDDING_MODEL: EmbeddingModelId = "pyannote-community-1";
+export const CURRENT_EMBEDDING_MODEL: EmbeddingModelId = "sherpa-wespeaker-resnet34";
 
 export function embeddingModel(id: string | null | undefined): EmbeddingModel {
   return EMBEDDING_MODELS[(id as EmbeddingModelId) ?? LEGACY_EMBEDDING_MODEL]
