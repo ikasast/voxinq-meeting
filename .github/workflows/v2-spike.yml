@@ -1,0 +1,125 @@
+# Phase 0 spike for v2.0.0 — answers two questions before any code is written, then gets deleted.
+#
+#   1. Does the pywhispercpp wheel on PyPI have Metal live on Apple Silicon? If not, we have to
+#      build and host our own macOS wheels, which is roughly a week of work we would rather know
+#      about now than discover during Phase 2.
+#   2. Can CI produce the whisper.cpp binaries upstream does not publish? There is no official
+#      macOS server build and no Vulkan build, so anything we ship for Mac or AMD/Intel has to
+#      come out of here.
+#
+# Runs on its own pull request only — nothing else in the repo touches these paths.
+name: v2 spike
+
+on:
+  pull_request:
+    paths: [".github/workflows/v2-spike.yml"]
+
+jobs:
+  pywhispercpp-metal:
+    name: pywhispercpp wheel — is Metal live?
+    runs-on: macos-14 # Apple Silicon (arm64)
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the published wheel
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywhispercpp
+          pip show pywhispercpp | head -3
+
+      - name: Report the wheel's build flags
+        # Metal is a compile-time choice, so the shipped binary either has it or it does not.
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, pywhispercpp
+          root = pathlib.Path(pywhispercpp.__file__).parent
+          libs = [p for p in root.rglob("*") if p.suffix in {".so", ".dylib"}]
+          print("shipped binaries:")
+          for p in libs:
+              print(" ", p.name, p.stat().st_size)
+          # A Metal build links Apple's Metal framework; a CPU-only one does not.
+          for p in libs:
+              out = subprocess.run(["otool", "-L", str(p)], capture_output=True, text=True).stdout
+              if "Metal" in out:
+                  print("LINKS METAL:", p.name)
+          PY
+
+      - name: Transcribe with the log wide open
+        # ggml announces its backend on init. This is the ground truth, not the linkage above.
+        run: |
+          python - <<'PY' 2>&1 | tee /tmp/whisper.log
+          import numpy as np
+          from pywhispercpp.model import Model
+          m = Model("tiny", print_realtime=False, print_progress=False)
+          # 3 s of silence is enough to force a full init + one decode.
+          m.transcribe(np.zeros(16000 * 3, dtype=np.float32))
+          print("transcribe returned")
+          PY
+          echo "--- verdict ---"
+          if grep -qi "metal" /tmp/whisper.log; then
+            echo "METAL: mentioned in the log — inspect the lines below"
+            grep -i "metal" /tmp/whisper.log | head -20
+          else
+            echo "METAL: no mention. The published wheel looks CPU-only -> we build our own."
+          fi
+          if grep -qiE "using .*(BLAS|CPU)" /tmp/whisper.log; then
+            grep -iE "using .*(BLAS|CPU)" /tmp/whisper.log | head -5
+          fi
+
+  whispercpp-build:
+    name: whisper.cpp ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # one platform failing must not hide the others' answers
+      matrix:
+        include:
+          - { name: macOS-Metal, os: macos-14, flags: "-DGGML_METAL=ON" }
+          - { name: Linux-CPU, os: ubuntu-latest, flags: "" }
+          # find_package(Vulkan) needs the loader headers *and* glslc, which on Ubuntu comes
+          # from the LunarG SDK rather than the distro packages.
+          - { name: Linux-Vulkan, os: ubuntu-latest, flags: "-DGGML_VULKAN=ON", vulkan: "yes" }
+          - { name: Windows-CPU, os: windows-latest, flags: "" }
+    steps:
+      - name: Check out whisper.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/whisper.cpp
+          ref: v1.9.2
+          path: whisper.cpp
+
+      - name: Vulkan SDK
+        if: matrix.vulkan == 'yes'
+        run: |
+          wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+            | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc > /dev/null
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-noble.list \
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-noble.list
+          sudo apt-get update -qq
+          sudo apt-get install -y vulkan-sdk
+          glslc --version | head -2
+
+      - name: Build
+        working-directory: whisper.cpp
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF ${{ matrix.flags }}
+          cmake --build build --config Release -j 4
+
+      - name: What did we get
+        working-directory: whisper.cpp
+        shell: bash
+        run: |
+          echo "--- server + cli binaries ---"
+          find build -type f \( -name "whisper-server*" -o -name "whisper-cli*" -o -name "main*" \) \
+            -not -name "*.o" -not -name "*.obj" | head -20
+          echo "--- sizes ---"
+          find build -type f -name "whisper-*" -not -name "*.o" -exec ls -lh {} \; 2>/dev/null | head -20
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whispercpp-${{ matrix.name }}
+          path: |
+            whisper.cpp/build/bin/*
+          if-no-files-found: warn
+          retention-days: 7
