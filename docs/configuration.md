@@ -30,7 +30,8 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 
 STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
 `WHISPER_COMPUTE` (unset = int8_float16 on CUDA, int8 on CPU), `STT_BACKEND` (unset = choose by
-hardware: faster-whisper on CUDA, whisper.cpp on Metal/Vulkan/CPU), `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
+hardware: faster-whisper on CUDA, whisper.cpp everywhere else — GPU-accelerated only on Apple
+silicon, plain CPU on an AMD or Intel GPU), `STT_HOST`, `STT_PORT`, `STT_RECORDING_RETENTION_DAYS` (default 7),
 `STT_IDLE_RELEASE_SECONDS` (default 600), `STT_TRANSLATE_MODEL` / `STT_TRANSLATE_THREADS`
 (translation model repo and CPU threads), `STT_PARTIAL_MS` (default 1200 — how often a
 provisional "partial" transcription of the segment still being spoken is pushed to the

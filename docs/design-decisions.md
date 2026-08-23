@@ -144,8 +144,28 @@ does not cover is any machine without an NVIDIA card — CTranslate2 has no Meta
 path, so a Mac or an AMD/Intel GPU is left on a slow CPU fallback. That, rather than any
 shortcoming in recognition quality, is why a second backend exists.
 
-whisper.cpp (through pywhispercpp) runs on Metal, Vulkan and CPU, and takes a numpy array
-directly — so the streaming path hands over the buffers it already builds.
+whisper.cpp (through pywhispercpp) takes a numpy array directly — so the streaming path hands
+over the buffers it already builds.
+
+**What that actually accelerates, checked against the shipped wheels rather than assumed:**
+
+| platform | what pywhispercpp 1.5.1 bundles | GPU used |
+| --- | --- | --- |
+| macOS arm64 | `libggml-metal`, `libggml-blas`, `libggml-cpu` | **Metal** |
+| Linux x86_64 | `libggml-cpu` only | none |
+| Windows x86_64 | `ggml-cpu.dll` only | none |
+
+whisper.cpp *upstream* supports Vulkan, and an earlier version of this document said so as if
+it followed that Voxinq did. It does not: the PyPI wheels for Linux and Windows are CPU builds,
+so **an AMD or Intel GPU is not used for transcription at all** — such a machine runs on its
+CPU, at the RTF measured below. Only NVIDIA (faster-whisper) and Apple silicon (Metal) get
+hardware acceleration.
+
+Enabling Vulkan means building pywhispercpp from source with `GGML_VULKAN=1` and shipping those
+wheels, and it is not planned: the payoff is unknown without an AMD machine to measure on, and
+shipping an unmeasured claim of GPU support is the same mistake as
+[the diarization swap](#diarization-has-two-backends-chosen-by-the-hardware). Documented as CPU
+until someone can measure it.
 
 **The choice follows the hardware and defaults to leaving CUDA alone.** With a CUDA device
 present the service picks faster-whisper, which is about 30% quicker there; everywhere else it
@@ -372,6 +392,16 @@ someone on a laptop speaker) are the ones they do not have. A benchmark on the w
 worse than none: it would be quoted. *Changes if* a suitable recorded-meeting corpus with
 reference transcripts becomes available, or if enough consenting recordings accumulate to build
 one.
+
+**Vulkan builds of whisper.cpp, so AMD and Intel GPUs are accelerated.** whisper.cpp supports
+Vulkan upstream, so this is buildable — pywhispercpp from source with `GGML_VULKAN=1`, plus a
+wheel-building CI matrix to ship it. What stops it is that nobody here has an AMD machine, and
+Vulkan is not as optimised as CUDA: whether it would actually clear real time on a given
+Radeon is unknown, and shipping "AMD GPU supported" without measuring it is the same mistake as
+[the diarization swap](#diarization-has-two-backends-chosen-by-the-hardware) — a claim
+validated on something other than the thing it claims. The docs say CPU instead, which is what
+those machines really do. *Changes if* an AMD or Intel GPU machine is available to measure on,
+or a contributor with one offers numbers.
 
 **A GPU task queue in the UI.** There is no queue to show. GPU work is mutually exclusive, not
 ordered: a second task is refused with a 409 rather than lined up, because the useful behaviour

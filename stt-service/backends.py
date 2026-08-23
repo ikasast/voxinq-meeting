@@ -1,9 +1,13 @@
 """Speech recognition backends.
 
 Voxinq ran on faster-whisper alone, which means CTranslate2, which means CUDA or a slow CPU
-path -- no Metal, no Vulkan. That is the single reason the app cannot run on a Mac or on an
-AMD/Intel GPU, so recognition is now reached through a small interface with two implementations
-behind it.
+path -- no Metal, no Vulkan. That is the single reason the app could not run usefully on a Mac,
+so recognition is now reached through a small interface with two implementations behind it.
+
+Be exact about what the second one buys, because it is less than it sounds: pywhispercpp's
+wheels bundle Metal only on macOS arm64. The Linux and Windows wheels are CPU builds, so an AMD
+or Intel GPU gets no acceleration here either -- it runs on the CPU. Hardware acceleration
+means NVIDIA or Apple silicon, and nothing else. See docs/design-decisions.md.
 
 **On a CUDA machine nothing changes.** faster-whisper stays the default there because it is
 about 30% faster than whisper.cpp on that hardware; whisper.cpp is what makes everywhere else
@@ -166,7 +170,7 @@ def resolve_ggml(model_name: str) -> str:
 
 
 class WhisperCppBackend:
-    """whisper.cpp via pywhispercpp -- Metal on Apple silicon, Vulkan, or plain CPU.
+    """whisper.cpp via pywhispercpp -- Metal on Apple silicon, plain CPU everywhere else.
 
     It takes a numpy array directly, so the streaming path hands over the buffers it already
     builds and nothing round-trips through a WAV file.
