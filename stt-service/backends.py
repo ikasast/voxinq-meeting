@@ -193,7 +193,12 @@ class WhisperCppBackend:
         if initial_prompt:
             params["initial_prompt"] = initial_prompt
         if beam_size and beam_size > 1:
-            params["beam_search"] = {"beam_size": beam_size}
+            # Both fields, always. This maps onto whisper.cpp's beam_search struct, and the
+            # binding rejects a partial dict with KeyError rather than filling in a default --
+            # so omitting patience broke every finalized utterance (they all decode at
+            # beam_size=5) while partials at beam_size=1 kept working, which is a hard failure
+            # to read from the outside. -1.0 is whisper.cpp's own "no patience penalty".
+            params["beam_search"] = {"beam_size": beam_size, "patience": -1.0}
 
         segments = model.transcribe(audio, **params)
         out: list[Segment] = []

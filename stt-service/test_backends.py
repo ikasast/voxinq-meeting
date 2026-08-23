@@ -2,8 +2,11 @@
 
 Run with: python -m pytest stt-service/test_backends.py   (or plain `python test_backends.py`)
 
-The inference itself is not tested here -- that needs models and hardware. What is tested is
-the promise that a CUDA host keeps behaving exactly as it did before backends existed.
+Mostly this is about the rules: which backend a machine picks, and the promise that a CUDA
+host keeps behaving exactly as it did before backends existed. faster-whisper inference needs
+a GPU and several gigabytes, so it stays untested here -- but whisper.cpp runs on any CPU with
+a 75 MB model, and one real decode is included at the bottom, because a bug hid in the gap
+between "the rules are right" and "the call works".
 """
 
 from __future__ import annotations
@@ -95,6 +98,45 @@ def test_ggml_alias_maps_the_japanese_model() -> None:
     )
 
 
+def test_whisper_cpp_actually_decodes_at_the_beam_size_finals_use() -> None:
+    """Run a real decode through the whisper.cpp backend, or skip.
+
+    This is here because everything above tests the rules and nothing tested the path, and a
+    bug lived in that gap: the beam_search parameter was sent as {"beam_size": n} without
+    "patience", which the binding rejects with KeyError instead of defaulting. Partials decode
+    at beam_size=1 and never touch it, so live text kept appearing while *every finalized
+    utterance* failed -- on exactly the machines that have no CUDA and no other backend.
+
+    A second of silence is enough: the assertion is that the call returns, not what it heard.
+    """
+    try:
+        import numpy as np
+        from pywhispercpp.model import Model  # noqa: F401
+    except ImportError as e:
+        print(f"  skip whisper.cpp decode ({e})")
+        return
+
+    backend = backends.WhisperCppBackend("cpu")
+    try:
+        model = backend.load("tiny")
+    except Exception as e:  # noqa: BLE001  no network in some environments
+        print(f"  skip whisper.cpp decode (model unavailable: {e})")
+        return
+
+    for beam_size in (1, 5):
+        segments, _lang = backend.transcribe(
+            model,
+            np.zeros(16000, dtype=np.float32),
+            language="ja",
+            initial_prompt=None,
+            beam_size=beam_size,
+            vad_min_silence_ms=500,
+            no_speech_threshold=0.6,
+        )
+        assert isinstance(segments, list), f"beam_size={beam_size} did not return segments"
+    backend.unload(model)
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):
@@ -102,8 +144,10 @@ if __name__ == "__main__":
             try:
                 fn()
                 print(f"  ok   {name}")
-            except AssertionError as e:
+            except Exception as e:  # noqa: BLE001
+                # Not just AssertionError: a test that reaches real code can fail by raising,
+                # and letting that escape would end the run at the first one and hide the rest.
                 failed += 1
-                print(f"  FAIL {name}: {e}")
+                print(f"  FAIL {name}: {type(e).__name__}: {e}")
     print("all passed" if not failed else f"{failed} failed")
     sys.exit(1 if failed else 0)
