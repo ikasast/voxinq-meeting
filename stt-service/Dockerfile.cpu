@@ -1,0 +1,65 @@
+# STT service and the diarization worker, for machines with no NVIDIA GPU.
+#
+# The default image is built on nvidia/cuda and carries PyTorch for pyannote: linux/amd64 only,
+# ~21 GB, and none of it usable without a CUDA device. That leaves a Mac with no way to run
+# Voxinq in Docker at all, since Apple silicon is arm64 and the base image is not.
+#
+# This variant is the same service with everything CUDA-shaped removed:
+#
+#   * python:3.11-slim instead of nvidia/cuda -- and multi-arch, so it runs on Apple silicon
+#   * whisper.cpp (pywhispercpp) is what recognition uses here; faster-whisper stays installed
+#     because translation reaches CTranslate2 through it, and STT_BACKEND can still ask for it
+#   * diarization is sherpa-onnx only. pyannote needs torch and would be back to gigabytes for
+#     a backend that cannot run without CUDA anyway.
+#
+# **There is no GPU acceleration in this image, on any host.** Docker on macOS runs a Linux VM
+# with no access to Metal, so an Apple silicon machine gets CPU inference here even though the
+# same laptop would get Metal from a native install. Recognition is therefore slower than
+# speech, and the service records the meeting and transcribes it in one pass at the end --
+# see backends.live_transcription_available and docs/design-decisions.md.
+
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# ffmpeg decodes uploaded audio; the whisper.cpp backend has no decoder of its own.
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# --- STT venv -------------------------------------------------------------------------
+COPY stt-service/requirements.txt /app/stt-service/requirements.txt
+RUN python -m venv /app/stt-service/.venv \
+    && /app/stt-service/.venv/bin/pip install --upgrade pip \
+    && /app/stt-service/.venv/bin/pip install -r /app/stt-service/requirements.txt
+
+# --- Diarization venv (ONNX Runtime only) ---------------------------------------------
+# No requirements-pyannote.txt here on purpose: that backend is never selected without CUDA,
+# and installing it would add a torch chain larger than this entire image.
+COPY diarization/requirements.txt /app/diarization/requirements.txt
+RUN python -m venv /app/diarization/.venv \
+    && /app/diarization/.venv/bin/pip install --upgrade pip \
+    && /app/diarization/.venv/bin/pip install -r /app/diarization/requirements.txt
+
+# Source last so dependency layers stay cached across code edits.
+COPY stt-service/ /app/stt-service/
+COPY diarization/ /app/diarization/
+
+# The two ONNX models, baked in rather than fetched on first use: ~33 MB together, and a
+# diarization that works offline beats one that needs the network at the wrong moment.
+RUN /app/diarization/.venv/bin/python /app/diarization/fetch_models.py
+
+ENV STT_RECORDINGS_DIR=/data/recordings \
+    HF_HOME=/data/huggingface \
+    WHISPER_DEVICE=cpu \
+    STT_HOST=0.0.0.0 \
+    STT_PORT=8000
+RUN mkdir -p /data/recordings /data/huggingface
+
+EXPOSE 8000
+WORKDIR /app/stt-service
+CMD ["/app/stt-service/.venv/bin/python", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -18,9 +18,17 @@ is whether transcription keeps up with speech — not whether it runs at all.
 | your machine | transcription | when you see the text | speaker separation |
 | --- | --- | --- | --- |
 | **NVIDIA GPU** | faster-whisper on CUDA | **as you speak** | pyannote (GPU) |
-| **Apple silicon** | whisper.cpp on Metal | **as you speak** | sherpa-onnx (CPU) |
+| **Apple silicon**, native install | whisper.cpp on Metal | **as you speak** | sherpa-onnx (CPU) |
+| **Apple silicon**, Docker | whisper.cpp on the CPU — see below | when the meeting ends | sherpa-onnx (CPU) |
 | **AMD / Intel GPU** | whisper.cpp on the **CPU** — the GPU is not used | when the meeting ends | sherpa-onnx (CPU) |
 | **CPU only** | whisper.cpp on the CPU | when the meeting ends | sherpa-onnx (CPU) |
+
+On a machine with no NVIDIA GPU, use the CPU images — they are multi-arch (so they run on
+Apple silicon) and about 1.8 GB instead of 21 GB, because nothing CUDA-shaped is in them:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+```
 
 A machine with no GPU acceleration **records the meeting and transcribes it in one pass at the
 end**, rather than trying to keep up and falling behind. Same model, same quality — the
@@ -36,8 +44,15 @@ those machines transcribe at the end instead: recognising live would leave ~39 m
 unprocessed at the moment you press stop on an hour-long meeting, and take another hour and a
 half to catch up. More threads do not help; it is memory-bandwidth bound.
 
+**Metal is not available inside Docker**, on any Mac: Docker Desktop runs a Linux VM with no
+GPU passthrough. So an Apple silicon machine gets live transcription from a *native* install
+and deferred transcription from the containers — the same laptop, two different answers. The
+containers are far easier to set up, which is the trade.
+
 A Radeon *can* still be used for the minutes: Ollama has ROCm builds, and it is a separate
-service. Only the transcription and diarization stay on the CPU.
+service. Only the transcription and diarization stay on the CPU. The same applies to a Mac:
+running Ollama natively gets it Metal, and Settings → LLM can point at
+`http://host.docker.internal:11434`.
 
 For a native install, additionally:
 

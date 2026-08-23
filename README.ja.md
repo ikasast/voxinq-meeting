@@ -75,7 +75,8 @@ Voxinq は**会議中にリアルタイムで**文字起こしします。その
 | 環境 | 文字起こし | 文字が出るタイミング | 話者分離 |
 | --- | --- | --- | --- |
 | **NVIDIA GPU** | faster-whisper（CUDA） | **話しながら** | pyannote（GPU） |
-| **Apple Silicon** | whisper.cpp（Metal） | **話しながら** | sherpa-onnx（CPU） |
+| **Apple Silicon**（ネイティブ導入） | whisper.cpp（Metal） | **話しながら** | sherpa-onnx（CPU） |
+| **Apple Silicon**（Docker） | whisper.cpp（CPU。下記参照） | 会議終了時 | sherpa-onnx（CPU） |
 | **AMD / Intel GPU** | whisper.cpp（**CPU**。GPU は使いません） | 会議終了時 | sherpa-onnx（CPU） |
 | **CPU のみ** | whisper.cpp（CPU） | 会議終了時 | sherpa-onnx（CPU） |
 
@@ -92,8 +93,22 @@ GPU 加速の無い環境では、**会議中は録音だけを行い、終了�
 > 1 時間の会議で停止を押した時点で約 39 分ぶんが未処理として残り、追いつくのにさらに
 > 1 時間半かかる計算になります。スレッド数を増やしても改善しません（メモリ帯域が上限のため）。
 >
+> **Docker の中では Metal を使えません**（Docker Desktop は GPU を透過しない Linux VM の上で
+> 動くため）。したがって同じ Mac でも、ネイティブ導入ならリアルタイム、Docker なら会議終了時、
+> と結果が変わります。Docker のほうが導入は圧倒的に簡単なので、そこが交換条件です。
+>
 > なお **議事録生成には Radeon を使えます** — Ollama に ROCm 版があり、別サービスとして
-> 動くためです。CPU に留まるのは文字起こしと話者分離だけです。
+> 動くためです。CPU に留まるのは文字起こしと話者分離だけです。Mac も同様で、Ollama を
+> ネイティブに動かせば Metal が効きます（設定 → LLM で `http://host.docker.internal:11434`）。
+
+#### NVIDIA GPU が無い場合の導入コマンド
+
+CPU 版イメージを使ってください。マルチアーキテクチャなので Apple Silicon でも動き、
+CUDA 関連を一切含まないためサイズも約 21GB → **約 1.8GB** になります。
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+```
 
 > **VRAM 8GB でも動く工夫**
 > 文字起こし用のWhisperと議事録用のLLMは同時にVRAMへ載りません。そこで

@@ -51,10 +51,14 @@ jobs:
             if [ "$MOVES_LATEST" = true ]; then echo "$IMAGE:latest"; fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          # arm64 as well, so this runs on Apple silicon. Node and the Prisma engines both
+          # publish arm64 builds, so nothing here needs a second Dockerfile.
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -109,3 +113,48 @@ jobs:
           tags: ${{ steps.tags.outputs.list }}
           # No gha cache: the layers are far past the 10 GB cache limit, so it would evict
           # itself every run and cost time rather than save it.
+
+  stt-cpu:
+    # The CPU/multi-arch STT image. The default one is built on nvidia/cuda and carries torch
+    # for pyannote -- linux/amd64 only, ~21 GB, and none of it usable without a CUDA device,
+    # which left Apple silicon with no way to run Voxinq in Docker at all.
+    #
+    # Its own job rather than a second step in `stt`: it shares no layers with the CUDA build,
+    # and this one is small enough to want the gha cache the other cannot use.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve tags
+        id: tags
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          IMAGE: ${{ env.IMAGE_BASE }}/stt
+          # `latest-cpu` rather than `latest`, on the same full-release-only rule: a compose
+          # file pinned to the CPU variant needs a moving tag of its own.
+          MOVES_LATEST: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
+        run: |
+          {
+            echo "list<<EOF"
+            echo "$IMAGE:$TAG-cpu"
+            if [ "$MOVES_LATEST" = true ]; then echo "$IMAGE:latest-cpu"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: stt-service/Dockerfile.cpu
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
