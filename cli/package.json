@@ -1,0 +1,17 @@
+{
+  "name": "voxinq",
+  "version": "0.1.0",
+  "description": "Run Voxinq without Docker: bundled PostgreSQL, transcription service and web app under one command",
+  "type": "module",
+  "bin": {
+    "voxinq": "src/index.mjs"
+  },
+  "files": ["src", "README.md"],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "embedded-postgres": "17.10.0-beta.17"
+  },
+  "license": "AGPL-3.0-or-later"
+}
