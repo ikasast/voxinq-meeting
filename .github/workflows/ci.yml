@@ -54,7 +54,12 @@ jobs:
       # Backend selection decides what a given machine runs, including the promise that a CUDA
       # host still gets faster-whisper. It needs neither models nor a GPU, so it can be checked
       # properly here rather than left to a syntax check.
-      - run: pip install numpy
+      #
+      # pywhispercpp is installed as well so the decode test runs for real. It is the backend
+      # every machine without CUDA depends on, it needs only a CPU and a 75 MB model, and a
+      # parameter bug in exactly that path once made every finalized utterance fail while the
+      # selection tests stayed green.
+      - run: pip install numpy pywhispercpp
       - run: python stt-service/test_backends.py
 
   # Catches rot in the container setup (bad Dockerfile, a dependency that stopped

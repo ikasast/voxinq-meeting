@@ -1,9 +1,13 @@
 """Speech recognition backends.
 
 Voxinq ran on faster-whisper alone, which means CTranslate2, which means CUDA or a slow CPU
-path -- no Metal, no Vulkan. That is the single reason the app cannot run on a Mac or on an
-AMD/Intel GPU, so recognition is now reached through a small interface with two implementations
-behind it.
+path -- no Metal, no Vulkan. That is the single reason the app could not run usefully on a Mac,
+so recognition is now reached through a small interface with two implementations behind it.
+
+Be exact about what the second one buys, because it is less than it sounds: pywhispercpp's
+wheels bundle Metal only on macOS arm64. The Linux and Windows wheels are CPU builds, so an AMD
+or Intel GPU gets no acceleration here either -- it runs on the CPU. Hardware acceleration
+means NVIDIA or Apple silicon, and nothing else. See docs/design-decisions.md.
 
 **On a CUDA machine nothing changes.** faster-whisper stays the default there because it is
 about 30% faster than whisper.cpp on that hardware; whisper.cpp is what makes everywhere else
@@ -136,15 +140,37 @@ class FasterWhisperBackend:
         return decode_audio(path, sampling_rate=SAMPLE_RATE)
 
 
-# Our model ids name CTranslate2 repositories; whisper.cpp wants ggml. Where the same model
-# exists in both worlds under a different name, translate the ones we ship.
+# Our model ids name CTranslate2 repositories; whisper.cpp wants ggml.
+#
+# pywhispercpp resolves a name only against its own built-in list (tiny...large-v3-turbo-q5_0)
+# or an existing file path -- it does not fetch arbitrary Hugging Face repositories. So a model
+# that only exists on the Hub is named here by repo and file, fetched, and handed over as a
+# path. Passing the repo id straight through does not raise: pywhispercpp logs "Invalid model
+# name", returns a Model with a null context, and the first transcribe fails on nothing.
 GGML_ALIASES = {
-    "kotoba-tech/kotoba-whisper-v2.0-faster": "kotoba-tech/kotoba-whisper-v2.0-ggml",
+    # Japanese-specialised, and the reason this matters: it is the model a Japanese-first app
+    # would pick on a Mac. q5_0 rather than the full weights -- 1.1 GB against 3.1 GB, and
+    # Kotoba's own release notes put the quality within noise of each other.
+    "kotoba-tech/kotoba-whisper-v2.0-faster": (
+        "kotoba-tech/kotoba-whisper-v2.0-ggml",
+        "ggml-kotoba-whisper-v2.0-q5_0.bin",
+    ),
 }
 
 
+def resolve_ggml(model_name: str) -> str:
+    """A name pywhispercpp will accept: its own, or a downloaded file's path."""
+    alias = GGML_ALIASES.get(model_name)
+    if alias is None:
+        return model_name
+    repo, filename = alias
+    from huggingface_hub import hf_hub_download
+
+    return hf_hub_download(repo_id=repo, filename=filename)
+
+
 class WhisperCppBackend:
-    """whisper.cpp via pywhispercpp -- Metal on Apple silicon, Vulkan, or plain CPU.
+    """whisper.cpp via pywhispercpp -- Metal on Apple silicon, plain CPU everywhere else.
 
     It takes a numpy array directly, so the streaming path hands over the buffers it already
     builds and nothing round-trips through a WAV file.
@@ -161,12 +187,17 @@ class WhisperCppBackend:
     def load(self, model_name: str) -> Any:
         from pywhispercpp.model import Model
 
-        return Model(
-            GGML_ALIASES.get(model_name, model_name),
+        model = Model(
+            resolve_ggml(model_name),
             print_realtime=False,
             print_progress=False,
             print_timestamps=False,
         )
+        # An unresolvable name leaves the context null and is only reported through a log line,
+        # so the failure would otherwise surface as an empty transcript rather than an error.
+        if getattr(model, "_ctx", True) is None:
+            raise RuntimeError(f"whisper.cpp could not load the model {model_name!r}")
+        return model
 
     def unload(self, model: Any) -> None:
         del model
@@ -193,7 +224,12 @@ class WhisperCppBackend:
         if initial_prompt:
             params["initial_prompt"] = initial_prompt
         if beam_size and beam_size > 1:
-            params["beam_search"] = {"beam_size": beam_size}
+            # Both fields, always. This maps onto whisper.cpp's beam_search struct, and the
+            # binding rejects a partial dict with KeyError rather than filling in a default --
+            # so omitting patience broke every finalized utterance (they all decode at
+            # beam_size=5) while partials at beam_size=1 kept working, which is a hard failure
+            # to read from the outside. -1.0 is whisper.cpp's own "no patience penalty".
+            params["beam_search"] = {"beam_size": beam_size, "patience": -1.0}
 
         segments = model.transcribe(audio, **params)
         out: list[Segment] = []

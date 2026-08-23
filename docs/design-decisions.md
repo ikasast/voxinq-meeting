@@ -144,8 +144,28 @@ does not cover is any machine without an NVIDIA card — CTranslate2 has no Meta
 path, so a Mac or an AMD/Intel GPU is left on a slow CPU fallback. That, rather than any
 shortcoming in recognition quality, is why a second backend exists.
 
-whisper.cpp (through pywhispercpp) runs on Metal, Vulkan and CPU, and takes a numpy array
-directly — so the streaming path hands over the buffers it already builds.
+whisper.cpp (through pywhispercpp) takes a numpy array directly — so the streaming path hands
+over the buffers it already builds.
+
+**What that actually accelerates, checked against the shipped wheels rather than assumed:**
+
+| platform | what pywhispercpp 1.5.1 bundles | GPU used |
+| --- | --- | --- |
+| macOS arm64 | `libggml-metal`, `libggml-blas`, `libggml-cpu` | **Metal** |
+| Linux x86_64 | `libggml-cpu` only | none |
+| Windows x86_64 | `ggml-cpu.dll` only | none |
+
+whisper.cpp *upstream* supports Vulkan, and an earlier version of this document said so as if
+it followed that Voxinq did. It does not: the PyPI wheels for Linux and Windows are CPU builds,
+so **an AMD or Intel GPU is not used for transcription at all** — such a machine runs on its
+CPU, at the RTF measured below. Only NVIDIA (faster-whisper) and Apple silicon (Metal) get
+hardware acceleration.
+
+Enabling Vulkan means building pywhispercpp from source with `GGML_VULKAN=1` and shipping those
+wheels, and it is not planned: the payoff is unknown without an AMD machine to measure on, and
+shipping an unmeasured claim of GPU support is the same mistake as
+[the diarization swap](#diarization-has-two-backends-chosen-by-the-hardware). Documented as CPU
+until someone can measure it.
 
 **The choice follows the hardware and defaults to leaving CUDA alone.** With a CUDA device
 present the service picks faster-whisper, which is about 30% quicker there; everywhere else it
@@ -162,6 +182,46 @@ The alternatives that still do not fit:
 - **VibeVoice-ASR** — 7B. It cannot share 8 GB with anything, and OOMs on long audio even on
   much larger cards.
 - **Parakeet** — strong on English, unproven for Japanese meetings, which is the primary use.
+
+### What whisper.cpp costs on a CPU
+
+Measured on a real 12-minute Japanese meeting — 108 utterances, 10.3 minutes of speech — with
+the meeting's own `segments.json` fed to both backends, so the VAD is held constant and only
+the recogniser differs. Host: 16-core x86, 8 threads (`cpu_count() // 2`).
+
+| | RTF | divergence |
+| --- | --- | --- |
+| faster-whisper `large-v3-turbo` (CUDA) | **0.09** | reference |
+| whisper.cpp `small-q5_1` | **0.55** | 26.3% |
+| whisper.cpp `medium-q5_0` | 1.78 | 21.8% |
+| whisper.cpp `large-v3-turbo-q5_0` | 2.83 | **13.8%** |
+| whisper.cpp `kotoba-whisper-v2.0-q5_0` | 2.82 | 21.4% |
+
+**Read the second column as divergence, not error.** It is character error rate against
+faster-whisper's output, because no human transcript exists for these meetings — so it answers
+"does a machine without CUDA produce something different from what an RTX produces", which is
+the question the second backend raises. It cannot say kotoba is *worse* than turbo: kotoba is a
+different model, and any model that is not `large-v3-turbo` is penalised here for not being it.
+
+The finding that matters is the first column. **Transcription is live**, so RTF above 1 means
+the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,
+at a divergence a quarter of the transcript wide; the production default at 2.83 would take
+about 2.8 hours over a 60-minute meeting. So a CPU-only x86 host cannot simply inherit the
+default model — that is a decision Phase 4 owes, not something the backend switch settled.
+
+Two things this does **not** say:
+
+- **Apple Silicon is not measured here.** whisper.cpp on Metal is a different machine
+  altogether; Kotoba's published figure is 581 s for 50 minutes of audio on an M2 Pro
+  (RTF 0.19), which would clear real time comfortably. Only x86 CPU was measured.
+- **Threads are not the lever.** 8 versus 16 threads moved RTF by under 8% on the same audio
+  (turbo 2.21 → 2.05, medium 1.29 → 1.32). It is memory-bandwidth bound, so the
+  `cpu_count() // 2` default stays.
+
+The spike also found that the backend did not work at all: `beam_search` was sent without
+`patience`, so every finalized utterance raised, and the Japanese model's alias named a Hugging
+Face repo that pywhispercpp silently declines to resolve. Both are fixed, and
+`test_backends.py` now decodes for real rather than only testing which backend gets chosen.
 
 ## kotoba-whisper is never given the glossary
 
@@ -332,6 +392,16 @@ someone on a laptop speaker) are the ones they do not have. A benchmark on the w
 worse than none: it would be quoted. *Changes if* a suitable recorded-meeting corpus with
 reference transcripts becomes available, or if enough consenting recordings accumulate to build
 one.
+
+**Vulkan builds of whisper.cpp, so AMD and Intel GPUs are accelerated.** whisper.cpp supports
+Vulkan upstream, so this is buildable — pywhispercpp from source with `GGML_VULKAN=1`, plus a
+wheel-building CI matrix to ship it. What stops it is that nobody here has an AMD machine, and
+Vulkan is not as optimised as CUDA: whether it would actually clear real time on a given
+Radeon is unknown, and shipping "AMD GPU supported" without measuring it is the same mistake as
+[the diarization swap](#diarization-has-two-backends-chosen-by-the-hardware) — a claim
+validated on something other than the thing it claims. The docs say CPU instead, which is what
+those machines really do. *Changes if* an AMD or Intel GPU machine is available to measure on,
+or a contributor with one offers numbers.
 
 **A GPU task queue in the UI.** There is no queue to show. GPU work is mutually exclusive, not
 ordered: a second task is refused with a 409 rather than lined up, because the useful behaviour

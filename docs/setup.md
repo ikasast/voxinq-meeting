@@ -10,6 +10,29 @@ install** (what the author's own machine runs). Both need an NVIDIA GPU.
 
 - **NVIDIA GPU** with CUDA (8 GB VRAM is enough)
 
+### What runs on what
+
+Voxinq transcribes *during* the meeting, so the thing that decides whether a machine is usable
+is whether transcription keeps up with speech — not whether it runs at all.
+
+| your machine | transcription | keeps up live? | speaker separation |
+| --- | --- | --- | --- |
+| **NVIDIA GPU** | faster-whisper on CUDA | yes, comfortably | pyannote (GPU) |
+| **Apple silicon** | whisper.cpp on Metal | expected yes, not yet measured | sherpa-onnx (CPU) |
+| **AMD / Intel GPU** | whisper.cpp on the **CPU** — the GPU is not used | only with a smaller model | sherpa-onnx (CPU) |
+| **CPU only** | whisper.cpp on the CPU | only with a smaller model | sherpa-onnx (CPU) |
+
+**An AMD or Intel GPU does not accelerate anything here.** whisper.cpp supports Vulkan
+upstream, but the pywhispercpp wheels for Linux and Windows are CPU builds, so such a machine
+performs exactly like a CPU-only one. Measured on a 16-core x86 CPU with a real Japanese
+meeting: the default `large-v3-turbo` runs at **2.8x the length of the audio**, so a 60-minute
+meeting would take about 2.8 hours and live transcription falls behind and never recovers.
+`small-q5_1` is the one that fits real time there, at noticeably lower quality. More threads do
+not help — it is memory-bandwidth bound.
+
+A Radeon *can* still be used for the minutes: Ollama has ROCm builds, and it is a separate
+service. Only the transcription and diarization stay on the CPU.
+
 For a native install, additionally:
 
 - **Node.js** 20+
