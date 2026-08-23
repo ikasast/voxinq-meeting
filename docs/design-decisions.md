@@ -206,8 +206,25 @@ different model, and any model that is not `large-v3-turbo` is penalised here fo
 The finding that matters is the first column. **Transcription is live**, so RTF above 1 means
 the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,
 at a divergence a quarter of the transcript wide; the production default at 2.83 would take
-about 2.8 hours over a 60-minute meeting. So a CPU-only x86 host cannot simply inherit the
-default model — that is a decision Phase 4 owes, not something the backend switch settled.
+about 2.8 hours over a 60-minute meeting.
+
+### So a host that cannot keep up does not try
+
+The alternative to falling behind is not a smaller model — it is not being live at all.
+`backends.live_transcription_available()` decides from hardware acceleration (CUDA, or Apple
+silicon where the wheel bundles Metal), and a host without it **records the meeting and
+transcribes the whole file once, at the end**, through the same job that already backed
+"Re-transcribe". Same model, same quality; the only thing lost is text during the meeting.
+
+That was chosen over defaulting those machines to `small` because the two costs are not
+comparable. A smaller model is a permanent 26% divergence in the artefact people keep and
+search; no live text is an inconvenience during an hour someone is usually paying attention to
+the room rather than the screen. Quality is the part that cannot be recovered afterwards.
+
+It also removes the failure it was avoiding rather than shrinking it: nothing is dropped when
+recognition is slow — audio backs up through websocket flow control — but "stop" would not
+return until the backlog drained, which on an hour-long meeting meant roughly another ninety
+minutes. `STT_LIVE_TRANSCRIPTION=1/0` overrides the rule for a machine that knows better.
 
 Two things this does **not** say:
 

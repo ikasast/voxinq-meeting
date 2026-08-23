@@ -24,7 +24,9 @@ partials, the hallucination filters, translation -- all live outside the model c
 from __future__ import annotations
 
 import os
+import platform
 import shutil
+import sys
 import subprocess
 from dataclasses import dataclass
 from typing import Any
@@ -57,6 +59,36 @@ def cuda_available() -> bool:
         return ctranslate2.get_cuda_device_count() > 0
     except Exception:  # noqa: BLE001  no ctranslate2, no driver, or no device
         return False
+
+
+def apple_silicon() -> bool:
+    """Is this a Mac with Apple silicon? The one non-CUDA platform with a GPU build."""
+    return sys.platform == "darwin" and platform.machine().lower() in ("arm64", "aarch64")
+
+
+def live_transcription_available(backend: Any) -> bool:
+    """Can this machine recognise speech while the meeting is still going on?
+
+    Not "can it recognise" -- everything can, eventually. The question is whether it keeps up,
+    because falling behind does not degrade gracefully: utterances are recognised one at a time
+    in the websocket receive loop, so a machine slower than real time builds a backlog it never
+    works off. Measured on a 16-core x86 CPU, the default model runs at 2.8x the length of the
+    audio: an hour-long meeting leaves ~39 minutes unprocessed when someone presses stop, and
+    takes another hour and a half to drain. Nothing is lost, but a stop button that does not
+    return for that long is not a working feature.
+
+    A host that cannot keep up records instead and transcribes the whole file at the end --
+    same model, same quality, no live text.
+
+    The rule follows hardware acceleration, because that is what decides the answer:
+
+        faster-whisper                  only chosen when CUDA is present   -> live
+        whisper.cpp on Apple silicon    its wheel bundles Metal            -> live
+        whisper.cpp anywhere else       those wheels are CPU builds        -> deferred
+    """
+    if backend.name == "faster-whisper":
+        return backend.device == "cuda"
+    return apple_silicon()
 
 
 def _ffmpeg_decode(path: str) -> np.ndarray:

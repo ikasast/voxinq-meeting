@@ -49,8 +49,9 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 **Prerequisites:** an NVIDIA GPU (CUDA, 8 GB is enough) with its driver installed.
 
 Apple silicon works too, on Metal. An **AMD or Intel GPU is not used** — those machines
-transcribe on the CPU, which is too slow to keep up with a live meeting unless you pick a
-smaller model. See [what runs on what](docs/setup.md#what-runs-on-what).
+transcribe on the CPU, which is slower than speech, so they record the meeting and transcribe
+it in one pass at the end instead: same quality, no live text. See
+[what runs on what](docs/setup.md#what-runs-on-what).
 
 **With Docker** — brings up the database, web app, transcription service and Ollama together.
 Also needs Docker Compose and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).

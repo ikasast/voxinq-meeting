@@ -103,6 +103,57 @@ def test_a_builtin_ggml_name_is_passed_through_untouched() -> None:
     assert backends.resolve_ggml("large-v3-turbo-q5_0") == "large-v3-turbo-q5_0"
 
 
+class _Platform:
+    """Pretend to be a given OS/CPU, so the Mac branch is testable from anywhere."""
+
+    def __init__(self, plat: str, machine: str) -> None:
+        self.plat, self.machine = plat, machine
+        self._orig = (backends.sys.platform, backends.platform.machine)
+
+    def __enter__(self):
+        backends.sys.platform = self.plat
+        backends.platform.machine = lambda: self.machine
+        return self
+
+    def __exit__(self, *_exc) -> None:
+        backends.sys.platform, backends.platform.machine = self._orig
+
+
+def test_a_cuda_host_transcribes_live() -> None:
+    with _Chooser(True, BOTH):
+        b = backends.choose_backend(None, "cuda", None)
+    assert backends.live_transcription_available(b) is True
+
+
+def test_apple_silicon_transcribes_live() -> None:
+    # Its wheel is the one that bundles Metal.
+    with _Chooser(False, BOTH), _Platform("darwin", "arm64"):
+        b = backends.choose_backend(None, "cuda", None)
+        assert b.name == "whisper.cpp"
+        assert backends.live_transcription_available(b) is True
+
+
+def test_a_plain_cpu_host_defers() -> None:
+    # The measured case: 2.8x realtime, so live recognition would fall behind and stay behind.
+    with _Chooser(False, BOTH), _Platform("linux", "x86_64"):
+        b = backends.choose_backend(None, "cuda", None)
+        assert backends.live_transcription_available(b) is False
+
+
+def test_an_intel_mac_defers() -> None:
+    # darwin alone is not the condition -- Metal here is a build for arm64 wheels.
+    with _Chooser(False, BOTH), _Platform("darwin", "x86_64"):
+        b = backends.choose_backend(None, "cuda", None)
+        assert backends.live_transcription_available(b) is False
+
+
+def test_faster_whisper_on_cpu_defers() -> None:
+    # Forced onto faster-whisper without a GPU: still slower than speech.
+    with _Chooser(False, {"faster_whisper"}):
+        b = backends.choose_backend("faster-whisper", "cpu", None)
+    assert backends.live_transcription_available(b) is False
+
+
 def test_whisper_cpp_actually_decodes_at_the_beam_size_finals_use() -> None:
     """Run a real decode through the whisper.cpp backend, or skip.
 
