@@ -1,0 +1,31 @@
+# Overrides for a machine with no NVIDIA GPU — Apple silicon, an AMD or Intel GPU, or a
+# plain CPU server.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+#
+# Two things change. The STT image becomes the CPU variant: multi-arch, so it runs on Apple
+# silicon at all, and ~1.8 GB instead of ~21 GB because nothing CUDA-shaped is in it. And the
+# GPU reservations come off both services, since compose refuses to start a service reserving
+# a device the host does not have.
+#
+# What that costs, so it is not a surprise later:
+#
+#   * **No live transcription.** There is no GPU acceleration in a container on any of these
+#     hosts — Docker on macOS runs a Linux VM with no access to Metal — so recognition is
+#     slower than speech. The meeting is recorded and transcribed in one pass at the end,
+#     with the same model and the same quality. See docs/setup.md.
+#   * **Speaker separation uses sherpa-onnx**, not pyannote, which is less accurate on long
+#     meetings. It needs no Hugging Face token in exchange.
+#   * **Minutes run on the CPU** unless you point Settings → LLM at something else. A 7B model
+#     on a CPU is slow; a Mac is better served by running Ollama natively (it uses Metal there)
+#     and pointing the app at `http://host.docker.internal:11434`.
+
+services:
+  stt:
+    image: ghcr.io/ikasast/voxinq-meeting/stt:${VOXINQ_VERSION:-latest}-cpu
+    # `!reset` empties the mapping the base file sets; without it compose merges the two and
+    # the nvidia reservation survives.
+    deploy: !reset {}
+
+  ollama:
+    deploy: !reset {}

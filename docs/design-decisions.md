@@ -208,6 +208,28 @@ the service falls behind the meeting and never catches up. On this CPU only `sma
 at a divergence a quarter of the transcript wide; the production default at 2.83 would take
 about 2.8 hours over a 60-minute meeting.
 
+### Two STT images, because one of them could not run on a Mac at all
+
+The published `stt` image is built on `nvidia/cuda` and carries torch for pyannote. That is
+right for the machine it was written for and wrong everywhere else: linux/amd64 only, ~21 GB,
+and none of the CUDA half usable without a device. It runs fine on a GPU-less x86 box — which
+is how it was tested all along — and **not at all on Apple silicon**, where the architecture
+alone rules it out. So the platform the second recognition backend exists to serve had no way
+to run the result.
+
+`stt:<tag>-cpu` is the same service with everything CUDA-shaped removed: `python:3.11-slim`,
+whisper.cpp for recognition, sherpa-onnx for diarization, no torch. **1.76 GB against
+20.9 GB**, built for linux/amd64 and linux/arm64 (the arm64 contents come out within about
+10% of the amd64 ones — mostly CTranslate2's bundled Intel libraries, which have no arm64
+counterpart). `docker-compose.cpu.yml` selects it and drops the GPU
+reservations, which compose otherwise refuses to start against a host with no such device.
+
+The thing to be clear about, because the obvious assumption is wrong: **Metal is not available
+inside Docker.** Docker Desktop on macOS runs a Linux VM with no GPU passthrough, so an Apple
+silicon machine gets Metal from a *native* install and CPU inference from the containers — the
+same laptop, two different answers, and only the native one transcribes live. The containers
+are far easier to set up, which is the trade being offered rather than hidden.
+
 ### So a host that cannot keep up does not try
 
 The alternative to falling behind is not a smaller model — it is not being live at all.

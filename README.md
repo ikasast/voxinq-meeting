@@ -48,7 +48,7 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 
 **Prerequisites:** an NVIDIA GPU (CUDA, 8 GB is enough) with its driver installed.
 
-Apple silicon works too, on Metal. An **AMD or Intel GPU is not used** — those machines
+Apple silicon works too. An **AMD or Intel GPU is not used** — those machines
 transcribe on the CPU, which is slower than speech, so they record the meeting and transcribe
 it in one pass at the end instead: same quality, no live text. See
 [what runs on what](docs/setup.md#what-runs-on-what).
