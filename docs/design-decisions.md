@@ -163,6 +163,46 @@ The alternatives that still do not fit:
   much larger cards.
 - **Parakeet** — strong on English, unproven for Japanese meetings, which is the primary use.
 
+### What whisper.cpp costs on a CPU
+
+Measured on a real 12-minute Japanese meeting — 108 utterances, 10.3 minutes of speech — with
+the meeting's own `segments.json` fed to both backends, so the VAD is held constant and only
+the recogniser differs. Host: 16-core x86, 8 threads (`cpu_count() // 2`).
+
+| | RTF | divergence |
+| --- | --- | --- |
+| faster-whisper `large-v3-turbo` (CUDA) | **0.09** | reference |
+| whisper.cpp `small-q5_1` | **0.55** | 26.3% |
+| whisper.cpp `medium-q5_0` | 1.78 | 21.8% |
+| whisper.cpp `large-v3-turbo-q5_0` | 2.83 | **13.8%** |
+| whisper.cpp `kotoba-whisper-v2.0-q5_0` | 2.82 | 21.4% |
+
+**Read the second column as divergence, not error.** It is character error rate against
+faster-whisper's output, because no human transcript exists for these meetings — so it answers
+"does a machine without CUDA produce something different from what an RTX produces", which is
+the question the second backend raises. It cannot say kotoba is *worse* than turbo: kotoba is a
+different model, and any model that is not `large-v3-turbo` is penalised here for not being it.
+
+The finding that matters is the first column. **Transcription is live**, so RTF above 1 means
+the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,
+at a divergence a quarter of the transcript wide; the production default at 2.83 would take
+about 2.8 hours over a 60-minute meeting. So a CPU-only x86 host cannot simply inherit the
+default model — that is a decision Phase 4 owes, not something the backend switch settled.
+
+Two things this does **not** say:
+
+- **Apple Silicon is not measured here.** whisper.cpp on Metal is a different machine
+  altogether; Kotoba's published figure is 581 s for 50 minutes of audio on an M2 Pro
+  (RTF 0.19), which would clear real time comfortably. Only x86 CPU was measured.
+- **Threads are not the lever.** 8 versus 16 threads moved RTF by under 8% on the same audio
+  (turbo 2.21 → 2.05, medium 1.29 → 1.32). It is memory-bandwidth bound, so the
+  `cpu_count() // 2` default stays.
+
+The spike also found that the backend did not work at all: `beam_search` was sent without
+`patience`, so every finalized utterance raised, and the Japanese model's alias named a Hugging
+Face repo that pywhispercpp silently declines to resolve. Both are fixed, and
+`test_backends.py` now decodes for real rather than only testing which backend gets chosen.
+
 ## kotoba-whisper is never given the glossary
 
 Measured, not assumed: passing an `initial_prompt` to kotoba-whisper made it emit **nothing at
