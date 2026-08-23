@@ -90,12 +90,17 @@ def test_segment_defaults_keep_the_segment() -> None:
     assert not (s.no_speech_prob >= 0.6 and s.avg_logprob <= -1.0)
 
 
-def test_ggml_alias_maps_the_japanese_model() -> None:
-    # The CTranslate2 repo name has no ggml build under the same id.
-    assert (
-        backends.GGML_ALIASES["kotoba-tech/kotoba-whisper-v2.0-faster"]
-        == "kotoba-tech/kotoba-whisper-v2.0-ggml"
-    )
+def test_ggml_alias_names_a_repo_and_a_file() -> None:
+    # Not just a repo id: pywhispercpp resolves its own built-in names or a file path, and
+    # nothing else. An alias that stops at the repo silently loads no model at all.
+    repo, filename = backends.GGML_ALIASES["kotoba-tech/kotoba-whisper-v2.0-faster"]
+    assert repo == "kotoba-tech/kotoba-whisper-v2.0-ggml"
+    assert filename.endswith(".bin")
+
+
+def test_a_builtin_ggml_name_is_passed_through_untouched() -> None:
+    # Downloading is only for the aliased models; everything else pywhispercpp fetches itself.
+    assert backends.resolve_ggml("large-v3-turbo-q5_0") == "large-v3-turbo-q5_0"
 
 
 def test_whisper_cpp_actually_decodes_at_the_beam_size_finals_use() -> None:

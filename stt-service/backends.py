@@ -136,11 +136,33 @@ class FasterWhisperBackend:
         return decode_audio(path, sampling_rate=SAMPLE_RATE)
 
 
-# Our model ids name CTranslate2 repositories; whisper.cpp wants ggml. Where the same model
-# exists in both worlds under a different name, translate the ones we ship.
+# Our model ids name CTranslate2 repositories; whisper.cpp wants ggml.
+#
+# pywhispercpp resolves a name only against its own built-in list (tiny...large-v3-turbo-q5_0)
+# or an existing file path -- it does not fetch arbitrary Hugging Face repositories. So a model
+# that only exists on the Hub is named here by repo and file, fetched, and handed over as a
+# path. Passing the repo id straight through does not raise: pywhispercpp logs "Invalid model
+# name", returns a Model with a null context, and the first transcribe fails on nothing.
 GGML_ALIASES = {
-    "kotoba-tech/kotoba-whisper-v2.0-faster": "kotoba-tech/kotoba-whisper-v2.0-ggml",
+    # Japanese-specialised, and the reason this matters: it is the model a Japanese-first app
+    # would pick on a Mac. q5_0 rather than the full weights -- 1.1 GB against 3.1 GB, and
+    # Kotoba's own release notes put the quality within noise of each other.
+    "kotoba-tech/kotoba-whisper-v2.0-faster": (
+        "kotoba-tech/kotoba-whisper-v2.0-ggml",
+        "ggml-kotoba-whisper-v2.0-q5_0.bin",
+    ),
 }
+
+
+def resolve_ggml(model_name: str) -> str:
+    """A name pywhispercpp will accept: its own, or a downloaded file's path."""
+    alias = GGML_ALIASES.get(model_name)
+    if alias is None:
+        return model_name
+    repo, filename = alias
+    from huggingface_hub import hf_hub_download
+
+    return hf_hub_download(repo_id=repo, filename=filename)
 
 
 class WhisperCppBackend:
@@ -161,12 +183,17 @@ class WhisperCppBackend:
     def load(self, model_name: str) -> Any:
         from pywhispercpp.model import Model
 
-        return Model(
-            GGML_ALIASES.get(model_name, model_name),
+        model = Model(
+            resolve_ggml(model_name),
             print_realtime=False,
             print_progress=False,
             print_timestamps=False,
         )
+        # An unresolvable name leaves the context null and is only reported through a log line,
+        # so the failure would otherwise surface as an empty transcript rather than an error.
+        if getattr(model, "_ctx", True) is None:
+            raise RuntimeError(f"whisper.cpp could not load the model {model_name!r}")
+        return model
 
     def unload(self, model: Any) -> None:
         del model
