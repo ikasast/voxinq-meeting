@@ -47,7 +47,7 @@ from pathlib import Path
 
 import numpy as np
 
-from backends import Segment, choose_backend
+from backends import Segment, choose_backend, live_transcription_available
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -76,6 +76,19 @@ COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE") or None
 # host therefore behaves exactly as it did before this existed.
 STT_BACKEND = os.environ.get("STT_BACKEND")
 backend = choose_backend(STT_BACKEND, DEVICE, COMPUTE_TYPE)
+
+
+def _live_transcription_available() -> bool:
+    """Whether to recognise during the meeting. STT_LIVE_TRANSCRIPTION=1/0 overrides the rule,
+    for a machine that knows its own speed better than backends.live_transcription_available
+    can guess -- a fast desktop CPU, or a Mac where Metal turned out not to be enough."""
+    override = os.environ.get("STT_LIVE_TRANSCRIPTION")
+    if override is not None:
+        return override.strip().lower() in ("1", "true", "yes", "on")
+    return live_transcription_available(backend)
+
+
+LIVE_TRANSCRIPTION = _live_transcription_available()
 
 VAD_SILENCE_MS = int(os.environ.get("VAD_SILENCE_MS", "700"))
 VAD_MAX_SEGMENT_MS = int(os.environ.get("VAD_MAX_SEGMENT_MS", "12000"))
@@ -204,7 +217,14 @@ def _preload_model(name: str | None) -> None:
     the settings default. Loading a different model releases the current one, so two
     disagreeing guesses used to cost two full loads each time. A superseded request is
     therefore dropped rather than queued behind the one that replaced it.
+
+    A host that transcribes after the meeting never warms anything: there is nothing to be
+    ready *for*, and the model it will eventually use is loaded by the batch job. The guard
+    belongs here rather than only on /preload, because PRELOAD_ON_START calls straight in --
+    which meant a deferred host downloaded 1.5 GB at boot to load a model it would not touch.
     """
+    if not LIVE_TRANSCRIPTION:
+        return
     try:
         with _PRELOAD_LOCK:
             if name != _preload_target[0]:
@@ -561,6 +581,9 @@ async def health() -> dict:
         "loaded": whisper.loaded_model,
         "busy": busy,
         "busyKind": kind,
+        # False means this host records the meeting and transcribes it afterwards. The
+        # recording screen reads this to know whether to expect text during the meeting.
+        "liveTranscription": LIVE_TRANSCRIPTION,
         "translate": translator_state(),
         # Runs a subprocess the first time, so keep it off the event loop.
         **await asyncio.to_thread(_diarization_info),
@@ -580,6 +603,10 @@ async def preload(model: str | None = None, translate: bool = False) -> dict:
     """
     name = model or DEFAULT_MODEL
     _touch_activity()
+    if not LIVE_TRANSCRIPTION:
+        # Say so rather than reporting a load that _preload_model would decline anyway: the
+        # caller polls this to decide whether recording can begin.
+        return {"status": "deferred", "model": name}
     if translate:
         threading.Thread(target=preload_translator, daemon=True).start()
     with _PRELOAD_LOCK:
@@ -1526,7 +1553,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
         state.seg_start_sample = state.elapsed_samples
         # Pass to Whisper only when voiced time is above the threshold.
         # Not passing silent buffers (produced at each silence split) cuts off hallucinations.
-        if audio.size >= min_seg and voiced_ms(audio, frame) >= VAD_MIN_SPEECH_MS:
+        #
+        # On a host that transcribes after the meeting there is nothing to do here at all: the
+        # audio has already been kept, and the whole file is recognised once at the end.
+        if (
+            LIVE_TRANSCRIPTION
+            and audio.size >= min_seg
+            and voiced_ms(audio, frame) >= VAD_MIN_SPEECH_MS
+        ):
             # Inference runs on a thread so the event loop (this receive loop for queued
             # frames, /health, other connections) stays responsive during the ~seconds it takes.
             async with transcribe_lock:
@@ -1602,6 +1636,15 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         state.elapsed_samples = prior
                         state.seg_start_sample = prior
                     started = True
+                    if not LIVE_TRANSCRIPTION:
+                        # Recording only. No model is loaded at all: this host would transcribe
+                        # slower than people speak, so the work is done once at the end from the
+                        # finished file instead. Loading it here would cost memory and a wait
+                        # for something that will not be used.
+                        await ws.send_text(
+                            json.dumps({"type": "status", "status": "open", "live": False})
+                        )
+                        continue
                     await ws.send_text(json.dumps({"type": "status", "status": "loading"}))
                     # Model load can take tens of seconds, so run it on a separate thread
                     # to keep the event loop (/health and other connections) alive during load.
@@ -1617,7 +1660,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
                                 )
                             )
                         break
-                    await ws.send_text(json.dumps({"type": "status", "status": "open"}))
+                    await ws.send_text(
+                        json.dumps({"type": "status", "status": "open", "live": True})
+                    )
                 elif kind == "end":
                     # Even if the client disconnects while transcribing the final segment
                     # (even if send fails), always proceed to saving the recording.
@@ -1674,7 +1719,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 # Otherwise, periodically show what the in-progress segment sounds like so
                 # far — without this, continuous speech shows nothing until the segment
                 # closes (up to VAD_MAX_SEGMENT_MS), which reads as a hang.
-                STT_PARTIAL_MS > 0
+                LIVE_TRANSCRIPTION
+                and STT_PARTIAL_MS > 0
                 and state.buffer.size >= SAMPLE_RATE  # at least 1s of audio to work with
                 and state.elapsed_samples - last_partial_sample >= partial_gap
                 and (partial_task is None or partial_task.done())

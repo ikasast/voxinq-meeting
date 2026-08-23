@@ -15,20 +15,26 @@ install** (what the author's own machine runs). Both need an NVIDIA GPU.
 Voxinq transcribes *during* the meeting, so the thing that decides whether a machine is usable
 is whether transcription keeps up with speech — not whether it runs at all.
 
-| your machine | transcription | keeps up live? | speaker separation |
+| your machine | transcription | when you see the text | speaker separation |
 | --- | --- | --- | --- |
-| **NVIDIA GPU** | faster-whisper on CUDA | yes, comfortably | pyannote (GPU) |
-| **Apple silicon** | whisper.cpp on Metal | expected yes, not yet measured | sherpa-onnx (CPU) |
-| **AMD / Intel GPU** | whisper.cpp on the **CPU** — the GPU is not used | only with a smaller model | sherpa-onnx (CPU) |
-| **CPU only** | whisper.cpp on the CPU | only with a smaller model | sherpa-onnx (CPU) |
+| **NVIDIA GPU** | faster-whisper on CUDA | **as you speak** | pyannote (GPU) |
+| **Apple silicon** | whisper.cpp on Metal | **as you speak** | sherpa-onnx (CPU) |
+| **AMD / Intel GPU** | whisper.cpp on the **CPU** — the GPU is not used | when the meeting ends | sherpa-onnx (CPU) |
+| **CPU only** | whisper.cpp on the CPU | when the meeting ends | sherpa-onnx (CPU) |
+
+A machine with no GPU acceleration **records the meeting and transcribes it in one pass at the
+end**, rather than trying to keep up and falling behind. Same model, same quality — the
+difference is that no text appears during the meeting. Everything after that (minutes, speaker
+separation, search) is unchanged. `STT_LIVE_TRANSCRIPTION=1` forces live recognition anyway on
+a machine you know is fast enough.
 
 **An AMD or Intel GPU does not accelerate anything here.** whisper.cpp supports Vulkan
 upstream, but the pywhispercpp wheels for Linux and Windows are CPU builds, so such a machine
 performs exactly like a CPU-only one. Measured on a 16-core x86 CPU with a real Japanese
-meeting: the default `large-v3-turbo` runs at **2.8x the length of the audio**, so a 60-minute
-meeting would take about 2.8 hours and live transcription falls behind and never recovers.
-`small-q5_1` is the one that fits real time there, at noticeably lower quality. More threads do
-not help — it is memory-bandwidth bound.
+meeting, the default `large-v3-turbo` runs at **2.8x the length of the audio** — which is why
+those machines transcribe at the end instead: recognising live would leave ~39 minutes
+unprocessed at the moment you press stop on an hour-long meeting, and take another hour and a
+half to catch up. More threads do not help; it is memory-bandwidth bound.
 
 A Radeon *can* still be used for the minutes: Ollama has ROCm builds, and it is a separate
 service. Only the transcription and diarization stay on the CPU.

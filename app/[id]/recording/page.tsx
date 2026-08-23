@@ -6,6 +6,7 @@ import Link from "next/link";
 import { type RecognizerStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
 import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
+import { applyTranscript, transcribeRecording } from "@/lib/stt/transcribe-recording";
 import { useConfirmEx } from "../../confirm-dialog";
 import { useGpuBusy } from "../../use-gpu-busy";
 
@@ -86,6 +87,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // Whisper model resident on the STT service, polled until it matches this meeting's model —
   // so the user can see the model is ready before pressing record.
   const [loadedModel, setLoadedModel] = useState<string | null | undefined>(undefined);
+  // null until /health answers. True = this host records now and transcribes at the end,
+  // because recognition here is slower than speech (see lib/stt/preload.ts).
+  const [deferred, setDeferred] = useState<boolean | null>(null);
+  const [deferredStatus, setDeferredStatus] = useState<string | null>(null);
   // Transcription settings in effect for this recording (shown to the user). The LLM settings
   // are not part of recording, so they are not collected here.
   const [cfg, setCfg] = useState<{
@@ -287,6 +292,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       const h = await sttHealth(6000);
       if (stop) return;
       setLoadedModel(h ? (h.loaded ?? null) : null);
+      // An older service does not report this and only ever did live.
+      const isDeferred = h ? h.liveTranscription === false : null;
+      setDeferred(isDeferred);
+      // Nothing loads a model on a deferred host, so waiting for one would poll forever and
+      // leave "Loading model..." on screen for the whole meeting.
+      if (isDeferred) return;
       // Keep polling until the model we need is the one resident.
       if (!h || !h.loaded || (want && h.loaded !== want)) {
         timer = setTimeout(() => void poll(), 3000);
@@ -466,6 +477,43 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     }
   }, [meetingId]);
 
+  // On a host that cannot keep up with speech, the transcript is produced here: the meeting
+  // was only recorded, and the whole file is recognised once, now. It runs before the meeting
+  // is marked ended so that minutes generation -- which reads the transcript -- has something
+  // to read.
+  //
+  // A failure is reported and swallowed. The audio is saved either way, and "Re-transcribe" on
+  // the meeting page runs exactly this again; losing the meeting because recognition failed
+  // would be far worse than ending it without a transcript.
+  const transcribeIfDeferred = useCallback(async () => {
+    if (!deferred) return;
+    try {
+      const settings = (await fetch("/api/settings")
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)) as {
+        whisperModel?: string;
+        sttLanguage?: string;
+        sttGlossary?: string;
+        sttTranslate?: boolean;
+      } | null;
+      const utterances = await transcribeRecording(meetingId, {
+        model: settings?.whisperModel,
+        language: settings?.sttLanguage,
+        initialPrompt: settings?.sttGlossary || undefined,
+        translate: Boolean(settings?.sttTranslate),
+        onProgress: setDeferredStatus,
+      });
+      setDeferredStatus("Saving the transcript…");
+      await applyTranscript(meetingId, utterances);
+      setDeferredStatus(null);
+    } catch (e) {
+      setDeferredStatus(null);
+      showToast(
+        `Transcription failed: ${(e as Error).message}. The recording is saved — use "Re-transcribe" on the meeting page.`,
+      );
+    }
+  }, [deferred, meetingId, showToast]);
+
   const generateSummaryAndEnd = useCallback(async () => {
     if (busy !== "none") return;
     const { ok, checked } = await confirm({
@@ -482,6 +530,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     try {
       await stopRecording();
       if (checked) await protectRecording();
+      await transcribeIfDeferred();
       await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
       // Minutes generation runs in the background (202 returns immediately). Go to the list without waiting.
       const sumRes = await fetch("/api/claude/summary", {
@@ -502,7 +551,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       showToast(`Failed to start minutes generation: ${(e as Error).message}`);
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording]);
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred]);
 
   // End the meeting and kick off speaker diarization: the detail page opens with
   // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
@@ -525,6 +574,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // boundaries — diarization needs both.
       await stopRecording();
       if (checked) await protectRecording();
+      await transcribeIfDeferred();
       await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
       // replace() so back navigation cannot return here and restart the meeting.
       router.replace(`/${meetingId}?autodiarize=1`);
@@ -532,7 +582,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       showToast(`Failed to end the meeting: ${(e as Error).message}`);
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording]);
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred]);
 
   const endWithoutSummary = useCallback(async () => {
     if (busy !== "none") return;
@@ -548,10 +598,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     setEnded(true);
     await stopRecording();
     if (checked) await protectRecording();
+    await transcribeIfDeferred();
     await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
     // replace() so back navigation cannot return to this recording page.
     router.replace(`/${meetingId}`);
-  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording]);
+  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording, transcribeIfDeferred]);
 
   // Warn before leaving while recording
   useEffect(() => {
@@ -664,16 +715,25 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           {/* Before recording, say whether the model is loaded — the wait for a cold load is
               silent otherwise, and starting into it means the first minutes go unrecognized. */}
           {!active && !ended && !external ? (
-            <span
-              className={`text-xs ${modelReady ? "text-[var(--success)]" : "text-[var(--warning)]"}`}
-              title={
-                modelReady
-                  ? `${activeModel ?? "model"} is loaded — transcription starts right away`
-                  : "The model is still loading. You can start; audio is buffered and transcribed once it is ready."
-              }
-            >
-              {modelReady ? "● Model ready" : "◌ Loading model…"}
-            </span>
+            deferred ? (
+              <span
+                className="text-xs text-[var(--text-muted)]"
+                title="No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — same model, same quality."
+              >
+                ● Transcribes when the meeting ends
+              </span>
+            ) : (
+              <span
+                className={`text-xs ${modelReady ? "text-[var(--success)]" : "text-[var(--warning)]"}`}
+                title={
+                  modelReady
+                    ? `${activeModel ?? "model"} is loaded — transcription starts right away`
+                    : "The model is still loading. You can start; audio is buffered and transcribed once it is ready."
+                }
+              >
+                {modelReady ? "● Model ready" : "◌ Loading model…"}
+              </span>
+            )
           ) : null}
 
           <div className="flex items-center gap-2 text-sm">
@@ -771,7 +831,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             <div className="col-span-2 sm:col-span-1">
               Model:{" "}
               <span className="text-[var(--text-secondary)]">{activeModel ?? "-"}</span>{" "}
-              {modelReady ? (
+              {deferred ? (
+                <span className="text-[var(--text-muted)]" title="Loaded and run once the meeting ends">
+                  · at meeting end
+                </span>
+              ) : modelReady ? (
                 <span className="text-[var(--success)]" title="Loaded on the GPU — transcription starts immediately">
                   ● ready
                 </span>
@@ -845,9 +909,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             ) : null}
             {transcripts.length === 0 && !partial ? (
               <div className="py-12 text-center text-sm text-[var(--text-muted)]">
-                {status === "connecting"
-                  ? "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes."
-                  : 'Press "Start recording" above to begin transcription.'}
+                {deferred
+                  ? active
+                    ? "Recording. This machine has no GPU acceleration, so speech is recognized once — when you end the meeting — rather than as you speak. The transcript appears then, at full quality."
+                    : 'Press "Start recording" above. Text appears when the meeting ends, not during it — see below.'
+                  : status === "connecting"
+                    ? "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes."
+                    : 'Press "Start recording" above to begin transcription.'}
               </div>
             ) : null}
           </div>

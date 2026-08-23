@@ -17,6 +17,16 @@ export type SttHealth = {
   loaded?: string | null; // model currently resident in VRAM (null once released)
   busy?: boolean;
   busyKind?: string | null;
+  /**
+   * Whether this host recognises speech while the meeting is happening.
+   *
+   * False on a machine with no GPU acceleration, where recognition is slower than speech: it
+   * records instead and transcribes the whole file once the meeting ends. Same model, same
+   * quality, no text until the end. Absent on an older service, which only ever did live.
+   */
+  liveTranscription?: boolean;
+  diarizationBackend?: string | null;
+  embeddingModel?: string | null;
 };
 
 export async function sttHealth(timeoutMs = 8000): Promise<SttHealth | null> {
