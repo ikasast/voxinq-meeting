@@ -98,5 +98,5 @@ It is what `scripts/setup.sh` and `scripts/setup.ps1` do, in one place that beha
 all three platforms -- the two shell scripts had drifted apart. Re-running it is how you upgrade
 after pulling new code, and how you recover from an install interrupted half way through.
 
-What is still not packaged: Node and Python themselves. A published package would carry those;
-this replaces the manual steps, not the two runtimes.
+Node and Python are not installed by this — a package manager provides them, which is what
+`packaging/` is for. Everything above those two runtimes, setup does itself.
