@@ -318,7 +318,35 @@ diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https:
 diarization/.venv/bin/pip install -r diarization/requirements-pyannote.txt
 ```
 
-## Run it with one command (`voxinq`)
+## Install from a package manager
+
+The shortest route, and the one that needs no signed installer: `brew` and `scoop` unpack the
+archive themselves, so macOS never attaches a quarantine attribute and Gatekeeper is never
+consulted.
+
+```bash
+brew install ikasast/voxinq/voxinq                                          # macOS, Linux
+scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq             # Windows
+scoop install voxinq
+```
+
+Then finish the install — it takes several minutes and needs the network:
+
+```bash
+voxinq setup
+voxinq start
+```
+
+Node and Python come as dependencies rather than bundled copies, which is what a package
+manager is for. PostgreSQL *is* bundled. Minutes need an LLM: install Ollama, or point
+Settings → LLM at a cloud model.
+
+> **Status.** The definitions live in [`packaging/`](../packaging/) and are published from a tap
+> and a bucket. Neither has been installed from yet — there is no Mac here for `brew`, and Scoop
+> is not on the development machine. The archive they install, and the `voxinq setup` and
+> `voxinq start` that follow, are verified on Windows.
+
+## Run it from a checkout (`voxinq`)
 
 The native install above needs PostgreSQL installed and running before anything else works,
 and then two terminals to keep it up. The `voxinq` launcher removes both: it **bundles
@@ -342,10 +370,12 @@ else it installs itself.
 
 Two things to know on **Windows**:
 
-- **pyannote may not install natively.** `torchcodec`, which pyannote reads audio through, is
-  not published for Windows on the CUDA wheel index. Setup tries PyPI and carries on if that
-  fails — speaker separation still works, on the ONNX backend, which is less accurate on long
-  meetings. The Docker install has pyannote regardless, because that container is Linux.
+- **pyannote installs and runs, through a slightly different route.** `torchcodec`, which
+  pyannote reads audio through, is not published for Windows on the CUDA wheel index, so setup
+  takes it from PyPI there instead — verified working: `torchcodec 0.16.0+cpu` alongside
+  `torch 2.11.0+cu128`, and a real diarization run on GPU. If that install ever fails, setup
+  says so and carries on: speaker separation still works on the ONNX backend, which is less
+  accurate on long meetings.
 - **Install somewhere with a short path.** Some Python packages nest deeply enough to exceed
   the 260-character limit, and pip fails part way through with a missing-file error. Either
   install under something like `C:oxinq`, or enable long-path support (pip prints the link).

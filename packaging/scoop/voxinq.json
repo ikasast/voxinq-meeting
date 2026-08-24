@@ -1,0 +1,60 @@
+{
+  "version": "0.0.0",
+  "description": "Self-hosted meeting minutes: record in the browser, transcribe and summarize on your own machine",
+  "homepage": "https://github.com/ikasast/voxinq-meeting",
+  "license": "AGPL-3.0-or-later",
+  "notes": [
+    "Voxinq is installed but not yet built. Finish with:",
+    "",
+    "    voxinq setup",
+    "",
+    "That installs the web dependencies, builds the app, and creates the transcription and",
+    "speaker-separation environments. It takes several minutes and needs the network.",
+    "",
+    "Then:",
+    "",
+    "    voxinq start        open it in a browser",
+    "    voxinq autostart on start it when you log in",
+    "",
+    "PostgreSQL is bundled - there is nothing to install or configure for it. Minutes need an",
+    "LLM: install Ollama (scoop install ollama), or point Settings -> LLM at a cloud model.",
+    "",
+    "Speaker separation on this machine uses ONNX models, which need no account. pyannote, the",
+    "more accurate backend, does not install natively on Windows - see the docs."
+  ],
+  "depends": ["nodejs-lts", "python"],
+  "suggest": {
+    "LLM for generating minutes": "ollama"
+  },
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/ikasast/voxinq-meeting/releases/download/v0.0.0/voxinq-0.0.0.tar.gz",
+      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "extract_dir": "voxinq-0.0.0",
+  "post_install": [
+    "# The CLI's own dependencies -- the bundled PostgreSQL binaries among them. The app's are",
+    "# installed by `voxinq setup`, which the notes ask the user to run: it takes minutes and",
+    "# downloads models, which is not something to do silently inside a package install.",
+    "Push-Location \"$dir\\cli\"",
+    "npm install --omit=dev --no-audit --no-fund",
+    "Pop-Location"
+  ],
+  "bin": [["cli\\voxinq.cmd", "voxinq"]],
+  "checkver": {
+    "github": "https://github.com/ikasast/voxinq-meeting",
+    "regex": "releases/tag/v([\\d.]+)$"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/ikasast/voxinq-meeting/releases/download/v$version/voxinq-$version.tar.gz"
+      }
+    },
+    "extract_dir": "voxinq-$version",
+    "hash": {
+      "url": "$url.sha256"
+    }
+  }
+}

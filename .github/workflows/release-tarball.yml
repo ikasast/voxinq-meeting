@@ -1,0 +1,103 @@
+name: Release tarball
+
+# The archive the package managers install from: source, plus the launcher, minus everything
+# that only matters to someone working on Voxinq. `.gitattributes` decides what is in it
+# (export-ignore), so there is no second list here to drift out of step with the first.
+#
+# Source rather than a built bundle, deliberately. A prebuilt one would have to carry
+# node_modules -- around a gigabyte, platform-specific, and stale the moment a dependency is
+# patched. `voxinq setup` builds it on the machine it will run on, which is also how the
+# formula and the manifest tell people to finish installing.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build the archive from (e.g. v2.0.0-beta.3)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tarball:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Build the archive
+        id: build
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+          # The version without the leading v, which is what a tarball is conventionally named
+          # by and what Scoop's and Homebrew's $version interpolation expects.
+          version="${TAG#v}"
+          name="voxinq-${version}"
+          # --prefix so the archive unpacks into its own directory rather than over the cwd,
+          # which is also what `extract_dir` in the Scoop manifest expects.
+          git archive --format=tar.gz --prefix="${name}/" -o "${name}.tar.gz" HEAD
+          sha256sum "${name}.tar.gz" | cut -d' ' -f1 > "${name}.tar.gz.sha256"
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(cat "${name}.tar.gz.sha256")" >> "$GITHUB_OUTPUT"
+          ls -l "${name}.tar.gz"
+
+      - name: Check it holds what it should, and not what it should not
+        env:
+          NAME: ${{ steps.build.outputs.name }}
+        run: |
+          set -euo pipefail
+          files=$(tar -tzf "${NAME}.tar.gz")
+          # Present: everything needed to run.
+          for want in package.json next.config.ts prisma/schema.prisma cli/src/index.mjs \
+                      cli/voxinq.cmd stt-service/server.py diarization/diarize.py app/layout.tsx; do
+            echo "$files" | grep -qx "${NAME}/${want}" || { echo "missing: ${want}"; exit 1; }
+          done
+          # Absent: the parts export-ignore removes. A silent regression here quadruples the
+          # download and ships screenshots to every install.
+          for unwanted in Dockerfile docker-compose.yml AGENTS.md; do
+            if echo "$files" | grep -qx "${NAME}/${unwanted}"; then
+              echo "should not be in the archive: ${unwanted}"; exit 1
+            fi
+          done
+          for dir in docs tests .github; do
+            if echo "$files" | grep -q "^${NAME}/${dir}/"; then
+              echo "should not be in the archive: ${dir}/"; exit 1
+            fi
+          done
+          echo "archive contents look right"
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NAME: ${{ steps.build.outputs.name }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "${NAME}.tar.gz" "${NAME}.tar.gz.sha256" --clobber
+
+      - name: Report the hash for the package manifests
+        env:
+          NAME: ${{ steps.build.outputs.name }}
+          SHA: ${{ steps.build.outputs.sha }}
+        run: |
+          {
+            echo "### ${NAME}.tar.gz"
+            echo
+            echo "Update \`packaging/scoop/voxinq.json\` and \`packaging/homebrew/voxinq.rb\` with:"
+            echo
+            echo '```'
+            echo "sha256  ${SHA}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: |
+            ${{ steps.build.outputs.name }}.tar.gz
+            ${{ steps.build.outputs.name }}.tar.gz.sha256
