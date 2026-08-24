@@ -326,14 +326,25 @@ PostgreSQL** and starts everything in the background.
 
 ```bash
 cd cli && npm install && npm link      # once
+voxinq setup                            # dependencies, build, both service venvs, models
 voxinq start                            # brings it all up and opens a browser
 voxinq status
 voxinq stop
 ```
 
-It still expects the app itself to be installed — `npm install`, `npm run build`, and the STT
-setup script. Packaging that away is a later step; what this replaces today is the database
-prerequisite and the two start scripts.
+`voxinq setup` is the cross-platform equivalent of the shell scripts above, and is also how you
+upgrade after pulling new code. It needs Node 20+ and Python 3.11+ on the machine; everything
+else it installs itself.
+
+Two things to know on **Windows**:
+
+- **pyannote may not install natively.** `torchcodec`, which pyannote reads audio through, is
+  not published for Windows on the CUDA wheel index. Setup tries PyPI and carries on if that
+  fails — speaker separation still works, on the ONNX backend, which is less accurate on long
+  meetings. The Docker install has pyannote regardless, because that container is Linux.
+- **Install somewhere with a short path.** Some Python packages nest deeply enough to exceed
+  the 260-character limit, and pip fails part way through with a missing-file error. Either
+  install under something like `C:oxinq`, or enable long-path support (pip prints the link).
 
 Data lives outside the install directory (`%LOCALAPPDATA%oxinq`,
 `~/Library/Application Support/voxinq`, `~/.local/share/voxinq`), so reinstalling or upgrading

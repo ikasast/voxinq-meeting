@@ -4,6 +4,7 @@ Run Voxinq without Docker. One command brings up the database, the transcription
 the web app, and opens a browser.
 
 ```bash
+voxinq setup     # install dependencies and build (safe to re-run; also how you upgrade)
 voxinq start     # bring it up
 voxinq stop      # shut it down
 voxinq status    # what is running, and where
@@ -62,6 +63,13 @@ client, silently.
 
 ## Requirements
 
-Node 20+, and a Voxinq install where `npm install`, `npm run build` and the STT setup script
-have been run. Packaging that away is a later step; today this replaces the two `start`
-scripts and the PostgreSQL prerequisite, not the whole install.
+Node 20+ and Python 3.11+. `voxinq setup` does the rest: web dependencies, the production
+build, both service virtualenvs, and the diarization models. On a machine with an NVIDIA GPU it
+also installs the pyannote backend, which is several gigabytes and is not chosen anywhere else.
+
+It is what `scripts/setup.sh` and `scripts/setup.ps1` do, in one place that behaves the same on
+all three platforms -- the two shell scripts had drifted apart. Re-running it is how you upgrade
+after pulling new code, and how you recover from an install interrupted half way through.
+
+What is still not packaged: Node and Python themselves. A published package would carry those;
+this replaces the manual steps, not the two runtimes.

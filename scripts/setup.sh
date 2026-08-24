@@ -49,6 +49,11 @@ else
   fi
 fi
 
+step "Database client (prisma generate)"
+# Before the build, and not done by `npm install`. Without it `npm run build` fails on types
+# that do not exist yet, which reads like broken source rather than a missing step.
+npx prisma generate
+
 step "Database schema (prisma migrate deploy)"
 npx prisma migrate deploy
 

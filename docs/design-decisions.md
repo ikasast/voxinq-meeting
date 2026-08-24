@@ -368,6 +368,41 @@ This is also the machinery that made the failed backend swap visible instead of 
 `tests/embedding-models.test.ts` reads `EMBEDDING_MODEL_ID` out of both backend `.py` files to
 check they still name models this side knows — the drift that started the whole problem.
 
+## The launcher bundles a database, and manages nothing else
+
+`voxinq` (in `cli/`) exists because the native install asks for four things before anything
+works — Node, Python, PostgreSQL, Ollama — and PostgreSQL is the one that ends install
+attempts. `embedded-postgres` ships the real server binaries per platform, so bundling it costs
+no divergence: same schema, same migrations, same Prisma provider as the Docker install, and a
+dump moves between them.
+
+**Ollama is deliberately not managed.** It has its own installer on every platform, it is
+optional (a cloud model works instead), and a launcher that half-owns someone else's service is
+worse than one that reports whether it can see it.
+
+Three choices worth keeping:
+
+- **Data lives outside the install directory** (`%LOCALAPPDATA%oxinq`,
+  `~/Library/Application Support/voxinq`, `~/.local/share/voxinq`). A package manager owns the
+  install directory and replaces it wholesale on upgrade — a database there would be deleted by
+  an update.
+- **Ports are chosen at start time.** A launcher that refuses to start over a port clash is one
+  someone has to debug. The browser learns where the STT service landed through `STT_WS_URL`,
+  which the web app reads per request, so nothing is rebuilt when a port moves.
+- **A port counts as used if something answers on it *or* the wildcard address cannot be
+  bound.** Both, because binding alone is not enough: Windows lets a socket take
+  `127.0.0.1:8000` while another holds `0.0.0.0:8000`, and the newcomer then shadows the
+  running service for every local client — silently. That happened during development, against
+  a live install, and is the same shape as the IPv6 problem that made `127.0.0.1` mandatory
+  for same-host URLs (see [Configuration](configuration.md#env)): a more specific bind wins,
+  and nothing reports it.
+
+The bundled binaries are the **server** only — `pg_ctl` and `postgres`, no `psql` and no
+`pg_dump`. Backups therefore go through the app's own encrypted export, not a dump script.
+
+What it does not do yet: bundle Node and Python. `voxinq setup` installs everything that sits
+on top of those two runtimes, and packaging them is what a Homebrew or Scoop formula would add.
+
 ## Single user, by design
 
 There is no user model, no per-meeting ownership, and one `settings.json`. The threat model is

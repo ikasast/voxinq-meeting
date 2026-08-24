@@ -46,6 +46,12 @@ if (Test-Path .env) {
   }
 }
 
+Step "Database client (prisma generate)"
+# Before the build, and not done by `npm install`. Without it `npm run build` fails on types
+# that do not exist yet, which reads like broken source rather than a missing step.
+npx prisma generate
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
 Step "Database schema (prisma migrate deploy)"
 npx prisma migrate deploy
 if ($LASTEXITCODE -ne 0) { exit 1 }
