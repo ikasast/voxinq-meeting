@@ -2,7 +2,7 @@
 
 # Voxinq Meeting
 
-**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own GPU. Your audio never leaves your machine, and by default nothing else does either.**
+**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own machine. Your audio never leaves it, and by default nothing else does either.**
 
 [**日本語の解説はこちら →**](README.ja.md)
 
@@ -12,7 +12,7 @@
 ![React](https://img.shields.io/badge/React-19-149eca)
 ![Python](https://img.shields.io/badge/Python-3.11-3776ab)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791)
-![GPU](https://img.shields.io/badge/GPU-CUDA%20(8GB%20ok)-76b900)
+![Runs on](https://img.shields.io/badge/runs%20on-NVIDIA%20%C2%B7%20Apple%20silicon%20%C2%B7%20CPU-76b900)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-local--first-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -40,21 +40,28 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 | | **Voxinq Meeting** | Cloud SaaS |
 | --- | --- | --- |
 | **Privacy** | Audio never leaves your machine; minutes local by default, cloud LLM opt-in | Audio uploaded to a third party |
-| **Cost** | Free — runs on a consumer GPU (8 GB VRAM) | Per-user / per-minute subscription |
+| **Cost** | Free — a consumer GPU (8 GB VRAM) is plenty, and it runs without one | Per-user / per-minute subscription |
 | **Record anywhere** | Any browser incl. phone (PWA + Tailscale) | Any browser — via their cloud |
 | **Models** | Pick any Whisper / LLM; swap or upgrade anytime | Fixed, vendor-chosen |
 
 ## 🚀 Get started
 
-**Prerequisites:** an NVIDIA GPU (CUDA, 8 GB is enough) with its driver installed.
+**An NVIDIA GPU is the best experience, not a requirement.** What changes without one is
+*when* you see the text, not whether you get it:
 
-Apple silicon works too. An **AMD or Intel GPU is not used** — those machines
-transcribe on the CPU, which is slower than speech, so they record the meeting and transcribe
-it in one pass at the end instead: same quality, no live text. See
+| your machine | transcription | when the text appears |
+| --- | --- | --- |
+| **NVIDIA GPU** (8 GB is plenty) | faster-whisper on CUDA | as you speak |
+| **Apple silicon** | whisper.cpp on Metal | as you speak |
+| **AMD/Intel GPU, or CPU only** | whisper.cpp on the CPU — the GPU is not used | when the meeting ends |
+
+A machine with no GPU acceleration recognises speech slower than people produce it, so instead
+of falling behind for the whole meeting it records and transcribes the file in one pass at the
+end — same model, same quality. Everything after that is identical. See
 [what runs on what](docs/setup.md#what-runs-on-what).
 
 **With Docker** — brings up the database, web app, transcription service and Ollama together.
-Also needs Docker Compose and the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).
+On an NVIDIA machine it also needs the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).
 The images are published, so there is no clone and no Node or Python on the host — two files
 are the whole install:
 
@@ -67,19 +74,33 @@ docker compose up -d
 docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model
 ```
 
-The first pull is about 20 GB. Speaker diarization on an NVIDIA GPU uses pyannote: accept the
-terms for [speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
-and put your token in `.env` as `HF_TOKEN`. Without an NVIDIA GPU it runs on ungated ONNX
-models instead and needs no token — see [Speaker separation](docs/setup.md#speaker-separation).
-
-**Native** — no containers; needs Node.js 20+, Python 3.11, PostgreSQL 17 and [Ollama](https://ollama.com) on the host.
+The first pull is about 20 GB. **Without an NVIDIA GPU, use the CPU images instead** — they are
+multi-arch, so they also run on Apple silicon, and 1.8 GB rather than 21 GB:
 
 ```bash
-git clone https://github.com/ikasast/voxinq-meeting.git
-cd voxinq-meeting
-./scripts/setup.sh    # Windows: .\scripts\setup.ps1  — checks prereqs, installs everything
-./scripts/start.sh    # Windows: .\scripts\start.ps1  — starts the STT service + web app
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
+
+Speaker separation on an NVIDIA GPU uses pyannote: accept the terms for
+[speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+and put your token in `.env` as `HF_TOKEN`. Everywhere else it runs on ungated ONNX models and
+needs no token — see [Speaker separation](docs/setup.md#speaker-separation).
+
+**Without Docker** — one command brings up a bundled PostgreSQL, the transcription service and
+the web app. Node and Python come from the package manager; nothing else to install.
+
+```bash
+brew install ikasast/voxinq/voxinq                             # macOS, Linux
+scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq   # Windows
+scoop install voxinq
+
+voxinq setup      # dependencies, build, speech models — a few minutes
+voxinq start      # and it opens in your browser
+```
+
+The Scoop route is verified end to end; the Homebrew formula is written but has not been
+installed from, for want of a Mac. From a clone, `cd cli && npm install && npm link` gives you
+the same `voxinq` command.
 
 Then open `http://localhost:3000` → **New meeting → Set up meeting**, press **Start recording**
 on the next screen once it says *Model ready*, talk, and finish with **Generate minutes**.

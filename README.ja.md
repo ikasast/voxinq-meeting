@@ -53,8 +53,10 @@ Anthropic や OpenAI などクラウドに切り替えられます（その場�
 - **議事録作成に時間を取られている方** — 会議終了と同時に議事録の生成が始まります
 - **手元にゲーミングPCがある方** — VRAM 8GB のGPUがあれば十分動きます
 - **月額課金を避けたい方** — 自分のPCで動くので、何時間録音しても無料です
+- **GPU が無い方も** — Mac でも、GPU の無い PC でも動きます。変わるのは「文字が出るタイミング」
+  だけで、精度は同じです（→ [GPU の種類による違い](#gpu-の種類による違い)）
 
-逆に、GPUを積んだPCを常時起動しておけない場合は、クラウドサービスの方が手軽です。
+逆に、PC を常時起動しておけない場合は、クラウドサービスの方が手軽です。
 
 ## 3. 必要なもの（動作環境）
 
@@ -62,10 +64,10 @@ Anthropic や OpenAI などクラウドに切り替えられます（その場�
 
 | 項目 | 必要なもの | 補足 |
 | --- | --- | --- |
-| GPU | **NVIDIA製・VRAM 8GB以上** | RTX 3060/4060 クラスで動作します。CUDA対応が必須です |
+| GPU | **推奨**: NVIDIA製・VRAM 8GB以上 | RTX 3060/4060 クラスで動作します。**必須ではありません** — 無い場合の違いは次項 |
 | メモリ | 16GB以上を推奨 | |
 | ストレージ | 10GB程度の空き | AIモデルのダウンロードに使います |
-| OS | Windows / Linux | 開発・動作確認は Windows 11 で行っています |
+| OS | Windows / Linux / macOS | 開発・動作確認は Windows 11。macOS 向けのコードはありますが**実機未検証**です |
 
 #### GPU の種類による違い
 
@@ -126,20 +128,22 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 
 ## 4. インストール手順
 
-導入方法は 2 つあります。
+導入方法は 3 つあります。
 
-| | Docker | ネイティブ |
-| --- | --- | --- |
-| 入れるもの | Docker Desktop（WSL2）だけ | Node.js / Python / PostgreSQL / Ollama |
-| 手順 | ファイル 2 つを置いて 1 コマンド | セットアップスクリプト |
-| 初回ダウンロード | 約 20GB | 数 GB（モデル分） |
-| 向いている人 | **とにかく動かしたい人** | コードを触りたい人 |
+| | 4-A. Docker | 4-B. `voxinq` | 4-C. ネイティブ |
+| --- | --- | --- | --- |
+| 事前に入れるもの | Docker Desktop だけ | パッケージマネージャだけ | Node / Python / PostgreSQL / Ollama |
+| PostgreSQL | コンテナで同梱 | **同梱** | 自分で用意 |
+| 初回ダウンロード | 約 20GB（GPU 無しなら約 1.8GB） | 数 GB（モデル分） | 数 GB（モデル分） |
+| 向いている人 | **とにかく動かしたい人** | Docker を入れたくない人 | コードを触りたい人 |
 
-迷ったら **Docker** を選んでください。以下の「4-A」が Docker、「4-B」がネイティブです。
+迷ったら **4-A の Docker** を選んでください。Mac で GPU 加速（Metal）を使いたい場合だけは、
+Docker の中から GPU が見えないため **4-B** が必要です。
 
 ### 4-A. Docker で入れる（推奨）
 
-**前提**: NVIDIA ドライバ + Docker Desktop（WSL2 バックエンド。GPU 対応は組み込み済み）。
+**前提**: Docker Desktop。NVIDIA GPU を使う場合はドライバも必要です（WSL2 バックエンドなら
+GPU 対応は組み込み済み）。GPU が無い場合は下の「NVIDIA GPU が無い場合」を使ってください。
 
 イメージは公開済みなので、**リポジトリの取得は不要**です。ファイル 2 つだけで入ります。
 
@@ -244,7 +248,32 @@ Voxinq の他の機能はこれを使わないので、**インストール直�
 docker compose pull && docker compose up -d
 ```
 
-### 4-B. ネイティブで入れる
+### 4-B. `voxinq` コマンドで入れる（Docker を使わない）
+
+**PostgreSQL の準備が要りません** — 同梱されます。ネイティブ導入で一番の難所がなくなる形です。
+
+```bash
+brew install ikasast/voxinq/voxinq                                # macOS / Linux
+scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq   # Windows
+scoop install voxinq
+
+voxinq setup          # 依存・ビルド・音声モデル（数分かかります）
+voxinq start          # 起動してブラウザが開きます
+voxinq autostart on   # ログイン時に自動起動
+```
+
+Node と Python はパッケージマネージャが用意します。議事録生成用の LLM は別途必要です
+（`scoop install ollama` など、またはクラウドモデル）。
+
+データは**インストール先の外**（Windows は `%LOCALAPPDATA%oxinq`、macOS は
+`~/Library/Application Support/voxinq`）に置かれるため、更新や削除で消えることはありません。
+
+> **Scoop 経路は実機で検証済み**です。**Homebrew は formula を用意しただけで未検証**です
+> （検証できる Mac が無いため）。試された結果を Issue でいただけると助かります。
+
+クローンから使う場合は `cd cli && npm install && npm link` で同じ `voxinq` コマンドが入ります。
+
+### 4-C. ネイティブで入れる（スクリプト）
 
 ### ステップ1: リポジトリを取得
 

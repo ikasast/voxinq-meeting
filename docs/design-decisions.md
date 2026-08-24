@@ -9,6 +9,10 @@ mostly Japanese.
 
 ## The GPU is time-shared, not shared
 
+This is about a machine with **one CUDA card of about 8 GB**, which is what Voxinq was written
+on. A host with no GPU has nothing to arbitrate — the queue below still serialises the work,
+but it is CPU time being shared rather than VRAM.
+
 Whisper (~1–3 GB) and a 7B LLM (~4.7 GB) do not both stay resident on 8 GB. Rather than
 shrink both until each is mediocre, the app moves the GPU between them: **Whisper during the
 meeting, the LLM after it ends**. Ollama is told to unload (`keep_alive: 0`) when a meeting
