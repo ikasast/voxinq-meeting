@@ -18,3 +18,4 @@ tests
 *.log
 prod.pid
 prod.log
+cli

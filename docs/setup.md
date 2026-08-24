@@ -318,6 +318,31 @@ diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https:
 diarization/.venv/bin/pip install -r diarization/requirements-pyannote.txt
 ```
 
+## Run it with one command (`voxinq`)
+
+The native install above needs PostgreSQL installed and running before anything else works,
+and then two terminals to keep it up. The `voxinq` launcher removes both: it **bundles
+PostgreSQL** and starts everything in the background.
+
+```bash
+cd cli && npm install && npm link      # once
+voxinq start                            # brings it all up and opens a browser
+voxinq status
+voxinq stop
+```
+
+It still expects the app itself to be installed — `npm install`, `npm run build`, and the STT
+setup script. Packaging that away is a later step; what this replaces today is the database
+prerequisite and the two start scripts.
+
+Data lives outside the install directory (`%LOCALAPPDATA%oxinq`,
+`~/Library/Application Support/voxinq`, `~/.local/share/voxinq`), so reinstalling or upgrading
+the app cannot delete it. Ports are chosen at start time, so it does not collide with anything
+already running — including a Docker install of Voxinq on the same machine.
+
+One thing to know: the bundled PostgreSQL ships the **server** binaries only, with no `psql`
+or `pg_dump`. Back up with **Settings → Export** instead. See [cli/README.md](../cli/README.md).
+
 ## Run
 
 ```bash
