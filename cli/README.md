@@ -9,7 +9,34 @@ voxinq start     # bring it up
 voxinq stop      # shut it down
 voxinq status    # what is running, and where
 voxinq logs      # where the log files are
+voxinq autostart on   # start Voxinq when you log in (off / status too)
 ```
+
+## Autostart
+
+`voxinq autostart on` registers Voxinq with whatever the OS already uses for it, and `off`
+removes exactly what `on` created:
+
+| | |
+| --- | --- |
+| Windows | a Task Scheduler task, at logon |
+| macOS | a launchd LaunchAgent, `RunAtLoad` |
+| Linux | a systemd user service, wanted by `default.target` |
+
+No daemon of our own, and nothing that has to be running for it to work — a supervisor that
+itself needs supervising is the thing to avoid.
+
+It registers `voxinq start --no-open --no-wait`. No browser at login, and the registration
+finishes in seconds rather than holding on through the health check.
+
+**On Windows the task shows as "Running" for as long as Voxinq is up.** Windows counts a task
+as running while any of its descendants is, and the services are descendants. That is honest
+rather than broken — stopping the task stops Voxinq — and the task is registered with no
+execution time limit, because the default three-day one would otherwise kill the services on a
+machine left switched on.
+
+It is registered through PowerShell's `Register-ScheduledTask`, not `schtasks`: `schtasks
+/SC ONLOGON` creates a task that fires for every user and is refused without elevation.
 
 ## What it does and does not manage
 
