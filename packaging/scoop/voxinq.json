@@ -9,20 +9,26 @@
     "    voxinq setup",
     "",
     "That installs the web dependencies, builds the app, and creates the transcription and",
-    "speaker-separation environments. It takes several minutes and needs the network.",
+    "speaker-separation environments. It takes several minutes and needs the network, and on a",
+    "machine with an NVIDIA GPU it also fetches PyTorch, which is several gigabytes.",
     "",
     "Then:",
     "",
-    "    voxinq start        open it in a browser",
-    "    voxinq autostart on start it when you log in",
+    "    voxinq start          open it in a browser",
+    "    voxinq autostart on   start it when you log in",
     "",
-    "PostgreSQL is bundled - there is nothing to install or configure for it. Minutes need an",
-    "LLM: install Ollama (scoop install ollama), or point Settings -> LLM at a cloud model.",
+    "PostgreSQL is bundled - there is nothing to install or configure for it. Your data lives in",
+    "%LOCALAPPDATA%\\voxinq, outside this install, so upgrading cannot delete it.",
     "",
-    "Speaker separation on this machine uses ONNX models, which need no account. pyannote, the",
-    "more accurate backend, does not install natively on Windows - see the docs."
+    "Minutes need an LLM: `scoop install ollama`, or point Settings -> LLM at a cloud model.",
+    "",
+    "With an NVIDIA GPU, speaker separation uses pyannote and needs a free Hugging Face token -",
+    "see docs/setup.md. Without one it uses ONNX models that need no account."
   ],
-  "depends": ["nodejs-lts", "python"],
+  "depends": [
+    "nodejs-lts",
+    "python"
+  ],
   "suggest": {
     "LLM for generating minutes": "ollama"
   },
@@ -41,7 +47,12 @@
     "npm install --omit=dev --no-audit --no-fund",
     "Pop-Location"
   ],
-  "bin": [["cli\\voxinq.cmd", "voxinq"]],
+  "bin": [
+    [
+      "cli\\voxinq.cmd",
+      "voxinq"
+    ]
+  ],
   "checkver": {
     "github": "https://github.com/ikasast/voxinq-meeting",
     "regex": "releases/tag/v([\\d.]+)$"
