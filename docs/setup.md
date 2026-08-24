@@ -332,6 +332,10 @@ voxinq status
 voxinq stop
 ```
 
+`voxinq autostart on` registers it to start when you log in — a Task Scheduler task on Windows,
+a LaunchAgent on macOS, a systemd user service on Linux — and `off` removes it again. No
+elevation needed on any of them.
+
 `voxinq setup` is the cross-platform equivalent of the shell scripts above, and is also how you
 upgrade after pulling new code. It needs Node 20+ and Python 3.11+ on the machine; everything
 else it installs itself.

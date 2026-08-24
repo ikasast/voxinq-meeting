@@ -10,6 +10,7 @@
 //   voxinq stop      shut it down
 //   voxinq status    what is running, and where
 //   voxinq logs      where the log files are
+//   voxinq autostart start it when you log in (on / off / status)
 //
 // What it deliberately does not manage: Ollama. It has its own installer on every platform,
 // it is optional (a cloud model works instead), and a launcher that half-owns someone else's
@@ -24,6 +25,7 @@ import { pickPort, portFree, waitForHttp } from "./ports.mjs";
 import { alive, clearState, readState, writeState } from "./state.mjs";
 import { openBrowser, startService, stopService } from "./processes.mjs";
 import { setupInstall } from "./setup.mjs";
+import { autostartEnabled, autostartOff, autostartOn } from "./autostart.mjs";
 import {
   databaseUrl,
   postgresRunning,
@@ -152,10 +154,12 @@ async function cmdStart(args) {
     web: { ...web, port: webPort },
   });
 
-  say("Waiting for the app to answer…");
-  const up = await waitForHttp(`${appUrl}/api/health`, { timeoutMs: 120000 });
-  if (!up) {
-    say(`  it has not answered yet — check ${web.log}`);
+  // --no-wait exists for the autostart task: the services are already spawned and will come
+  // up on their own, and waiting only holds a console window open at login for no benefit.
+  if (!args.includes("--no-wait")) {
+    say("Waiting for the app to answer…");
+    const up = await waitForHttp(`${appUrl}/api/health`, { timeoutMs: 120000 });
+    if (!up) say(`  it has not answered yet — check ${web.log}`);
   }
 
   say("");
@@ -237,6 +241,26 @@ function cmdSetup() {
   say('  Done. Start it with "voxinq start".');
 }
 
+function cmdAutostart(args) {
+  const action = args[0] ?? "status";
+  switch (action) {
+    case "on": {
+      const where = autostartOn();
+      say(`Voxinq will start when you log in (${where}).`);
+      say('  It runs "voxinq start --no-open" — no browser window at login.');
+      break;
+    }
+    case "off":
+      say(autostartOff() ? "Autostart removed." : "Autostart was not set up.");
+      break;
+    case "status":
+      say(autostartEnabled() ? "Autostart is on." : "Autostart is off.");
+      break;
+    default:
+      fail(`Unknown argument "${action}". Use: voxinq autostart on|off|status`);
+  }
+}
+
 function cmdLogs() {
   say(paths.logs());
   for (const name of ["web", "stt"]) {
@@ -249,10 +273,12 @@ function usage() {
   say("voxinq — run Voxinq without Docker");
   say("");
   say("  voxinq setup               install dependencies and build (safe to re-run)");
-  say("  voxinq start [--no-open]   bring everything up and open the browser");
+  say("  voxinq start [--no-open] [--no-wait]");
+  say("                             bring everything up and open the browser");
   say("  voxinq stop                shut it down");
   say("  voxinq status              what is running, and where");
   say("  voxinq logs                where the log files are");
+  say("  voxinq autostart on|off    start Voxinq when you log in");
   say("");
   say("Environment:");
   say("  VOXINQ_DATA_DIR  where the database, recordings and logs live");
@@ -276,6 +302,9 @@ try {
       break;
     case "logs":
       cmdLogs();
+      break;
+    case "autostart":
+      cmdAutostart(rest);
       break;
     case undefined:
     case "help":
