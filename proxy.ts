@@ -66,7 +66,12 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Serve static assets/icons/manifest even before auth (needed to render the login page).
+  //
+  // sw.js is in that list for a harder reason than convenience: a service worker script that
+  // answers with a redirect cannot register at all, so gating it does not protect anything —
+  // it silently removes the browser's offer to install the app. The file is static, holds no
+  // data and caches nothing (see public/sw.js).
   matcher: [
-    "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|logo.svg|worklets/).*)",
+    "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|sw.js|logo.svg|worklets/).*)",
   ],
 };

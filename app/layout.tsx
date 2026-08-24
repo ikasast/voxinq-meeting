@@ -6,6 +6,7 @@ import { ConfirmProvider } from "./confirm-dialog";
 import { GearIcon, MicIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
 import { ThemeToggle } from "./theme-toggle";
+import { InstallApp } from "./install-app";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
@@ -51,6 +52,10 @@ function HeaderNav({ external }: { external: boolean }) {
               Internal users keep using Settings → Appearance, which has the same three
               choices with labels. */}
           {external ? <ThemeToggle /> : null}
+          {/* Only renders where it can actually install; see install-app.tsx. Offered to
+              external visitors too — installing changes how the page opens, not what it
+              lets anyone do. */}
+          <InstallApp />
           {/* External (read-only) access hides settings/record/new — only viewing + downloads. */}
           {external ? null : (
             <>
