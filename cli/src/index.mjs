@@ -5,6 +5,7 @@
 // each other on ports chosen at run time, and opens a browser. Everything runs in the
 // background, so the terminal is free afterwards and closing it changes nothing.
 //
+//   voxinq setup     install what it needs (idempotent; also how you upgrade)
 //   voxinq start     bring it up (and open the browser)
 //   voxinq stop      shut it down
 //   voxinq status    what is running, and where
@@ -22,6 +23,7 @@ import { appRoot, paths } from "./paths.mjs";
 import { pickPort, portFree, waitForHttp } from "./ports.mjs";
 import { alive, clearState, readState, writeState } from "./state.mjs";
 import { openBrowser, startService, stopService } from "./processes.mjs";
+import { setupInstall } from "./setup.mjs";
 import {
   databaseUrl,
   postgresRunning,
@@ -66,11 +68,11 @@ async function cmdStart(args) {
     fail(
       "The transcription service is not installed.\n" +
         `  Expected a virtualenv at ${join(appDir, "stt-service", ".venv")}\n` +
-        "  Run the setup script once to create it (scripts/setup.sh, or scripts\\setup.ps1 -Diarization).",
+        '  Run "voxinq setup" to create it.',
     );
   }
   if (!existsSync(join(appDir, "node_modules"))) {
-    fail(`The web app's dependencies are not installed. Run "npm install" in ${appDir}.`);
+    fail(`The web app's dependencies are not installed in ${appDir}. Run "voxinq setup" first.`);
   }
 
   for (const dir of [paths.data(), paths.recordings(), paths.cache(), paths.logs()]) {
@@ -100,7 +102,7 @@ async function cmdStart(args) {
   // thing being run -- which for a service is the difference between stopping it and not.
   const prismaEntry = join(appDir, "node_modules", "prisma", "build", "index.js");
   if (!existsSync(prismaEntry)) {
-    fail(`Could not find Prisma in ${appDir}. Run "npm install" there.`);
+    fail(`Could not find Prisma in ${appDir}. Run "voxinq setup" first.`);
   }
   const migrate = spawnSync(process.execPath, [prismaEntry, "migrate", "deploy"], {
     cwd: appDir,
@@ -125,9 +127,9 @@ async function cmdStart(args) {
 
   say("Starting the web app…");
   const nextEntry = join(appDir, "node_modules", "next", "dist", "bin", "next");
-  if (!existsSync(nextEntry)) fail(`Could not find Next in ${appDir}. Run "npm install" there.`);
+  if (!existsSync(nextEntry)) fail(`Could not find Next in ${appDir}. Run "voxinq setup" first.`);
   if (!existsSync(join(appDir, ".next"))) {
-    fail(`No production build found in ${appDir}. Run "npm run build" there first.`);
+    fail(`No production build found in ${appDir}. Run "voxinq setup" first.`);
   }
   const web = startService("web", process.execPath, [nextEntry, "start", "-p", String(webPort)], {
     cwd: appDir,
@@ -226,6 +228,15 @@ async function cmdStatus() {
   }
 }
 
+function cmdSetup() {
+  const appDir = appRoot();
+  say(`Setting up ${appDir}`);
+  say("");
+  setupInstall(appDir, { say });
+  say("");
+  say('  Done. Start it with "voxinq start".');
+}
+
 function cmdLogs() {
   say(paths.logs());
   for (const name of ["web", "stt"]) {
@@ -237,6 +248,7 @@ function cmdLogs() {
 function usage() {
   say("voxinq — run Voxinq without Docker");
   say("");
+  say("  voxinq setup               install dependencies and build (safe to re-run)");
   say("  voxinq start [--no-open]   bring everything up and open the browser");
   say("  voxinq stop                shut it down");
   say("  voxinq status              what is running, and where");
@@ -250,6 +262,9 @@ function usage() {
 const [command, ...rest] = process.argv.slice(2);
 try {
   switch (command) {
+    case "setup":
+      cmdSetup();
+      break;
     case "start":
       await cmdStart(rest);
       break;
