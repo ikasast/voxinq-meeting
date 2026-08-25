@@ -6,15 +6,9 @@ import { ollamaProvider } from "./ollama";
 import { openaiProvider } from "./openai";
 import type { ChatProvider, LlmProviderName } from "./types";
 
-// Same budgets as minutes generation: what one pass can hold per provider.
-export const CONTEXT_BUDGET: Record<LlmProviderName, number> = {
-  ollama: 24576,
-  anthropic: 180000,
-  openai: 120000,
-};
-
-// Japanese is ~1.7-2 chars/token; 1.8 is a safe divisor.
-export const estTokens = (s: string) => Math.ceil(s.length / 1.8);
+// Budgets and the token estimate live in context.ts, which imports nothing -- see the note
+// there. Re-exported so callers can keep taking everything from one place.
+export { CONTEXT_BUDGET, estTokens, ollamaContextBudget } from "./context";
 
 export function providerFor(name: LlmProviderName): ChatProvider {
   switch (name) {

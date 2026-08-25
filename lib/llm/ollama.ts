@@ -1,3 +1,4 @@
+import { ollamaContextBudget } from "./context";
 import type { ChatArgs, ChatProvider, LlmConfig } from "./types";
 
 // Default on-prem provider. Calls a local Ollama.
@@ -26,8 +27,13 @@ export const ollamaProvider: ChatProvider = {
     // Japanese is roughly ~1.8 chars/token; add the output budget and a margin.
     const promptChars = system.length + user.length + (prefill?.length ?? 0);
     const estTokens = Math.ceil(promptChars / 1.8) + maxTokens + 512;
-    // Clamp to sane steps. 32k is qwen2.5's max; cap at 24k to stay within 8GB VRAM.
-    const numCtx = Math.min(24576, Math.max(8192, Math.ceil(estTokens / 2048) * 2048));
+    // Clamp to sane steps, and cap at the same budget the caller used to decide whether this
+    // transcript needed condensing first. Two numbers here means condensing for one size and
+    // then asking the model to hold another.
+    const numCtx = Math.min(
+      ollamaContextBudget(cfg.ollamaNumCtx),
+      Math.max(8192, Math.ceil(estTokens / 2048) * 2048),
+    );
 
     // Stream the response. Without streaming, Ollama sends no HTTP headers until the
     // FULL generation is done — and Node's fetch (undici) aborts requests whose headers

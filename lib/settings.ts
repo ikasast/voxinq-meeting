@@ -36,6 +36,11 @@ export type AppSettings = {
   summaryLanguage: string; // minutes output language "ja" | "en" | "zh" (generated in this language regardless of speech)
   summaryDetail: string; // minutes verbosity "brief" | "standard" | "detailed" (controls output length + guidance)
   voiceprintThreshold: number; // cosine similarity needed to auto-name a diarized speaker from a voice profile (0..1)
+  // Ollama context window in tokens. 0 = use the built-in budget, which is what fits beside a
+  // 7B model on 8 GB of VRAM. Raise it on a bigger card: it is a VRAM figure, not a model
+  // limit, and asking for more than the card holds makes Ollama spill to the CPU instead of
+  // failing — many times slower, with nothing to say why. See lib/llm/context.ts.
+  ollamaNumCtx: number;
 };
 
 function defaults(): AppSettings {
@@ -60,6 +65,7 @@ function defaults(): AppSettings {
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
     voiceprintThreshold: 0.5,
+    ollamaNumCtx: 0,
   };
 }
 
@@ -89,6 +95,15 @@ export async function readSettings(): Promise<AppSettings> {
       !(merged.voiceprintThreshold > 0 && merged.voiceprintThreshold < 1)
     ) {
       merged.voiceprintThreshold = base.voiceprintThreshold;
+    }
+    // Below 2048 there is not room for the instructions, let alone a transcript; a number that
+    // small is a mistake rather than a choice, so fall back rather than generate garbage.
+    if (
+      typeof merged.ollamaNumCtx !== "number" ||
+      !Number.isFinite(merged.ollamaNumCtx) ||
+      (merged.ollamaNumCtx !== 0 && merged.ollamaNumCtx < 2048)
+    ) {
+      merged.ollamaNumCtx = base.ollamaNumCtx;
     }
     return merged;
   } catch {
@@ -125,6 +140,7 @@ export async function getLlmConfig(): Promise<LlmConfig> {
     openaiApiKey: s.openaiApiKey || undefined,
     openaiBaseUrl: s.openaiBaseUrl,
     openaiModel: s.openaiModel,
+    ollamaNumCtx: s.ollamaNumCtx || undefined,
   };
 }
 

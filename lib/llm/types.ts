@@ -13,6 +13,14 @@ export interface LlmConfig {
   openaiApiKey?: string;
   openaiBaseUrl: string;
   openaiModel: string;
+  /**
+   * Override for the Ollama context budget, in tokens.
+   *
+   * It rides on the config rather than being read where it is used, so the number Ollama is
+   * sent as num_ctx and the number that decides whether a transcript must be condensed first
+   * cannot disagree -- which is exactly what happened when it was hardcoded in both places.
+   */
+  ollamaNumCtx?: number;
 }
 
 export interface ChatArgs {

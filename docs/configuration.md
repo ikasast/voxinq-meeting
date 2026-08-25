@@ -96,6 +96,12 @@ here (single on-prem user assumed), so keep the file private.
 
 **Search & speakers** (edit `settings.json` directly)
 - `voiceprintThreshold` — cosine similarity needed for voice-profile auto-naming, default `0.5`
+- `ollamaNumCtx` — Ollama context window in tokens. `0` (default) uses the built-in budget of
+  24576, which is what fits beside a 7B model on 8 GB of VRAM. **This is a VRAM figure, not a
+  model limit** — qwen2.5 itself accepts 32k. Raise it on a bigger card; asking for more than
+  the card holds does not fail, it makes Ollama spill to the CPU, where generation goes from
+  minutes to tens of minutes with nothing to say why. The same number decides when a long
+  transcript is condensed before being sent, so there is only one to change.
 
 See **[LLM providers](llm-providers.md)** for provider details.
 
