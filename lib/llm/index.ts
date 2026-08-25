@@ -13,16 +13,10 @@ import { type SpeakerLabels, speakerName } from "../speakers";
 import { anthropicProvider } from "./anthropic";
 import { ollamaProvider } from "./ollama";
 import { openaiProvider } from "./openai";
+import { CONTEXT_BUDGET, ollamaContextBudget } from "./context";
 import type { ChatProvider, LlmConfig, LlmProviderName } from "./types";
 
-// Usable context window (tokens) per provider, used to decide when a transcript is too
-// long for a single pass and must be condensed first (map-reduce). ollama matches the
-// num_ctx cap in ollama.ts; cloud models have far larger windows.
-const CONTEXT_BUDGET: Record<LlmProviderName, number> = {
-  ollama: 24576,
-  anthropic: 180000,
-  openai: 120000,
-};
+// Budgets live in provider.ts; see the note there on why the Ollama one is a VRAM figure.
 
 // Output token budget by verbosity level.
 const DETAIL_MAX_TOKENS: Record<string, number> = {
@@ -263,7 +257,10 @@ export async function requestSummary(
 
   // If the transcript is too long for the model context, condense it first (map-reduce)
   // so the latter half of a long meeting is not silently dropped from the prompt.
-  const budget = CONTEXT_BUDGET[cfg.provider] ?? 24576;
+  const budget =
+    cfg.provider === "ollama"
+      ? ollamaContextBudget(cfg.ollamaNumCtx)
+      : (CONTEXT_BUDGET[cfg.provider] ?? CONTEXT_BUDGET.ollama);
   const reserve = estTokens(system) + maxTokens + 1024;
   const avail = Math.max(2048, budget - reserve);
   let source = conversation;
