@@ -85,12 +85,14 @@ export function InstallApp() {
 
   if (dismissed) return null;
 
+  // The tooltips say what is being installed, because the obvious reading is the wrong one:
+  // the first person to meet this button asked whether it was installing the server.
   if (prompt) {
     return (
       <button
         type="button"
         className="btn-icon"
-        title="Install Voxinq as an app — it opens in its own window"
+        title="Adds Voxinq to this device as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it. Most worthwhile on the phone you record with."
         aria-label="Install app"
         onClick={async () => {
           await prompt.prompt();
@@ -112,7 +114,7 @@ export function InstallApp() {
         <button
           type="button"
           className="btn-icon"
-          title="Add Voxinq to your home screen"
+          title="Adds Voxinq to your home screen as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it."
           aria-label="Add to home screen"
           onClick={() => setShowIosHelp(true)}
         >
@@ -135,7 +137,9 @@ export function InstallApp() {
                 <li>Choose &ldquo;Add to Home Screen&rdquo;</li>
               </ol>
               <p className="mt-2 text-xs text-[var(--text-muted)]">
-                It then opens without the browser bars, and recording works the same.
+                It then opens from your home screen without the browser bars. It is the same
+                app talking to the same machine — nothing new is installed to run it, and it
+                still needs that machine to be on.
               </p>
               <div className="mt-3 flex justify-end gap-2">
                 <button type="button" className="btn-outline text-xs" onClick={hide}>
