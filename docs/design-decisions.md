@@ -481,6 +481,24 @@ validated on something other than the thing it claims. The docs say CPU instead,
 those machines really do. *Changes if* an AMD or Intel GPU machine is available to measure on,
 or a contributor with one offers numbers.
 
+**Capturing internal audio on a phone**, so a call taken on the phone records both sides. It
+is not a matter of effort: `getDisplayMedia` is implemented by **no mobile browser at all** —
+not Chrome for Android, Safari, Samsung Internet or Firefox for Android — and there is no other
+way for a web page to reach what another app is playing. The recording screen already hides the
+"PC audio" option there rather than offering something that cannot work.
+
+Doing it properly means leaving the browser: a native Android app using MediaProjection, and on
+iOS a ReplayKit broadcast extension, which needs a paid developer account — the same yearly
+cost this project avoids by distributing through package managers rather than signed installers
+(see [`packaging/`](../packaging/)). One platform's worth of native app, for one feature,
+against a PWA that already covers both.
+
+What does work is the speakerphone with **Mic mode: Room**, and the reason is worth writing
+down because nobody would guess it: in the normal mode echo cancellation is on, and its entire
+job is to subtract this device's own speaker output from the microphone signal — which on a
+speakerphone call is the other person's voice. Recording that way keeps your half and silently
+deletes theirs. Room mode turns it off. *Changes if* mobile browsers ever ship display capture.
+
 **A GPU task queue in the UI.** There is no queue to show. GPU work is mutually exclusive, not
 ordered: a second task is refused with a 409 rather than lined up, because the useful behaviour
 when transcription is running is to tell you, not to start minutes twenty minutes later. The
