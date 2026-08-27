@@ -776,10 +776,10 @@ Safari / Samsung Internet / Firefox すべて未対応）、Web ページから�
 
 ```mermaid
 flowchart LR
-  subgraph Browser["ブラウザ / スマホ"]
+  subgraph Browser["操作する端末 — スマホ・ノートPC など"]
     UI["画面<br/>Next.js"]
   end
-  subgraph Host["自分のPC 1台"]
+  subgraph Host["Voxinq を動かす PC 1台 — サーバー側"]
     subgraph Vox["Voxinq — このプロジェクトの範囲"]
       Web["Webアプリ<br/>Next.js + Prisma"]
       STT["文字起こし<br/>FastAPI"]
@@ -802,6 +802,15 @@ flowchart LR
   class UI,Web,STT,TR,DIA own
   class DB,LLM ext
 ```
+
+**左右の箱は別々のコンピュータです。** 右側はすべて自分の PC 1 台の中で動きます（サーバー側）。
+左側は実際に操作している端末で、スマホでも、ノート PC でも、その同じ PC のブラウザでも構いません。
+机の上では同じ 1 台であることも多いのですが、図で分けているのは**この区別がスマホ録音の仕組みそのもの**
+だからです。音声はブラウザから**文字起こしサービスへ直接**送られ、Web アプリを経由しません。
+ネットワークを流れるのは録音データだけです。
+
+画面（UI）が左側にありながら Voxinq 側の色なのは、**このプロジェクトのコードをブラウザに配って
+実行させている**ためです。
 
 **色の付いた箱が Voxinq 自身のコード**、灰色は Voxinq が動かすだけの外部ソフトです。認識エンジン
 そのものも外部で、文字起こしは faster-whisper と whisper.cpp、話者分離は pyannote と sherpa-onnx

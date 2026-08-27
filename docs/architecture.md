@@ -2,10 +2,10 @@
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Your browser (or phone)"]
+  subgraph Browser["The device you are sitting at — phone, laptop, this PC"]
     UI["Voxinq UI<br/>Next.js"]
   end
-  subgraph Host["One machine you control"]
+  subgraph Host["The one machine that runs Voxinq — the server"]
     subgraph Vox["Voxinq — what this project is"]
       Web["Web app<br/>Next.js + Prisma"]
       STT["STT service<br/>FastAPI"]
@@ -28,6 +28,16 @@ flowchart LR
   class UI,Web,STT,TR,DIA own
   class DB,LLM ext
 ```
+
+**The two boxes are two different computers.** Everything on the right runs on one machine you
+control — the server. On the left is whatever you are actually using: a phone, a laptop, or that
+same machine's own browser. They are often the same box on a desk, and the diagram separates
+them because the distinction is what makes phone recording work: audio goes from the browser
+**straight to the STT service**, never through the web app, so the only thing crossing the
+network is the recording itself.
+
+The UI is shaded as Voxinq's code even though it sits on the left: it is this project's code,
+delivered to and run by your browser.
 
 **Shaded is Voxinq's own code; grey is software it runs but does not replace.** The recognition
 itself is third-party too — the STT service is a wrapper that picks between faster-whisper and
