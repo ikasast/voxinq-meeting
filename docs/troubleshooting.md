@@ -1,5 +1,10 @@
 # Troubleshooting
 
+> **Where the logs are** depends on how you installed. Several entries below name
+> `stt-service/stt.log`, which is the **native** path. Under Docker use
+> `docker logs voxinq-meeting-stt-1`; under the `voxinq` launcher, `voxinq logs` prints the
+> directory.
+
 ## The page is blank / unresponsive over Tailscale
 
 You are serving a dev build. `npm run dev` breaks hydration when accessed cross-origin. Always
@@ -136,10 +141,30 @@ make sure the endpoint's context window is adequate. Keep `llmBackground` concis
 Fixed: pressing "back" to the recording page no longer restarts an ended meeting. If a WAV is
 missing, note that recordings auto-delete after 7 days unless protected.
 
+## No text appears while recording
+
+Check the badge next to the record button. If it reads **● Transcribes when the meeting ends**,
+this is the design rather than a fault: the machine has no GPU acceleration, recognition there
+is slower than speech, and trying to keep up would fall behind and never recover. The meeting
+is recorded and transcribed in one pass when you end it, at the same quality — the transcript
+appears then. [What runs on what](setup.md#what-runs-on-what) explains which machines do which.
+
+`STT_LIVE_TRANSCRIPTION=1` forces live recognition anyway. Expect it to lag on a CPU: measured
+at 2.8x the length of the audio with the default model.
+
+If the badge reads **● Model ready** and text still does not appear, that is a different
+problem — see "Transcript stays on Preparing" above.
+
 ## Diarization finds only one speaker
 
 The recording may be too short or one-sided. Try a longer clip where both sides speak multiple
 times, pass the participant count, or assign speakers manually per line.
+
+**Which backend ran matters here.** `curl http://127.0.0.1:8000/health` reports
+`diarizationBackend`. `sherpa` is the ONNX backend used where there is no CUDA, and it is
+measurably weaker at this on long meetings — that is the known trade for working at all on
+those machines. `pyannote` is the accurate one; if you have an NVIDIA GPU and see `sherpa`,
+pyannote did not install (check `HF_TOKEN` and the diarization venv).
 
 ## Out of VRAM
 

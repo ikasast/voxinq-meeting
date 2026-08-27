@@ -5,12 +5,12 @@ flowchart LR
   subgraph Browser["Browser / PWA"]
     UI["Next.js UI"]
   end
-  subgraph Host["GPU host (single box)"]
+  subgraph Host["Host (single box)"]
     Web["Web app<br/>(Next.js 16 + Prisma)"]
     DB[("PostgreSQL")]
-    STT["STT service<br/>(FastAPI + faster-whisper)"]
+    STT["STT service<br/>(FastAPI + faster-whisper / whisper.cpp)"]
     TR["Translation<br/>(NLLB, CPU, optional)"]
-    DIA["Diarization<br/>(pyannote, separate venv)"]
+    DIA["Diarization<br/>(pyannote / sherpa-onnx, separate venv)"]
     LLM["LLM<br/>(Ollama / OpenAI-compatible)"]
   end
 
@@ -26,21 +26,31 @@ flowchart LR
 
 - **Web app** (`app/`, `lib/`) — Next.js 16 (React 19), Prisma. Serves pages and APIs;
   generates minutes via the LLM. Auth is handled by `proxy.ts` (Next.js 16 "proxy").
-- **STT service** (`stt-service/server.py`) — FastAPI + faster-whisper. Streams live audio
+- **STT service** (`stt-service/server.py`) — FastAPI, with **two recognition backends chosen
+  from the hardware** (`backends.py`): faster-whisper where there is CUDA, whisper.cpp
+  everywhere else. Where neither is accelerated, recognition is slower than speech, so the
+  meeting is recorded and transcribed in one pass at the end instead of falling behind live
+  (`live_transcription_available`). Streams live audio
   over WebSocket, saves the meeting WAV + utterance boundaries, and runs re-transcription and
   file-upload jobs. Sends provisional text while a sentence is still being spoken, then the
   final wording; recognition runs on a worker thread so the service stays responsive.
 - **Translation** (`stt-service/translator.py`, optional) — NLLB-200 distilled via
   CTranslate2, **on the CPU**, so a Japanese translation of non-Japanese utterances can be
   produced while Whisper has the GPU. Off unless `sttTranslate` is enabled.
-- **Diarization** (`diarization/diarize.py`) — pyannote
-  (`speaker-diarization-community-1` by default, `DIA_MODEL` to override) in its own venv
-  (GPU torch), run as a subprocess after a meeting.
+- **Diarization** (`diarization/diarize.py`) — **two backends, also chosen from the hardware**:
+  pyannote (`speaker-diarization-community-1`, `DIA_MODEL` to override) where there is CUDA,
+  sherpa-onnx everywhere else. Own venv, run as a subprocess after a meeting. `DIA_BACKEND`
+  forces one. See [design decisions](design-decisions.md#diarization-has-two-backends-chosen-by-the-hardware)
+  for why both exist.
 - **LLM** — Ollama by default, or any OpenAI-compatible / Anthropic endpoint. Generates
   minutes, and answers questions asked against a series' minutes (`lib/llm/ask.ts`).
 - **PostgreSQL** — meetings, transcripts, minutes (versioned), tags.
 
 ## GPU time-sharing
+
+On a machine with one CUDA card of about 8 GB — which is what Voxinq was written on. A host
+without a GPU has no VRAM to arbitrate; the same lock still serialises the work, but what is
+being shared is CPU time.
 
 Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM. Voxinq Meeting
 **releases Whisper on meeting end** so the LLM can run. A UI lock also prevents starting a
