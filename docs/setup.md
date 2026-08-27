@@ -1,14 +1,20 @@
 # Setup
 
-Voxinq Meeting runs on a single GPU box that hosts everything: the web app, PostgreSQL, the STT
-service, diarization, and the LLM. A browser (incl. a phone) connects to it.
+Voxinq Meeting runs on a single machine that hosts everything: the web app, PostgreSQL, the
+STT service, speaker separation, and the LLM. A browser — including a phone — connects to it.
 
-Two ways in: **Docker Compose** (one command, everything in containers) or a **native
-install** (what the author's own machine runs). Both need an NVIDIA GPU.
+Three ways in:
+
+| | what you install first | best for |
+| --- | --- | --- |
+| **[Docker Compose](#docker-fewest-moving-parts)** | Docker Desktop | most people |
+| **[A package manager](#install-from-a-package-manager)** | `brew` or `scoop` | no Docker; the only way to get Metal on a Mac |
+| **[Native](#native-install-one-shot-script)** | Node, Python, PostgreSQL, Ollama | working on the code |
 
 ## Prerequisites
 
-- **NVIDIA GPU** with CUDA (8 GB VRAM is enough)
+An **NVIDIA GPU with CUDA** (8 GB of VRAM is plenty) gives the best experience, but is **not
+required** — the table below is what changes without one.
 
 ### What runs on what
 
@@ -107,7 +113,7 @@ want the feature they belong to.
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](#recording-from-a-phone-tailscale-walkthrough) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v1.4.0` |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v1.5.0`. Prereleases never move `latest`, so a 2.0 beta has to be named here |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -135,12 +141,13 @@ step rather than a broken install:
 
 | Step | Works immediately? |
 | --- | --- |
-| Recording and live transcription | ✅ |
+| Recording | ✅ |
+| Live transcription *as you speak* | ✅ with an NVIDIA GPU or Apple silicon; elsewhere the text arrives when the meeting ends ([why](#what-runs-on-what)) |
 | Playing a recording back, editing utterances | ✅ |
 | Generating minutes | ✅ once `ollama pull` has finished |
 | Recording **from a phone** | Needs `STT_WS_URL` — the phone cannot reach `localhost` |
-| **Telling speakers apart** (diarization) | ✅ |
-| Voice profiles (naming speakers automatically) | ✅ |
+| **Telling speakers apart** (diarization) | ✅ without a GPU. With an NVIDIA GPU it uses pyannote, which needs `HF_TOKEN` first ([how](#getting-a-hugging-face-token-nvidia-gpus-only)) |
+| Voice profiles (naming speakers automatically) | Same as above — it uses the same model |
 
 ### Speaker separation
 
@@ -431,15 +438,26 @@ pip install -r requirements.txt
 cd ..
 ```
 
-### 4. Diarization (optional, separate venv + GPU torch)
+### 4. Speaker separation (optional, separate venv)
+
+The ONNX backend, which is what runs without CUDA and needs no account:
 
 ```bash
 cd diarization
 python -m venv .venv
-. .venv/Scripts/activate
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+. .venv/Scripts/activate          # Linux/macOS: . .venv/bin/activate
 pip install -r requirements.txt
+python fetch_models.py            # the two ONNX models (~33 MB). Without this it cannot run.
 cd ..
+```
+
+On a machine with an NVIDIA GPU, add pyannote as well — it is the more accurate backend and
+the one `diarize.py` then selects. Several gigabytes, and it needs `HF_TOKEN`:
+
+```bash
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip install torchcodec --index-url https://download.pytorch.org/whl/cu128   # Windows: omit the index
+pip install -r requirements-pyannote.txt
 ```
 
 ### 5. Run

@@ -166,7 +166,7 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 | `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [7章](#7-スマホから使うtailscale--wireguard) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
-| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v1.4.0`）。未指定なら最新版 |
+| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v1.5.0`）。未指定なら `latest`。プレリリース版は `latest` に含まれないため、2.0 beta を使うにはここで指定します |
 | `NEXT_PUBLIC_STT_WS_URL` | **Docker では無視** | ネイティブ導入専用の項目です |
 
 > ⚠️ `@db:5432` の `db` は**コンテナのサービス名**です。ここを `localhost` にすると、

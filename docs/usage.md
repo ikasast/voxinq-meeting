@@ -10,6 +10,11 @@
 3. Wait for **● Model ready** next to the button (a cold load takes tens of seconds), then
    **Start recording** → speak. Words appear about a second behind you and firm up into the
    final wording when you pause.
+
+   On a machine with no GPU acceleration the badge instead reads **● Transcribes when the
+   meeting ends**, and no text appears while you record. That is the design, not a fault:
+   recognition there is slower than speech, so the meeting is recorded and transcribed in one
+   pass at the end, at the same quality. See [what runs on what](setup.md#what-runs-on-what).
 4. End with one of (all three end the meeting):
    - **Generate minutes** — minutes are generated in the background.
    - **Diarize** — speaker diarization starts automatically on the meeting page
