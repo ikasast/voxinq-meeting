@@ -265,7 +265,7 @@ voxinq autostart on   # ログイン時に自動起動
 Node と Python はパッケージマネージャが用意します。議事録生成用の LLM は別途必要です
 （`scoop install ollama` など、またはクラウドモデル）。
 
-データは**インストール先の外**（Windows は `%LOCALAPPDATA%oxinq`、macOS は
+データは**インストール先の外**（Windows は `%LOCALAPPDATA%\voxinq`、macOS は
 `~/Library/Application Support/voxinq`）に置かれるため、更新や削除で消えることはありません。
 
 > **Scoop 経路は実機で検証済み**です。**Homebrew は formula を用意しただけで未検証**です
@@ -504,7 +504,7 @@ sudo systemctl enable --now voxinq-stt
 > コンテナと一緒に消える場所に置くと、いざというときに残っていません。
 
 毎晩自動で取りたい場合は、UI ではなくコマンドで DB のダンプを取る方法が
-[docs/setup.md](docs/setup.md#moving-or-rebuilding-an-instance) にあります。
+[docs/setup.md](docs/setup.md#moving-or-rebuilding) にあります。
 
 ## 7. スマホから使う（Tailscale / WireGuard）
 

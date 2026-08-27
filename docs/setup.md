@@ -3,13 +3,16 @@
 Voxinq Meeting runs on a single machine that hosts everything: the web app, PostgreSQL, the
 STT service, speaker separation, and the LLM. A browser — including a phone — connects to it.
 
-Three ways in:
+## Which way to install
 
-| | what you install first | best for |
+| | you install first | best for |
 | --- | --- | --- |
-| **[Docker Compose](#docker-fewest-moving-parts)** | Docker Desktop | most people |
-| **[A package manager](#install-from-a-package-manager)** | `brew` or `scoop` | no Docker; the only way to get Metal on a Mac |
-| **[Native](#native-install-one-shot-script)** | Node, Python, PostgreSQL, Ollama | working on the code |
+| **[A. Docker](#a-docker)** | Docker Desktop | most people — one command, nothing else on the host |
+| **[B. Without Docker](#b-without-docker-voxinq)** | `brew` or `scoop` | no Docker, and the only way to get Metal on a Mac |
+| **[C. Native](#c-native-install)** | Node, Python, PostgreSQL, Ollama | working on the code |
+
+All three end up at `http://localhost:3000`, with the same data and the same features. Read
+**[Prerequisites](#prerequisites)** first if you are not sure what your machine can do.
 
 ## Prerequisites
 
@@ -67,7 +70,7 @@ For a native install, additionally:
 - **PostgreSQL** 17 (running, with a database you can connect to)
 - **[Ollama](https://ollama.com)** (default LLM) — or any OpenAI-compatible endpoint
 
-## Docker (fewest moving parts)
+## A. Docker
 
 Brings up PostgreSQL, the web app, the STT service and Ollama together. You still need the
 NVIDIA driver on the host, but not Node, Python, PostgreSQL or Ollama.
@@ -110,7 +113,7 @@ want the feature they belong to.
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | **Required** | Invent one. It is the password for the database container this install creates, so it does not have to match anything that already exists |
 | `DATABASE_URL` | **Required** | `postgresql://voxinq:THAT-SAME-PASSWORD@db:5432/voxinq`. `db` is the compose service name — `localhost` here would mean "the web container itself" and cannot work |
-| `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](#recording-from-a-phone-tailscale-walkthrough) |
+| `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
 | `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v1.5.0`. Prereleases never move `latest`, so a 2.0 beta has to be named here |
@@ -134,7 +137,219 @@ large pull. Model weights download separately on first use and are cached in a v
 so that happens once. The first recording of a session still takes tens of seconds to warm the
 model.
 
-### What works right after installing
+### Already using one of these ports?
+
+Compose fails on a bind error rather than sharing a port, and **a local PostgreSQL on 5432 is
+the common case**. Set the ones you need in `.env`; the containers still reach each other by
+name, so only access from the host moves:
+
+```bash
+WEB_PORT=3100
+DB_PORT=127.0.0.1:5433
+OLLAMA_PORT=127.0.0.1:11435
+STT_PORT=8100          # STT_WS_URL follows this unless you set one explicitly
+```
+
+Useful commands:
+
+```bash
+docker compose logs -f web stt     # follow logs
+docker compose pull && docker compose up -d   # upgrade to the current images
+docker compose down                # stop (volumes, and so your data, are kept)
+docker compose up -d web           # web only — for a viewer-only host pointing DATABASE_URL elsewhere
+```
+
+## B. Without Docker (`voxinq`)
+
+`voxinq` **bundles PostgreSQL** — the hardest prerequisite in a native install — and runs
+everything in the background. Node and Python come from the package manager.
+
+### From a package manager
+
+The shortest route, and the one that needs no signed installer: `brew` and `scoop` unpack the
+archive themselves, so macOS never attaches a quarantine attribute and Gatekeeper is never
+consulted.
+
+```bash
+brew install ikasast/voxinq/voxinq                                          # macOS, Linux
+scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq             # Windows
+scoop install voxinq
+```
+
+Then finish the install — it takes several minutes and needs the network:
+
+```bash
+voxinq setup
+voxinq start
+```
+
+Node and Python come as dependencies rather than bundled copies, which is what a package
+manager is for. PostgreSQL *is* bundled. Minutes need an LLM: install Ollama, or point
+Settings → LLM at a cloud model.
+
+> **Status.** The definitions live in [`packaging/`](../packaging/) and are published from a tap
+> and a bucket. Neither has been installed from yet — there is no Mac here for `brew`, and Scoop
+> is not on the development machine. The archive they install, and the `voxinq setup` and
+> `voxinq start` that follow, are verified on Windows.
+
+### From a checkout
+
+The native install above needs PostgreSQL installed and running before anything else works,
+and then two terminals to keep it up. The `voxinq` launcher removes both: it **bundles
+PostgreSQL** and starts everything in the background.
+
+```bash
+cd cli && npm install && npm link      # once
+voxinq setup                            # dependencies, build, both service venvs, models
+voxinq start                            # brings it all up and opens a browser
+voxinq status
+voxinq stop
+```
+
+`voxinq autostart on` registers it to start when you log in — a Task Scheduler task on Windows,
+a LaunchAgent on macOS, a systemd user service on Linux — and `off` removes it again. No
+elevation needed on any of them.
+
+`voxinq setup` is the cross-platform equivalent of the shell scripts above, and is also how you
+upgrade after pulling new code. It needs Node 20+ and Python 3.11+ on the machine; everything
+else it installs itself.
+
+Two things to know on **Windows**:
+
+- **pyannote installs and runs, through a slightly different route.** `torchcodec`, which
+  pyannote reads audio through, is not published for Windows on the CUDA wheel index, so setup
+  takes it from PyPI there instead — verified working: `torchcodec 0.16.0+cpu` alongside
+  `torch 2.11.0+cu128`, and a real diarization run on GPU. If that install ever fails, setup
+  says so and carries on: speaker separation still works on the ONNX backend, which is less
+  accurate on long meetings.
+- **Install somewhere with a short path.** Some Python packages nest deeply enough to exceed
+  the 260-character limit, and pip fails part way through with a missing-file error. Either
+  install under something like `C:\voxinq`, or enable long-path support (pip prints the link).
+
+Data lives outside the install directory (`%LOCALAPPDATA%\voxinq`,
+`~/Library/Application Support/voxinq`, `~/.local/share/voxinq`), so reinstalling or upgrading
+the app cannot delete it. Ports are chosen at start time, so it does not collide with anything
+already running — including a Docker install of Voxinq on the same machine.
+
+One thing to know: the bundled PostgreSQL ships the **server** binaries only, with no `psql`
+or `pg_dump`. Back up with **Settings → Export** instead. See [cli/README.md](../cli/README.md).
+
+## C. Native install
+
+### One-shot script
+
+```bash
+git clone https://github.com/ikasast/voxinq-meeting.git
+cd voxinq-meeting
+./scripts/setup.sh      # Windows: .\scripts\setup.ps1
+```
+
+The script is **idempotent** (safe to re-run) and does, in order:
+
+1. Checks the prerequisites above and tells you what is missing.
+2. `npm install`
+3. Creates `.env` from `.env.example` and asks for your `DATABASE_URL`.
+4. `npx prisma migrate deploy` — creates/updates the DB schema.
+5. Creates the STT venv (`stt-service/.venv`) and installs its requirements.
+6. Pulls the default LLM (`ollama pull qwen2.5:7b-instruct`).
+
+For speaker diarization (optional), add the flag:
+
+```bash
+./scripts/setup.sh --diarization      # Windows: .\scripts\setup.ps1 -Diarization
+```
+
+That installs sherpa-onnx into `diarization/.venv` and downloads two ONNX models (~33 MB) — no
+account, no token. On a machine with an NVIDIA GPU, also install the more accurate pyannote
+backend into the same venv and set `HF_TOKEN` (see [Speaker separation](#speaker-separation)):
+
+```bash
+diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128
+diarization/.venv/bin/pip install -r diarization/requirements-pyannote.txt
+```
+
+### Starting it
+
+```bash
+./scripts/start.sh      # Windows: .\scripts\start.ps1
+```
+
+Starts the STT service in the background (reusing it if already running), builds the web app
+if needed, and serves it at `http://localhost:3000`. Ctrl+C stops both.
+
+> ⚡ Always serve a **production build** (`start` does). `npm run dev` breaks hydration when
+> accessed cross-origin (e.g. over Tailscale).
+
+### Manual install (what the script does)
+
+<details>
+<summary>Step-by-step manual setup</summary>
+
+#### 1. Web app
+
+```bash
+npm install
+cp .env.example .env        # then set DATABASE_URL
+npx prisma migrate deploy   # create/update the DB schema
+```
+
+#### 2. LLM (Ollama, default)
+
+```bash
+ollama pull qwen2.5:7b-instruct   # fits 8 GB VRAM
+```
+
+Prefer a bigger model or an external GPU? See **[LLM providers](llm-providers.md)**.
+
+#### 3. STT service (separate Python venv)
+
+```bash
+cd stt-service
+python -m venv .venv
+. .venv/Scripts/activate            # Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+```
+
+#### 4. Speaker separation (optional, separate venv)
+
+The ONNX backend, which is what runs without CUDA and needs no account:
+
+```bash
+cd diarization
+python -m venv .venv
+. .venv/Scripts/activate          # Linux/macOS: . .venv/bin/activate
+pip install -r requirements.txt
+python fetch_models.py            # the two ONNX models (~33 MB). Without this it cannot run.
+cd ..
+```
+
+On a machine with an NVIDIA GPU, add pyannote as well — it is the more accurate backend and
+the one `diarize.py` then selects. Several gigabytes, and it needs `HF_TOKEN`:
+
+```bash
+pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+pip install torchcodec --index-url https://download.pytorch.org/whl/cu128   # Windows: omit the index
+pip install -r requirements-pyannote.txt
+```
+
+#### 5. Run
+
+```bash
+# STT service (GPU)
+cd stt-service && . .venv/Scripts/activate && python -m uvicorn server:app --host 0.0.0.0 --port 8000
+
+# Web app (production build)
+npm run build && npm start
+```
+
+</details>
+
+</details>
+
+## After installing
+
+### What works right away
 
 Worth knowing in which order things start needing setup, so a missing step looks like a missing
 step rather than a broken install:
@@ -188,293 +403,17 @@ authentication error for a model you have never heard of.
 
 Everything except speaker separation and voice profiles works without it.
 
-### Recording from a phone (Tailscale walkthrough)
+### Recording from a phone
 
-The browser talks to the STT service **directly**, so it needs a URL it can actually reach —
-`localhost` only works when you browse from the same machine. Recording also needs HTTPS,
-because browsers refuse microphone access on plain HTTP from anything but localhost.
+The browser talks to the STT service **directly**, so the phone needs an address it can reach
+and HTTPS — `localhost` is neither. The Tailscale walkthrough, sharing read-only outside your
+tailnet, and the WireGuard alternative are all in **[Remote access](remote-access.md)**.
 
-[Tailscale](https://tailscale.com) gives you both at once: a private network between your own
-devices, and a real HTTPS certificate for a `*.ts.net` name. This walks through it end to end.
+## Operating it
 
-**1. Install Tailscale on the host and on the phone**, then sign both into the same account:
+### Running in the background
 
-```bash
-tailscale up
-```
-
-**2. Find your host's name.** This is the part the `STT_WS_URL` placeholder cannot tell you.
-Your machine's full name is `<host>.<tailnet>.ts.net`, and `tailscale status` prints it — your
-own machine is the first line:
-
-```bash
-tailscale status
-```
-
-```
-100.88.208.114  myhost   tagged-devices  linux  -
-```
-
-Combine that with your tailnet name, shown at the top of the
-[admin console](https://login.tailscale.com/admin/machines) (something like `tail1a2b3c.ts.net`
-unless you renamed it), giving `myhost.tail1a2b3c.ts.net`. Hovering a machine in the admin
-console also copies the full name directly.
-
-**3. Enable MagicDNS and HTTPS certificates.** Both live in the admin console under
-[DNS](https://login.tailscale.com/admin/dns) and both are required — `tailscale serve --https`
-cannot issue a certificate without them.
-
-**4. Publish the two ports:**
-
-```bash
-tailscale serve --bg --https=443 localhost:3000    # the web app
-tailscale serve --bg --https=8443 localhost:8000   # the STT service (wss)
-```
-
-Verify:
-
-```bash
-tailscale serve status
-```
-
-```
-https://myhost.tail1a2b3c.ts.net (tailnet only)
-|-- / proxy http://localhost:3000
-
-https://myhost.tail1a2b3c.ts.net:8443 (tailnet only)
-|-- / proxy http://localhost:8000
-```
-
-**5. Point the app at the STT address the phone will use** — the `:8443` one, with the `wss://`
-scheme and the `/ws` path:
-
-```bash
-STT_WS_URL=wss://myhost.tail1a2b3c.ts.net:8443/ws
-```
-
-```bash
-docker compose up -d
-```
-
-> **Docker reads this at request time**, so a restart is enough — no rebuild. On a **native**
-> install the equivalent is `NEXT_PUBLIC_STT_WS_URL`, which is compiled into the JavaScript
-> bundle at build time and therefore needs `npm run build` again after any change.
-
-**6. On the phone**, open `https://myhost.tail1a2b3c.ts.net` and use **Add to Home Screen** —
-the app is a PWA and runs full-screen from there.
-
-If the page loads but recording fails, the STT service is rejecting the browser's origin. It
-allows `localhost`, private LAN ranges and `*.ts.net` automatically; if you set
-`STT_ALLOWED_ORIGINS` yourself, your web address has to be in that list. See
-[Troubleshooting](troubleshooting.md).
-
-Sharing with someone **outside** your tailnet (read-only, via Tailscale Funnel), or using
-WireGuard instead of Tailscale: **[Remote access](remote-access.md)**.
-
-### Already using one of these ports?
-
-Compose fails on a bind error rather than sharing a port, and **a local PostgreSQL on 5432 is
-the common case**. Set the ones you need in `.env`; the containers still reach each other by
-name, so only access from the host moves:
-
-```bash
-WEB_PORT=3100
-DB_PORT=127.0.0.1:5433
-OLLAMA_PORT=127.0.0.1:11435
-STT_PORT=8100          # STT_WS_URL follows this unless you set one explicitly
-```
-
-Useful commands:
-
-```bash
-docker compose logs -f web stt     # follow logs
-docker compose pull && docker compose up -d   # upgrade to the current images
-docker compose down                # stop (volumes, and so your data, are kept)
-docker compose up -d web           # web only — for a viewer-only host pointing DATABASE_URL elsewhere
-```
-
-## Native install: one-shot script
-
-```bash
-git clone https://github.com/ikasast/voxinq-meeting.git
-cd voxinq-meeting
-./scripts/setup.sh      # Windows: .\scripts\setup.ps1
-```
-
-The script is **idempotent** (safe to re-run) and does, in order:
-
-1. Checks the prerequisites above and tells you what is missing.
-2. `npm install`
-3. Creates `.env` from `.env.example` and asks for your `DATABASE_URL`.
-4. `npx prisma migrate deploy` — creates/updates the DB schema.
-5. Creates the STT venv (`stt-service/.venv`) and installs its requirements.
-6. Pulls the default LLM (`ollama pull qwen2.5:7b-instruct`).
-
-For speaker diarization (optional), add the flag:
-
-```bash
-./scripts/setup.sh --diarization      # Windows: .\scripts\setup.ps1 -Diarization
-```
-
-That installs sherpa-onnx into `diarization/.venv` and downloads two ONNX models (~33 MB) — no
-account, no token. On a machine with an NVIDIA GPU, also install the more accurate pyannote
-backend into the same venv and set `HF_TOKEN` (see [Speaker separation](#speaker-separation)):
-
-```bash
-diarization/.venv/bin/pip install torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu128
-diarization/.venv/bin/pip install -r diarization/requirements-pyannote.txt
-```
-
-## Install from a package manager
-
-The shortest route, and the one that needs no signed installer: `brew` and `scoop` unpack the
-archive themselves, so macOS never attaches a quarantine attribute and Gatekeeper is never
-consulted.
-
-```bash
-brew install ikasast/voxinq/voxinq                                          # macOS, Linux
-scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq             # Windows
-scoop install voxinq
-```
-
-Then finish the install — it takes several minutes and needs the network:
-
-```bash
-voxinq setup
-voxinq start
-```
-
-Node and Python come as dependencies rather than bundled copies, which is what a package
-manager is for. PostgreSQL *is* bundled. Minutes need an LLM: install Ollama, or point
-Settings → LLM at a cloud model.
-
-> **Status.** The definitions live in [`packaging/`](../packaging/) and are published from a tap
-> and a bucket. Neither has been installed from yet — there is no Mac here for `brew`, and Scoop
-> is not on the development machine. The archive they install, and the `voxinq setup` and
-> `voxinq start` that follow, are verified on Windows.
-
-## Run it from a checkout (`voxinq`)
-
-The native install above needs PostgreSQL installed and running before anything else works,
-and then two terminals to keep it up. The `voxinq` launcher removes both: it **bundles
-PostgreSQL** and starts everything in the background.
-
-```bash
-cd cli && npm install && npm link      # once
-voxinq setup                            # dependencies, build, both service venvs, models
-voxinq start                            # brings it all up and opens a browser
-voxinq status
-voxinq stop
-```
-
-`voxinq autostart on` registers it to start when you log in — a Task Scheduler task on Windows,
-a LaunchAgent on macOS, a systemd user service on Linux — and `off` removes it again. No
-elevation needed on any of them.
-
-`voxinq setup` is the cross-platform equivalent of the shell scripts above, and is also how you
-upgrade after pulling new code. It needs Node 20+ and Python 3.11+ on the machine; everything
-else it installs itself.
-
-Two things to know on **Windows**:
-
-- **pyannote installs and runs, through a slightly different route.** `torchcodec`, which
-  pyannote reads audio through, is not published for Windows on the CUDA wheel index, so setup
-  takes it from PyPI there instead — verified working: `torchcodec 0.16.0+cpu` alongside
-  `torch 2.11.0+cu128`, and a real diarization run on GPU. If that install ever fails, setup
-  says so and carries on: speaker separation still works on the ONNX backend, which is less
-  accurate on long meetings.
-- **Install somewhere with a short path.** Some Python packages nest deeply enough to exceed
-  the 260-character limit, and pip fails part way through with a missing-file error. Either
-  install under something like `C:oxinq`, or enable long-path support (pip prints the link).
-
-Data lives outside the install directory (`%LOCALAPPDATA%oxinq`,
-`~/Library/Application Support/voxinq`, `~/.local/share/voxinq`), so reinstalling or upgrading
-the app cannot delete it. Ports are chosen at start time, so it does not collide with anything
-already running — including a Docker install of Voxinq on the same machine.
-
-One thing to know: the bundled PostgreSQL ships the **server** binaries only, with no `psql`
-or `pg_dump`. Back up with **Settings → Export** instead. See [cli/README.md](../cli/README.md).
-
-## Run
-
-```bash
-./scripts/start.sh      # Windows: .\scripts\start.ps1
-```
-
-Starts the STT service in the background (reusing it if already running), builds the web app
-if needed, and serves it at `http://localhost:3000`. Ctrl+C stops both.
-
-> ⚡ Always serve a **production build** (`start` does). `npm run dev` breaks hydration when
-> accessed cross-origin (e.g. over Tailscale).
-
-## Manual install (what the script does)
-
-<details>
-<summary>Step-by-step manual setup</summary>
-
-### 1. Web app
-
-```bash
-npm install
-cp .env.example .env        # then set DATABASE_URL
-npx prisma migrate deploy   # create/update the DB schema
-```
-
-### 2. LLM (Ollama, default)
-
-```bash
-ollama pull qwen2.5:7b-instruct   # fits 8 GB VRAM
-```
-
-Prefer a bigger model or an external GPU? See **[LLM providers](llm-providers.md)**.
-
-### 3. STT service (separate Python venv)
-
-```bash
-cd stt-service
-python -m venv .venv
-. .venv/Scripts/activate            # Linux: source .venv/bin/activate
-pip install -r requirements.txt
-cd ..
-```
-
-### 4. Speaker separation (optional, separate venv)
-
-The ONNX backend, which is what runs without CUDA and needs no account:
-
-```bash
-cd diarization
-python -m venv .venv
-. .venv/Scripts/activate          # Linux/macOS: . .venv/bin/activate
-pip install -r requirements.txt
-python fetch_models.py            # the two ONNX models (~33 MB). Without this it cannot run.
-cd ..
-```
-
-On a machine with an NVIDIA GPU, add pyannote as well — it is the more accurate backend and
-the one `diarize.py` then selects. Several gigabytes, and it needs `HF_TOKEN`:
-
-```bash
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
-pip install torchcodec --index-url https://download.pytorch.org/whl/cu128   # Windows: omit the index
-pip install -r requirements-pyannote.txt
-```
-
-### 5. Run
-
-```bash
-# STT service (GPU)
-cd stt-service && . .venv/Scripts/activate && python -m uvicorn server:app --host 0.0.0.0 --port 8000
-
-# Web app (production build)
-npm run build && npm start
-```
-
-</details>
-
-## Run as background services
-
-### Windows (primary host)
+#### Windows (primary host)
 
 Helper scripts register Task Scheduler tasks that start at logon and self-restart on crash:
 
@@ -493,14 +432,14 @@ only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --i
 > re-transcription, diarization and voiceprint enrolment are all unavailable. For a rebuild
 > or a move to another machine, use the full export below.
 
-## Moving or rebuilding an instance
+### Moving or rebuilding
 
 State lives in three places, so a complete copy needs all three: **PostgreSQL** (meetings,
 transcripts, minutes, series, tags, voice profiles), **the recordings directory** (the WAVs
 and the utterance boundaries diarization maps speakers onto), and **`settings.json`** (models,
 glossary, API keys).
 
-### From the app (easiest, and covers all three)
+#### From the app (easiest, and covers all three)
 
 **Settings → Data** exports the lot — every meeting, the recordings, and your settings — as one
 password-encrypted `.voxbak` file, and restores one by merging it into whatever is already
@@ -513,7 +452,7 @@ for rebuilding after a mistake.
 Reach for the commands below instead when you want something the button cannot do: an
 **unattended nightly** dump, or a database-only copy without the audio.
 
-### Docker
+#### Docker
 
 Each of the three is a named volume, so nothing lives in the directory you installed into —
 `docker compose down` and even deleting that directory keeps your data. `docker volume ls`
@@ -551,7 +490,7 @@ and `web:/data/settings.json`. If you are restoring settings from a native insta
 `ollamaBaseUrl` to `http://ollama:11434` first: inside a container, a loopback address means
 the container itself.
 
-### Native
+#### Native
 
 ```powershell
 scripts\windows\export-all.ps1                      # -> ~\voxinq-backups\voxinq-full-<timestamp>\
@@ -579,13 +518,13 @@ STT URL belong to the machine, not to the data.
 - Restarting the STT service on its own: kill the process owning port 8000 — the `run-stt.bat`
   loop relaunches it with the new code in ~15s. (`Stop-ScheduledTask` can leave the process running.)
 
-### Linux
+#### Linux
 
 - Web app: `scripts/redeploy.sh`
 - STT service: install the provided `stt-service/voxinq-stt.service` systemd unit, then
   `sudo systemctl enable --now voxinq-stt`.
 
-## Branches & releases
+### Branches & releases
 
 Two long-lived branches:
 
@@ -633,17 +572,6 @@ git checkout release && git reset --hard v1.0.0 && git push --force-with-lease
 
 A rollback across a migration needs the database considered separately — `prisma migrate deploy`
 only rolls forward. Restore from the nightly `pg_dump` if the schema has to go back too.
-
-## Remote access (record & view from a phone)
-
-Recording from a phone over Tailscale is walked through above:
-**[Recording from a phone](#recording-from-a-phone-tailscale-walkthrough)**.
-
-For sharing read-only with someone outside your tailnet (Tailscale Funnel), self-hosted
-**WireGuard** with no third party, or a public URL behind your own proxy — including the
-comparison between them:
-
-**→ [Remote access](remote-access.md)**
 
 ---
 

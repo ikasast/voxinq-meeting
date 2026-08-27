@@ -273,7 +273,7 @@ diarized.
 > network, even with the password: the file is the whole database.
 
 For an unattended nightly database dump alongside this, see
-[Setup → Moving or rebuilding an instance](setup.md#moving-or-rebuilding-an-instance).
+[Setup → Moving or rebuilding an instance](setup.md#moving-or-rebuilding).
 
 ---
 

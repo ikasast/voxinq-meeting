@@ -386,7 +386,7 @@ worse than one that reports whether it can see it.
 
 Three choices worth keeping:
 
-- **Data lives outside the install directory** (`%LOCALAPPDATA%oxinq`,
+- **Data lives outside the install directory** (`%LOCALAPPDATA%\voxinq`,
   `~/Library/Application Support/voxinq`, `~/.local/share/voxinq`). A package manager owns the
   install directory and replaces it wholesale on upgrade — a database there would be deleted by
   an update.

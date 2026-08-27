@@ -108,7 +108,7 @@ on the next screen once it says *Model ready*, talk, and finish with **Generate 
 
 📖 Docker details, manual install and background services: **[docs/setup.md](docs/setup.md)**.
 To record from your phone, you need an HTTPS address it can reach — the Tailscale walkthrough
-is **[here](docs/setup.md#recording-from-a-phone-tailscale-walkthrough)**.
+is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 
 > ⚡ Always serve a production build (`scripts/start` does). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
 

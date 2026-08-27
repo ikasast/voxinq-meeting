@@ -49,12 +49,84 @@ Then point the app at the STT address, which differs by install:
 | **Native** | `NEXT_PUBLIC_STT_WS_URL=wss://<host>.<tailnet>.ts.net:8443/ws` | **`npm run build`** — compiled into the browser bundle |
 
 Optionally set `APP_PASSWORD` for login on public/Funnel access. See
-[Configuration](configuration.md). The full step-by-step, including the phone side, is in
-[Setup → Recording from a phone](setup.md#recording-from-a-phone-tailscale-walkthrough).
+[Configuration](configuration.md).
 
 > Requests that arrive through `tailscale serve` carry a `Tailscale-User-Login` header, which
 > the app treats as "internal" (recording enabled). Any other path is treated as external
 > (view-only). A public reverse proxy must therefore **strip that header** to prevent spoofing.
+
+### Step by step, including the phone
+
+**1. Install Tailscale on the host and on the phone**, then sign both into the same account:
+
+```bash
+tailscale up
+```
+
+**2. Find your host's name.** This is the part the `STT_WS_URL` placeholder cannot tell you.
+Your machine's full name is `<host>.<tailnet>.ts.net`, and `tailscale status` prints it — your
+own machine is the first line:
+
+```bash
+tailscale status
+```
+
+```
+100.88.208.114  myhost   tagged-devices  linux  -
+```
+
+Combine that with your tailnet name, shown at the top of the
+[admin console](https://login.tailscale.com/admin/machines) (something like `tail1a2b3c.ts.net`
+unless you renamed it), giving `myhost.tail1a2b3c.ts.net`. Hovering a machine in the admin
+console also copies the full name directly.
+
+**3. Enable MagicDNS and HTTPS certificates.** Both live in the admin console under
+[DNS](https://login.tailscale.com/admin/dns) and both are required — `tailscale serve --https`
+cannot issue a certificate without them.
+
+**4. Publish the two ports:**
+
+```bash
+tailscale serve --bg --https=443 localhost:3000    # the web app
+tailscale serve --bg --https=8443 localhost:8000   # the STT service (wss)
+```
+
+Verify:
+
+```bash
+tailscale serve status
+```
+
+```
+https://myhost.tail1a2b3c.ts.net (tailnet only)
+|-- / proxy http://localhost:3000
+
+https://myhost.tail1a2b3c.ts.net:8443 (tailnet only)
+|-- / proxy http://localhost:8000
+```
+
+**5. Point the app at the STT address the phone will use** — the `:8443` one, with the `wss://`
+scheme and the `/ws` path:
+
+```bash
+STT_WS_URL=wss://myhost.tail1a2b3c.ts.net:8443/ws
+```
+
+```bash
+docker compose up -d
+```
+
+> **Docker reads this at request time**, so a restart is enough — no rebuild. On a **native**
+> install the equivalent is `NEXT_PUBLIC_STT_WS_URL`, which is compiled into the JavaScript
+> bundle at build time and therefore needs `npm run build` again after any change.
+
+**6. On the phone**, open `https://myhost.tail1a2b3c.ts.net` and use **Add to Home Screen** —
+the app is a PWA and runs full-screen from there.
+
+If the page loads but recording fails, the STT service is rejecting the browser's origin. It
+allows `localhost`, private LAN ranges and `*.ts.net` automatically; if you set
+`STT_ALLOWED_ORIGINS` yourself, your web address has to be in that list. See
+[Troubleshooting](troubleshooting.md).
 
 ### Read-only public sharing (view & download from anywhere)
 
