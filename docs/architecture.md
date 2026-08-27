@@ -2,16 +2,18 @@
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Browser / PWA"]
-    UI["Next.js UI"]
+  subgraph Browser["Your browser (or phone)"]
+    UI["Voxinq UI<br/>Next.js"]
   end
-  subgraph Host["Host (single box)"]
-    Web["Web app<br/>(Next.js 16 + Prisma)"]
+  subgraph Host["One machine you control"]
+    subgraph Vox["Voxinq — what this project is"]
+      Web["Web app<br/>Next.js + Prisma"]
+      STT["STT service<br/>FastAPI"]
+      TR["Translation<br/>optional"]
+      DIA["Speaker separation"]
+    end
     DB[("PostgreSQL")]
-    STT["STT service<br/>(FastAPI + faster-whisper / whisper.cpp)"]
-    TR["Translation<br/>(NLLB, CPU, optional)"]
-    DIA["Diarization<br/>(pyannote / sherpa-onnx, separate venv)"]
-    LLM["LLM<br/>(Ollama / OpenAI-compatible)"]
+    LLM["LLM<br/>Ollama, or any<br/>OpenAI-compatible"]
   end
 
   UI -- "HTTPS: pages, minutes, edits" --> Web
@@ -20,7 +22,23 @@ flowchart LR
   Web -- "generate minutes, ask questions" --> LLM
   STT -- "non-Japanese utterances" --> TR
   STT -- "after meeting: WAV + segments" --> DIA
+
+  classDef own fill:#0d9488,stroke:#0f766e,color:#fff
+  classDef ext fill:#e5e7eb,stroke:#9ca3af,color:#111
+  class UI,Web,STT,TR,DIA own
+  class DB,LLM ext
 ```
+
+**Shaded is Voxinq's own code; grey is software it runs but does not replace.** The recognition
+itself is third-party too — the STT service is a wrapper that picks between faster-whisper and
+whisper.cpp, and speaker separation between pyannote and sherpa-onnx, from what the machine can
+run. Voxinq supplies the recording, the segmentation, the storage, the minutes and the UI
+around them.
+
+What comes with an install differs by route rather than by this boundary: Docker brings
+PostgreSQL *and* Ollama up as containers, the `voxinq` launcher bundles PostgreSQL but
+[deliberately leaves Ollama alone](design-decisions.md#the-launcher-bundles-a-database-and-manages-nothing-else),
+and a native install expects both already there.
 
 ## Components
 

@@ -29,13 +29,15 @@
 
 ## 1. 何ができるアプリか
 
-ブラウザで会議を録音すると、次の3つが**すべてローカルのGPU**で自動的に行われます。
+ブラウザで会議を録音すると、次の3つが**すべて自分のPCの中で**自動的に行われます。
 
 | ステップ | 使う技術 | 内容 |
 | --- | --- | --- |
-| ① 文字起こし | faster-whisper | 話しながらリアルタイムで文字が出ます |
-| ② 話者分離 | pyannote | 「誰が話したか」を会議後に自動で振り分けます |
+| ① 文字起こし | faster-whisper / whisper.cpp | NVIDIA GPU・Apple Silicon なら話しながらリアルタイムで文字が出ます（それ以外は会議終了時にまとめて） |
+| ② 話者分離 | pyannote / sherpa-onnx | 「誰が話したか」を会議後に自動で振り分けます |
 | ③ 議事録作成 | ローカルLLM（Ollama など） | 要約・決定事項・TODO を自動生成します |
+
+①②は**機器に応じて自動でエンジンが選ばれます**（→ [GPU の種類による違い](#gpu-の種類による違い)）。
 
 さらに、できあがった議事録に対して**「前回までのTODOを教えて」と質問**したり、
 外国語の会議に**日本語訳を並べて表示**したりできます（いずれもローカルで完結）。
@@ -740,6 +742,17 @@ Safari / Samsung Internet / Firefox すべて未対応）、Web ページから�
 初回はWhisperモデルの読み込みに1分ほどかかります。音声は裏で保持されているので、**待てば反映されます**。
 それでも進まない場合は、GPUのVRAMが空いているか確認してください。
 
+そもそも会議中に文字が出ない設定になっている場合もあります → 次項。
+
+### 録音中に文字が出ない
+
+録音ボタンの横の表示を見てください。**「● Transcribes when the meeting ends」**と出ていれば
+故障ではなく仕様です。GPU 加速が無い機器では認識が発話より遅く、追いつこうとすると遅れ続けるため、
+**録音だけ行って終了時に全体を一度で文字起こし**します。品質は同じで、文字は会議終了後に出ます。
+どの機器がどちらになるかは [GPU の種類による違い](#gpu-の種類による違い) を参照してください。
+
+「● Model ready」と出ているのに文字が出ない場合は別の問題です（次項）。
+
 ### 議事録の生成に失敗する
 
 会議画面に**失敗の理由が表示されます**。よくある原因は:
@@ -764,29 +777,49 @@ Safari / Samsung Internet / Firefox すべて未対応）、Web ページから�
 ```mermaid
 flowchart LR
   subgraph Browser["ブラウザ / スマホ"]
-    UI["画面（Next.js）"]
+    UI["画面<br/>Next.js"]
   end
-  subgraph Host["GPU搭載PC（1台に集約）"]
-    Web["Webアプリ<br/>(Next.js + Prisma)"]
+  subgraph Host["自分のPC 1台"]
+    subgraph Vox["Voxinq — このプロジェクトの範囲"]
+      Web["Webアプリ<br/>Next.js + Prisma"]
+      STT["文字起こし<br/>FastAPI"]
+      TR["翻訳<br/>任意"]
+      DIA["話者分離"]
+    end
     DB[("PostgreSQL")]
-    STT["文字起こし<br/>(FastAPI + faster-whisper)"]
-    DIA["話者分離<br/>(pyannote)"]
-    LLM["議事録生成<br/>(Ollama など)"]
+    LLM["議事録生成<br/>Ollama など"]
   end
 
   UI -- "HTTPS（画面・議事録）" --> Web
   UI -- "WSS（音声をリアルタイム送信）" --> STT
   Web -- "SQL" --> DB
   Web -- "議事録を生成" --> LLM
+  STT -- "日本語以外の発話" --> TR
   STT -- "会議終了後" --> DIA
+
+  classDef own fill:#0d9488,stroke:#0f766e,color:#fff
+  classDef ext fill:#e5e7eb,stroke:#9ca3af,color:#111
+  class UI,Web,STT,TR,DIA own
+  class DB,LLM ext
 ```
+
+**色の付いた箱が Voxinq 自身のコード**、灰色は Voxinq が動かすだけの外部ソフトです。認識エンジン
+そのものも外部で、文字起こしは faster-whisper と whisper.cpp、話者分離は pyannote と sherpa-onnx
+を**機器に応じて使い分ける入れ物**が Voxinq にあたります。録音・区切り・保存・議事録・画面が
+Voxinq の担当範囲です。
+
+なお「導入時に何が一緒に入るか」はこの境界とは別で、導入方法で変わります。Docker は PostgreSQL と
+Ollama の両方をコンテナで立て、`voxinq` ランチャーは PostgreSQL だけ同梱し、ネイティブ導入は
+どちらも自分で用意します。
 
 ポイントは2つです。
 
-- **GPUを時間で分け合う** — 会議中はWhisper、終了後はLLMが使います。これで8GBのVRAMに収まります
+- **GPUを時間で分け合う** — 会議中はWhisper、終了後はLLMが使います。これで8GBのVRAMに収まります。
+  **これは NVIDIA GPU がある場合の話**で、GPU が無い機器には取り合うVRAMがありません
 - **音声はブラウザから直接送る** — Webアプリを経由しないので遅延が最小になります
 
-使用している主な技術: Next.js 16 / React 19 / Prisma / PostgreSQL / FastAPI / faster-whisper / pyannote.audio / Ollama
+使用している主な技術: Next.js 16 / React 19 / Prisma / PostgreSQL / FastAPI /
+faster-whisper・whisper.cpp / pyannote.audio・sherpa-onnx / Ollama
 
 設計の詳細は [docs/architecture.md](docs/architecture.md)（英語）にあります。
 
