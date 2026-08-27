@@ -135,26 +135,48 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Browser / PWA"]
-    UI["Next.js UI"]
+  subgraph Browser["The device you are sitting at — phone, laptop, this PC"]
+    UI["Voxinq UI<br/>Next.js"]
   end
-  subgraph Host["GPU host (single box)"]
-    Web["Web app<br/>(Next.js + Prisma)"]
+  subgraph Host["The one machine that runs Voxinq — the server"]
+    subgraph Vox["Voxinq — what this project is"]
+      Web["Web app<br/>Next.js + Prisma"]
+      STT["STT service<br/>FastAPI"]
+      TR["Translation<br/>optional"]
+      DIA["Speaker separation"]
+    end
     DB[("PostgreSQL")]
-    STT["STT service<br/>(FastAPI + faster-whisper)"]
-    DIA["Diarization<br/>(pyannote)"]
-    LLM["LLM<br/>(Ollama / OpenAI-compatible)"]
+    LLM["LLM<br/>Ollama, or any<br/>OpenAI-compatible"]
   end
 
-  UI -- "HTTPS (pages, minutes)" --> Web
-  UI -- "WSS (live audio)" --> STT
-  Web -- "SQL" --> DB
-  Web -- "generate minutes" --> LLM
-  STT -- "after meeting" --> DIA
+  UI -- "HTTPS: pages, minutes, edits" --> Web
+  UI -- "WSS: live audio + upload" --> STT
+  Web -- "SQL (Prisma)" --> DB
+  Web -- "generate minutes, ask questions" --> LLM
+  STT -- "non-Japanese utterances" --> TR
+  STT -- "after meeting: WAV + segments" --> DIA
+
+  classDef own fill:#0d9488,stroke:#0f766e,color:#fff
+  classDef ext fill:#e5e7eb,stroke:#9ca3af,color:#111
+  class UI,Web,STT,TR,DIA own
+  class DB,LLM ext
 ```
 
-- The single GPU is **time-shared**: Whisper runs during the meeting; the LLM runs after it ends.
-- The browser talks to STT **directly** (lowest latency); the web app never proxies audio.
+**The two outer boxes are two different computers.** Everything on the right runs on one machine
+you control — the server. On the left is whatever you open it on: a phone, a laptop, or that
+same machine's own browser.
+
+- Shaded is **Voxinq's own code**; grey is software it runs but does not replace. The
+  recognition engine is third-party too — the STT service picks between faster-whisper and
+  whisper.cpp, and speaker separation between pyannote and sherpa-onnx, from what the machine
+  can run.
+- The browser talks to the STT service **directly** — the web app never proxies audio. That is
+  what makes recording from a phone work, and why the recording never travels further than the
+  one machine.
+- On a single 8 GB NVIDIA card the GPU is **time-shared**: Whisper runs during the meeting, the
+  LLM after it ends. With more VRAM, or none at all, there is nothing to take turns over.
+
+📖 Full detail, component by component: **[docs/architecture.md](docs/architecture.md)**.
 
 ## ⚙ Configuration
 
