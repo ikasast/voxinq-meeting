@@ -138,7 +138,8 @@ Ollama 自体が不要になります。
 | 初回ダウンロード | 約 20GB（GPU 無しなら約 1.8GB） | 数 GB（モデル分） | 数 GB（モデル分） |
 | 向いている人 | **とにかく動かしたい人** | Docker を入れたくない人 | コードを触りたい人 |
 
-迷ったら **4-A の Docker** を選んでください。Mac で GPU 加速（Metal）を使いたい場合だけは、
+迷ったら **4-A の Docker** を選んでください。コマンド操作に慣れていない場合は、
+4-A の中の[「コマンドを使わずに入れる」](#コマンドを使わずに入れるwindows--docker-desktop)を見てください。Mac で GPU 加速（Metal）を使いたい場合だけは、
 Docker の中から GPU が見えないため **4-B** が必要です。
 
 ### 4-A. Docker で入れる（推奨）
@@ -161,6 +162,62 @@ Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも�
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
+
+#### コマンドを使わずに入れる（Windows / Docker Desktop）
+
+上の手順は端末（PowerShell）を前提にしていますが、Windows ではほぼマウスだけで導入できます。
+**コマンドを打つのは 1 回だけ**で、それ以降は Docker Desktop のボタンで動かせます。
+
+1. **[Docker Desktop](https://www.docker.com/products/docker-desktop/) を入れて**、再起動を
+   求められたら再起動します。NVIDIA GPU の機器では、既定で提案される **WSL2 バックエンドの
+   まま**にしてください。GPU 対応がそこに組み込まれています。
+
+2. **フォルダを 1 つ作ります。** エクスプローラーで右クリック →「新規作成」→「フォルダー」。
+   `C:\voxinq` などで構いません。ホスト側に置くものは、このフォルダの中だけです。
+
+3. **ブラウザで 2 つのファイルを保存します。** それぞれ開いて Ctrl+S:
+
+   - [`docker-compose.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml)
+   - [`.env.example`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example)
+     — 保存ダイアログで**ファイルの種類を「すべてのファイル」**にして、名前を拡張子なしの
+     `.env` にします。
+
+   > Windows はドットで始まるファイル名を嫌がります。`.env` で保存できない場合は、いったん
+   > `env.txt` で保存し、あとから **`.env.`** に名前変更してください。末尾のドットは
+   > Windows が落とすので、結果として `.env` になります。
+
+4. **中身を書きます。** `.env` を右クリック →「プログラムから開く」→「メモ帳」。ほとんどの行は
+   `#` でコメントアウトされたままで構いません。何を書くかは次の表のとおりです。
+   **メモ帳で保存するときはファイル名を `".env"` と引用符で囲んでください** — そうしないと
+   `.env.txt` として保存されます。
+
+5. **起動します。** Docker Desktop を開き、下部の `>_` ボタンで内蔵ターミナルを出すか、
+   フォルダで PowerShell を開きます。打つのはこれだけです。
+
+   ```powershell
+   cd C:\voxinq
+   docker compose up -d
+   ```
+
+   初回は約 20GB のダウンロードがあり、時間がかかります。**NVIDIA GPU が無い場合**は
+   [`docker-compose.cpu.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml)
+   も同じフォルダに保存し、
+   `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d` を使ってください
+   （21GB ではなく 1.8GB で済みます）。
+
+6. **議事録用のモデルを入れます。** Docker Desktop の **Containers** で `voxinq` プロジェクトを
+   開き、`ollama` のコンテナを選んで **Exec** タブで次を実行します。
+
+   ```
+   ollama pull qwen2.5:7b-instruct
+   ```
+
+7. **開きます。** 同じ **Containers** の `web` の行に `3000:3000` がリンクとして出ているので
+   クリックするか、`http://localhost:3000` を開いてください。
+
+**以降はコマンドを使う場面がありません。** Containers 画面のボタンで全体の起動・停止ができ、
+各サービスのログもタブで見られます。再起動後も自動で立ち上がります（停止するまで再起動し続ける
+設定になっています）。更新は **Images** 画面でプルし直してから、また起動するだけです。
 
 #### `.env` に何を書くか
 

@@ -12,7 +12,9 @@ STT service, speaker separation, and the LLM. A browser — including a phone �
 | **[C. Native](#c-native-install)** | Node, Python, PostgreSQL, Ollama | working on the code |
 
 All three end up at `http://localhost:3000`, with the same data and the same features. Read
-**[Prerequisites](#prerequisites)** first if you are not sure what your machine can do.
+**[Prerequisites](#prerequisites)** first if you are not sure what your machine can do — or,
+if a terminal is not where you want to be, go straight to
+**[Without the command line](#without-the-command-line-windows-docker-desktop)**.
 
 ## Prerequisites
 
@@ -96,6 +98,61 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 </details>
+
+### Without the command line (Windows, Docker Desktop)
+
+Everything above assumes a terminal. On Windows it can be done almost entirely with the mouse
+— **one command, once**, and after that Docker Desktop's own buttons run it.
+
+1. **Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)** and restart
+   when it asks. On an NVIDIA machine, keep the WSL2 backend it offers by default: GPU support
+   is built into it.
+
+2. **Make a folder for it** — File Explorer, right-click → *New* → *Folder*. `C:\voxinq` will
+   do. Everything Voxinq needs on the host lives in this one folder.
+
+3. **Save two files into it from your browser.** Open each link, then Ctrl+S:
+
+   - [`docker-compose.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml)
+   - [`.env.example`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example)
+     — in the save dialog set **Save as type: All Files** and name it exactly `.env`, with the
+     dot and no extension.
+
+   > Windows fights you over a filename that starts with a dot. If the dialog will not take
+   > `.env`, save it as `env.txt` and rename it afterwards to `.env.` — with a **trailing**
+   > dot, which Explorer strips, leaving `.env`.
+
+4. **Fill it in.** Right-click `.env` → *Open with* → *Notepad*. Most lines are commented out
+   with `#` and can stay that way; the table below says which ones to change. When saving from
+   Notepad, put quotes round the name — `".env"` — or it will be saved as `.env.txt`.
+
+5. **Start it.** Open Docker Desktop and use its built-in terminal (the `>_` button along the
+   bottom), or PowerShell in the folder. This is the one command:
+
+   ```powershell
+   cd C:\voxinq
+   docker compose up -d
+   ```
+
+   The first start downloads about 20 GB and takes a while. **Without an NVIDIA GPU**, also
+   save [`docker-compose.cpu.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml)
+   into the folder and use `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d`
+   instead — 1.8 GB rather than 21.
+
+6. **Get the minutes model.** In Docker Desktop → **Containers**, expand the `voxinq` project,
+   click the `ollama` container, open its **Exec** tab and run:
+
+   ```
+   ollama pull qwen2.5:7b-instruct
+   ```
+
+7. **Open it.** Still in **Containers**, the `web` row shows `3000:3000` as a link — click it,
+   or go to `http://localhost:3000`.
+
+**From then on there is no command line at all.** The Containers view starts and stops the
+whole project with one button, shows each service's logs on its own tab, and survives reboots
+on its own (the services are set to restart unless you stop them). To update, press the pull
+icon on the project in the **Images** view, then start it again.
 
 ### Filling in `.env`
 
