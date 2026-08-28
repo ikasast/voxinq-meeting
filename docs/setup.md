@@ -85,7 +85,7 @@ NVIDIA driver on the host, but not Node, Python, PostgreSQL or Ollama.
 mkdir voxinq && cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
-# edit .env: set POSTGRES_PASSWORD, and point DATABASE_URL at the `db` service
+# edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
 docker compose up -d
 ```
 
