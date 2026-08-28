@@ -21,8 +21,8 @@ required** — the table below is what changes without one.
 
 ### What runs on what
 
-Voxinq transcribes *during* the meeting, so the thing that decides whether a machine is usable
-is whether transcription keeps up with speech — not whether it runs at all.
+Every machine here works. What differs is whether transcription keeps up with speech: the ones
+that can show you text during the meeting, and the ones that transcribe when it ends.
 
 | your machine | transcription | when you see the text | speaker separation |
 | --- | --- | --- | --- |
@@ -31,13 +31,6 @@ is whether transcription keeps up with speech — not whether it runs at all.
 | **Apple silicon**, Docker | whisper.cpp on the CPU — see below | when the meeting ends | sherpa-onnx (CPU) |
 | **AMD / Intel GPU** | whisper.cpp on the **CPU** — the GPU is not used | when the meeting ends | sherpa-onnx (CPU) |
 | **CPU only** | whisper.cpp on the CPU | when the meeting ends | sherpa-onnx (CPU) |
-
-On a machine with no NVIDIA GPU, use the CPU images — they are multi-arch (so they run on
-Apple silicon) and about 1.8 GB instead of 21 GB, because nothing CUDA-shaped is in them:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
-```
 
 A machine with no GPU acceleration **records the meeting and transcribes it in one pass at the
 end**, rather than trying to keep up and falling behind. Same model, same quality — the
@@ -63,13 +56,6 @@ service. Only the transcription and diarization stay on the CPU. The same applie
 running Ollama natively gets it Metal, and Settings → LLM can point at
 `http://host.docker.internal:11434`.
 
-For a native install, additionally:
-
-- **Node.js** 20+
-- **Python** 3.11
-- **PostgreSQL** 17 (running, with a database you can connect to)
-- **[Ollama](https://ollama.com)** (default LLM) — or any OpenAI-compatible endpoint
-
 ## A. Docker
 
 Brings up PostgreSQL, the web app, the STT service and Ollama together. You still need the
@@ -87,6 +73,14 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 # edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
 docker compose up -d
+```
+
+**Without an NVIDIA GPU, bring it up with the CPU images instead.** They are multi-arch (so
+they run on Apple silicon) and about 1.8 GB instead of 21 GB, because nothing CUDA-shaped is in
+them. Only this last command changes; the two files and the `.env` are the same:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
 
 <details>
@@ -235,6 +229,14 @@ One thing to know: the bundled PostgreSQL ships the **server** binaries only, wi
 or `pg_dump`. Back up with **Settings → Export** instead. See [cli/README.md](../cli/README.md).
 
 ## C. Native install
+
+**Install first** — this is the only route that expects them on the host; A and B bring their
+own:
+
+- **Node.js** 20+
+- **Python** 3.11
+- **PostgreSQL** 17 (running, with a database you can connect to)
+- **[Ollama](https://ollama.com)** (default LLM) — or any OpenAI-compatible endpoint
 
 ### One-shot script
 
