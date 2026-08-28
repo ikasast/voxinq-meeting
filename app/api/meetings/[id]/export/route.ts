@@ -17,11 +17,16 @@ type Part = (typeof PARTS)[number];
 // by the STT host and is downloaded separately by the client (it can be huge).
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // `format=docx` is the minutes as a single document and names no parts, so the parts check
+  // cannot come first -- it used to, which made every Word download a 400.
+  const format = new URL(req.url).searchParams.get("format");
   const requested = (new URL(req.url).searchParams.get("parts") ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter((p): p is Part => (PARTS as readonly string[]).includes(p));
-  if (requested.length === 0) return apiError("no valid parts requested", 400);
+  if (format !== "docx" && requested.length === 0) {
+    return apiError("no valid parts requested", 400);
+  }
 
   const meeting = await prisma.meeting.findUnique({
     where: { id },
@@ -45,7 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // Its own path rather than another entry in the zip: it is a single artefact, and mixing a
   // binary into the text bundle would mean deciding what a "minutes.md plus minutes.docx"
   // download is supposed to mean.
-  if (new URL(req.url).searchParams.get("format") === "docx") {
+  if (format === "docx") {
     if (!latest) return apiError("no minutes to export yet", 400);
     const duration = formatDuration(meeting.startedAt, meeting.endedAt);
     const subtitle = [
