@@ -25,7 +25,7 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 | `POSTGRES_PASSWORD` | — | Password for the bundled database. Compose refuses to start without it; use the same value in `DATABASE_URL`. |
 | `HF_TOKEN` | unset | Needed for diarization on an NVIDIA GPU, which uses pyannote — a gated model. Without a GPU, diarization uses ungated ONNX models and needs no token. Also needed if `WHISPER_MODEL` points at a gated Hugging Face repo. |
 | `DIA_BACKEND` | unset | Which diarization engine to use: `pyannote` (accurate, CUDA + `HF_TOKEN`) or `sherpa` (portable, no token). Unset picks from the hardware. Forcing one that cannot run is an error, not a fallback. |
-| `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v1.5.0`. Prereleases never move `latest`, so a 2.0 beta has to be named here to be used. |
+| `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v2.0.0`. Prereleases never move `latest`, so a beta or rc has to be named here to be used. |
 | `TZ` | unset (= UTC) | Timezone the **server** formats meeting dates in: the meeting list, the detail header, the print page and the DOCX/PDF exports. A container has no timezone unless given one, so leaving this unset shows those in UTC while the browser shows transcript timestamps in local time. Set it to yours, e.g. `Asia/Tokyo`. Native installs take the machine's own timezone. |
 | `WEB_PORT` / `STT_PORT` / `DB_PORT` / `OLLAMA_PORT` | `3000` / `8000` / `127.0.0.1:5432` / `127.0.0.1:11434` | Host ports. Only affect access from the host — containers always reach each other by service name. |
 

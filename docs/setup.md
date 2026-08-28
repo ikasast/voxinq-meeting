@@ -116,7 +116,7 @@ want the feature they belong to.
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v1.5.0`. Prereleases never move `latest`, so a 2.0 beta has to be named here |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v2.0.0`. Prereleases never move `latest`, so a beta or rc has to be named here |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -545,13 +545,27 @@ git checkout release && git merge --ff-only main
 git tag -a v1.1.0 -m "v1.1.0" && git push origin release v1.1.0
 ```
 
-Then deploy (`scripts\windows\redeploy-all.ps1` on the primary host, `scripts/redeploy.sh`
-on Linux) and publish the GitHub release: `gh release create v1.1.0 --title v1.1.0 --notes-file <file>`.
+Then publish the GitHub release — **not** as a pre-release, or `latest` stays where it is:
 
-Publishing the release is what builds and pushes the container images, and the only thing that
-moves `latest` — so it is the step that makes the Docker install above serve the new version.
-The **Publish images** workflow can also be run by hand for a trial build; that publishes the
-tag you name and leaves `latest` where it is.
+```bash
+gh release create v1.1.0 --title v1.1.0 --notes-file <file>
+```
+
+Publishing is what builds and pushes the container images, and the only thing that moves
+`latest`, so nothing can be deployed from Docker until it has run. The **Publish images**
+workflow can also be run by hand for a trial build; that publishes the tag you name and leaves
+`latest` alone.
+
+Deploying comes **after** publishing, and depends on how the host runs:
+
+| host runs | deploy with |
+| --- | --- |
+| Docker | `docker compose pull && docker compose up -d` (set `VOXINQ_VERSION` first to pin) |
+| native | `scripts\windows\redeploy-all.ps1`, or `scripts/redeploy.sh` on Linux |
+
+Publishing also builds the release tarball the package managers install from. The Scoop
+manifest and Homebrew formula in `packaging/` carry its SHA-256, so they can only be updated
+once the release exists — a follow-up commit, not part of the tag.
 
 **Hotfixing production** — branch from `release`, not `main`, so an unfinished feature cannot
 ride along:
