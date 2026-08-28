@@ -121,7 +121,7 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 - **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, ✕ to remove it. Minutes are then built from the right words.
 - **Fix the same mishearing everywhere:** *Edit tools → Find & replace* — preview the matches, then replace across the transcript in one go.
 - **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
-- **Send the minutes on:** the ⬇ menu exports Markdown and the transcript, plus **Word (`.docx`)** with real formatting, and **PDF** through your browser's print view.
+- **Send the minutes on:** the ⬇ on the Minutes card saves them as Markdown, **Word (`.docx`)** with real formatting, or **PDF** through your browser's print view. The meeting's own ⬇ bundles transcript, metadata and recording alongside.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and a custom format.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
 
