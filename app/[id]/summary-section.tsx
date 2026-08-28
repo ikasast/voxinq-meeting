@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/utils";
 import { PencilIcon, RefreshIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopySummaryButton } from "./copy-summary-button";
+import { MinutesDownloadButton } from "./minutes-download-button";
 import { ShareButton } from "./share-button";
 
 export type SummaryVersion = { id: string; text: string; createdAt: string };
@@ -200,9 +201,10 @@ export function SummarySection({
             </button>
           ) : null}
           <CopySummaryButton text={current.text} />
-          <ShareButton
+          <ShareButton text={current.text} title={`${meetingTitle} minutes`} />
+          <MinutesDownloadButton
+            meetingId={meetingId}
             text={current.text}
-            title={`${meetingTitle} minutes`}
             filename={`${meetingTitle}-minutes.md`}
           />
           {canGenerate && !readOnly ? (

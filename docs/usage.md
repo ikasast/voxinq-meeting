@@ -233,11 +233,12 @@ transcript, minutes, and recording for good.
 
 ## Share / export
 
-Copy or share minutes and transcripts, or download them as files (`.md` / `.txt`) — tick what
-you want in the ⬇ menu; several parts arrive as a zip.
+The meeting's ⬇ button (top right) bundles the parts of a meeting: minutes, transcript, a
+metadata sheet, the recording. Tick what you want; several parts arrive as a zip.
 
-For minutes that have to be filed or sent to someone rather than read in the app, the same menu
-offers two document formats:
+The **minutes' own ⬇**, in the toolbar on the Minutes card, downloads that one document in
+whichever format you need it — Markdown for another tool, and for minutes that have to be filed
+or sent to someone rather than read in the app:
 
 - **Word (`.docx`)** — headings, bullets, numbered lists and bold come across as real Word
   formatting, not as Markdown characters. No font is embedded, so Word uses the reader's own —
