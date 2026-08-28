@@ -67,6 +67,11 @@ services:
       # Kept on a volume rather than bind-mounted: Docker turns a bind mount of a not-yet-
       # existing file into a directory, which breaks saving from the Settings UI.
       VOXINQ_SETTINGS_PATH: /data/settings.json
+      # Meeting dates on the list, the detail header, the print page and the exports are
+      # formatted here, in the container. A container has no timezone unless it is given
+      # one, so leaving this unset renders them in UTC while the browser renders the
+      # transcript timestamps in local time — the same meeting then shows two clocks.
+      TZ: ${TZ:-UTC}
     ports:
       - "${WEB_PORT:-3000}:3000"
     volumes:
@@ -89,6 +94,9 @@ services:
       WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
       # The browser's origin must be allowed; it calls this service directly.
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}
+      # Log timestamps only — nothing here is shown in the UI — but a stack whose services
+      # disagree about what time it is makes correlating logs needlessly hard.
+      TZ: ${TZ:-UTC}
     ports:
       - "${STT_PORT:-8000}:8000"
     volumes:

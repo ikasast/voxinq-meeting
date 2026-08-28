@@ -83,6 +83,30 @@ Remove-Item -Recurse -Force .next, node_modules\.cache
 npm run build
 ```
 
+## Meeting times are hours off
+
+The date under a meeting's title, and the times in the meeting list, are formatted by the
+**server**; the timestamps on transcript lines are formatted by the **browser**. A Docker
+container has no timezone unless it is given one, so it formats in UTC — and the same meeting
+then shows two different clocks, several hours apart.
+
+Set `TZ` in `.env` to your own zone and restart:
+
+```bash
+echo 'TZ="Asia/Tokyo"' >> .env
+docker compose up -d
+```
+
+Check what the container thinks the time is:
+
+```bash
+docker compose exec web date
+```
+
+Stored data is unaffected either way — timestamps go into PostgreSQL in UTC and only the
+formatting changes, so fixing this corrects meetings that already exist. A native install
+takes the machine's timezone and never had the problem.
+
 ## Recording works, but the meeting length is wrong or deleting a line says it could not sync
 
 The browser reaches the STT service directly, so recording is fine — but the **web server**

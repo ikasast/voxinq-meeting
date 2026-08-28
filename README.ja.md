@@ -164,6 +164,7 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 | --- | --- | --- |
 | `POSTGRES_PASSWORD` | **必須** | 自分で決めます。これから作るデータベースコンテナ用のパスワードなので、既存の何かと一致させる必要はありません |
 | `DATABASE_URL` | **必須** | `postgresql://voxinq:上と同じパスワード@db:5432/voxinq` |
+| `TZ` | **UTC 以外の地域なら必須** | 自分のタイムゾーン（例 `Asia/Tokyo`）。コンテナは時刻帯を持たないので、未設定だと会議一覧・タイトル下の日時・印刷・エクスポートが UTC で表示され、ブラウザ側で描画される文字起こしの時刻とずれます。保存されるデータは正しいので、後から設定しても既存の会議ごと直ります |
 | `HF_TOKEN` | NVIDIA GPU 搭載機で話者分離を使うなら | Hugging Face の無料トークン。**後回しで構いません** — 話者を区別する機能以外はこれ無しで動きます。GPU が無い環境では不要です。→ [取得手順](#hf_token-の取り方nvidia-gpu-での話者分離に必要) |
 | `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [7章](#7-スマホから使うtailscale--wireguard) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
