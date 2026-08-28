@@ -10,7 +10,7 @@ fictional demo meetings, so they can be retaken whenever the interface changes.
 | `minutes.png` | Meeting detail: toolbar, purpose, generated minutes. | `shoot-screenshots.mjs` |
 | `settings.png` | Settings → Transcription (model, language, glossary, mic mode). | `shoot-screenshots.mjs` |
 | `workflow.png` | README hero: concept illustration of record → process locally → minutes. | by hand |
-| `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | by hand |
+| `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). | by hand |
 
 ## Retaking the UI shots
@@ -40,6 +40,7 @@ npm run build && npx next start -p 3100
 # 3. the photographs
 npm i -D playwright && npx playwright install chromium
 BASE_URL=http://127.0.0.1:3100 node scripts/shoot-screenshots.mjs
+BASE_URL=http://127.0.0.1:3100 node scripts/shoot-demo-gif.mjs   # needs ffmpeg on PATH
 
 docker rm -f voxinq-shots-db     # when you are done
 ```
@@ -51,7 +52,10 @@ a frame fitted to each page instead of a band of empty background, and one share
 
 ## Doing it by hand
 
-`workflow.png`, `demo.gif` and `social-preview.png` are not screenshots and the script does
-not produce them. Guidelines: ~1200–1600 px wide, light theme to match the rest, and
-demo/sample content — **no confidential content or real names**. For `demo.gif`, a real screen
-recording (ScreenToGif, ~20–30 s, <10 MB) reads better than a slideshow.
+`workflow.png` and `social-preview.png` are illustrations rather than screenshots, so no
+script produces them. Guidelines: ~1200–1600 px wide and demo/sample content — **no
+confidential content or real names**.
+
+`demo.gif` is scripted but only as a slideshow of four still pages. A real screen recording
+(ScreenToGif, ~20–30 s, <10 MB) shows the app actually working and is worth doing by hand
+when someone has the time; drop it in over the generated one.
