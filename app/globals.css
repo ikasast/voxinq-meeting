@@ -386,6 +386,13 @@ html[data-theme="light"] .logo-dark {
     color: #000 !important;
   }
 
+  /* The page box is the margin; the document's own should not be added to it. */
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   /* The app's palette is built for a dark surface; on paper it has to be readable ink. */
   .print-sheet :is(h1, h2, h3, h4, h5, h6, p, li, td, th, strong, em, blockquote) {
     color: #000 !important;
@@ -405,7 +412,70 @@ html[data-theme="light"] .logo-dark {
     break-inside: avoid;
   }
 
+  /* The screen layout is centred and padded because a browser window is wider than a column
+     of text. The printed page box already is that column, so both just eat into it: the
+     max-width and the horizontal padding came off the usable width on top of the page margin. */
+  .print-sheet {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Tailwind Typography is sized for reading one article on a screen — 16px on a loose
+     leading, with headings given room to breathe. On paper that spends most of a sheet on
+     whitespace; minutes are a document to file, and want document proportions. */
+  .print-sheet {
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+  .print-sheet .minutes-prose {
+    font-size: inherit;
+    line-height: inherit;
+    max-width: none;
+  }
+  .print-sheet .minutes-prose :is(h1, h2, h3, h4) {
+    line-height: 1.25;
+    margin-top: 0.85em;
+    margin-bottom: 0.3em;
+    padding-bottom: 0;
+  }
+  .print-sheet .minutes-prose h1 {
+    font-size: 1.35em;
+  }
+  .print-sheet .minutes-prose h2 {
+    font-size: 1.18em;
+  }
+  .print-sheet .minutes-prose :is(h3, h4) {
+    font-size: 1.05em;
+  }
+  .print-sheet .minutes-prose :is(p, ul, ol, blockquote, table) {
+    margin-top: 0.35em;
+    margin-bottom: 0.35em;
+  }
+  .print-sheet .minutes-prose li {
+    margin-top: 0.1em;
+    margin-bottom: 0.1em;
+  }
+  .print-sheet .minutes-prose li > p {
+    margin: 0;
+  }
+
+  /* The heading block above the minutes, on the same diet. */
+  .print-sheet > header {
+    margin-bottom: 0.9em;
+    padding-bottom: 0.5em;
+  }
+  .print-sheet > header h1 {
+    font-size: 1.5em;
+    line-height: 1.25;
+  }
+  .print-sheet > footer {
+    margin-top: 1.5em;
+  }
+
+  /* 12mm is a normal document margin and inside every desktop printer's unprintable edge.
+     The old 16mm sides, plus the screen padding above, left the text in a narrow ribbon. */
   @page {
-    margin: 18mm 16mm;
+    margin: 12mm;
   }
 }
