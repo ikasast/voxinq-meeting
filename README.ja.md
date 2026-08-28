@@ -105,15 +105,6 @@ GPU 加速の無い環境では、**会議中は録音だけを行い、終了�
 > 動くためです。CPU に留まるのは文字起こしと話者分離だけです。Mac も同様で、Ollama を
 > ネイティブに動かせば Metal が効きます（設定 → LLM で `http://host.docker.internal:11434`）。
 
-#### NVIDIA GPU が無い場合の導入コマンド
-
-CPU 版イメージを使ってください。マルチアーキテクチャなので Apple Silicon でも動き、
-CUDA 関連を一切含まないためサイズも約 21GB → **約 1.8GB** になります。
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
-```
-
 > **VRAM 8GB でも動く工夫**
 > 文字起こし用のWhisperと議事録用のLLMは同時にVRAMへ載りません。そこで
 > **「会議中はWhisper、会議が終わったらLLM」と時間で切り替える**設計にしています。
@@ -121,12 +112,20 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 
 ### ソフトウェア
 
-インストール前に以下を用意してください。
+**導入方法によって、事前に用意するものは変わります。** 下の表の一番左を選ぶなら、
+このリストは読み飛ばして構いません。
 
-- [Node.js](https://nodejs.org) 20以上
-- [Python](https://www.python.org) 3.11
-- [PostgreSQL](https://www.postgresql.org) 17
-- [Ollama](https://ollama.com)（ローカルLLM実行環境）
+| | 4-A. Docker | 4-B. `voxinq` | 4-C. ネイティブ |
+| --- | --- | --- | --- |
+| [Node.js](https://nodejs.org) 20 以上 | 不要（イメージに同梱） | パッケージマネージャが入れます | **自分で用意** |
+| [Python](https://www.python.org) 3.11 | 不要（イメージに同梱） | パッケージマネージャが入れます | **自分で用意** |
+| [PostgreSQL](https://www.postgresql.org) 17 | 不要（コンテナで同梱） | 不要（**同梱**） | **自分で用意** |
+| [Ollama](https://ollama.com) | 不要（コンテナで同梱） | **自分で用意** | **自分で用意** |
+| そのかわり必要なもの | Docker Desktop | Homebrew か Scoop | — |
+
+Ollama は「議事録を生成する LLM」です。4-B と 4-C では別途用意してください
+（`scoop install ollama` など）。クラウドのモデル（Anthropic / OpenAI）を使う場合は
+Ollama 自体が不要になります。
 
 ## 4. インストール手順
 
@@ -145,7 +144,7 @@ Docker の中から GPU が見えないため **4-B** が必要です。
 ### 4-A. Docker で入れる（推奨）
 
 **前提**: Docker Desktop。NVIDIA GPU を使う場合はドライバも必要です（WSL2 バックエンドなら
-GPU 対応は組み込み済み）。GPU が無い場合は下の「NVIDIA GPU が無い場合」を使ってください。
+GPU 対応は組み込み済み）。GPU が無くても同じ手順で入ります — 最後の起動コマンドだけが変わります。
 
 イメージは公開済みなので、**リポジトリの取得は不要**です。ファイル 2 つだけで入ります。
 
@@ -153,6 +152,14 @@ GPU 対応は組み込み済み）。GPU が無い場合は下の「NVIDIA GPU �
 mkdir voxinq && cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
+```
+
+**NVIDIA GPU が無い場合は CPU 版イメージを使ってください。** マルチアーキテクチャなので
+Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも約 21GB → **約 1.8GB** になります。
+起動コマンドを次に差し替えるだけで、他の手順は同じです。
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
 
 #### `.env` に何を書くか
@@ -278,14 +285,14 @@ Node と Python はパッケージマネージャが用意します。議事録�
 
 ### 4-C. ネイティブで入れる（スクリプト）
 
-### ステップ1: リポジトリを取得
+#### ステップ1: リポジトリを取得
 
 ```bash
 git clone https://github.com/ikasast/voxinq-meeting.git
 cd voxinq-meeting
 ```
 
-### ステップ2: セットアップスクリプトを実行
+#### ステップ2: セットアップスクリプトを実行
 
 必要なものを自動で判定してインストールします。**何度実行しても安全**です。
 
@@ -325,7 +332,7 @@ cd voxinq-meeting
 > 旧パイプラインを使う場合は `DIA_MODEL=pyannote/speaker-diarization-3.1` を設定し、
 > [pyannote/segmentation-3.0](https://huggingface.co/pyannote/segmentation-3.0) にも同意してください。
 
-### ステップ3: 起動
+#### ステップ3: 起動
 
 ```powershell
 # Windows の場合
@@ -343,7 +350,7 @@ cd voxinq-meeting
 > 他の端末（スマホなど）からアクセスした際に画面が反応しなくなります。
 > `scripts/start` は自動的に本番ビルドで起動するので、通常はこれを使ってください。
 
-### PCの起動時に自動で立ち上げたい場合
+#### PCの起動時に自動で立ち上げたい場合
 
 **Windows** — タスクスケジューラに常駐登録するスクリプトを用意しています。
 
