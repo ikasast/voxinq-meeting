@@ -13,5 +13,5 @@
   "dependencies": {
     "embedded-postgres": "17.10.0-beta.17"
   },
-  "license": "AGPL-3.0-or-later"
+  "license": "MIT"
 }
