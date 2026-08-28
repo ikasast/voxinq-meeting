@@ -34,6 +34,31 @@ that can show you text during the meeting, and the ones that transcribe when it 
 | **AMD / Intel GPU** | whisper.cpp on the **CPU** — the GPU is not used | when the meeting ends | sherpa-onnx (CPU) |
 | **CPU only** | whisper.cpp on the CPU | when the meeting ends | sherpa-onnx (CPU) |
 
+#### And the minutes?
+
+The table above stops at speaker separation, but writing the minutes is a third stage, and on a
+machine without a GPU it is the slowest of the three. Ollama falls back to the CPU, where the
+model has to read the whole transcript before it writes anything.
+
+Measured on the same 16-core x86 CPU as the transcription figure below, with an 8B model and no
+GPU: **31 tokens/second reading, 6.5 tokens/second writing**. A meeting that fills the default
+24k-token budget therefore spends **around 13 minutes being read and another 3–4 being written**
+— a quarter of an hour for one set of minutes, against under a minute on an 8 GB card.
+
+It works, and it is unattended — minutes generate in the background and the app tells you when
+they are done. But if that is too slow, there are two ways out, in `Settings → LLM`:
+
+- **A smaller model.** Something in the 3B class runs several times faster and still writes
+  serviceable minutes for a straightforward meeting. Not measured here, so try it against one
+  of your own before committing to it.
+- **Another machine.** The LLM is reached over HTTP and does not have to be local: point it at
+  Ollama or vLLM on a machine that does have a GPU, or at Anthropic or OpenAI. See
+  [LLM providers](llm-providers.md). Sending it off the machine means the finished transcript
+  goes to that endpoint — a deliberate choice, and off by default.
+
+The audio never goes anywhere in either case: only the transcript is sent, and only to the
+endpoint you name.
+
 A machine with no GPU acceleration **records the meeting and transcribes it in one pass at the
 end**, rather than trying to keep up and falling behind. Same model, same quality — the
 difference is that no text appears during the meeting. Everything after that (minutes, speaker
