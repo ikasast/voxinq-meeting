@@ -53,6 +53,7 @@ Thumbs.db
 /dev.log
 /prod.pid
 /*.tar.gz
+/*.tar.gz.sha256
 
 # vercel
 .vercel
