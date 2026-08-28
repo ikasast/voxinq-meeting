@@ -110,7 +110,7 @@ want the feature they belong to.
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v2.0.0`. Prereleases never move `latest`, so a beta or rc has to be named here |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v2.0.0`. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -532,6 +532,11 @@ Two long-lived branches:
 
 - **`main`** — development. Every PR lands here.
 - **`release`** — what production runs. Always points at the latest tagged version.
+
+The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
+`VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
+version changed. Development happens on 2.x, and 1.5 takes fixes only — hotfix it the way any
+release is hotfixed, from a branch off its tag.
 
 Tags (`v1.0.0`, `v1.1.0`, …) mark the versions; `release` just follows the newest one. The
 redeploy scripts default to `release` and refuse to build any other checkout, so a leftover
