@@ -5,12 +5,12 @@ want to do:
 
 | I want to… | Read |
 | --- | --- |
-| **Install it** (Windows / Linux, background services, phone access) | 📦 [Setup](setup.md) |
+| **Install it** (all three routes, background services, phone access) | 📦 [Setup](setup.md) |
 | **Reach it from a phone / share read-only** (Tailscale, in-app publish toggle, WireGuard, public URL) | 🌐 [Remote access](remote-access.md) |
 | **Change a setting** (every `.env` variable and `settings.json` option) | ⚙️ [Configuration](configuration.md) |
 | **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](llm-providers.md) |
-| **Learn the features** (record, upload, diarize, regenerate, archive, search) | 📖 [Usage & recipes](usage.md) |
-| **Understand how it works** (components, GPU time-sharing, data flow, retention) | 🏗 [Architecture](architecture.md) |
+| **Learn the features** (record, upload, diarize, find & replace, export, archive) | 📖 [Usage & recipes](usage.md) |
+| **Understand how it works** (components, data flow, what is Voxinq and what is not) | 🏗 [Architecture](architecture.md) |
 | **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](design-decisions.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
 

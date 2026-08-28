@@ -119,7 +119,9 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 - **Ask about past meetings:** open a series (↻ chip) → *Ask about these minutes* → “前回までのTODOを教えて”.
 - **Improve speaker labels:** open a meeting → *Diarize* above the transcript → rename speakers; regenerate minutes.
 - **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, ✕ to remove it. Minutes are then built from the right words.
+- **Fix the same mishearing everywhere:** *Edit tools → Find & replace* — preview the matches, then replace across the transcript in one go.
 - **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`), then regenerate.
+- **Send the minutes on:** the ⬇ on the Minutes card saves them as Markdown, **Word (`.docx`)** with real formatting, or **PDF** through your browser's print view. The meeting's own ⬇ bundles transcript, metadata and recording alongside.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and a custom format.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
 
@@ -129,7 +131,20 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 | --- | --- |
 | ![Recording screen](docs/screenshots/recording.png) | ![Minutes](docs/screenshots/minutes.png) |
 
-📚 **Full docs:** [Setup](docs/setup.md) · [Configuration](docs/configuration.md) · [LLM providers](docs/llm-providers.md) · [Usage & recipes](docs/usage.md) · [Architecture](docs/architecture.md) · [Design decisions](docs/design-decisions.md) · [Troubleshooting](docs/troubleshooting.md)
+## 📚 Documentation
+
+| I want to… | Read |
+| --- | --- |
+| **Install it** (all three routes, background services, phone access) | 📦 [Setup](docs/setup.md) |
+| **Reach it from a phone / share read-only** (Tailscale, publish toggle, WireGuard) | 🌐 [Remote access](docs/remote-access.md) |
+| **Change a setting** (every `.env` variable and `settings.json` option) | ⚙️ [Configuration](docs/configuration.md) |
+| **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](docs/llm-providers.md) |
+| **Learn the features** (record, upload, diarize, find & replace, export, archive) | 📖 [Usage & recipes](docs/usage.md) |
+| **Understand how it works** (components, data flow, what is Voxinq and what is not) | 🏗 [Architecture](docs/architecture.md) |
+| **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](docs/design-decisions.md) |
+| **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](docs/troubleshooting.md) |
+
+日本語で読む方は **[日本語ガイド](README.ja.md)** をどうぞ — 導入から日常運用まで一通り解説しています。
 
 ## 🏗 Architecture
 
