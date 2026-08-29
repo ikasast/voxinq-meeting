@@ -99,6 +99,71 @@ The lesson that generalises: **validate a component swap on the largest real inp
 not the most convenient one.** The 105-second meeting was chosen because it was quick to run,
 and every failure mode that mattered only appears at length.
 
+## Transcription is not reproducible, and the cause is the temperature fallback
+
+Transcribing the same audio twice does not give the same text. Measured on a 12-minute stretch
+of a real meeting with the production settings — `large-v3-turbo`, CUDA, `int8_float16`,
+`beam_size=5`, VAD on — six pairings of four runs diverged by **15.4% of characters and 20.3%
+of words on average**, with single pairs ranging from 10.8% to 19.7%. Nothing about the input
+changed between runs.
+
+The cause is faster-whisper's temperature fallback. Its default `temperature` is a ladder
+(0.0, 0.2 … 1.0): a segment that fails the compression-ratio or log-probability checks is
+re-decoded with **sampling**, and sampling draws random numbers. Pinning `temperature=(0.0,)`
+makes runs byte-identical — 0.00% across repeats, at `beam_size` 5 and 1 alike — which locates
+the variance precisely. VAD and the CUDA kernels are not contributing; if they were, the pinned
+runs would still drift.
+
+`ctranslate2.set_random_seed()` does **not** fix it. Seeding before each call leaves the floor
+at 15.4%, so whatever RNG the fallback draws from is not the one that entry seeds.
+
+This is not a bug to be removed. The fallback is the recovery path for the failure Whisper is
+most prone to on meeting audio — a segment that decodes into a repetition loop or a canned
+hallucination — and it earns its place. But two consequences follow and neither was written
+down.
+
+**For anyone using this:** re-running transcription on a meeting produces materially different
+text. Not different meaning, usually, but different wording, and occasionally a phrase that was
+there before is gone. Re-transcribing is not a way to "get the same thing again".
+
+**For anyone measuring this:** the noise floor is larger than most differences worth measuring,
+so any A/B on recognition needs a control of the same audio against itself before its number
+means anything. The **13.8%** recorded below for [whisper.cpp against faster-whisper](#what-whispercpp-costs-on-a-cpu)
+has no such control and sits *below* the floor measured here. That does not make it wrong — it
+was measured on different material, in Japanese, and the floor is material-dependent — but it
+does mean the figure cannot presently be relied on as a quality difference between the two
+engines. It should be re-measured against a control before it is quoted again.
+
+## Opus on the wire was measured and could not be cleared
+
+The browser streams 16 kHz signed 16-bit PCM: **256 kbps**, continuously, for the length of the
+meeting. Opus would carry the same audio at **23.8 kbps** — measured, not estimated, by encoding
+720 seconds and dividing — which is a 10.8x reduction on a link that is often a phone on mobile
+data over Tailscale. `AudioEncoder` accepts `opus` at 16 kHz mono directly on Android Chrome, so
+the existing 16 kHz pipeline would not have to be rebuilt around Opus's native 48 kHz.
+
+It is not adopted, because the accuracy question could not be answered on the material
+available. What the measurement did establish:
+
+- **16 kbps is below the floor.** It diverges from the original by more than either noise
+  floor, consistently. If Opus is ever wired in, 24 kbps is the bottom.
+- **At 24 and 32 kbps no character-level effect is detectable.** Original-vs-Opus averaged
+  15.99% against an original-vs-original floor of 15.44%, with fully overlapping ranges.
+  At word level the cross average sat about 6 points above the floor, but the ranges still
+  overlapped and the sample was six and sixteen pairs.
+- **Opus audio transcribes more stably than the original**, reproducibly: its self-floor was
+  14.0% of words against the original's 20.3%, in two independent experiments. The likely
+  reading is that perceptual coding removes the low-level noise that trips the fallback into
+  firing — which would mean Opus makes the previous section's problem smaller, not larger.
+- The round trip itself is sound: identical sample count, zero lag, comparable RMS. Waveform
+  SNR is a meaningless test for a perceptual codec and was discarded.
+
+So nothing found argues against Opus and the bandwidth case is strong, but "we could not detect
+harm" is not "there is no harm" — and with one English recording and a 15% noise floor, this
+material cannot distinguish them. *Changes if* the floor can be removed, or enough Japanese
+meeting audio accumulates to measure across several recordings, Japanese being the primary use
+and the case where a lossy codec is most likely to cost something.
+
 ## VAD is two layers, both already present
 
 Recognition quality on meeting audio depends more on segmentation than on the ASR model. Two
@@ -206,6 +271,15 @@ faster-whisper's output, because no human transcript exists for these meetings �
 "does a machine without CUDA produce something different from what an RTX produces", which is
 the question the second backend raises. It cannot say kotoba is *worse* than turbo: kotoba is a
 different model, and any model that is not `large-v3-turbo` is penalised here for not being it.
+
+> ⚠️ **These figures have no control and are not currently reliable.** Later work found that
+> faster-whisper transcribing the *same* audio twice diverges by around 15% of characters
+> ([why](#transcription-is-not-reproducible-and-the-cause-is-the-temperature-fallback)), which
+> is the same order as most of this column and larger than the 13.8%. The ranking may well
+> survive — feeding both backends the same `segments.json` removes one large source of drift,
+> and the spread from 26.3% to 13.8% is wider than a floor alone would explain — but no number
+> here should be quoted as a quality difference until each row is re-measured against the same
+> audio compared with itself. The RTF column is unaffected.
 
 The finding that matters is the first column. **Transcription is live**, so RTF above 1 means
 the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,
