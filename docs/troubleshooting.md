@@ -170,7 +170,7 @@ missing, note that recordings auto-delete after 7 days unless protected.
 Check the badge next to the record button. If it reads **● Transcribes when the meeting ends**,
 this is the design rather than a fault: the machine has no GPU acceleration, recognition there
 is slower than speech, and trying to keep up would fall behind and never recover. The meeting
-is recorded and transcribed in one pass when you end it, at the same quality — the transcript
+is recorded and transcribed in one pass when you end it — the transcript
 appears then. [What runs on what](setup.md#what-runs-on-what) explains which machines do which.
 
 `STT_LIVE_TRANSCRIPTION=1` forces live recognition anyway. Expect it to lag on a CPU: measured

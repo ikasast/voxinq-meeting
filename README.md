@@ -42,7 +42,7 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 | **Privacy** | Audio never leaves your machine; minutes local by default, cloud LLM opt-in | Audio uploaded to a third party |
 | **Cost** | Free — a consumer GPU (8 GB VRAM) is plenty, and it runs without one | Per-user / per-minute subscription |
 | **Record anywhere** | Any browser incl. phone (PWA + Tailscale) | Any browser — via their cloud |
-| **Models** | Pick any Whisper / LLM; swap or upgrade anytime | Fixed, vendor-chosen |
+| **Models** | Choose the Whisper model and the LLM; swap or upgrade anytime | Fixed, vendor-chosen |
 
 ## 🚀 Get started
 
@@ -57,7 +57,10 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 
 A machine with no GPU acceleration recognises speech slower than people produce it, so instead
 of falling behind for the whole meeting it records and transcribes the file in one pass at the
-end — same model, same quality. See [what runs on what](docs/setup.md#what-runs-on-what).
+end. Same model — though not the same weights: the CPU path runs GGML-quantised ones, and on a
+measured meeting its transcript diverges from the CUDA transcript by about **14% of
+characters**. Neither is ground truth, so read that as a difference rather than a defect — but
+it is not nothing. See [what runs on what](docs/setup.md#what-runs-on-what).
 
 **Writing the minutes is slower without a GPU too**, and by more. Measured on a 16-core x86 CPU
 with an 8B model: 31 tokens/second reading the transcript, 6.5 writing — about **a quarter of an

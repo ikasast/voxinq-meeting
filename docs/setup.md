@@ -21,6 +21,27 @@ if a terminal is not where you want to be, go straight to
 An **NVIDIA GPU with CUDA** (8 GB of VRAM is plenty) gives the best experience, but is **not
 required** — the table below is what changes without one.
 
+### What has actually been run
+
+The support table below says what the code *chooses*. This one says where that has been seen to
+work, because the two are not the same thing and the second is the one that can bite you.
+
+| | status |
+| --- | --- |
+| **Windows 11 + NVIDIA, Docker** | ✅ the development and production host — every release runs here |
+| **Windows 11 + NVIDIA, native** | ✅ how it ran before the Docker cutover |
+| **Windows, `voxinq` via Scoop** | ✅ installed from the bucket, `setup` and `start` from what it placed |
+| **x86 CPU only, no GPU** | ✅ recognition and the deferred path measured on one; not lived in |
+| **Linux + NVIDIA** | ⚠️ the images are built and pulled for it, but nobody here runs it daily |
+| **Linux / macOS, `voxinq` via Homebrew** | ⚠️ the formula is written and unverified — no Mac here |
+| **Apple silicon, native (Metal)** | ⚠️ chosen by the code and never run: the wheel's Metal was confirmed on a CI runner's virtual GPU, which is not a Mac |
+| **Apple silicon, Docker (CPU images)** | ⚠️ images built for arm64, not run on the hardware |
+| **AMD / Intel GPU** | ⚠️ falls back to the CPU by design; the fallback is measured, the machines are not owned |
+
+Nothing here is a promise that the ⚠️ rows are broken — they are the rows where a report from
+someone who has the hardware would be worth more than anything written here. Please open an
+issue either way.
+
 ### What runs on what
 
 Every machine here works. What differs is whether transcription keeps up with speech: the ones
@@ -60,8 +81,16 @@ The audio never goes anywhere in either case: only the transcript is sent, and o
 endpoint you name.
 
 A machine with no GPU acceleration **records the meeting and transcribes it in one pass at the
-end**, rather than trying to keep up and falling behind. Same model, same quality — the
-difference is that no text appears during the meeting. Everything after that (minutes, speaker
+end**, rather than trying to keep up and falling behind. What is lost is the text during the
+meeting.
+
+The model is nominally the same, but **the weights are not**: faster-whisper runs CTranslate2
+weights and whisper.cpp runs GGML-quantised ones, and the two do not produce the same
+transcript. Measured on a real 12-minute Japanese meeting with the segmentation held constant,
+`large-v3-turbo` through whisper.cpp diverges from the same model through faster-whisper by
+**13.8% of characters**. Neither output is ground truth, so that is a difference rather than a
+verdict — the numbers and the method are in
+[Design decisions](design-decisions.md#what-whispercpp-costs-on-a-cpu). Everything after that (minutes, speaker
 separation, search) is unchanged. `STT_LIVE_TRANSCRIPTION=1` forces live recognition anyway on
 a machine you know is fast enough.
 
