@@ -42,8 +42,10 @@ is a separate, re-runnable, visible step, and both definitions say so in their c
 **Nothing to do by hand.** `.github/workflows/release-tarball.yml` builds
 `voxinq-<version>.tar.gz` from `git archive` when a release is published, checks its contents,
 attaches it, then — for a full release only — runs `render.mjs` to point both definitions at it
-and pushes them into the tap and the bucket. It also opens a PR putting the same values into
-the copies here, so the two stay equal and a `diff` between them stays meaningful.
+and pushes them into the tap and the bucket. It then pushes a branch bringing the copies here
+into line, and opens a PR for it where the repository lets Actions do that — otherwise the run
+summary carries a compare link. That last part cannot fail the release: the manifests are
+already live by then.
 
 This was two manual steps until v2.0.1, and both were missed twice running: the tap served
 `v2.0.0-beta.3` — a prerelease, with a broken Word export and the licence declared as AGPL —

@@ -160,15 +160,20 @@ jobs:
           publish scoop-voxinq  bucket/voxinq.json    "$GITHUB_WORKSPACE/packaging/scoop/voxinq.json"
           publish homebrew-voxinq Formula/voxinq.rb   "$GITHUB_WORKSPACE/packaging/homebrew/voxinq.rb"
 
-      - name: Open a PR so the repository's own copies stay in step
+      # Housekeeping, and deliberately not allowed to fail the release. By this point the
+      # manifests are already live in the tap and the bucket, which is the part that matters;
+      # bringing this repository's copies into line is tidiness. A red release here would say
+      # the distribution failed when it did not, which is worse than an unmerged branch.
+      - name: Offer the repository's own copies a branch to catch up on
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.tarball.outputs.version }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           cd "$GITHUB_WORKSPACE"
           if git diff --quiet; then
-            echo "packaging/ already matches what was published"
+            echo "packaging/ already matches what was published" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           branch="packaging-v${VERSION}"
@@ -177,6 +182,19 @@ jobs:
           git checkout -b "$branch"
           git commit -qam "Point the packaging definitions at v${VERSION}"
           git push -q origin "$branch"
-          gh pr create --base main --head "$branch" \
-            --title "Point the packaging definitions at v${VERSION}" \
-            --body "Opened by the release workflow, which has already published these to the tap and the bucket. Merging keeps the repository's copies equal to what a package manager installs, so \`diff\` between them stays meaningful."
+
+          # Opening the PR needs "Allow GitHub Actions to create and approve pull requests",
+          # which is off by default. Without it the branch is still pushed, and the link below
+          # is one click from a pull request.
+          if gh pr create --base main --head "$branch" \n            --title "Point the packaging definitions at v${VERSION}" \n            --body "Opened by the release workflow, which has already published these to the tap and the bucket. Merging keeps this repository's copies equal to what a package manager installs, so a diff between them stays meaningful."; then
+            echo "Opened a PR for packaging/." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### packaging/ needs a one-click PR"
+              echo
+              echo "The tap and the bucket are already on v${VERSION}. Only this repository's"
+              echo "copies are behind, and Actions may not open pull requests here:"
+              echo
+              echo "<https://github.com/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1>"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

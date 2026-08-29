@@ -687,9 +687,13 @@ them to the tap and the bucket. That step used to be manual, and was missed twic
 which left `scoop install voxinq` serving a prerelease. It needs a `PACKAGING_TOKEN` secret; if
 it is missing the job fails loudly rather than leaving the distribution repositories stale.
 
-The workflow also opens a PR putting the same values into `packaging/` here, so the copies in
-this repository stay equal to what a package manager installs. Merge it; nothing else depends
-on it. (It is created with `GITHUB_TOKEN`, so CI does not run on it.)
+The workflow then pushes a `packaging-v<version>` branch bringing `packaging/` here into line,
+and opens a PR for it if the repository allows Actions to — *Settings → Actions → General →
+Allow GitHub Actions to create and approve pull requests*, which is off by default. When it is
+off the branch is still pushed and the run summary carries a one-click compare link. Either
+way this step **cannot fail the release**: by the time it runs the manifests are already live
+in the tap and the bucket, and a red release would claim the distribution broke when it did
+not.
 
 **Hotfixing production** — branch from `release`, not `main`, so an unfinished feature cannot
 ride along:
