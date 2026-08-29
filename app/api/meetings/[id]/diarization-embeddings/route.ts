@@ -43,11 +43,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         p.embedding !== null,
       );
 
+    // Narrow the candidates to the people who were in the meeting and expected to speak, when
+    // that is known. Without it every enrolled profile is a candidate, so a cluster can be
+    // handed the name of someone who was not in the room -- and the more profiles exist, the
+    // likelier that becomes. No participants stated means "unknown", which leaves every
+    // profile in play, as before.
+    const attending = await prisma.meetingParticipant.findMany({
+      where: { meetingId: id, speaking: true },
+      select: { name: true },
+    });
+    const expected = new Set(attending.map((p) => p.name));
+    const candidates = expected.size > 0 ? profiles.filter((p) => expected.has(p.name)) : profiles;
+
     // Profiles produced by a different model are skipped rather than scored: with equal
     // dimensions a cross-model comparison returns an ordinary-looking number, not an error.
     const matches = matchProfiles(
       clusters,
-      profiles,
+      candidates,
       clusterModel,
       await getVoiceprintThreshold(),
     );

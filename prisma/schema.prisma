@@ -35,6 +35,7 @@ model Meeting {
   transcripts Transcript[]
   summaries   MeetingSummary[]
   tags        Tag[]
+  participants MeetingParticipant[]
   series      Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
@@ -119,4 +120,30 @@ model MeetingSummary {
 
   @@index([meetingId, createdAt])
   @@map("meeting_summaries")
+}
+
+// Who was in the meeting, which is not the same question as whose voice is in the recording.
+//
+// `speaking` separates them: someone can attend and never say anything, and unticking them
+// before diarization tells the diarizer how many voices to expect without removing them from
+// the record of who was there. It also narrows which voice profiles are candidates for
+// automatic naming, so a name cannot be attached to someone who was not in the room.
+//
+// A name rather than a link to SpeakerProfile: participants are typed freely, most meetings
+// have people who have never been enrolled, and profile names are unique anyway — so a
+// participant whose name matches a profile gains the voiceprint behaviour automatically, and
+// keeps it if the profile is enrolled later.
+model MeetingParticipant {
+  id        String   @id @default(cuid())
+  meetingId String   @map("meeting_id")
+  name      String
+  speaking  Boolean  @default(true) // expected to appear in the audio
+  position  Int      @default(0) // display order, as entered
+  createdAt DateTime @default(now()) @map("created_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, name])
+  @@index([meetingId])
+  @@map("meeting_participants")
 }

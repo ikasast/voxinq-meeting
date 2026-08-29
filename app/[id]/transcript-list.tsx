@@ -553,7 +553,15 @@ export function TranscriptList({
     try {
       const base = sttHttpBase();
       const qs = new URLSearchParams({ force: "true" });
-      if (numSpeakers.trim()) qs.set("num_speakers", numSpeakers.trim());
+      // The box wins when it has a number in it. Otherwise the count comes from the participant
+      // list, read now rather than held in state: it is edited elsewhere on this page, and a
+      // stale count is worse than none -- too low merges two people into one.
+      let want = numSpeakers.trim();
+      if (!want) {
+        const n = await expectedSpeakerCount(meetingId);
+        want = n > 0 ? String(n) : "";
+      }
+      if (want) qs.set("num_speakers", want);
       const startRes = await fetch(`${base}/diarize/${meetingId}?${qs}`, { method: "POST" });
       if (!startRes.ok) {
         const d = await startRes.json().catch(() => null);
@@ -889,8 +897,10 @@ export function TranscriptList({
             <div className="flex flex-wrap items-center gap-2">
               {transcripts.length > 0 ? (
                 <>
-                  <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                    Participants
+                  <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
+                    title="How many voices to look for. Left empty, the participant list decides."
+                  >
+                    Speakers
                     <input
                       type="number"
                       min={1}
@@ -1456,4 +1466,18 @@ function TranscriptRow({
       ) : null}
     </li>
   );
+}
+
+// How many people are ticked as speaking on this meeting. Asked at the moment diarization
+// starts rather than carried in state, because the list lives in another component and the
+// count is only meaningful if it is the current one.
+async function expectedSpeakerCount(meetingId: string): Promise<number> {
+  try {
+    const res = await fetch(`/api/meetings/${meetingId}/participants`, { cache: "no-store" });
+    if (!res.ok) return 0;
+    const d = (await res.json()) as { participants?: { speaking?: boolean }[] };
+    return (d.participants ?? []).filter((p) => p.speaking !== false).length;
+  } catch {
+    return 0; // let the diarizer decide for itself rather than fail the run
+  }
 }
