@@ -183,13 +183,47 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 ```
 
-**NVIDIA GPU が無い場合は CPU 版イメージを使ってください。** マルチアーキテクチャなので
-Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも約 21GB → **約 1.8GB** になります。
-起動コマンドを次に差し替えるだけで、他の手順は同じです。
+#### `.env` に何を書くか
+
+ダウンロードした `.env` は、ほとんどの項目がコメントアウトされた状態です。**必須は 2 つだけ**で、
+残りは「その機能を使いたくなったとき」に足せば十分です。上から順に見ていってください。
+
+| 項目 | 必要？ | 何を書くか |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | **必須** | 自分で決めます。これから作るデータベースコンテナ用のパスワードなので、既存の何かと一致させる必要はありません |
+| `DATABASE_URL` | **必須** | `postgresql://voxinq:上と同じパスワード@db:5432/voxinq` |
+| `TZ` | **UTC 以外の地域なら必須** | 自分のタイムゾーン（例 `Asia/Tokyo`）。コンテナは時刻帯を持たないので、未設定だと会議一覧・タイトル下の日時・印刷・エクスポートが UTC で表示され、ブラウザ側で描画される文字起こしの時刻とずれます。保存されるデータは正しいので、後から設定しても既存の会議ごと直ります |
+| `HF_TOKEN` | NVIDIA GPU 搭載機で話者分離を使うなら | Hugging Face の無料トークン。**後回しで構いません** — 話者を区別する機能以外はこれ無しで動きます。GPU が無い環境では不要です。→ [取得手順](#hf_token-の取り方nvidia-gpu-での話者分離に必要) |
+| `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [7章](#7-スマホから使うtailscale--wireguard) |
+| `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
+| `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
+| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v2.1.0`）。未指定なら `latest`。プレリリース版は `latest` に含まれないため、beta や rc を使うにはここで指定します。`v1.5.0` は 1.x 系最後の版で、そこに留まりたい場合に指定します（1.x は NVIDIA GPU が必須です） |
+| `NEXT_PUBLIC_STT_WS_URL` | **Docker では無視** | ネイティブ導入専用の項目です |
+
+> ⚠️ `@db:5432` の `db` は**コンテナのサービス名**です。ここを `localhost` にすると、
+> Web コンテナが自分自身を見に行ってしまい接続できません。
+
+文字起こしモデル・用語集・議事録の書式・LLM の選択などは `.env` ではなく、
+**アプリの「Settings」画面**で設定します。
+
+#### 起動する
 
 ```bash
+docker compose up -d
+docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAIモデル
+```
+
+`http://localhost:3000` を開けば使えます。初回は約 20GB のダウンロードがあり、時間がかかります。
+
+**NVIDIA GPU が無い場合は、1 行目を次に差し替えてください。** CPU 版イメージはマルチ
+アーキテクチャなので Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも
+約 21GB → **約 1.8GB** になります。他の手順は同じです。
+
+```bash
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
 docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
+
 
 #### コマンドを使わずに入れる（Windows / Docker Desktop）
 
@@ -229,9 +263,7 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 
    初回は約 20GB のダウンロードがあり、時間がかかります。**NVIDIA GPU が無い場合**は
    [`docker-compose.cpu.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml)
-   も同じフォルダに保存し、
-   `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d` を使ってください
-   （21GB ではなく 1.8GB で済みます）。
+   も同じフォルダに保存し、上の「起動する」と同じ差し替えを行ってください。
 
 6. **議事録用のモデルを入れます。** Docker Desktop の **Containers** で `voxinq` プロジェクトを
    開き、`ollama` のコンテナを選んで **Exec** タブで次を実行します。
@@ -246,36 +278,6 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 **以降はコマンドを使う場面がありません。** Containers 画面のボタンで全体の起動・停止ができ、
 各サービスのログもタブで見られます。再起動後も自動で立ち上がります（停止するまで再起動し続ける
 設定になっています）。更新は **Images** 画面でプルし直してから、また起動するだけです。
-
-#### `.env` に何を書くか
-
-ダウンロードした `.env` は、ほとんどの項目がコメントアウトされた状態です。**必須は 2 つだけ**で、
-残りは「その機能を使いたくなったとき」に足せば十分です。上から順に見ていってください。
-
-| 項目 | 必要？ | 何を書くか |
-| --- | --- | --- |
-| `POSTGRES_PASSWORD` | **必須** | 自分で決めます。これから作るデータベースコンテナ用のパスワードなので、既存の何かと一致させる必要はありません |
-| `DATABASE_URL` | **必須** | `postgresql://voxinq:上と同じパスワード@db:5432/voxinq` |
-| `TZ` | **UTC 以外の地域なら必須** | 自分のタイムゾーン（例 `Asia/Tokyo`）。コンテナは時刻帯を持たないので、未設定だと会議一覧・タイトル下の日時・印刷・エクスポートが UTC で表示され、ブラウザ側で描画される文字起こしの時刻とずれます。保存されるデータは正しいので、後から設定しても既存の会議ごと直ります |
-| `HF_TOKEN` | NVIDIA GPU 搭載機で話者分離を使うなら | Hugging Face の無料トークン。**後回しで構いません** — 話者を区別する機能以外はこれ無しで動きます。GPU が無い環境では不要です。→ [取得手順](#hf_token-の取り方nvidia-gpu-での話者分離に必要) |
-| `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [7章](#7-スマホから使うtailscale--wireguard) |
-| `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
-| `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
-| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v1.5.0`）。未指定なら `latest`。プレリリース版は `latest` に含まれないため、2.0 beta を使うにはここで指定します |
-| `NEXT_PUBLIC_STT_WS_URL` | **Docker では無視** | ネイティブ導入専用の項目です |
-
-> ⚠️ `@db:5432` の `db` は**コンテナのサービス名**です。ここを `localhost` にすると、
-> Web コンテナが自分自身を見に行ってしまい接続できません。
-
-文字起こしモデル・用語集・議事録の書式・LLM の選択などは `.env` ではなく、
-**アプリの「Settings」画面**で設定します。
-
-```bash
-docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAIモデル
-```
-
-`http://localhost:3000` を開けば使えます。
 
 #### インストール直後、どこまで動くか
 
