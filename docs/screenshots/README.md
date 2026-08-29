@@ -9,7 +9,7 @@ fictional demo meetings, so they can be retaken whenever the interface changes.
 | `recording.png` | Recording screen: model state, live transcript, end actions. | `shoot-screenshots.mjs` |
 | `minutes.png` | Meeting detail: toolbar, purpose, generated minutes. | `shoot-screenshots.mjs` |
 | `settings.png` | Settings → Transcription (model, language, glossary, mic mode). | `shoot-screenshots.mjs` |
-| `workflow.png` | README hero: concept illustration of record → process locally → minutes. | by hand |
+| `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series) over a table of what each kind of hardware does. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). | by hand |
 

@@ -6,7 +6,7 @@
 
 [**日本語の解説はこちら →**](README.ja.md)
 
-![Record an in-person or online meeting, process it on the machine you control (speaker separation, transcription, summarization), and get minutes with a summary, key decisions and action items — audio stays on that machine, and the minutes do too unless you opt into a cloud model](docs/screenshots/workflow.png)
+![Record in the browser, then transcribe, separate speakers, write minutes, ask questions across a series, and build up a memory of past meetings — all on hardware you control. Transcription runs live on an NVIDIA GPU or on Apple silicon natively, and after the meeting on anything else. Audio never leaves the machine; a cloud LLM is opt-in](docs/screenshots/workflow.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
