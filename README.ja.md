@@ -197,6 +197,7 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 | `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [7章](#7-スマホから使うtailscale--wireguard) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
+| `OLLAMA_PROFILE` | 既に Ollama がある場合 | 何か書けば同梱の Ollama を起動しません（例 `external`）。値は Compose の profile 名として使われるだけなので、`off` でも `yes` でも結果は同じです。未設定なら起動します → [自分の環境に合わせる](#自分の環境に合わせる) |
 | `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v2.1.0`）。未指定なら `latest`。プレリリース版は `latest` に含まれないため、beta や rc を使うにはここで指定します。`v1.5.0` は 1.x 系最後の版で、そこに留まりたい場合に指定します（1.x は NVIDIA GPU が必須です） |
 | `NEXT_PUBLIC_STT_WS_URL` | **Docker では無視** | ネイティブ導入専用の項目です |
 
@@ -206,43 +207,44 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 文字起こしモデル・用語集・議事録の書式・LLM の選択などは `.env` ではなく、
 **アプリの「Settings」画面**で設定します。
 
-#### 起動する
+#### 自分の環境に合わせる
 
-```bash
-docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAIモデル
-```
+**起動の前に 2 つだけ決めてください。** どちらもダウンロードされるものが変わります。初回は
+約 20GB あるので、後から気づくと引き直しになります。
 
-`http://localhost:3000` を開けば使えます。初回は約 20GB のダウンロードがあり、時間がかかります。
-
-**この PC で既に Ollama を動かしている場合は、コンテナ版を立てないでください。** 同じプログラムが
-2 つ動き、同じモデルをもう一度ダウンロードすることになります（7B で数 GB、大きいものなら数十 GB）。
-
-方法は 2 つあり、結果は同じです。**`docker-compose.yml` から `ollama` サービスを削除する**
-（このファイルは取得した時点であなたのもので、後から上書きされることはありません）か、ファイルは
-触らず `.env` に次の 1 行を書きます。
-
-```
-OLLAMA_PROFILE=external
-```
-
-値は何でも構いません。Compose の profile 名として扱われ、それを有効にするものが無いためスキップ
-されます。**未設定なら従来どおり起動します。**
-
-そのうえで **設定 → LLM → Ollama base URL** を `http://host.docker.internal:11434` にします。
-
-**ホスト側の Ollama が `OLLAMA_HOST=0.0.0.0` で待ち受けている必要があります。** 既定は
-`127.0.0.1` だけで、それはコンテナから見ると「コンテナ自身」を指すため届きません。
-
-**NVIDIA GPU が無い場合は、1 行目を次に差し替えてください。** CPU 版イメージはマルチ
-アーキテクチャなので Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも
-約 21GB → **約 1.8GB** になります。他の手順は同じです。
+**この PC に NVIDIA GPU はありますか。** 無ければ CPU 版イメージを使います。マルチ
+アーキテクチャなので Apple Silicon でも動き、CUDA 関連を含まないためサイズも
+約 21GB → **約 1.8GB** です。下の起動コマンドで override を足すか、`docker-compose.yml` を
+自分で 2 箇所直しても構いません（イメージ名に `-cpu`、`deploy:` ブロックを削除）。
+何が変わるかは [GPU の種類による違い](#gpu-の種類による違い) にあります。
 
 ```bash
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
 
+**この PC で既に Ollama を動かしていますか。** 動かしているなら、コンテナ版は同じプログラムの
+2 つ目で、同じモデルをもう一度ダウンロードすることになります（7B で数 GB、大きいものなら
+数十 GB）。`.env` に `OLLAMA_PROFILE=external` と書くか、`docker-compose.yml` から `ollama`
+サービスを削除してください。起動後に **設定 → LLM → Ollama base URL** を
+`http://host.docker.internal:11434` にします。
+
+> ホスト側の Ollama が `OLLAMA_HOST=0.0.0.0` で待ち受けている必要があります。既定は
+> `127.0.0.1` だけで、それはコンテナから見ると「コンテナ自身」を指すため届きません。
+
+#### 起動する
+
+```bash
+docker compose up -d                                                    # NVIDIA GPU
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d    # それ以外
+```
+
+どちらか一方を実行したら、議事録用のモデルを取得します（コンテナ版の Ollama を使う場合のみ）。
+
+```bash
+docker compose exec ollama ollama pull qwen2.5:7b-instruct
+```
+
+`http://localhost:3000` を開けば使えます。
 
 #### コマンドを使わずに入れる（Windows / Docker Desktop）
 
@@ -282,7 +284,8 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 
    初回は約 20GB のダウンロードがあり、時間がかかります。**NVIDIA GPU が無い場合**は
    [`docker-compose.cpu.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml)
-   も同じフォルダに保存し、上の「起動する」と同じ差し替えを行ってください。
+   も同じフォルダに保存し、上の「[自分の環境に合わせる](#自分の環境に合わせる)」と同じ差し替えを
+   行ってください。
 
 6. **議事録用のモデルを入れます。** Docker Desktop の **Containers** で `voxinq` プロジェクトを
    開き、`ollama` のコンテナを選んで **Exec** タブで次を実行します。
