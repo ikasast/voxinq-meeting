@@ -132,14 +132,12 @@ docker compose up -d
 ```
 
 **Already running Ollama on this machine?** The compose file starts its own, which means the
-same models downloaded twice and served by a second copy of the same program. Add the override
-to skip it, then point **Settings → LLM** at `http://host.docker.internal:11434` — the host's
-Ollama needs `OLLAMA_HOST=0.0.0.0` to accept that, which is not its default. See
+same models downloaded twice and served by a second copy of the same program. Either delete the
+`ollama` service from `docker-compose.yml` — it is your file once downloaded — or put
+`OLLAMA_PROFILE=external` in `.env`, which skips it without editing anything. Then point
+**Settings → LLM** at `http://host.docker.internal:11434`; the host's Ollama needs
+`OLLAMA_HOST=0.0.0.0` to accept that, which is not its default. See
 [LLM providers](llm-providers.md#using-an-ollama-you-already-have-docker-installs).
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.external-ollama.yml up -d
-```
 
 **Without an NVIDIA GPU, bring it up with the CPU images instead.** They are multi-arch (so
 they run on Apple silicon) and about 1.8 GB instead of 21 GB, because nothing CUDA-shaped is in
@@ -251,6 +249,23 @@ Budget for the first run: the STT image carries the CUDA runtime for transcripti
 large pull. Model weights download separately on first use and are cached in a volume,
 so that happens once. The first recording of a session still takes tens of seconds to warm the
 model.
+
+### Upgrading `docker-compose.yml` itself
+
+`docker compose pull` updates the images. It does not update `docker-compose.yml`, which was
+downloaded once and is yours from then on — so a release that changes the compose file reaches
+nobody who does not go and look.
+
+That is deliberate as far as your own edits go, and a gap as far as ours: `TZ` and the
+`host-gateway` mapping both arrived that way. When a release note mentions the compose file,
+diff yours against the current one and take what you want:
+
+```bash
+curl -s https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml   | diff docker-compose.yml - 
+```
+
+Nothing here breaks if you never do it. An older compose file keeps working; it just does not
+have the newer options.
 
 ### Already using one of these ports?
 

@@ -120,8 +120,19 @@ services:
     restart: unless-stopped
 
   # Local LLM for minutes. Point Settings → LLM at http://ollama:11434.
+  #
+  # Already running Ollama on this machine? Then this is a second copy of the same program
+  # downloading the same models again. Two ways to not have it, and they are equivalent:
+  # delete this service outright — this file is yours once you have downloaded it, and nothing
+  # replaces it — or set OLLAMA_PROFILE in .env to anything at all, which moves it into a
+  # profile nothing enables. Unset resolves to an empty profile, which Compose reads as "no
+  # profile" and starts as always, so neither is imposed on anyone who wants the container.
+  #
+  # Either way, point Settings → LLM at http://host.docker.internal:11434 and give the host's
+  # Ollama OLLAMA_HOST=0.0.0.0 — its default is loopback, which from in here is in here.
   ollama:
     image: ollama/ollama:latest
+    profiles: ["${OLLAMA_PROFILE:-}"]
     volumes:
       - ollama:/root/.ollama
     ports:
