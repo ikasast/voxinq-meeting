@@ -1,5 +1,30 @@
 # Usage & recipes
 
+## Finding your way round
+
+Navigation is a rail down the left edge on a desktop-sized window, and the bar along the top on
+anything narrower. **Meetings** is the list, **New meeting** and **Record NOW** both start one —
+the second skips the setup screen — and **Help** opens this documentation.
+
+A meeting's own page puts the minutes and the transcript in the middle, and everything *about*
+the meeting in a column to its right: how far it has got, the agenda and tags, who was there,
+and what it was recorded and written with. On a window narrower than about 1536px that column
+moves above the content rather than beside it.
+
+**Progress** answers the question that otherwise takes reading the whole screen — is this
+finished, and what is left:
+
+```
+✓ Recorded              22 min
+✓ Transcribed           14 utterances
+○ Speakers separated
+✓ Minutes
+```
+
+A circle is "not run", not "failed". Separating speakers and writing minutes are both optional
+and can be done in either order, so a meeting you never intended to diarize is not being nagged
+at.
+
 ## Booking a meeting before it happens
 
 **New meeting → When** puts a meeting in the diary instead of recording it now. It appears

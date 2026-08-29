@@ -5,9 +5,9 @@ fictional demo meetings, so they can be retaken whenever the interface changes.
 
 | Filename | What it shows | Retaken by |
 | --- | --- | --- |
-| `dashboard.png` | Home / meeting list (tags, status chips, health dots). | `shoot-screenshots.mjs` |
+| `dashboard.png` | Home: the rail, the meeting list with Upcoming, tags and status chips. | `shoot-screenshots.mjs` |
 | `recording.png` | Recording screen: model state, live transcript, end actions. | `shoot-screenshots.mjs` |
-| `minutes.png` | Meeting detail: toolbar, purpose, generated minutes. | `shoot-screenshots.mjs` |
+| `minutes.png` | Meeting detail: minutes in the middle, and the column beside them — progress, agenda, participants, what it was recorded with. | `shoot-screenshots.mjs` |
 | `settings.png` | Settings → Transcription (model, language, glossary, mic mode). | `shoot-screenshots.mjs` |
 | `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series) over a table of what each kind of hardware does. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
@@ -46,7 +46,7 @@ docker rm -f voxinq-shots-db     # when you are done
 ```
 
 The script fixes the things that are easy to get wrong by hand: light theme (it is stored per
-device in `localStorage`, not in settings), a 2× device pixel ratio so the images stay sharp,
+device in `localStorage`, not in settings), a 1600px frame so the three-column layout is the one photographed (below 1536 the right-hand column stacks), a 2× device pixel ratio so the images stay sharp,
 a frame fitted to each page instead of a band of empty background, and one shared height for
 `recording.png` and `minutes.png` because the README puts them side by side.
 

@@ -27,6 +27,8 @@
 - 💬 **Ask your minutes** — “what were the TODOs from last time?” answered from a series' minutes, grounded in them and told to say when something is not recorded.
 - 🌏 **Live Japanese translation** (optional) — a Japanese translation under each non-Japanese utterance, produced on the CPU so it never competes with transcription for the GPU.
 - 🗣️ **Speaker separation with voice profiles** — assign speakers after the meeting ([pyannote](https://github.com/pyannote/pyannote-audio) on CUDA, [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) everywhere else — no Hugging Face token needed on that path), and enrol a voice once so it is **named automatically** in every future meeting.
+- 👥 **Participants, which the diarizer uses** — list who was there and tick who is expected to speak; the count becomes the number of voices separation looks for, and the names narrow which enrolled voice profiles can be matched. Someone who attended in silence stays on the list and off the count.
+- 🗓️ **Book a meeting before it happens** — put the title, agenda, series and participants in ahead of time; it waits under **Upcoming** until you press record.
 - 🔁 **Recurring series** — link meetings into a series; the previous minutes are fed to the LLM as context, and each series can carry its own minutes format and glossary.
 - 🔍 **Search, tags, archive & trash** — find meetings fast; soft-delete with 30-day restore.
 - 🌐 **Phone access & read-only sharing** — install as a PWA and reach it over [Tailscale](https://tailscale.com) with optional password auth. One click in **Settings → Remote access** publishes a password-protected, **read-only** public link (view & download only) for people outside your tailnet — recording, editing and the transcription service stay private.

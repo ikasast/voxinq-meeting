@@ -14,6 +14,7 @@ import { DownloadMeetingButton } from "./download-meeting-button";
 import { ResumeRecordingButton } from "./resume-recording-button";
 import { MeetingFactsCard } from "./meeting-facts-card";
 import { ParticipantsCard } from "./participants-card";
+import { ProgressCard } from "./progress-card";
 import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
@@ -191,6 +192,15 @@ export default async function MeetingDetailPage({
           A rail on wide screens; above the minutes on anything narrower, because on a phone
           this is context you read first and then scroll past. */}
       <aside className="order-first space-y-4 2xl:order-none">
+        <ProgressCard
+          ended={meeting.endedAt !== null}
+          recordedMs={meeting.recordedMs}
+          transcriptCount={meeting.transcripts.length}
+          separated={meeting.diarizationEmbeddings !== null}
+          speakerCount={new Set(meeting.transcripts.map((t) => t.speakerType)).size}
+          summaryCount={meeting.summaries.length}
+          summaryStatus={meeting.summaryStatus}
+        />
         <MeetingMeta
           id={meeting.id}
           description={meeting.description}

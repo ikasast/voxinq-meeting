@@ -16,9 +16,11 @@ import path from "node:path";
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:3000").replace(/\/+$/, "");
 const OUT = path.join(process.cwd(), "docs", "screenshots");
 
-// Wide enough that the meeting list and the detail pane sit side by side — the narrow layout
-// is a different screenshot, not a smaller version of this one.
-const VIEWPORT = { width: 1280, height: 900 };
+// Wide enough for the layout the app is actually designed around: the rail, the meeting list,
+// the content and the meeting's own details, all at once. Below 1536 the right-hand details
+// stack above the content instead, which is a different screenshot rather than a smaller
+// version of this one.
+const VIEWPORT = { width: 1600, height: 900 };
 const SCALE = 2; // retina, so the images stay sharp when GitHub scales them down
 const MAX_HEIGHT = 1400; // past this a README image is scaled down too far to read
 
