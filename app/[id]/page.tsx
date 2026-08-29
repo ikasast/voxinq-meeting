@@ -52,6 +52,10 @@ export default async function MeetingDetailPage({
     orderBy: { name: "asc" },
     select: { name: true },
   });
+  // Booked ahead and nothing said into it yet. Once it has a transcript or an end time it is
+  // an ordinary meeting, whatever the diary said.
+  const upcoming =
+    meeting.scheduledAt !== null && meeting.endedAt === null && meeting.transcripts.length === 0;
   const tagNames = meeting.tags.map((t) => t.name);
   const seriesName = meeting.series?.name ?? null;
   const seriesId = meeting.series?.id ?? null;
@@ -77,7 +81,15 @@ export default async function MeetingDetailPage({
           <MeetingTitle id={meeting.id} title={meeting.title} readOnly={external} />
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {formatDateTime(meeting.startedAt)}
-            {meeting.endedAt ? <> – {formatDateTime(meeting.endedAt)}</> : <> – (in progress)</>}
+            {meeting.endedAt ? (
+              <> – {formatDateTime(meeting.endedAt)}</>
+            ) : upcoming ? (
+              // Booked and not recorded yet: the date above is when it is due, and calling
+              // that "in progress" would be the app telling you a meeting is happening.
+              <> – not recorded yet</>
+            ) : (
+              <> – (in progress)</>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

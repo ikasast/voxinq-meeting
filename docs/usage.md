@@ -1,5 +1,22 @@
 # Usage & recipes
 
+## Booking a meeting before it happens
+
+**New meeting → When** puts a meeting in the diary instead of recording it now. It appears
+under **Upcoming** at the top of the list, soonest first, and opens on its own page rather than
+the recording screen — because the point of booking it is to settle the title, agenda, series
+and participants calmly beforehand, rather than while everyone waits to start.
+
+When the meeting comes round, open it and press **Recording screen**. Nothing else differs: it
+is an ordinary meeting from the moment anything is said into it.
+
+The date shown is the one it is booked for. Once it has been recorded, the start time is
+corrected to when the recording actually began — a meeting booked for Tuesday and recorded on
+Wednesday would otherwise read "Tue 14:00 – Wed 15:20".
+
+Leave **When** empty and everything behaves as it always has: the meeting is created and
+recording starts immediately.
+
 ## Record a meeting
 
 1. **New meeting** → set the title, purpose, and the recording settings for this meeting

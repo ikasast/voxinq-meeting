@@ -35,6 +35,8 @@ export default function NewMeetingPage() {
   const [title, setTitle] = useState(() => defaultMeetingTitle());
   const [description, setDescription] = useState("");
   const [series, setSeries] = useState("");
+  // Empty means "record it now", which is how every meeting was made until this existed.
+  const [scheduledAt, setScheduledAt] = useState("");
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +144,9 @@ export default function NewMeetingPage() {
         series: series.trim(),
         sttLanguage,
         whisperModel: model,
+        // datetime-local has no zone; it is wall-clock time on this device, which is what
+        // somebody writing "Tuesday at 14:00" means. new Date() reads it as local.
+        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
       }),
     });
     if (!res.ok) {
@@ -156,12 +161,22 @@ export default function NewMeetingPage() {
   // loading and before the settings could be checked.
   const startRecording = async () => {
     setSubmitting(true);
-    // Load the model for real now: from here the only thing left is pressing record, so this
-    // is the last moment a warm-up can still hide the load time (and the last moment the
-    // delayed warm-up above may not have fired yet).
-    void preloadSttIfIdle(model, translateRef.current);
+    // A meeting booked for later is not about to be recorded, so do not spend a model load on
+    // it -- the warm-up is there to hide the wait before pressing record, and that is days off.
+    if (!scheduledAt) {
+      // Load the model for real now: from here the only thing left is pressing record, so this
+      // is the last moment a warm-up can still hide the load time (and the last moment the
+      // delayed warm-up above may not have fired yet).
+      void preloadSttIfIdle(model, translateRef.current);
+    }
     try {
       const meeting = await createMeeting(defaultMeetingTitle());
+      if (scheduledAt) {
+        // Straight to the meeting, not the recording screen: it has not happened yet, and the
+        // point of booking it was to fill in the agenda and participants calmly beforehand.
+        router.push(`/${meeting.id}`);
+        return;
+      }
       try {
         localStorage.setItem("voxinq.source", source);
       } catch {
@@ -413,6 +428,25 @@ export default function NewMeetingPage() {
           </datalist>
         </div>
 
+        <div>
+          <label htmlFor="scheduled" className="label">
+            When (optional)
+          </label>
+          <input
+            id="scheduled"
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            disabled={busy}
+            className="input mt-1"
+          />
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            Leave empty to record now. Filling it in puts the meeting under{" "}
+            <strong>Upcoming</strong> so the title, agenda and settings can be sorted out ahead
+            of time — then it is one tap to start when the meeting comes round.
+          </p>
+        </div>
+
         {/* Recording settings for this meeting only. Defaults come from settings; changes here are
             not saved. Always expanded: picking the wrong model here is silent and costly, so these
             must be visible before the meeting is set up, not hidden behind a disclosure. */}
@@ -537,7 +571,13 @@ export default function NewMeetingPage() {
             Cancel
           </Link>
           <button type="submit" disabled={busy} className="btn-ink">
-            {submitting ? "Setting up…" : "Set up meeting"}
+            {submitting
+              ? scheduledAt
+                ? "Adding…"
+                : "Setting up…"
+              : scheduledAt
+                ? "Add to Upcoming"
+                : "Set up meeting"}
           </button>
         </div>
       </form>
