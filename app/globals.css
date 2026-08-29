@@ -124,6 +124,17 @@ html[data-theme="light"] .prose-invert {
   --tw-prose-invert-td-borders: var(--border);
 }
 
+/* Minutes are prose, and prose does not get more readable by being wider -- past roughly this
+   many characters the eye loses the start of the next line. The shell is wide so the list, the
+   minutes and the meeting's own details can sit side by side; the reading column inside it
+   stays a reading column. Tables and code want the room and are scanned rather than read. */
+.minutes-prose {
+  max-width: 78ch;
+}
+.minutes-prose :is(table, pre) {
+  max-width: none;
+}
+
 /* Minutes markdown: compact layout with a clearly ranked heading scale.
    (The typography plugin's h3 default is larger than a Tailwind-overridden h2,
    which made h3 render bigger than h2 — set the whole scale explicitly.) */

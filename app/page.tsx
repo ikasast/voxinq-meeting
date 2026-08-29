@@ -20,7 +20,7 @@ export default async function HomePage({
     <div className="space-y-4">
       <PageHeader external={external} />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(300px,360px)_1fr] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(300px,400px)_1fr] lg:items-start">
         <MeetingListPane q={q} tag={tag} readOnly={external} />
 
         {/* Right panel (desktop only): guidance when no meeting is selected */}

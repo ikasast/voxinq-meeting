@@ -39,7 +39,7 @@ export const viewport = {
 function HeaderNav({ external }: { external: boolean }) {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--header)]">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3">
         <Link href="/" aria-label="Voxinq Meeting home" className="flex items-center">
           {/* Show the logo per theme (.logo-dark/.logo-light in globals.css) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -110,7 +110,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <ConfirmProvider>
           <HeaderNav external={external} />
-          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+          <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
         </ConfirmProvider>
       </body>
     </html>

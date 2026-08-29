@@ -69,7 +69,7 @@ export default async function MeetingDetailPage({
         <PageHeader external={external} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(300px,360px)_1fr] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(300px,400px)_1fr] lg:items-start">
       <aside className="hidden lg:block">
         <MeetingListPane q={q} tag={tag} activeId={meeting.id} readOnly={external} />
       </aside>
@@ -136,7 +136,7 @@ export default async function MeetingDetailPage({
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_minmax(240px,300px)] xl:items-start">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] 2xl:items-start">
       <div className="min-w-0 space-y-6">
 
       <section className="card p-5">
@@ -190,7 +190,7 @@ export default async function MeetingDetailPage({
           actually recorded and written with, the series it belongs to, and who was there.
           A rail on wide screens; above the minutes on anything narrower, because on a phone
           this is context you read first and then scroll past. */}
-      <aside className="order-first space-y-4 xl:order-none">
+      <aside className="order-first space-y-4 2xl:order-none">
         <MeetingMeta
           id={meeting.id}
           description={meeting.description}
