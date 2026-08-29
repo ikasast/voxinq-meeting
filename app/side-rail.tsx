@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { GearIcon, MeetingsIcon, MicIcon, PlusCircleIcon } from "./icons";
+import { GearIcon, HelpIcon, MeetingsIcon, MicIcon, PlusCircleIcon } from "./icons";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.
 //
@@ -51,12 +51,35 @@ function RailLink({
       >
         {children}
       </span>
-      <span>{label}</span>
+      <span className="text-center leading-tight">{label}</span>
     </Link>
   );
 }
 
-export function SideRail({ external }: { external: boolean }) {
+// The documentation lives on GitHub, not in the install: the images and the release tarball
+// both exclude docs/ on purpose. That is not the compromise it sounds like -- this link opens
+// in the reader's own browser, which is where an internet connection usually is, even when the
+// machine running Voxinq has none.
+//
+// Pinned to the version this instance is running rather than to main, so nobody reads about a
+// feature they do not have yet.
+function DocsLink({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title="Documentation (opens on GitHub)"
+      aria-label="Documentation"
+      className="flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+    >
+      <HelpIcon />
+      <span className="text-center leading-tight">Help</span>
+    </a>
+  );
+}
+
+export function SideRail({ external, docsUrl }: { external: boolean; docsUrl: string }) {
   const pathname = usePathname();
   // A meeting's own page belongs to the list it came from, so the list stays lit while reading
   // one — otherwise the rail goes blank the moment you open anything.
@@ -80,20 +103,25 @@ export function SideRail({ external }: { external: boolean }) {
 
       {!external ? (
         <>
-          <RailLink href="/new" label="New" active={pathname.startsWith("/new")} primary>
+          <RailLink href="/new" label="New meeting" active={pathname.startsWith("/new")} primary>
             <PlusCircleIcon />
           </RailLink>
-          <RailLink href="/quick-record" label="Record" active={pathname.startsWith("/quick-record")}>
+          <RailLink href="/quick-record" label="Record NOW" active={pathname.startsWith("/quick-record")}>
             <MicIcon />
           </RailLink>
           {/* Settings sits at the bottom, away from the things used every day. */}
-          <div className="mt-auto w-full">
+          <div className="mt-auto flex w-full flex-col gap-1">
+            <DocsLink href={docsUrl} />
             <RailLink href="/settings" label="Settings" active={pathname.startsWith("/settings")}>
               <GearIcon />
             </RailLink>
           </div>
         </>
-      ) : null}
+      ) : (
+        <div className="mt-auto w-full">
+          <DocsLink href={docsUrl} />
+        </div>
+      )}
     </nav>
   );
 }

@@ -139,3 +139,11 @@ export const MeetingsIcon = (p: SVGProps<SVGSVGElement>) => (
     <rect x="3" y="14" width="18" height="6" rx="1.6" />
   </svg>
 );
+
+export const HelpIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20" {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.6 9.2a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.9.7-.9 1.3v.5" strokeLinecap="round" />
+    <circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none" />
+  </svg>
+);
