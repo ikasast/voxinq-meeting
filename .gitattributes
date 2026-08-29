@@ -32,4 +32,3 @@ Dockerfile export-ignore
 docker-compose.yml export-ignore
 docker-compose.build.yml export-ignore
 docker-compose.cpu.yml export-ignore
-docker-compose.external-ollama.yml export-ignore

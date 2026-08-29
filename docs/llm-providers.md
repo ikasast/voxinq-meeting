@@ -12,14 +12,19 @@ always local; only the minutes step uses this provider.
 ### Using an Ollama you already have (Docker installs)
 
 The compose file starts its own Ollama. If this machine already runs one, that is the same
-program twice and the same models on disk twice — a 7B is several gigabytes, and a bigger one
-is tens.
+program twice and the same models on disk twice — a 7B is several gigabytes, a bigger one tens.
 
-Skip the bundled service with the override, and point the app at the host:
+Two ways to not have it, and they amount to the same thing. **Delete the `ollama` service from
+`docker-compose.yml`** — that file is yours once downloaded, and nothing replaces it — or leave
+the file alone and put this in `.env`:
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.external-ollama.yml up -d
 ```
+OLLAMA_PROFILE=external
+```
+
+Any value works: it becomes a Compose profile name and nothing enables it, so `off`, `external`
+and `yes` all mean *no bundled Ollama*. Unset, it resolves to an empty profile, which Compose
+reads as no profile at all and starts as always.
 
 Then **Settings → LLM → Ollama base URL**: `http://host.docker.internal:11434`
 
@@ -30,18 +35,14 @@ Two things have to be true on the host, and neither is Voxinq's doing:
   restart it.
 - **The port must be reachable from Docker's bridge**, so not firewalled off.
 
-`host.docker.internal` resolves on Docker Desktop by itself; on Linux the compose file adds
-the `host-gateway` mapping that makes the same name work.
+`host.docker.internal` resolves on Docker Desktop by itself; on Linux the compose file adds the
+`host-gateway` mapping that makes the same name work. **If your `docker-compose.yml` predates
+that**, add it to the `web` service yourself:
 
-To stop passing `-f` every time, name both files in `.env` instead:
-
+```yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
-COMPOSE_PATH_SEPARATOR=:
-COMPOSE_FILE=docker-compose.yml:docker-compose.external-ollama.yml
-```
-
-The separator is `;` on Windows and `:` elsewhere; setting it explicitly keeps one `.env`
-working on either.
 
 ## OpenAI-compatible (vLLM / LM Studio / OpenAI)
 

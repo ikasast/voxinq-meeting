@@ -218,24 +218,21 @@ docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAI
 **この PC で既に Ollama を動かしている場合は、コンテナ版を立てないでください。** 同じプログラムが
 2 つ動き、同じモデルをもう一度ダウンロードすることになります（7B で数 GB、大きいものなら数十 GB）。
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.external-ollama.yml up -d
+方法は 2 つあり、結果は同じです。**`docker-compose.yml` から `ollama` サービスを削除する**
+（このファイルは取得した時点であなたのもので、後から上書きされることはありません）か、ファイルは
+触らず `.env` に次の 1 行を書きます。
+
 ```
+OLLAMA_PROFILE=external
+```
+
+値は何でも構いません。Compose の profile 名として扱われ、それを有効にするものが無いためスキップ
+されます。**未設定なら従来どおり起動します。**
 
 そのうえで **設定 → LLM → Ollama base URL** を `http://host.docker.internal:11434` にします。
 
 **ホスト側の Ollama が `OLLAMA_HOST=0.0.0.0` で待ち受けている必要があります。** 既定は
 `127.0.0.1` だけで、それはコンテナから見ると「コンテナ自身」を指すため届きません。
-
-毎回 `-f` を打たずに済ませるには、`.env` にファイル名を書いておきます。
-
-```
-COMPOSE_PATH_SEPARATOR=:
-COMPOSE_FILE=docker-compose.yml:docker-compose.external-ollama.yml
-```
-
-区切り文字は Windows が `;`、それ以外が `:` です。明示しておけば**同じ `.env` がどの OS でも
-動きます**。
 
 **NVIDIA GPU が無い場合は、1 行目を次に差し替えてください。** CPU 版イメージはマルチ
 アーキテクチャなので Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも
@@ -366,6 +363,19 @@ Voxinq の他の機能はこれを使わないので、**インストール直�
 ```bash
 docker compose pull && docker compose up -d
 ```
+
+**これで更新されるのはイメージだけです。** `docker-compose.yml` は最初に取得したきりで、
+以降は誰も書き換えません（だからこそ自分で編集しても消えません）。逆に言うと、**リリースで
+compose ファイルに変更が入っても届きません** — `TZ` も `host-gateway` もそうでした。
+
+リリースノートが compose ファイルに触れていたら、現行版との差分を見て必要なものだけ取り込んで
+ください。
+
+```bash
+curl -s https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml | diff docker-compose.yml -
+```
+
+やらなくても壊れません。古い compose ファイルはそのまま動き、新しい選択肢が無いだけです。
 
 ### 4-B. `voxinq` コマンドで入れる（Docker を使わない）
 
