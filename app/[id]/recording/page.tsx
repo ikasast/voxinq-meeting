@@ -718,7 +718,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             deferred ? (
               <span
                 className="text-xs text-[var(--text-muted)]"
-                title="No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — same model, same quality."
+                title="No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — nothing is lost, but the text arrives afterwards."
               >
                 ● Transcribes when the meeting ends
               </span>
