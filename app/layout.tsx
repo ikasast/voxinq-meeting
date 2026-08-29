@@ -7,6 +7,7 @@ import { GearIcon, MicIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
 import { ThemeToggle } from "./theme-toggle";
 import { InstallApp } from "./install-app";
+import { version as appVersion } from "../package.json";
 import { SideRail } from "./side-rail";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
@@ -87,6 +88,10 @@ function HeaderNav({ external }: { external: boolean }) {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const external = await isExternalRequest();
+  // The docs index, on the tag this instance is running. package.json only moves when a
+  // release is cut, so the tag it names always exists -- pointing at main would instead
+  // describe whatever has landed since, including things this build does not have.
+  const docsUrl = `https://github.com/ikasast/voxinq-meeting/blob/v${appVersion}/docs/README.md`;
   return (
     <html lang="ja" className={`${fontInter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-[var(--background)] text-[var(--foreground)]">
@@ -113,7 +118,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <ConfirmProvider>
           <div className="flex min-h-full flex-1">
-            <SideRail external={external} />
+            <SideRail external={external} docsUrl={docsUrl} />
             <div className="flex min-w-0 flex-1 flex-col">
               <HeaderNav external={external} />
               {/* The rail carries navigation on wide screens, but not the controls that only
