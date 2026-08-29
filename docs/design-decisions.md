@@ -240,7 +240,11 @@ The alternative to falling behind is not a smaller model — it is not being liv
 `backends.live_transcription_available()` decides from hardware acceleration (CUDA, or Apple
 silicon where the wheel bundles Metal), and a host without it **records the meeting and
 transcribes the whole file once, at the end**, through the same job that already backed
-"Re-transcribe". Same model, same quality; the only thing lost is text during the meeting.
+"Re-transcribe". The only thing lost is text *during* the meeting — not the transcript, which
+is produced from the same recording by the same model. It is not the same *file* a CUDA host
+would have produced, at the 13.8% divergence measured above; what deferring costs is the live
+view, and what the second backend costs is that divergence. Two different prices, and the
+table above is the one that measures the second.
 
 That was chosen over defaulting those machines to `small` because the two costs are not
 comparable. A smaller model is a permanent 26% divergence in the artefact people keep and
