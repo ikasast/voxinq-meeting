@@ -128,23 +128,33 @@ mkdir voxinq && cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 # edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
-docker compose up -d
 ```
 
-**Already running Ollama on this machine?** The compose file starts its own, which means the
-same models downloaded twice and served by a second copy of the same program. Either delete the
-`ollama` service from `docker-compose.yml` — it is your file once downloaded — or put
-`OLLAMA_PROFILE=external` in `.env`, which skips it without editing anything. Then point
-**Settings → LLM** at `http://host.docker.internal:11434`; the host's Ollama needs
-`OLLAMA_HOST=0.0.0.0` to accept that, which is not its default. See
-[LLM providers](llm-providers.md#using-an-ollama-you-already-have-docker-installs).
+**Two questions before you start it**, because both change what gets downloaded — the first
+pull is around 20 GB, and neither is worth doing twice.
 
-**Without an NVIDIA GPU, bring it up with the CPU images instead.** They are multi-arch (so
-they run on Apple silicon) and about 1.8 GB instead of 21 GB, because nothing CUDA-shaped is in
-them. Only this last command changes; the two files and the `.env` are the same:
+**Is there an NVIDIA GPU on this machine?** If not, use the CPU images: multi-arch, so they
+also run on Apple silicon, and about 1.8 GB rather than 21 because nothing CUDA-shaped is in
+them. Either add the override to the command below, or make the same two edits in
+`docker-compose.yml` — the `-cpu` image tag and no `deploy:` block. What that costs is in
+[what runs on what](#what-runs-on-what).
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
+```
+
+**Is Ollama already running on this machine?** Then the bundled one is a second copy of the
+same program downloading the same models again. Put `OLLAMA_PROFILE=external` in `.env`, or
+delete the `ollama` service from `docker-compose.yml`, and afterwards point **Settings → LLM**
+at `http://host.docker.internal:11434` — see
+[LLM providers](llm-providers.md#using-an-ollama-you-already-have-docker-installs) for the two
+things the host's Ollama needs.
+
+Then start it:
+
+```bash
+docker compose up -d                                              # NVIDIA GPU
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d   # everything else
 ```
 
 <details>
