@@ -24,6 +24,10 @@ model Meeting {
   diarizationEmbeddingModel String? @map("diarization_embedding_model") // which model produced them (null = pyannote, i.e. before there was a choice) — see lib/embedding-models.ts
   embedding      String?  @map("embedding") // unused: leftover from the removed AI (semantic) search
   embeddingModel String?  @map("embedding_model") // unused: leftover from the removed AI (semantic) search
+  // Set when a meeting is put in the diary before it happens. `startedAt` is set to the same
+  // moment so the date on screen is the meeting's, and is corrected to the real one when the
+  // recording ends. Null on everything created the old way: recorded first, filed after.
+  scheduledAt DateTime? @map("scheduled_at")
   startedAt   DateTime  @default(now()) @map("started_at")
   endedAt     DateTime? @map("ended_at")
   recordedMs  Int?      @map("recorded_ms") // actual recorded audio length in ms (set on end from the WAV); null for older meetings

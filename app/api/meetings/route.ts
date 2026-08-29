@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
     series?: unknown;
     sttLanguage?: unknown;
     whisperModel?: unknown;
+    scheduledAt?: unknown;
   }>(req);
 
   const title = typeof body?.title === "string" ? body.title.trim() : "";
@@ -58,12 +59,23 @@ export async function POST(req: NextRequest) {
   const seriesName =
     typeof body?.series === "string" ? body.series.trim().slice(0, 60) : "";
 
+  // A meeting put in the diary before it happens. `startedAt` is set to the same moment so the
+  // date shown everywhere is the meeting's own; it is corrected to the real one when the
+  // recording ends, which is when a true start time first exists.
+  let scheduledAt: Date | undefined;
+  if (typeof body?.scheduledAt === "string" && body.scheduledAt.trim()) {
+    const d = new Date(body.scheduledAt);
+    if (Number.isNaN(d.getTime())) return apiError("scheduledAt is not a date", 400);
+    scheduledAt = d;
+  }
+
   const created = await prisma.meeting.create({
     data: {
       title,
       description,
       sttLanguage,
       whisperModel,
+      ...(scheduledAt ? { scheduledAt, startedAt: scheduledAt } : {}),
       tags: tagNames.length
         ? { connectOrCreate: tagNames.map((name) => ({ where: { name }, create: { name } })) }
         : undefined,

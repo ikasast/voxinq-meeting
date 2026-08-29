@@ -36,9 +36,27 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   try {
+    // A scheduled meeting carries its diary time in startedAt, which is right until it is
+    // recorded and wrong afterwards -- recorded on Wednesday, a meeting booked for Tuesday
+    // would read "Tue 14:00 – Wed 15:20". Now that the length is known, wind the start back
+    // from the end to where the recording actually began.
+    const endedAt = new Date();
+    const before = await prisma.meeting.findUnique({
+      where: { id },
+      select: { scheduledAt: true },
+    });
+    const correctedStart =
+      before?.scheduledAt && recordedMs !== undefined
+        ? new Date(endedAt.getTime() - recordedMs)
+        : undefined;
+
     const ended = await prisma.meeting.update({
       where: { id },
-      data: { endedAt: new Date(), ...(recordedMs !== undefined ? { recordedMs } : {}) },
+      data: {
+        endedAt,
+        ...(recordedMs !== undefined ? { recordedMs } : {}),
+        ...(correctedStart ? { startedAt: correctedStart } : {}),
+      },
     });
     return NextResponse.json(ended);
   } catch {

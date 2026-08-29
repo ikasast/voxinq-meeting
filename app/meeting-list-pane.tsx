@@ -21,6 +21,8 @@ type MeetingCardData = {
   // Actual recording length (ms): the stored recorded_ms, else the transcript time span.
   durationMs: number | null;
   summaryStatus: string | null;
+  /** Booked ahead and not recorded yet. Shown above the rest, soonest first. */
+  upcoming?: boolean;
   seriesName: string | null;
   seriesId: string | null;
   tags: { name: string }[];
@@ -49,6 +51,8 @@ export async function MeetingListPane({
   const [meetingsRaw, allTags] = await Promise.all([
     prisma.meeting.findMany({
       where,
+      // Upcoming meetings sort by when they are due, ascending, and are separated out below;
+      // everything else stays newest-first. Both come from one query so the take applies once.
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
@@ -87,11 +91,16 @@ export async function MeetingListPane({
     ]),
   );
 
+  // "Upcoming" is a meeting that has been put in the diary and not recorded yet. Once anything
+  // has been said into it, or it has been ended, it is an ordinary meeting whatever the diary
+  // said -- so a booking somebody forgot to record does not sit at the top of the list forever
+  // once it is used.
   const meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
     ...m,
     seriesName: m.series?.name ?? null,
     seriesId: m.series?.id ?? null,
     durationMs: m.recordedMs ?? spanMs.get(m.id) ?? null,
+    upcoming: m.scheduledAt !== null && m.endedAt === null && m._count.transcripts === 0,
   }));
 
   // On search: find where it matched + a snippet.
@@ -189,11 +198,13 @@ export async function MeetingListPane({
                   ? "Generating minutes…"
                   : m.endedAt
                     ? ""
-                    : "In progress";
+                    : m.upcoming
+                      ? "Upcoming"
+                      : "In progress";
               return (
                 <span
                   data-live-status={m.id}
-                  data-live-open={m.endedAt ? "" : "1"}
+                  data-live-open={m.endedAt || m.upcoming ? "" : "1"}
                   data-live-base={base}
                   className={base ? "tag-lime shrink-0" : "hidden"}
                 >
@@ -266,19 +277,37 @@ export async function MeetingListPane({
       entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title, m.archivedAt !== null)}</li>);
     }
   } else {
+    // Booked meetings sit above the rest, soonest first, and stay out of the series stacks: a
+    // stack is a history, and folding a meeting that has not happened yet into one would put
+    // the thing you are about to do behind a disclosure.
+    const booked = meetings
+      .filter((m) => m.upcoming)
+      .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+    if (booked.length > 0) {
+      entries.push(
+        <li key="__upcoming" className="px-1 pt-1 text-xs font-medium text-[var(--text-muted)]">
+          Upcoming
+        </li>,
+      );
+      for (const m of booked) {
+        entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
+      }
+    }
+
+    const past = meetings.filter((m) => !m.upcoming);
     const seriesCounts = new Map<string, number>();
-    for (const m of meetings) {
+    for (const m of past) {
       if (m.seriesName) seriesCounts.set(m.seriesName, (seriesCounts.get(m.seriesName) ?? 0) + 1);
     }
     const seen = new Set<string>();
-    for (const m of meetings) {
+    for (const m of past) {
       if (!m.seriesName || (seriesCounts.get(m.seriesName) ?? 0) < 2) {
         entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
         continue;
       }
       if (seen.has(m.seriesName)) continue; // folded into the stack of its newest meeting
       seen.add(m.seriesName);
-      const group = meetings.filter((x) => x.seriesName === m.seriesName);
+      const group = past.filter((x) => x.seriesName === m.seriesName);
       entries.push(
         <li key={m.id}>
           <SeriesStack
