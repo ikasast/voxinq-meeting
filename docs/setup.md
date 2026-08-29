@@ -131,6 +131,16 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 docker compose up -d
 ```
 
+**Already running Ollama on this machine?** The compose file starts its own, which means the
+same models downloaded twice and served by a second copy of the same program. Add the override
+to skip it, then point **Settings → LLM** at `http://host.docker.internal:11434` — the host's
+Ollama needs `OLLAMA_HOST=0.0.0.0` to accept that, which is not its default. See
+[LLM providers](llm-providers.md#using-an-ollama-you-already-have-docker-installs).
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.external-ollama.yml up -d
+```
+
 **Without an NVIDIA GPU, bring it up with the CPU images instead.** They are multi-arch (so
 they run on Apple silicon) and about 1.8 GB instead of 21 GB, because nothing CUDA-shaped is in
 them. Only this last command changes; the two files and the `.env` are the same:

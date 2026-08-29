@@ -9,6 +9,40 @@ always local; only the minutes step uses this provider.
 - Best for the single-box setup. Default model `qwen2.5:7b-instruct` fits 8 GB VRAM.
 - Set `Base URL` (`http://localhost:11434`) and `Model` in Settings.
 
+### Using an Ollama you already have (Docker installs)
+
+The compose file starts its own Ollama. If this machine already runs one, that is the same
+program twice and the same models on disk twice — a 7B is several gigabytes, and a bigger one
+is tens.
+
+Skip the bundled service with the override, and point the app at the host:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.external-ollama.yml up -d
+```
+
+Then **Settings → LLM → Ollama base URL**: `http://host.docker.internal:11434`
+
+Two things have to be true on the host, and neither is Voxinq's doing:
+
+- **Ollama must listen beyond loopback.** Its default is `127.0.0.1`, which from inside a
+  container is the container. Set `OLLAMA_HOST=0.0.0.0` on the host's Ollama service and
+  restart it.
+- **The port must be reachable from Docker's bridge**, so not firewalled off.
+
+`host.docker.internal` resolves on Docker Desktop by itself; on Linux the compose file adds
+the `host-gateway` mapping that makes the same name work.
+
+To stop passing `-f` every time, name both files in `.env` instead:
+
+```
+COMPOSE_PATH_SEPARATOR=:
+COMPOSE_FILE=docker-compose.yml:docker-compose.external-ollama.yml
+```
+
+The separator is `;` on Windows and `:` elsewhere; setting it explicitly keeps one `.env`
+working on either.
+
 ## OpenAI-compatible (vLLM / LM Studio / OpenAI)
 
 Anything that serves the OpenAI `/chat/completions` API. The **API key is optional** — local

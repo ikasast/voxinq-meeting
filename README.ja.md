@@ -215,6 +215,28 @@ docker compose exec ollama ollama pull qwen2.5:7b-instruct   # 議事録用のAI
 
 `http://localhost:3000` を開けば使えます。初回は約 20GB のダウンロードがあり、時間がかかります。
 
+**この PC で既に Ollama を動かしている場合は、コンテナ版を立てないでください。** 同じプログラムが
+2 つ動き、同じモデルをもう一度ダウンロードすることになります（7B で数 GB、大きいものなら数十 GB）。
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.external-ollama.yml up -d
+```
+
+そのうえで **設定 → LLM → Ollama base URL** を `http://host.docker.internal:11434` にします。
+
+**ホスト側の Ollama が `OLLAMA_HOST=0.0.0.0` で待ち受けている必要があります。** 既定は
+`127.0.0.1` だけで、それはコンテナから見ると「コンテナ自身」を指すため届きません。
+
+毎回 `-f` を打たずに済ませるには、`.env` にファイル名を書いておきます。
+
+```
+COMPOSE_PATH_SEPARATOR=:
+COMPOSE_FILE=docker-compose.yml:docker-compose.external-ollama.yml
+```
+
+区切り文字は Windows が `;`、それ以外が `:` です。明示しておけば**同じ `.env` がどの OS でも
+動きます**。
+
 **NVIDIA GPU が無い場合は、1 行目を次に差し替えてください。** CPU 版イメージはマルチ
 アーキテクチャなので Apple Silicon でも動き、CUDA 関連を一切含まないためサイズも
 約 21GB → **約 1.8GB** になります。他の手順は同じです。
