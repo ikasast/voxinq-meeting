@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
-import { getSttGlossary } from "@/lib/settings";
+import { getSttGlossary, getWhisperModel } from "@/lib/settings";
 import { formatDateTime } from "@/lib/utils";
 import { AskMinutes } from "../ask-minutes";
 import { MeetingListPane } from "../meeting-list-pane";
@@ -12,6 +12,8 @@ import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 import { DownloadMeetingButton } from "./download-meeting-button";
 import { ResumeRecordingButton } from "./resume-recording-button";
+import { MeetingFactsCard } from "./meeting-facts-card";
+import { ParticipantsCard } from "./participants-card";
 import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
@@ -34,12 +36,22 @@ export default async function MeetingDetailPage({
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
       tags: { select: { name: true }, orderBy: { name: "asc" } },
-      series: { select: { id: true, name: true, sttGlossary: true } },
+      series: { select: { id: true, name: true, sttGlossary: true, summaryFormat: true } },
+      participants: {
+        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        select: { name: true, speaking: true },
+      },
     },
   });
   if (!meeting) notFound();
 
   const external = await isExternalRequest();
+  // Enrolled voice profiles, offered as suggestions when typing a participant. A name that
+  // matches one becomes a candidate for automatic naming; one that does not is still fine.
+  const knownSpeakers = await prisma.speakerProfile.findMany({
+    orderBy: { name: "asc" },
+    select: { name: true },
+  });
   const tagNames = meeting.tags.map((t) => t.name);
   const seriesName = meeting.series?.name ?? null;
   const seriesId = meeting.series?.id ?? null;
@@ -112,14 +124,8 @@ export default async function MeetingDetailPage({
         </div>
       ) : null}
 
-      <MeetingMeta
-        id={meeting.id}
-        description={meeting.description}
-        tags={tagNames}
-        series={seriesName}
-        seriesId={seriesId}
-        readOnly={external}
-      />
+      <div className="grid gap-5 xl:grid-cols-[1fr_minmax(240px,300px)] xl:items-start">
+      <div className="min-w-0 space-y-6">
 
       <section className="card p-5">
         <SummarySection
@@ -165,6 +171,49 @@ export default async function MeetingDetailPage({
           }))}
         />
       </section>
+      </div>
+
+      {/* What the meeting *is*, beside what it produced: agenda and tags, the settings it was
+          actually recorded and written with, the series it belongs to, and who was there.
+          A rail on wide screens; above the minutes on anything narrower, because on a phone
+          this is context you read first and then scroll past. */}
+      <aside className="order-first space-y-4 xl:order-none">
+        <MeetingMeta
+          id={meeting.id}
+          description={meeting.description}
+          tags={tagNames}
+          series={seriesName}
+          seriesId={seriesId}
+          readOnly={external}
+        />
+        <ParticipantsCard
+          meetingId={meeting.id}
+          initial={meeting.participants}
+          knownNames={knownSpeakers.map((p) => p.name)}
+          readOnly={external}
+        />
+        <MeetingFactsCard
+          whisperModel={meeting.whisperModel}
+          sttLanguage={meeting.sttLanguage}
+          defaultWhisperModel={await getWhisperModel()}
+          series={
+            meeting.series
+              ? {
+                  id: meeting.series.id,
+                  name: meeting.series.name,
+                  summaryFormat: meeting.series.summaryFormat,
+                  glossary: meeting.series.sttGlossary,
+                }
+              : null
+          }
+          latestSummary={
+            meeting.summaries[0]
+              ? { provider: meeting.summaries[0].provider, model: meeting.summaries[0].model }
+              : null
+          }
+        />
+      </aside>
+      </div>
       </div>
       </div>
     </div>

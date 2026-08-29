@@ -69,6 +69,27 @@ Click a **↻ series chip** anywhere to open the **series page**: a timeline of 
 meeting with the overview section of its minutes, plus **per-series defaults** — a minutes
 format and a transcription glossary that override the global Settings for this series only.
 
+## Participants
+
+The rail beside a meeting holds who was there. It is worth filling in, because two things hang
+off it and neither is obvious:
+
+- **The tick beside each name is "expected to speak", not "attended".** The number of ticked
+  names is what diarization is told to look for, and the speaker *count* is the thing it is
+  worst at guessing on its own. Someone who sat through the meeting without saying anything
+  should be listed and unticked — they stay in the record, and the diarizer stops looking for
+  a voice that is not there.
+- **A name that matches an enrolled voice profile becomes a candidate for automatic naming, and
+  a name that is absent stops being one.** Without a participant list every profile is a
+  candidate, so a cluster can be handed the name of someone who was not in the room.
+
+Names are typed freely; enrolled profiles are offered as suggestions. Someone who has never
+been enrolled still counts toward the speaker count.
+
+Getting a tick wrong is recoverable — **Diarize** can be re-run, and the **Speakers** box above
+the transcript overrides the count for one run. Under-counting is the direction that hurts:
+telling it to find two voices when three people spoke merges two of them.
+
 ## Speaker diarization
 
 On a meeting page → **Diarize**, in the toolbar above the transcript. Enter the participant
