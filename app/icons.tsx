@@ -131,3 +131,11 @@ export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M2 14h4M10 8h4M18 16h4" />
   </Base>
 );
+
+// A stack of meeting cards — the list, as the rail's own icon for it.
+export const MeetingsIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20" {...p}>
+    <rect x="3" y="4" width="18" height="6" rx="1.6" />
+    <rect x="3" y="14" width="18" height="6" rx="1.6" />
+  </svg>
+);
