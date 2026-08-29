@@ -485,6 +485,30 @@ validated on something other than the thing it claims. The docs say CPU instead,
 those machines really do. *Changes if* an AMD or Intel GPU machine is available to measure on,
 or a contributor with one offers numbers.
 
+**Collapsing the recording screen's guidance**, so the five bullets above the transcript take
+less room. Proposed on the grounds that a recording screen should show as little as possible.
+Two of those bullets are not guidance but failure modes — headphones when recording "both", or
+the mic picks the PC audio up twice; and keeping a phone's screen on, because some devices stop
+mic capture when it goes off. Someone who does not read them loses the recording and finds out
+afterwards. The other three are short. Judged not to be in the way.
+
+**Tracing a line of the minutes back to the utterance it came from**, and from there to the
+audio. The most attractive of the interface proposals, and the one with a problem underneath
+it: **the minutes and the transcript are frequently not in the same language.** `summaryLanguage`
+sets the output language regardless of what was spoken, and an English meeting written up in
+Japanese is a primary use here — so matching a minutes line to its source by the words in it
+fails hardest for the people the feature is for.
+
+Semantic matching would cross that gap, and this project [built embeddings once and removed
+them](#semantic-search--rag-was-built-then-removed); re-introducing them for this would reopen
+a decision that was made on its merits. The remaining option is asking the LLM to cite as it
+writes, which puts an AI-generated pointer at the centre of a feature whose purpose is checking
+what the AI wrote. That is not fatal — a wrong citation is visible the moment you read the
+utterance it points at — but it makes this a feature about *showing the model's reasoning*
+rather than about verification, and it should be designed as that if it is built. *Changes if*
+minutes gain a reliable citation format, or if the cross-language case turns out to be rarer in
+practice than the setting implies.
+
 **Capturing internal audio on a phone**, so a call taken on the phone records both sides. It
 is not a matter of effort: `getDisplayMedia` is implemented by **no mobile browser at all** —
 not Chrome for Android, Safari, Samsung Internet or Firefox for Android — and there is no other
