@@ -116,14 +116,26 @@ jobs:
     if: github.event_name == 'release' && github.event.release.prerelease == false
     runs-on: ubuntu-latest
     steps:
+      # Two checkouts, because this job needs both: the tag, whose packaging/ is the template
+      # to render, and main, which is where the result has to be able to merge. Branching from
+      # the tag looked right and was not -- the branch then carries the tag's version of every
+      # file, so merging it reverts whatever landed on main after the release was cut.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name }}
+          path: tagged
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          path: main
 
       - name: Point the manifests at this release
         env:
           VERSION: ${{ needs.tarball.outputs.version }}
           SHA: ${{ needs.tarball.outputs.sha }}
+        working-directory: tagged
         run: node packaging/render.mjs "$VERSION" "$SHA"
 
       - name: Publish them to the tap and the bucket
@@ -157,8 +169,8 @@ jobs:
             cd - >/dev/null
           }
 
-          publish scoop-voxinq  bucket/voxinq.json    "$GITHUB_WORKSPACE/packaging/scoop/voxinq.json"
-          publish homebrew-voxinq Formula/voxinq.rb   "$GITHUB_WORKSPACE/packaging/homebrew/voxinq.rb"
+          publish scoop-voxinq  bucket/voxinq.json    "$GITHUB_WORKSPACE/tagged/packaging/scoop/voxinq.json"
+          publish homebrew-voxinq Formula/voxinq.rb   "$GITHUB_WORKSPACE/tagged/packaging/homebrew/voxinq.rb"
 
       # Housekeeping, and deliberately not allowed to fail the release. By this point the
       # manifests are already live in the tap and the bucket, which is the part that matters;
@@ -171,7 +183,11 @@ jobs:
           VERSION: ${{ needs.tarball.outputs.version }}
         run: |
           set -uo pipefail
-          cd "$GITHUB_WORKSPACE"
+          # Onto main, carrying only the two rendered manifests -- so the branch is main plus
+          # this change, and merging it cannot undo anything released since the tag.
+          cp tagged/packaging/scoop/voxinq.json main/packaging/scoop/voxinq.json
+          cp tagged/packaging/homebrew/voxinq.rb main/packaging/homebrew/voxinq.rb
+          cd "$GITHUB_WORKSPACE/main"
           if git diff --quiet; then
             echo "packaging/ already matches what was published" >> "$GITHUB_STEP_SUMMARY"
             exit 0
