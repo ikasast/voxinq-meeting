@@ -12,8 +12,10 @@
 #
 #   * **No live transcription.** There is no GPU acceleration in a container on any of these
 #     hosts — Docker on macOS runs a Linux VM with no access to Metal — so recognition is
-#     slower than speech. The meeting is recorded and transcribed in one pass at the end,
-#     with the same model and the same quality. See docs/setup.md.
+#     slower than speech. The meeting is recorded and transcribed in one pass at the end.
+#     The same model, though not the same weights -- whisper.cpp runs GGML-quantised ones and
+#     diverges from a CUDA transcript by about 14% of characters on a measured meeting. See
+#     docs/setup.md.
 #   * **Speaker separation uses sherpa-onnx**, not pyannote, which is less accurate on long
 #     meetings. It needs no Hugging Face token in exchange.
 #   * **Minutes run on the CPU** unless you point Settings → LLM at something else. A 7B model

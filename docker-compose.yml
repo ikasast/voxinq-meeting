@@ -1,7 +1,13 @@
 # Voxinq Meeting — full stack in one command.
 #
 # This file and .env are all you need; the images come from ghcr.io, so there is no clone and
-# no Node or Python on the host:
+# no Node or Python on the host.
+#
+# **It is a starting point, and it is yours.** Nothing updates it after you download it -- not
+# `docker compose pull`, which moves the images -- so edit it to match the machine you are on:
+# delete a service you do not want, change a published port, drop the GPU reservations. The
+# comments below say what each part is for and what happens without it. `.env` is for the
+# settings; this file is for the shape of the thing.
 #
 #   curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 #   curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
@@ -90,7 +96,12 @@ services:
         required: false
     restart: unless-stopped
 
-  # Transcription + diarization (GPU).
+  # Transcription + diarization.
+  #
+  # No NVIDIA GPU? Two changes, and docker-compose.cpu.yml makes both for you (see the bottom
+  # of this file). By hand: put `-cpu` on the end of the image tag below, and delete the
+  # `deploy:` block -- Compose refuses to start a service reserving a device the host does not
+  # have, and env substitution can change a value but not remove a key.
   stt:
     image: ghcr.io/ikasast/voxinq-meeting/stt:${VOXINQ_VERSION:-latest}
     environment:
@@ -152,3 +163,13 @@ volumes:
   recordings:
   hfcache:
   ollama:
+
+# Two files sit beside this one for the situations that need a key removed rather than a value
+# changed, which is the one thing .env cannot do:
+#
+#   docker-compose.cpu.yml    no NVIDIA GPU: CPU images, GPU reservations off
+#   docker-compose.build.yml  build from a checkout instead of pulling published images
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+#
+# Or make the same edits here directly. They are the same two changes either way.

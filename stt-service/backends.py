@@ -78,7 +78,8 @@ def live_transcription_available(backend: Any) -> bool:
     return for that long is not a working feature.
 
     A host that cannot keep up records instead and transcribes the whole file at the end --
-    same model, same quality, no live text.
+    same model, no live text -- though not the same weights as a CUDA host runs, see
+    docs/design-decisions.md.
 
     The rule follows hardware acceleration, because that is what decides the answer:
 

@@ -250,15 +250,15 @@ large pull. Model weights download separately on first use and are cached in a v
 so that happens once. The first recording of a session still takes tens of seconds to warm the
 model.
 
-### Upgrading `docker-compose.yml` itself
+### `docker-compose.yml` is yours after you download it
 
-`docker compose pull` updates the images. It does not update `docker-compose.yml`, which was
-downloaded once and is yours from then on — so a release that changes the compose file reaches
-nobody who does not go and look.
+`docker compose pull` updates the images. It does not touch `docker-compose.yml` — so edit it
+freely: delete a service you do not want, change a port, drop the GPU reservations. Nothing
+will overwrite that.
 
-That is deliberate as far as your own edits go, and a gap as far as ours: `TZ` and the
-`host-gateway` mapping both arrived that way. When a release note mentions the compose file,
-diff yours against the current one and take what you want:
+The other side of the same fact is that a release changing the compose file does not reach you
+on its own. When a release note mentions it, diff yours against the current one and take what
+you want:
 
 ```bash
 curl -s https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml   | diff docker-compose.yml - 
