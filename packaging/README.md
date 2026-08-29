@@ -39,23 +39,38 @@ is a separate, re-runnable, visible step, and both definitions say so in their c
 
 ## Releasing
 
-`.github/workflows/release-tarball.yml` builds `voxinq-<version>.tar.gz` from `git archive`
-when a release is published, checks its contents, attaches it, and prints the SHA-256. Then:
+**Nothing to do by hand.** `.github/workflows/release-tarball.yml` builds
+`voxinq-<version>.tar.gz` from `git archive` when a release is published, checks its contents,
+attaches it, then — for a full release only — runs `render.mjs` to point both definitions at it
+and pushes them into the tap and the bucket. It also opens a PR putting the same values into
+the copies here, so the two stay equal and a `diff` between them stays meaningful.
 
-1. Update `url`, `sha256`/`hash`, and `extract_dir` in both files here.
-2. Copy `homebrew/voxinq.rb` into the tap and `scoop/voxinq.json` into the bucket.
+This was two manual steps until v2.0.1, and both were missed twice running: the tap served
+`v2.0.0-beta.3` — a prerelease, with a broken Word export and the licence declared as AGPL —
+for the whole of 2.0.0's life. The step can only run *after* publishing, because the manifests
+carry the tarball's SHA-256, which is why it kept falling outside the release commit.
+
+It needs a **`PACKAGING_TOKEN`** secret: a fine-grained PAT with *Contents: read and write* on
+`ikasast/homebrew-voxinq` and `ikasast/scoop-voxinq`. `GITHUB_TOKEN` cannot reach another
+repository. Without it the job fails loudly rather than quietly leaving the distribution
+repositories on the previous release.
+
+To redo a publish that failed, run the same script by hand and copy the results:
+
+```bash
+node packaging/render.mjs 2.0.1 <sha256 from the release>
+```
 
 `.gitattributes` decides what the archive holds (`export-ignore`) — there is no second list to
 keep in step. It comes out around 0.5 MB: source and the launcher, without screenshots, tests,
 CI, or the Docker files.
 
-The `0.0.0` version and zeroed hashes in both files are placeholders. They are templates until
-a release fills them in, and the workflow prints exactly what to paste.
+## How far each is verified
 
-## Not yet verified
+**Scoop is verified end to end** — installed from the bucket on Windows, then `voxinq setup`
+and `voxinq start` from exactly what it placed.
 
-Neither definition has been installed from. There is no Mac here to run `brew` on, and Scoop is
-not installed on the development machine — installing a package manager onto someone's machine
-to test a manifest is not a thing to do unasked. What *is* verified is everything they depend
-on: the archive builds and holds the right files, and `voxinq setup` followed by `voxinq start`
-works from exactly that archive on Windows.
+**Homebrew is not.** The formula is written and its shape follows the Scoop manifest, but
+nobody here has a Mac to run `brew` on. What *is* verified is everything it depends on: the
+archive builds, holds the right files, and the launcher runs from it. Reports from anyone who
+tries it are welcome in an issue.

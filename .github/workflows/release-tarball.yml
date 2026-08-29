@@ -20,10 +20,15 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   tarball:
     runs-on: ubuntu-latest
+    outputs:
+      name: ${{ steps.build.outputs.name }}
+      sha: ${{ steps.build.outputs.sha }}
+      version: ${{ steps.build.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,6 +49,7 @@ jobs:
           git archive --format=tar.gz --prefix="${name}/" -o "${name}.tar.gz" HEAD
           sha256sum "${name}.tar.gz" | cut -d' ' -f1 > "${name}.tar.gz.sha256"
           echo "name=${name}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "sha=$(cat "${name}.tar.gz.sha256")" >> "$GITHUB_OUTPUT"
           ls -l "${name}.tar.gz"
 
@@ -80,15 +86,13 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$TAG" "${NAME}.tar.gz" "${NAME}.tar.gz.sha256" --clobber
 
-      - name: Report the hash for the package manifests
+      - name: Report the hash
         env:
           NAME: ${{ steps.build.outputs.name }}
           SHA: ${{ steps.build.outputs.sha }}
         run: |
           {
             echo "### ${NAME}.tar.gz"
-            echo
-            echo "Update \`packaging/scoop/voxinq.json\` and \`packaging/homebrew/voxinq.rb\` with:"
             echo
             echo '```'
             echo "sha256  ${SHA}"
@@ -101,3 +105,78 @@ jobs:
           path: |
             ${{ steps.build.outputs.name }}.tar.gz
             ${{ steps.build.outputs.name }}.tar.gz.sha256
+
+  # Publishing the manifests is the step that kept being forgotten: it can only run after the
+  # release exists (the manifests carry the tarball's SHA-256), which puts it outside the
+  # release commit, and twice in a row that meant `scoop install voxinq` served a prerelease.
+  publish-manifests:
+    needs: tarball
+    # Only for a real release. A prerelease must not become what a package manager installs,
+    # for the same reason it does not move the `latest` image tag.
+    if: github.event_name == 'release' && github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Point the manifests at this release
+        env:
+          VERSION: ${{ needs.tarball.outputs.version }}
+          SHA: ${{ needs.tarball.outputs.sha }}
+        run: node packaging/render.mjs "$VERSION" "$SHA"
+
+      - name: Publish them to the tap and the bucket
+        env:
+          # A fine-grained PAT with Contents: read and write on ikasast/homebrew-voxinq and
+          # ikasast/scoop-voxinq. GITHUB_TOKEN cannot reach another repository.
+          TOKEN: ${{ secrets.PACKAGING_TOKEN }}
+          VERSION: ${{ needs.tarball.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::error::PACKAGING_TOKEN is not set — the tap and bucket were left on the previous release."
+            exit 1
+          fi
+          git config --global user.name "voxinq-release"
+          git config --global user.email "noreply@github.com"
+
+          publish() {
+            repo="$1"; dest="$2"; src="$3"
+            git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/ikasast/${repo}.git" "/tmp/${repo}"
+            install -D -m 644 "$src" "/tmp/${repo}/${dest}"
+            cd "/tmp/${repo}"
+            if git diff --quiet; then
+              echo "${repo}: already at v${VERSION}"
+              return
+            fi
+            git add -A
+            git commit -q -m "Update to v${VERSION}"
+            git push -q origin HEAD
+            echo "${repo}: published v${VERSION}"
+            cd - >/dev/null
+          }
+
+          publish scoop-voxinq  bucket/voxinq.json    "$GITHUB_WORKSPACE/packaging/scoop/voxinq.json"
+          publish homebrew-voxinq Formula/voxinq.rb   "$GITHUB_WORKSPACE/packaging/homebrew/voxinq.rb"
+
+      - name: Open a PR so the repository's own copies stay in step
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.tarball.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          if git diff --quiet; then
+            echo "packaging/ already matches what was published"
+            exit 0
+          fi
+          branch="packaging-v${VERSION}"
+          git config user.name "voxinq-release"
+          git config user.email "noreply@github.com"
+          git checkout -b "$branch"
+          git commit -qam "Point the packaging definitions at v${VERSION}"
+          git push -q origin "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "Point the packaging definitions at v${VERSION}" \
+            --body "Opened by the release workflow, which has already published these to the tap and the bucket. Merging keeps the repository's copies equal to what a package manager installs, so \`diff\` between them stays meaningful."
