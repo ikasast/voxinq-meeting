@@ -57,8 +57,14 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 
 A machine with no GPU acceleration recognises speech slower than people produce it, so instead
 of falling behind for the whole meeting it records and transcribes the file in one pass at the
-end — same model, same quality. Everything after that is identical. See
-[what runs on what](docs/setup.md#what-runs-on-what).
+end — same model, same quality. See [what runs on what](docs/setup.md#what-runs-on-what).
+
+**Writing the minutes is slower without a GPU too**, and by more. Measured on a 16-core x86 CPU
+with an 8B model: 31 tokens/second reading the transcript, 6.5 writing — about **a quarter of an
+hour** for a meeting that fills the context budget, against under a minute on an 8 GB card. It
+runs unattended in the background, and a smaller model or an LLM endpoint on another machine
+brings it back down — `Settings → LLM`, see
+[the minutes on a CPU](docs/setup.md#and-the-minutes).
 
 **With Docker** — brings up the database, web app, transcription service and Ollama together.
 On an NVIDIA machine it also needs the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).
@@ -71,7 +77,7 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 # edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
 docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model
+docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model (see below)
 ```
 
 The first pull is about 20 GB. **Without an NVIDIA GPU, use the CPU images instead** — they are
