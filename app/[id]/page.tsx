@@ -170,6 +170,7 @@ export default async function MeetingDetailPage({
           // null means the meeting is still being recorded somewhere: the transcript then
           // follows along by polling instead of staying at this server-rendered snapshot.
           meetingEndedAt={meeting.endedAt?.toISOString() ?? null}
+          upcoming={upcoming}
           initialSpeakerLabels={meeting.speakerLabels}
           seriesGlossary={meeting.series?.sttGlossary ?? null}
           globalGlossary={await getSttGlossary()}

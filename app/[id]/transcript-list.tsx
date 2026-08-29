@@ -57,6 +57,7 @@ export function TranscriptList({
   meetingTitle,
   meetingStartedAt,
   meetingEndedAt,
+  upcoming = false,
   initialTranscripts,
   initialSpeakerLabels,
   seriesGlossary,
@@ -68,6 +69,11 @@ export function TranscriptList({
   meetingStartedAt: string;
   // null while the meeting is still being recorded (on this device or another one).
   meetingEndedAt: string | null;
+  /**
+   * Booked for later and not recorded yet. Such a meeting also has no endedAt, but there is no
+   * session to follow: polling would find nothing and the header would claim to be live.
+   */
+  upcoming?: boolean;
   initialTranscripts: Item[];
   initialSpeakerLabels: string | null;
   seriesGlossary: string | null;
@@ -714,7 +720,9 @@ export function TranscriptList({
   const serverSnapshot = useRef<ServerSnapshot>(new Map());
 
   useEffect(() => {
-    if (endedAt) return;
+    // A meeting that has not happened yet is not one that is happening: there is no session to
+    // follow, and polling for it would find nothing every second until someone gave up.
+    if (endedAt || upcoming) return;
     // A recorder that crashed leaves endedAt null forever. Stop chasing it after a day.
     if (Date.now() - Date.parse(meetingStartedAt) > 86400_000) return;
 
@@ -785,9 +793,9 @@ export function TranscriptList({
       clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [endedAt, meetingId, meetingStartedAt, router]);
+  }, [endedAt, upcoming, meetingId, meetingStartedAt, router]);
 
-  const live = !endedAt;
+  const live = !endedAt && !upcoming;
 
   // "Diarize" on the recording page lands here with ?autodiarize=1: start diarization once
   // (progress is shown inline in the toolbar) and drop the param from the URL so a reload
