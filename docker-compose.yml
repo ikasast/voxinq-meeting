@@ -74,6 +74,12 @@ services:
       TZ: ${TZ:-UTC}
     ports:
       - "${WEB_PORT:-3000}:3000"
+    # So that Settings -> LLM can be pointed at an Ollama already running on the host, rather
+    # than the container below. Docker Desktop resolves this name on its own; Linux does not,
+    # and without this line the same setting that works on a Mac fails there with nothing to
+    # say why.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - settings:/data
     # No `depends_on: db` requirement beyond ordering: an external-viewer deployment points
