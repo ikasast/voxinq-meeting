@@ -7,6 +7,7 @@ import { GearIcon, MicIcon } from "./icons";
 import { LogoutButton } from "./logout-button";
 import { ThemeToggle } from "./theme-toggle";
 import { InstallApp } from "./install-app";
+import { SideRail } from "./side-rail";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
@@ -36,9 +37,11 @@ export const viewport = {
   themeColor: "#0b1220",
 };
 
+// The top bar, now only on screens too narrow for the rail. It keeps the full logo because
+// there is room for it here and it is the only place the app names itself on a phone.
 function HeaderNav({ external }: { external: boolean }) {
   return (
-    <header className="border-b border-[var(--border)] bg-[var(--header)]">
+    <header className="border-b border-[var(--border)] bg-[var(--header)] lg:hidden">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3">
         <Link href="/" aria-label="Voxinq Meeting home" className="flex items-center">
           {/* Show the logo per theme (.logo-dark/.logo-light in globals.css) */}
@@ -109,8 +112,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           }}
         />
         <ConfirmProvider>
-          <HeaderNav external={external} />
-          <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
+          <div className="flex min-h-full flex-1">
+            <SideRail external={external} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <HeaderNav external={external} />
+              {/* The rail carries navigation on wide screens, but not the controls that only
+                  make sense per-device or per-session — those keep a home along the top. */}
+              <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
+                {external ? <ThemeToggle /> : null}
+                <InstallApp />
+                {process.env.APP_PASSWORD ? <LogoutButton /> : null}
+              </div>
+              <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
+            </div>
+          </div>
         </ConfirmProvider>
       </body>
     </html>
