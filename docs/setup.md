@@ -652,9 +652,15 @@ Deploying comes **after** publishing, and depends on how the host runs:
 | Docker | `docker compose pull && docker compose up -d` (set `VOXINQ_VERSION` first to pin) |
 | native | `scripts\windows\redeploy-all.ps1`, or `scripts/redeploy.sh` on Linux |
 
-Publishing also builds the release tarball the package managers install from. The Scoop
-manifest and Homebrew formula in `packaging/` carry its SHA-256, so they can only be updated
-once the release exists — a follow-up commit, not part of the tag.
+Publishing also builds the release tarball the package managers install from, and — for a full
+release, not a prerelease — points the Scoop manifest and Homebrew formula at it and pushes
+them to the tap and the bucket. That step used to be manual, and was missed twice running,
+which left `scoop install voxinq` serving a prerelease. It needs a `PACKAGING_TOKEN` secret; if
+it is missing the job fails loudly rather than leaving the distribution repositories stale.
+
+The workflow also opens a PR putting the same values into `packaging/` here, so the copies in
+this repository stay equal to what a package manager installs. Merge it; nothing else depends
+on it. (It is created with `GITHUB_TOKEN`, so CI does not run on it.)
 
 **Hotfixing production** — branch from `release`, not `main`, so an unfinished feature cannot
 ride along:
