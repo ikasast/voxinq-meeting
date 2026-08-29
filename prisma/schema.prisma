@@ -11,32 +11,32 @@ datasource db {
 }
 
 model Meeting {
-  id                        String    @id @default(cuid())
-  title                     String
-  description               String?   @map("description") // meta info such as the meeting's purpose/contents
-  sttLanguage               String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
-  whisperModel              String?   @map("whisper_model") // this meeting's transcription model (null = settings default)
-  speakerLabels             String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
-  summaryStatus             String?   @map("summary_status") // minutes generation state: processing | done | error
-  summaryError              String?   @map("summary_error") // why the last generation failed (shown in the UI; cleared on the next run)
-  seriesId                  String?   @map("series_id") // recurring-series membership (null = standalone)
-  diarizationEmbeddings     String?   @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
-  diarizationEmbeddingModel String?   @map("diarization_embedding_model") // which model produced them (null = pyannote, i.e. before there was a choice) — see lib/embedding-models.ts
-  embedding                 String?   @map("embedding") // unused: leftover from the removed AI (semantic) search
-  embeddingModel            String?   @map("embedding_model") // unused: leftover from the removed AI (semantic) search
-  startedAt                 DateTime  @default(now()) @map("started_at")
-  endedAt                   DateTime? @map("ended_at")
-  recordedMs                Int?      @map("recorded_ms") // actual recorded audio length in ms (set on end from the WAV); null for older meetings
-  deletedAt                 DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
-  archivedAt                DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
-  createdAt                 DateTime  @default(now()) @map("created_at")
-  updatedAt                 DateTime  @updatedAt @map("updated_at")
+  id          String    @id @default(cuid())
+  title       String
+  description   String?   @map("description") // meta info such as the meeting's purpose/contents
+  sttLanguage   String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
+  whisperModel  String?   @map("whisper_model") // this meeting's transcription model (null = settings default)
+  speakerLabels String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
+  summaryStatus String?   @map("summary_status") // minutes generation state: processing | done | error
+  summaryError  String?   @map("summary_error") // why the last generation failed (shown in the UI; cleared on the next run)
+  seriesId    String?   @map("series_id") // recurring-series membership (null = standalone)
+  diarizationEmbeddings String? @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
+  diarizationEmbeddingModel String? @map("diarization_embedding_model") // which model produced them (null = pyannote, i.e. before there was a choice) — see lib/embedding-models.ts
+  embedding      String?  @map("embedding") // unused: leftover from the removed AI (semantic) search
+  embeddingModel String?  @map("embedding_model") // unused: leftover from the removed AI (semantic) search
+  startedAt   DateTime  @default(now()) @map("started_at")
+  endedAt     DateTime? @map("ended_at")
+  recordedMs  Int?      @map("recorded_ms") // actual recorded audio length in ms (set on end from the WAV); null for older meetings
+  deletedAt   DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
+  archivedAt  DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  transcripts  Transcript[]
-  summaries    MeetingSummary[]
-  tags         Tag[]
+  transcripts Transcript[]
+  summaries   MeetingSummary[]
+  tags        Tag[]
   participants MeetingParticipant[]
-  series       Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  series      Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([deletedAt])
@@ -91,16 +91,16 @@ model SpeakerProfile {
 }
 
 model Transcript {
-  id           String   @id @default(cuid())
-  meetingId    String   @map("meeting_id")
-  speakerType  String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
-  text         String
-  translation  String? // Japanese translation of a non-Japanese utterance (null = none/not needed)
+  id          String   @id @default(cuid())
+  meetingId   String   @map("meeting_id")
+  speakerType String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
+  text        String
+  translation String?  // Japanese translation of a non-Japanese utterance (null = none/not needed)
   // Where this utterance sits in the recording. Null on rows written before this was stored, and
   // on any row whose utterance was not saved to a WAV; the player falls back to segments.json.
-  audioStartMs Int?     @map("audio_start_ms")
-  audioEndMs   Int?     @map("audio_end_ms")
-  createdAt    DateTime @default(now()) @map("created_at")
+  audioStartMs Int?    @map("audio_start_ms")
+  audioEndMs   Int?    @map("audio_end_ms")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
