@@ -168,6 +168,14 @@ transcript, so re-run diarization afterwards.
 
 > Requires the recording to still exist (WAVs auto-delete after 7 days unless protected).
 
+**Expect different wording even with the same model.** Recognition is not reproducible: on a
+12-minute meeting, two runs over identical audio differed in about 15% of characters. That is
+by design — a segment Whisper is unsure about is re-decoded with sampling, which is how it
+escapes repetition loops — but it means re-transcribing is not a way to get the same transcript
+back, and a passage that came out right last time may not this time. If one line is wrong, edit
+it; re-transcribing rerolls the whole meeting. See
+[design notes](design-decisions.md#transcription-is-not-reproducible-and-the-cause-is-the-temperature-fallback).
+
 ## Regenerate minutes
 
 The **Regenerate** button opens a small panel to pick a **detail level** and **provider**

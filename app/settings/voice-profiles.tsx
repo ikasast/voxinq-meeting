@@ -316,7 +316,7 @@ export function VoiceProfiles() {
             {/* simple level meter so silence is obvious */}
             <span className="h-1.5 w-24 overflow-hidden rounded bg-[var(--elevated)]">
               <span
-                className="block h-full bg-[var(--accent)] transition-[width]"
+                className="block h-full bg-[var(--accent-solid)] transition-[width]"
                 style={{ width: `${Math.min(100, level * 300)}%` }}
               />
             </span>
