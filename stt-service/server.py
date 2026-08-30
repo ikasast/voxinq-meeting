@@ -584,6 +584,10 @@ async def health() -> dict:
         # False means this host records the meeting and transcribes it afterwards. The
         # recording screen reads this to know whether to expect text during the meeting.
         "liveTranscription": LIVE_TRANSCRIPTION,
+        # Set only when recognition is being done by something over HTTP. The app shows it so
+        # that "my meetings are being sent to this host" is visible in the interface, not just
+        # in whoever-configured-it's .env.
+        "remoteHost": getattr(backend, "host", None),
         "translate": translator_state(),
         # Runs a subprocess the first time, so keep it off the event loop.
         **await asyncio.to_thread(_diarization_info),

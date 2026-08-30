@@ -25,6 +25,14 @@ export type SttHealth = {
    * quality, no text until the end. Absent on an older service, which only ever did live.
    */
   liveTranscription?: boolean;
+  /** Which engine is recognising: "faster-whisper", "whisper.cpp", "openai-compatible". */
+  backend?: string;
+  /**
+   * The host recognition is being sent to, when it is being sent anywhere — set only by the
+   * HTTP backend, and never carrying the key or the path. Absent means recognition is
+   * happening on the machine running the service, which is the default and the usual case.
+   */
+  remoteHost?: string | null;
   diarizationBackend?: string | null;
   embeddingModel?: string | null;
 };

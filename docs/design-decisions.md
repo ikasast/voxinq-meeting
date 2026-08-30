@@ -385,6 +385,47 @@ The spike also found that the backend did not work at all: `beam_search` was sen
 Face repo that pywhispercpp silently declines to resolve. Both are fixed, and
 `test_backends.py` now decodes for real rather than only testing which backend gets chosen.
 
+## Recognition can be sent over HTTP, and it is one backend, not a list of vendors
+
+A third recognition backend posts the audio to `/v1/audio/transcriptions` and reads the
+segments back. It exists for one machine: no NVIDIA card, no Apple silicon, where recognising
+an hour locally takes about three hours. A hosted `whisper-large-v3-turbo` returns it in
+minutes.
+
+**It is one implementation because the endpoint is a de-facto standard.** OpenAI defined it;
+Groq, Fireworks, Mistral, Azure and OVHcloud implement it; OpenRouter and LiteLLM route on to
+Deepgram and AssemblyAI through the same shape. Writing an adapter per vendor would be several
+times the code for the same reach. Gemini, Deepgram and AssemblyAI have their own request
+shapes and are not covered — if one is wanted, it is a new adapter, not a new setting.
+
+The choice also pays for itself in the other direction, which is the part worth stating
+plainly: **a whisper server of your own on another machine answers the same endpoint.** This is
+not a cloud backend that a local server happens to be compatible with. It is an HTTP backend
+that a cloud happens to answer.
+
+**It is never selected by detection.** `STT_BACKEND=openai` names it or it does not run;
+`STT_CLOUD_BASE_URL` on its own does nothing, and `STT_BACKEND` on its own refuses to start
+rather than guess a destination. Configuring a thing is not the same as choosing it, and this
+is the one backend where the difference is someone's meeting audio.
+
+**Not live.** `live_transcription_available` returns False for it, which puts it on the path a
+CPU-only host already uses — record, then recognise once. Streaming would mean stitching
+provider sessions (Gemini's live API caps them at ten minutes) across the recording pipeline,
+and the continuous WAV that pipeline produces is what diarization and click-to-play are built
+on. The benefit is a transcript that appears during the meeting; the cost is the foundation.
+
+**Splitting is mandatory, not an optimisation.** Every one of these endpoints caps the upload —
+25 MB at OpenAI, about thirteen minutes of 16 kHz mono — so an hour-long meeting cannot be sent
+whole. Cutting on a clock would slice words in half and lose them at both ends, so each
+boundary moves to the quietest 100 ms in the last fifth of the span, and each chunk's segments
+are offset back onto the meeting's clock. A meeting always has pauses; if one somehow does not,
+the search still finds the least-loud window.
+
+The confidence filters do not apply here. `no_speech_prob` and `avg_logprob` are Whisper's, no
+provider returns them, and `Segment`'s defaults keep a segment rather than discarding
+everything a backend cannot score. These providers also do not produce the canned
+silence-hallucinations those filters exist for.
+
 ## kotoba-whisper is never given the glossary
 
 Measured, not assumed: passing an `initial_prompt` to kotoba-whisper made it emit **nothing at

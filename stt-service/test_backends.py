@@ -11,8 +11,16 @@ between "the rules are right" and "the call works".
 
 from __future__ import annotations
 
+import contextlib
+import email
+import http.server
+import json
+import os
 import sys
+import threading
 from pathlib import Path
+
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -192,6 +200,229 @@ def test_whisper_cpp_actually_decodes_at_the_beam_size_finals_use() -> None:
         assert isinstance(segments, list), f"beam_size={beam_size} did not return segments"
     backend.unload(model)
 
+
+# --- The HTTP backend -------------------------------------------------------------------
+#
+# Two things here are hand-written and therefore worth testing: the multipart body, because
+# nothing else in this service builds one, and the chunking, because an endpoint that caps the
+# upload makes it mandatory rather than an optimisation. A local HTTP server stands in for the
+# provider so the round trip is exercised for real, without a key or a network.
+
+
+def test_short_audio_is_not_split() -> None:
+    audio = np.zeros(backends.SAMPLE_RATE * 5, dtype=np.float32)
+    assert backends.split_on_silence(audio, backends.SAMPLE_RATE * 60) == [(0, len(audio))]
+
+
+def test_long_audio_is_split_into_spans_within_the_cap() -> None:
+    audio = np.float32(np.random.RandomState(0).uniform(-0.5, 0.5, backends.SAMPLE_RATE * 300))
+    cap = backends.SAMPLE_RATE * 60
+    spans = backends.split_on_silence(audio, cap)
+    assert len(spans) >= 5
+    assert all(end - start <= cap for start, end in spans)
+    # Contiguous and complete: no audio is dropped between chunks, and none is sent twice.
+    assert spans[0][0] == 0 and spans[-1][1] == len(audio)
+    assert all(spans[i][1] == spans[i + 1][0] for i in range(len(spans) - 1))
+
+
+def test_the_cut_lands_in_the_quiet_part() -> None:
+    """The whole point of splitting on silence rather than on a clock."""
+    sr = backends.SAMPLE_RATE
+    audio = np.float32(np.random.RandomState(1).uniform(-0.5, 0.5, sr * 100))
+    # A two-second gap at 55s, inside the search window for a 60s cap.
+    audio[sr * 55 : sr * 57] = 0.0
+    spans = backends.split_on_silence(audio, sr * 60)
+    cut = spans[0][1] / sr
+    assert 55.0 <= cut <= 57.0, f"cut at {cut}s, expected inside the silence"
+
+
+class _FakeProvider(http.server.BaseHTTPRequestHandler):
+    """Enough of /v1/audio/transcriptions to check what we sent and what we do with a reply."""
+
+    received: dict = {}
+
+    def do_POST(self) -> None:  # noqa: N802  the base class names it
+        body = self.rfile.read(int(self.headers["Content-Length"]))
+        _FakeProvider.received = {
+            "path": self.path,
+            "auth": self.headers.get("Authorization"),
+            "content_type": self.headers.get("Content-Type"),
+            "body": body,
+        }
+        payload = json.dumps(
+            {
+                "language": "ja",
+                "segments": [
+                    {"start": 0.5, "end": 1.5, "text": " hello "},
+                    {"start": 2.0, "end": 3.0, "text": ""},
+                    {"start": 3.0, "end": 4.0, "text": "world"},
+                ],
+            }
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *args) -> None:  # keep the test output clean
+        pass
+
+
+@contextlib.contextmanager
+def _provider(handler=_FakeProvider):
+    server = http.server.HTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/v1"
+    finally:
+        server.shutdown()
+
+
+def _backend(base: str, max_bytes: int = 20 * 1024 * 1024):
+    return backends.OpenAiCompatibleBackend(base, "test-key", "whisper-large-v3-turbo", max_bytes)
+
+
+def test_it_sends_a_multipart_body_the_provider_can_read() -> None:
+    with _provider() as base:
+        b = _backend(base)
+        segs, lang = b.transcribe(
+            b.load(""),
+            np.zeros(backends.SAMPLE_RATE, dtype=np.float32),
+            language="ja",
+            initial_prompt="Voxinq",
+            beam_size=5,
+            vad_min_silence_ms=500,
+            no_speech_threshold=0.6,
+        )
+
+    got = _FakeProvider.received
+    assert got["path"] == "/v1/audio/transcriptions"
+    assert got["auth"] == "Bearer test-key"
+
+    # Parse it the way a server would, rather than asserting on the bytes we wrote.
+    ctype = got["content_type"]
+    msg = email.message_from_bytes(
+        b"Content-Type: " + ctype.encode() + b"\r\nMIME-Version: 1.0\r\n\r\n" + got["body"]
+    )
+    parts = {
+        p.get_param("name", header="content-disposition"): p.get_payload(decode=True)
+        for p in msg.get_payload()
+    }
+    assert parts["model"] == b"whisper-large-v3-turbo"
+    assert parts["language"] == b"ja"
+    assert parts["prompt"] == b"Voxinq"
+    assert parts["response_format"] == b"verbose_json"
+    assert parts["file"].startswith(b"RIFF") and b"WAVE" in parts["file"][:16]
+
+    assert lang == "ja"
+    assert [s.text for s in segs] == ["hello", "world"]  # the empty one is dropped
+
+
+def test_timestamps_are_offset_by_the_chunk_they_came_from() -> None:
+    """Each chunk's clock starts at zero; the transcript's does not."""
+    sr = backends.SAMPLE_RATE
+    with _provider() as base:
+        # 4 MB cap -> ~2 MB of samples -> chunks of about 65 s, so 200 s makes several.
+        b = _backend(base, max_bytes=4 * 1024 * 1024)
+        audio = np.float32(np.random.RandomState(2).uniform(-0.3, 0.3, sr * 200))
+        segs, _ = b.transcribe(
+            b.load(""),
+            audio,
+            language=None,
+            initial_prompt=None,
+            beam_size=5,
+            vad_min_silence_ms=500,
+            no_speech_threshold=0.6,
+        )
+    assert len(segs) > 2
+    # Every chunk answers with the same 0.5s/3.0s pair, so a backend that forgot to offset
+    # would return them all at 0.5. Strictly increasing starts prove it did not.
+    starts = [s.start for s in segs]
+    assert starts == sorted(starts)
+    assert starts[-1] > 60.0, starts
+
+
+class _FailingProvider(_FakeProvider):
+    def do_POST(self) -> None:  # noqa: N802
+        payload = b'{"error":{"message":"model_not_found"}}'
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+
+def test_the_providers_own_error_reaches_the_caller() -> None:
+    """A wrong key and an unknown model are the two things that will actually happen."""
+    with _provider(_FailingProvider) as base:
+        b = _backend(base)
+        try:
+            b.transcribe(
+                b.load(""),
+                np.zeros(backends.SAMPLE_RATE, dtype=np.float32),
+                language=None,
+                initial_prompt=None,
+                beam_size=5,
+                vad_min_silence_ms=500,
+                no_speech_threshold=0.6,
+            )
+        except RuntimeError as e:
+            assert "404" in str(e) and "model_not_found" in str(e)
+        else:
+            raise AssertionError("a 404 should not look like success")
+
+
+def test_the_http_backend_is_never_chosen_by_detection() -> None:
+    """Configuring a base URL is not the same as choosing to send audio off the machine."""
+    os.environ["STT_CLOUD_BASE_URL"] = "https://api.example.com/v1"
+    try:
+        with _Chooser(False, {"pywhispercpp"}):
+            for requested in (None, "", "auto"):
+                assert backends.choose_backend(requested, "cpu", None).name == "whisper.cpp", requested
+    finally:
+        os.environ.pop("STT_CLOUD_BASE_URL", None)
+
+
+def test_it_is_chosen_when_asked_for_by_name() -> None:
+    os.environ["STT_CLOUD_BASE_URL"] = "https://api.example.com/v1"
+    os.environ["STT_CLOUD_MODEL"] = "whisper-large-v3"
+    try:
+        b = backends.choose_backend("openai", "cpu", None)
+        assert b.name == "openai-compatible"
+        assert b.load("") == "whisper-large-v3"
+    finally:
+        os.environ.pop("STT_CLOUD_BASE_URL", None)
+        os.environ.pop("STT_CLOUD_MODEL", None)
+
+
+def test_asking_for_it_without_a_url_says_so_instead_of_starting() -> None:
+    os.environ.pop("STT_CLOUD_BASE_URL", None)
+    try:
+        backends.choose_backend("openai", "cpu", None)
+    except SystemExit as e:
+        assert "STT_CLOUD_BASE_URL" in str(e)
+    else:
+        raise AssertionError("it must not start without somewhere to send the audio")
+
+
+def test_it_reports_the_fields_health_asks_every_backend_for() -> None:
+    """/health reads .name, .device and .compute off whatever backend is running. A backend
+    missing one does not fail at startup -- it fails on the first health poll, which is every
+    screen in the app."""
+    b = backends.OpenAiCompatibleBackend("https://api.groq.com/openai/v1", "k", "m", 1024)
+    assert (b.name, b.device, b.compute) == ("openai-compatible", "remote", "http")
+
+
+def test_it_reports_the_host_but_never_the_key() -> None:
+    b = backends.OpenAiCompatibleBackend("https://api.groq.com/openai/v1", "secret", "m", 1024)
+    assert b.host == "api.groq.com"
+    assert "secret" not in b.host
+
+
+def test_the_http_backend_does_not_offer_live_transcription() -> None:
+    b = backends.OpenAiCompatibleBackend("https://api.example.com/v1", "k", "m", 1024)
+    assert backends.live_transcription_available(b) is False
 
 if __name__ == "__main__":
     failed = 0
