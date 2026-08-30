@@ -45,7 +45,7 @@ function RailLink({
       <span
         className={
           primary
-            ? "flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)]"
+            ? "flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
             : undefined
         }
       >

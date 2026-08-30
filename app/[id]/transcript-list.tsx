@@ -1430,7 +1430,7 @@ function TranscriptRow({
               type="button"
               onClick={() => void save()}
               disabled={saving || !draft.trim()}
-              className="rounded-md bg-[var(--accent)] px-2.5 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              className="rounded-md bg-[var(--accent-solid)] px-2.5 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -1451,7 +1451,7 @@ function TranscriptRow({
             <button
               type="button"
               onClick={onApplySuggestion}
-              className="rounded-md bg-[var(--accent)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+              className="rounded-md bg-[var(--accent-solid)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
             >
               Apply
             </button>

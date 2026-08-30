@@ -29,10 +29,22 @@
 
   /* Accent (cyan) and status colors */
   --accent: #06b6d4;
-  --accent-hover: #0891b2;
-  --accent-pressed: #0e7490;
   --accent-sub: #67e8f9;
+
+  /* Filled accent surfaces (buttons) are a ramp of their own, separate from --accent, which
+     also paints borders, rings, links and the logo gradient — those want the brand cyan
+     whatever is behind them.
+
+     The ramp brightens on interaction here and darkens in the light theme, because a fixed
+     text colour cannot survive a ramp that moves the wrong way: this used to darken in both
+     themes against a fixed dark label, so pressing a button took its contrast from 6.8:1 to
+     3.09:1, below AA, exactly while it was being used. Each theme now moves the surface away
+     from the page and towards its own label. */
+  --accent-solid: #06b6d4;
+  --accent-hover: #22d3ee;
+  --accent-pressed: #67e8f9;
   --accent-contrast: #06222a; /* text color placed on top of accent surfaces */
+
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
@@ -57,10 +69,17 @@ html[data-theme="light"] {
   --text-muted: #6b7280;
 
   --accent: #06b6d4;
-  --accent-hover: #0891b2;
-  --accent-pressed: #0e7490;
   --accent-sub: #0e7490; /* for emphasis text on light surfaces (#67e8f9 is unreadable on white) */
-  --accent-contrast: #06222a;
+
+  /* Mirror of the dark ramp, running the other way — see the note there. Cyan-500 is a *light*
+     colour (relative luminance 0.38), so on a near-white page a filled button in it sits only
+     2.43:1 above the page and reads as washed out, and white on it is 2.43:1 — unusable. Going
+     three stops darker separates the button from the page and lets the label be white. */
+  --accent-solid: #0e7490;
+  --accent-hover: #155e75;
+  --accent-pressed: #164e63;
+  --accent-contrast: #ffffff;
+
   --success: #10b981;
   --warning: #b45309; /* #f59e0b is too faint as text on white, so one shade darker */
   --error: #ef4444;
@@ -302,7 +321,7 @@ html[data-theme="light"] .logo-dark {
     }
   }
   .btn-ink {
-    background: var(--accent);
+    background: var(--accent-solid);
     color: var(--accent-contrast);
 
     &:hover:not(:disabled) {
@@ -358,7 +377,7 @@ html[data-theme="light"] .logo-dark {
     }
   }
   .btn-icon-accent {
-    background: var(--accent);
+    background: var(--accent-solid);
     color: var(--accent-contrast);
 
     &:hover:not(:disabled) {
