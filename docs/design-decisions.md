@@ -4,8 +4,49 @@ Why Voxinq Meeting is built the way it is — including the things it deliberate
 Most entries exist because the obvious-looking alternative was tried, measured, or reasoned
 through and rejected. If you are about to propose one of these, start here.
 
-The constraint behind most of it: **one consumer GPU with 8 GB of VRAM**, and meetings that are
-mostly Japanese.
+The requirement behind all of it is the next section. The constraint behind much of the rest:
+**one consumer GPU with 8 GB of VRAM**, and meetings that are mostly Japanese — that is the
+machine this was written on, not a premise of the app, which runs without a GPU at all.
+
+## Running entirely on your own machine is a requirement, not a default
+
+Everything Voxinq needs to do its job — record, recognise speech, separate speakers, translate,
+write minutes, store it all — has an implementation that runs on the machine in front of you and
+talks to nothing else. That is the requirement. It is checkable: `app/` and `lib/` contain no
+external URL that is fetched at runtime, Latin type is bundled through `next/font/local`
+rather than pulled from a font CDN, the service worker intercepts nothing and caches nothing —
+it exists only because Chromium will not offer to install the app without one — and the
+launcher carries its own PostgreSQL, so even the database is not something you have to go and
+get.
+
+**This is not the same as forbidding anything else, and the difference is the whole point.**
+Cloud providers for minutes are supported, deliberately, and a cloud model does write better
+minutes than a 7B on 8 GB. What is rejected is a cloud service being *required*, or being the
+default, or being the path of least resistance that a local one has to be argued for against.
+An option someone chooses, having been told what it does, is not a compromise of this; a
+dependency they cannot remove is.
+
+The distinction shows up as a rule about where the work goes when nothing is configured.
+Recognition picks a backend from the hardware and both of them are local. Diarization does the
+same, and its second backend exists partly so that speaker separation stops needing a Hugging
+Face account. Translation runs on the CPU rather than asking anyone. The provider selector
+defaults to Ollama, and choosing otherwise raises a notice naming the host your transcripts
+will go to.
+
+**What this costs** is that the local path has to be built and kept working even where a hosted
+API would be less effort — two speech backends instead of one, two diarization backends, a
+model-download step in `voxinq setup` that a cloud call would not need, and an 8 GB VRAM budget
+threaded through the LLM context sizing. Several entries below are that bill arriving.
+
+**Where the line sits.** Recordings, voiceprints and the database stay on the machine
+regardless: a voiceprint is biometric, and the people in a meeting consented to being recorded
+by *you*. Sending a transcript somewhere is a decision its owner can make. Sending everyone's
+voice somewhere is not obviously theirs alone.
+
+The point of the requirement is not that everyone will want it. Most people are already sending
+this material somewhere. It is that **being able to stop is a property you cannot add later** —
+it has to be true of the whole design, and once any single piece has no local implementation,
+it stops being true of all of it.
 
 ## The GPU is time-shared, not shared
 
@@ -631,9 +672,10 @@ Plausible, and wrong often enough to be a problem: a name in the text is as like
 being discussed as someone speaking. Voice profiles solve the same problem from the audio, where
 the evidence actually is.
 
-**pgvector / retrieval for Ask** — see above; **cloud LLM as the default** — contradicts the
-premise; **Prisma 7** — a major upgrade for no feature this needs, and `dependabot.yml` already
-declines majors.
+**pgvector / retrieval for Ask** — see above; **cloud LLM as the default** — the objection is
+to *default*, not to cloud, see [the requirement](#running-entirely-on-your-own-machine-is-a-requirement-not-a-default);
+**Prisma 7** — a major upgrade for no feature this needs, and `dependabot.yml` already declines
+majors.
 
 ---
 
