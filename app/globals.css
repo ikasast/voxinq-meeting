@@ -31,9 +31,10 @@
   --accent: #06b6d4;
   --accent-sub: #67e8f9;
 
-  /* Filled accent surfaces (buttons) are a ramp of their own, separate from --accent, which
-     also paints borders, rings, links and the logo gradient — those want the brand cyan
-     whatever is behind them.
+  /* Filled accent surfaces — buttons, and the meters and dots that are read as objects rather
+     than decoration — are a ramp of their own, separate from --accent, which paints borders,
+     rings, links and the logo gradient. Those sit *on* a surface rather than being one, and
+     want the brand cyan whatever is behind them.
 
      The ramp brightens on interaction here and darkens in the light theme, because a fixed
      text colour cannot survive a ramp that moves the wrong way: this used to darken in both

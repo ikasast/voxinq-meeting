@@ -755,7 +755,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
               >
                 <div
                   className={`h-full rounded-full ${
-                    clipping ? "bg-[var(--warning)]" : "bg-[var(--accent)]"
+                    clipping ? "bg-[var(--warning)]" : "bg-[var(--accent-solid)]"
                   }`}
                   style={{ width: `${Math.min(100, Math.round(level * 300))}%` }}
                 />

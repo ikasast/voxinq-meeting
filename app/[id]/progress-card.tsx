@@ -25,7 +25,7 @@ function Mark({ state }: { state: Step["state"] }) {
   if (state === "done") return <span className="text-[var(--accent-sub)]">✓</span>;
   if (state === "running")
     return (
-      <span className="inline-block size-2 animate-pulse rounded-full bg-[var(--accent)]" aria-hidden />
+      <span className="inline-block size-2 animate-pulse rounded-full bg-[var(--accent-solid)]" aria-hidden />
     );
   return <span className="text-[var(--text-muted)]">○</span>;
 }
