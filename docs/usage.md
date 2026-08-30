@@ -168,6 +168,14 @@ transcript, so re-run diarization afterwards.
 
 > Requires the recording to still exist (WAVs auto-delete after 7 days unless protected).
 
+**Recognition can be done elsewhere.** *Settings → Transcription → Recognise speech* can send
+the audio to any `/v1/audio/transcriptions` endpoint — Groq, OpenAI, or a whisper server of your
+own on another machine — instead of running it here. It is for a host with no NVIDIA card and
+no Apple silicon, where recognising an hour takes about three; a hosted model returns it in
+minutes. It applies to this pass and to the after-the-meeting one, never to live recognition,
+which has to stream. Long recordings are split at a silent moment because these endpoints cap
+the upload. See [configuration](configuration.md#recognising-speech-somewhere-else).
+
 **Expect different wording even with the same model.** Recognition is not reproducible: on a
 12-minute meeting, two runs over identical audio differed in about 15% of characters. That is
 by design — a segment Whisper is unsure about is re-decoded with sampling, which is how it
