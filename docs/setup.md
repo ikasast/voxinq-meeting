@@ -33,7 +33,8 @@ work, because the two are not the same thing and the second is the one that can 
 | **Windows, `voxinq` via Scoop** | ✅ installed from the bucket, `setup` and `start` from what it placed |
 | **x86 CPU only, no GPU** | ✅ recognition and the deferred path measured on one; not lived in |
 | **Linux + NVIDIA** | ⚠️ the images are built and pulled for it, but nobody here runs it daily |
-| **Linux / macOS, `voxinq` via Homebrew** | ⚠️ the formula is written and unverified — no Mac here |
+| **macOS, `voxinq` via Homebrew** | ⚠️ `brew install` and the CLI verified on an Apple silicon CI runner; `setup` and `start` never run there |
+| **Linux, `voxinq` via Homebrew** | ⚠️ the formula is the same one; nothing has installed it on Linux |
 | **Apple silicon, native (Metal)** | ⚠️ chosen by the code and never run: the wheel's Metal was confirmed on a CI runner's virtual GPU, which is not a Mac |
 | **Apple silicon, Docker (CPU images)** | ⚠️ images built for arm64, not run on the hardware |
 | **AMD / Intel GPU** | ⚠️ falls back to the CPU by design; the fallback is measured, the machines are not owned |
@@ -328,9 +329,14 @@ manager is for. PostgreSQL *is* bundled. Minutes need an LLM: install Ollama, or
 Settings → LLM at a cloud model.
 
 > **Status.** The definitions live in [`packaging/`](../packaging/) and are published from a tap
-> and a bucket. Neither has been installed from yet — there is no Mac here for `brew`, and Scoop
-> is not on the development machine. The archive they install, and the `voxinq setup` and
-> `voxinq start` that follow, are verified on Windows.
+> and a bucket. Both are now installed from by CI — on macOS and on Windows, whenever either
+> definition changes and once a week besides. That is how the formula's failure on macOS was
+> found: it had been published and unrun since v2.0.0-beta.3, and `brew install` was exiting
+> non-zero after printing its summary, because the bundled PostgreSQL binaries it put in the
+> keg could not be relocated. Fixed in 2.1.2.
+>
+> What CI covers is the install and the CLI answering. `voxinq setup` downloads speech models
+> and takes minutes, so it stops short of that; `setup` and `start` are verified on Windows.
 
 ### From a checkout
 
