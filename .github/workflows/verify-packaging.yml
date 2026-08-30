@@ -1,0 +1,209 @@
+# Install Voxinq the way a new user would, on machines that are not this one.
+#
+# The tap and the bucket have been published since v2.0.0-beta.3 and, until this workflow, had
+# never been installed from: there is no Mac here for `brew`, and Scoop is not on the
+# development machine. docs/setup.md says so with a warning marker, which is honest but does
+# not make the path work. An external review then read that same page and scored the Homebrew
+# route as a strength -- so the untested path is already being counted as a working one.
+#
+# macOS and Windows runners are free for public repositories, so the gap costs nothing to
+# close. What this checks is the install itself, not the app: `voxinq setup` downloads speech
+# models and takes minutes, and is deliberately out of scope. The question here is narrower and
+# is the one nobody could answer -- does the published package install and run at all.
+#
+# Weekly as well as on demand, because these can break without anything here changing: a new
+# major `node` in Homebrew, a Python version going end-of-life, a runner image moving on.
+
+name: Verify packaging
+
+on:
+  workflow_dispatch:
+  # On a pull request only the *-source jobs run, against the definitions on the branch. The
+  # jobs that install what is published are skipped there, because a branch cannot change the
+  # tap or the bucket and reporting the last release's state as the branch's would be a lie.
+  pull_request:
+    paths:
+      - ".github/workflows/verify-packaging.yml"
+      - "packaging/**"
+      - "cli/**"
+  schedule:
+    # Mondays, 04:00 UTC. Nothing depends on the timing; it just needs to be regular.
+    - cron: "0 4 * * 1"
+
+# One at a time. Two runs installing the same formula prove nothing extra and the schedule can
+# overlap a manual run.
+concurrency:
+  group: verify-packaging
+  cancel-in-progress: false
+
+jobs:
+  homebrew:
+    name: brew install from the tap (macOS)
+    # Only what is published. A pull request cannot change the tap, so running this on one
+    # would report the last release's state as if it were the branch's.
+    if: github.event_name != 'pull_request'
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Tap
+        run: brew tap ikasast/voxinq https://github.com/ikasast/homebrew-voxinq
+
+      - name: Show what the tap is offering
+        run: brew info ikasast/voxinq/voxinq
+
+      # Style and metadata problems that would not stop an install but would stop the formula
+      # being trusted. Advisory: a new Homebrew release can add a rule overnight, and that is
+      # not a reason to report the install as broken.
+      - name: Audit the formula
+        continue-on-error: true
+        run: brew audit --strict --online ikasast/voxinq/voxinq
+
+      - name: Install
+        run: brew install --verbose ikasast/voxinq/voxinq
+
+      # The formula's own test block: `voxinq help` and `voxinq status` answer without a built
+      # app, which is everything that can be checked without the network and several minutes.
+      - name: brew test
+        run: brew test --verbose ikasast/voxinq/voxinq
+
+      # Run it the way the caveats tell the user to, from a shell rather than through brew.
+      - name: Run the installed binary
+        run: |
+          set -euo pipefail
+          which voxinq
+          voxinq help
+          voxinq status
+          # setup has not run, so this must say so rather than claim to be running.
+          voxinq status | grep -qi "not running"
+
+      - name: Uninstall cleanly
+        run: brew uninstall ikasast/voxinq/voxinq
+
+  scoop:
+    name: scoop install from the bucket (Windows)
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      # Scoop refuses to install as an administrator without being told to, and the runner is
+      # one. RemoteSigned is what Scoop's own instructions ask for.
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          irm get.scoop.sh -outfile install.ps1
+          .\install.ps1 -RunAsAdmin
+          "$env:SCOOP\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Add the bucket
+        shell: pwsh
+        run: scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq
+
+      - name: Show what the bucket is offering
+        shell: pwsh
+        run: scoop info voxinq
+
+      - name: Install
+        shell: pwsh
+        run: scoop install voxinq
+
+      - name: Run the installed binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          voxinq help
+          voxinq status
+          if (-not (voxinq status | Select-String -Quiet -Pattern "not running")) {
+            throw "status should report that nothing is running before setup"
+          }
+
+      - name: Uninstall cleanly
+        shell: pwsh
+        run: scoop uninstall voxinq
+
+  homebrew-source:
+    name: brew install from this branch (macOS)
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Homebrew refuses to install a formula that is not in a tap, so the branch's formula is
+      # copied into a throwaway local one. `brew tap-new` is what makes a directory Homebrew
+      # will read -- creating it by hand leaves out the git repository some commands expect.
+      - name: Put the branch's formula in a local tap
+        run: |
+          set -euo pipefail
+          brew tap-new local/voxinq --no-git 2>/dev/null || brew tap-new local/voxinq
+          tap="$(brew --repository local/voxinq)"
+          mkdir -p "$tap/Formula"
+          cp packaging/homebrew/voxinq.rb "$tap/Formula/voxinq.rb"
+          brew info local/voxinq/voxinq
+
+      # Its url and sha256 still point at the last release, so what this proves is that the
+      # *install steps* work -- which is exactly where the dylib failure was. Changes on the CLI
+      # side reach a real install only when the next release rebuilds the tarball.
+      - name: Install from the branch's formula
+        run: brew install --verbose local/voxinq/voxinq
+
+      - name: brew test
+        run: brew test --verbose local/voxinq/voxinq
+
+      - name: Run the installed binary
+        run: |
+          set -euo pipefail
+          which voxinq
+          voxinq help
+          voxinq status
+          voxinq status | grep -qi "not running"
+
+      # The point of the change: nothing that Homebrew has to relocate is left in the keg.
+      - name: No vendored Mach-O in the keg
+        run: |
+          set -euo pipefail
+          keg="$(brew --cellar local/voxinq/voxinq)"
+          found="$(find "$keg" -name '*.dylib' -o -name '*.so' | head -20)"
+          if [ -n "$found" ]; then
+            echo "these would be relocated by Homebrew and must not be installed here:"
+            echo "$found"
+            exit 1
+          fi
+          echo "none, as intended"
+
+      - name: Uninstall cleanly
+        run: brew uninstall local/voxinq/voxinq
+
+  scoop-source:
+    name: scoop install from this branch (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          irm get.scoop.sh -outfile install.ps1
+          .\install.ps1 -RunAsAdmin
+          "$env:SCOOP\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install from packaging/scoop/voxinq.json
+        shell: pwsh
+        run: scoop install .\packaging\scoop\voxinq.json
+
+      - name: Run the installed binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          voxinq help
+          voxinq status
+          if (-not (voxinq status | Select-String -Quiet -Pattern "not running")) {
+            throw "status should report that nothing is running before setup"
+          }
+
+      - name: Uninstall cleanly
+        shell: pwsh
+        run: scoop uninstall voxinq

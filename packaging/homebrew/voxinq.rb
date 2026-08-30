@@ -25,11 +25,23 @@ class Voxinq < Formula
   def install
     libexec.install Dir["*"]
 
-    # The CLI's own dependencies, which include the bundled PostgreSQL binaries for this
-    # platform. The *app's* dependencies are not installed here: `voxinq setup` does that, and
-    # it downloads speech models and takes minutes -- not something to do inside `brew install`
-    # where there is nothing to look at and no way to resume.
-    system "npm", "install", "--omit=dev", "--no-audit", "--no-fund", "--prefix", libexec/"cli"
+    # Nothing is installed into the keg beyond the source. In particular `npm install` is *not*
+    # run here, which it was until CI on a real Mac showed what that costs: the CLI's only
+    # dependency is embedded-postgres, which carries prebuilt PostgreSQL binaries, and Homebrew
+    # rewrites the install names of every Mach-O file it finds in a keg. Those dylibs cannot be
+    # rewritten:
+    #
+    #   Failed changing dylib ID of .../@embedded-postgres/darwin-arm64/native/lib/libcom_err.3.0.dylib
+    #   Failed to fix install linkage
+    #
+    # and `brew install` exits non-zero having apparently succeeded. `voxinq setup` installs it
+    # instead, on the far side of that processing. The app's dependencies were always its job
+    # for a different reason -- they download speech models and take minutes, which is not
+    # something to do inside `brew install` where there is nothing to look at and no way to
+    # resume.
+    #
+    # Scoop does the equivalent in post_install and is right to: Windows has no Mach-O and no
+    # relocation step, so the problem does not exist there.
 
     # A wrapper rather than a symlink: the CLI locates the app by walking up from its own file,
     # and a symlink in bin would put it outside the install.
@@ -66,7 +78,9 @@ class Voxinq < Formula
 
   test do
     # The CLI answers without a built app, which is the only thing testable without a network
-    # and several minutes.
+    # and several minutes. It also answers without its node_modules, which `voxinq setup`
+    # installs: embedded-postgres is imported dynamically, inside the functions that start the
+    # database, so `help` and `status` reach neither.
     assert_match "voxinq", shell_output("#{bin}/voxinq help")
     assert_match "Not running", shell_output("#{bin}/voxinq status")
   end

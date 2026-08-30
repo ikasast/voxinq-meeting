@@ -9,8 +9,9 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { platform, tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 
 const WINDOWS = platform() === "win32";
 
@@ -107,6 +108,23 @@ export function setupInstall(appDir, { say }) {
     );
   }
   say(`  Python ${python.version} (${python.executable})`);
+
+  // The CLI's own dependency -- embedded-postgres, which carries prebuilt PostgreSQL binaries
+  // for this platform. Scoop's post_install already did this, so on Windows it is normally a
+  // no-op; Homebrew deliberately does not, because the vendored dylibs cannot be relocated and
+  // `brew install` fails trying (see packaging/homebrew/voxinq.rb).
+  //
+  // Only its absence is checked, not its contents: npm is the thing that knows whether the
+  // tree is complete, and running it when it already is costs a second.
+  const cliDir = dirname(fileURLToPath(import.meta.url));
+  if (!existsSync(join(cliDir, "..", "node_modules"))) {
+    say("");
+    say("Installing the launcher's own dependencies (bundled PostgreSQL)…");
+    run(WINDOWS ? "npm.cmd" : "npm", ["install", "--omit=dev", "--no-audit", "--no-fund"], {
+      cwd: join(cliDir, ".."),
+      label: "npm install (cli)",
+    });
+  }
 
   say("");
   say("Installing web dependencies (npm install)…");
