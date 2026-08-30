@@ -18,12 +18,14 @@ name: Verify packaging
 
 on:
   workflow_dispatch:
-  # So that a change to this file is checked by the thing it changes, before it is merged.
-  # Deliberately not triggered by packaging/** : this installs the *published* package, and on
-  # a packaging PR that is still the old one, which would look like a pass for the new formula.
+  # On a pull request only the *-source jobs run, against the definitions on the branch. The
+  # jobs that install what is published are skipped there, because a branch cannot change the
+  # tap or the bucket and reporting the last release's state as the branch's would be a lie.
   pull_request:
     paths:
       - ".github/workflows/verify-packaging.yml"
+      - "packaging/**"
+      - "cli/**"
   schedule:
     # Mondays, 04:00 UTC. Nothing depends on the timing; it just needs to be regular.
     - cron: "0 4 * * 1"
@@ -36,7 +38,10 @@ concurrency:
 
 jobs:
   homebrew:
-    name: brew install (macOS)
+    name: brew install from the tap (macOS)
+    # Only what is published. A pull request cannot change the tap, so running this on one
+    # would report the last release's state as if it were the branch's.
+    if: github.event_name != 'pull_request'
     runs-on: macos-14
     timeout-minutes: 30
     steps:
@@ -75,7 +80,8 @@ jobs:
         run: brew uninstall ikasast/voxinq/voxinq
 
   scoop:
-    name: scoop install (Windows)
+    name: scoop install from the bucket (Windows)
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -101,6 +107,81 @@ jobs:
       - name: Install
         shell: pwsh
         run: scoop install voxinq
+
+      - name: Run the installed binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          voxinq help
+          voxinq status
+          if (-not (voxinq status | Select-String -Quiet -Pattern "not running")) {
+            throw "status should report that nothing is running before setup"
+          }
+
+      - name: Uninstall cleanly
+        shell: pwsh
+        run: scoop uninstall voxinq
+
+  homebrew-source:
+    name: brew install from this branch (macOS)
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs the formula as this branch defines it. Its url and sha256 still point at the
+      # last release, so what this proves is that the *install steps* work -- which is exactly
+      # where the dylib failure was. Changes on the CLI side reach a real install only when the
+      # next release rebuilds the tarball.
+      - name: Install from packaging/homebrew/voxinq.rb
+        run: brew install --verbose --formula ./packaging/homebrew/voxinq.rb
+
+      - name: brew test
+        run: brew test --verbose voxinq
+
+      - name: Run the installed binary
+        run: |
+          set -euo pipefail
+          which voxinq
+          voxinq help
+          voxinq status
+          voxinq status | grep -qi "not running"
+
+      # The point of the change: nothing that Homebrew has to relocate is left in the keg.
+      - name: No vendored Mach-O in the keg
+        run: |
+          set -euo pipefail
+          keg="$(brew --cellar voxinq)"
+          found="$(find "$keg" -name '*.dylib' -o -name '*.so' | head -20)"
+          if [ -n "$found" ]; then
+            echo "these would be relocated by Homebrew and must not be installed here:"
+            echo "$found"
+            exit 1
+          fi
+          echo "none, as intended"
+
+      - name: Uninstall cleanly
+        run: brew uninstall voxinq
+
+  scoop-source:
+    name: scoop install from this branch (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          irm get.scoop.sh -outfile install.ps1
+          .\install.ps1 -RunAsAdmin
+          "$env:SCOOP\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install from packaging/scoop/voxinq.json
+        shell: pwsh
+        run: scoop install .\packaging\scoop\voxinq.json
 
       - name: Run the installed binary
         shell: pwsh
