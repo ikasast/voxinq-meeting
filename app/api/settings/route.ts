@@ -13,6 +13,9 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "sttLanguage",
   "sttGlossary",
   "micMode",
+  "sttProvider",
+  "sttRemoteBaseUrl",
+  "sttRemoteModel",
   "llmProvider",
   "ollamaBaseUrl",
   "ollamaModel",
@@ -44,9 +47,13 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.openaiApiKey === "string" && body.openaiApiKey.trim()) {
     patch.openaiApiKey = body.openaiApiKey.trim();
   }
+  if (typeof body.sttRemoteApiKey === "string" && body.sttRemoteApiKey.trim()) {
+    patch.sttRemoteApiKey = body.sttRemoteApiKey.trim();
+  }
   // To explicitly clear a key, use the __clear flag.
   if (body.clearAnthropicApiKey === true) patch.anthropicApiKey = "";
   if (body.clearOpenaiApiKey === true) patch.openaiApiKey = "";
+  if (body.clearSttRemoteApiKey === true) patch.sttRemoteApiKey = "";
 
   const next = await writeSettings(patch);
   return NextResponse.json(toPublic(next));

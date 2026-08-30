@@ -373,37 +373,18 @@ def test_the_providers_own_error_reaches_the_caller() -> None:
             raise AssertionError("a 404 should not look like success")
 
 
-def test_the_http_backend_is_never_chosen_by_detection() -> None:
-    """Configuring a base URL is not the same as choosing to send audio off the machine."""
+def test_choose_backend_never_returns_the_http_one() -> None:
+    """Whatever the environment says. Recognition over HTTP is chosen per job, from the app's
+    settings, and two places deciding could disagree -- an install that set it here and then
+    switched the app back to local would keep uploading audio while the screen said it did not."""
     os.environ["STT_CLOUD_BASE_URL"] = "https://api.example.com/v1"
     try:
         with _Chooser(False, {"pywhispercpp"}):
-            for requested in (None, "", "auto"):
-                assert backends.choose_backend(requested, "cpu", None).name == "whisper.cpp", requested
+            for requested in (None, "", "auto", "openai", "cloud", "http"):
+                got = backends.choose_backend(requested, "cpu", None)
+                assert got.name != "openai-compatible", requested
     finally:
         os.environ.pop("STT_CLOUD_BASE_URL", None)
-
-
-def test_it_is_chosen_when_asked_for_by_name() -> None:
-    os.environ["STT_CLOUD_BASE_URL"] = "https://api.example.com/v1"
-    os.environ["STT_CLOUD_MODEL"] = "whisper-large-v3"
-    try:
-        b = backends.choose_backend("openai", "cpu", None)
-        assert b.name == "openai-compatible"
-        assert b.load("") == "whisper-large-v3"
-    finally:
-        os.environ.pop("STT_CLOUD_BASE_URL", None)
-        os.environ.pop("STT_CLOUD_MODEL", None)
-
-
-def test_asking_for_it_without_a_url_says_so_instead_of_starting() -> None:
-    os.environ.pop("STT_CLOUD_BASE_URL", None)
-    try:
-        backends.choose_backend("openai", "cpu", None)
-    except SystemExit as e:
-        assert "STT_CLOUD_BASE_URL" in str(e)
-    else:
-        raise AssertionError("it must not start without somewhere to send the audio")
 
 
 def test_it_reports_the_fields_health_asks_every_backend_for() -> None:

@@ -52,8 +52,12 @@ export async function transcribeRecording(
   const base = sttHttpBase();
   const { onProgress, signal } = opts;
 
+  // Starting goes through the app's own server; polling below does not. The difference is a
+  // credential: when recognition is being done by an HTTP provider, this request carries its
+  // API key, which is read from settings.json server-side and must not pass through here. The
+  // status endpoint needs nothing, so it stays a direct call.
   onProgress?.("Starting transcription…");
-  const startRes = await fetch(`${base}/transcribe/${meetingId}`, {
+  const startRes = await fetch(`/api/meetings/${meetingId}/transcribe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -66,7 +70,9 @@ export async function transcribeRecording(
   });
   if (!startRes.ok) {
     const d = await startRes.json().catch(() => null);
-    throw new Error(d?.detail ?? `Failed to start transcription (HTTP ${startRes.status})`);
+    throw new Error(
+      d?.detail ?? d?.error ?? `Failed to start transcription (HTTP ${startRes.status})`,
+    );
   }
 
   let job = (await startRes.json()) as Job;

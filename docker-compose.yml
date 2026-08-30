@@ -78,6 +78,22 @@ services:
       # one, so leaving this unset renders them in UTC while the browser renders the
       # transcript timestamps in local time — the same meeting then shows two clocks.
       TZ: ${TZ:-UTC}
+      # Recognition somewhere else, for a machine with no NVIDIA and no Apple silicon, where
+      # doing it here takes about three times the length of the meeting. These only seed the
+      # settings screen's defaults -- Settings -> Transcription is where it is chosen, and what
+      # is set there wins. They belong to `web` and not to `stt` because the app holds the
+      # settings and posts the job; the key never passes through a browser.
+      #
+      #   STT_PROVIDER_DEFAULT is implied: setting STT_BACKEND here selects "remote" on first run.
+      #
+      # Any /v1/audio/transcriptions endpoint works -- Groq, OpenAI, Fireworks, OpenRouter, or a
+      # whisper server of your own on another machine. There is no live transcript either way:
+      # this applies to the after-the-meeting pass, which is what a host without acceleration
+      # already does.
+      STT_BACKEND: ${STT_BACKEND:-}
+      STT_CLOUD_BASE_URL: ${STT_CLOUD_BASE_URL:-}
+      STT_CLOUD_API_KEY: ${STT_CLOUD_API_KEY:-}
+      STT_CLOUD_MODEL: ${STT_CLOUD_MODEL:-}
     ports:
       - "${WEB_PORT:-3000}:3000"
     # So that Settings -> LLM can be pointed at an Ollama already running on the host, rather
@@ -109,27 +125,6 @@ services:
       # Unset means "choose from the hardware": pyannote on CUDA, sherpa-onnx without it.
       DIA_BACKEND: ${DIA_BACKEND:-}
       WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
-      # Recognition somewhere else, for a machine with no NVIDIA and no Apple silicon, where
-      # doing it here takes about three times the length of the meeting. Set all of these or
-      # none: STT_BACKEND alone will refuse to start rather than guess where to send audio,
-      # and the base URL alone changes nothing -- sending meeting audio off the machine is
-      # never inferred from configuration, only from being asked for.
-      #
-      #   STT_BACKEND=openai
-      #   STT_CLOUD_BASE_URL=https://api.groq.com/openai/v1
-      #   STT_CLOUD_API_KEY=...
-      #   STT_CLOUD_MODEL=whisper-large-v3-turbo
-      #
-      # Any /v1/audio/transcriptions endpoint works -- Groq, OpenAI, Fireworks, OpenRouter, or
-      # a whisper server of your own on another machine. There is no live transcript on this
-      # setting; the meeting is recorded and recognised when it ends.
-      STT_BACKEND: ${STT_BACKEND:-}
-      STT_CLOUD_BASE_URL: ${STT_CLOUD_BASE_URL:-}
-      STT_CLOUD_API_KEY: ${STT_CLOUD_API_KEY:-}
-      STT_CLOUD_MODEL: ${STT_CLOUD_MODEL:-}
-      # Upload cap in MB. 25 is the common limit; 20 leaves room for the WAV header and for a
-      # provider that counts differently.
-      STT_CLOUD_MAX_MB: ${STT_CLOUD_MAX_MB:-}
       # The browser's origin must be allowed; it calls this service directly.
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}
       # Log timestamps only — nothing here is shown in the UI — but a stack whose services
