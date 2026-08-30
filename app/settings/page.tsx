@@ -15,6 +15,8 @@ import { DataBackup } from "./data-backup";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 import { ExternalProviderNotice } from "./external-provider-notice";
+import { RemoteSttNotice } from "./remote-stt-notice";
+import { sttHealth } from "@/lib/stt/preload";
 
 type PublicSettings = {
   whisperModel: string;
@@ -89,6 +91,9 @@ function fieldsetClass(active: boolean) {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
+  // Where recognition is happening. Asked of the service rather than of settings.json,
+  // because it is configured on the service and the app has no other way to know.
+  const [sttRemoteHost, setSttRemoteHost] = useState<string | null>(null);
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
@@ -114,6 +119,15 @@ export default function SettingsPage() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((data: PublicSettings) => setSettings(data))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
+  }, []);
+
+  // Failure is silence, not an error: the STT service being unreachable is worth reporting on
+  // the recording screen, which is where it stops you working. Here it would only be noise on
+  // a page you may have opened to fix something else.
+  useEffect(() => {
+    sttHealth()
+      .then((h) => setSttRemoteHost(h?.remoteHost ?? null))
+      .catch(() => setSttRemoteHost(null));
   }, []);
 
   const update = <K extends keyof PublicSettings>(key: K, value: PublicSettings[K]) => {
@@ -213,6 +227,7 @@ export default function SettingsPage() {
         {tab === "stt" ? (
         <section className="card space-y-4 p-6">
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Transcription (Whisper)</h2>
+          {sttRemoteHost ? <RemoteSttNotice host={sttRemoteHost} /> : null}
           <div>
             <label htmlFor="whisperModel" className={labelClass}>
               Model

@@ -87,6 +87,11 @@ def live_transcription_available(backend: Any) -> bool:
         whisper.cpp on Apple silicon    its wheel bundles Metal            -> live
         whisper.cpp anywhere else       those wheels are CPU builds        -> deferred
     """
+    if backend.name == "openai-compatible":
+        # A round trip per chunk, and the chunks are minutes long. This backend exists for the
+        # deferred path and answers here so the app offers the right thing rather than a live
+        # transcript that arrives in bursts, minutes late.
+        return False
     if backend.name == "faster-whisper":
         return backend.device == "cuda"
     return apple_silicon()
@@ -307,9 +312,29 @@ def choose_backend(requested: str | None, device: str, compute: str | None):
     whisper.cpp because CTranslate2 has no GPU path outside CUDA. A backend that is asked for
     but is not installed falls back rather than refusing to start -- an STT service that will
     not boot is worse than one running on the other engine.
+
+    The HTTP backend is never reached by that path. It is selected only when STT_BACKEND names
+    it, and never by detecting that a base URL happens to be set: sending meeting audio off the
+    machine has to be something someone did on purpose, and configuring a thing is not the same
+    as choosing it. See docs/design-decisions.md, "Running entirely on your own machine".
     """
     want = (requested or "").strip().lower()
     has_cuda = device == "cuda" and cuda_available()
+
+    if want in ("openai", "openai-compatible", "cloud", "http"):
+        base = (os.environ.get("STT_CLOUD_BASE_URL") or "").strip()
+        if not base:
+            raise SystemExit(
+                "STT_BACKEND=openai needs STT_CLOUD_BASE_URL "
+                "(for example https://api.groq.com/openai/v1)"
+            )
+        key = (os.environ.get("STT_CLOUD_API_KEY") or "").strip()
+        model = (os.environ.get("STT_CLOUD_MODEL") or "whisper-large-v3-turbo").strip()
+        try:
+            max_mb = float(os.environ.get("STT_CLOUD_MAX_MB") or "20")
+        except ValueError:
+            max_mb = 20.0
+        return OpenAiCompatibleBackend(base, key, model, int(max_mb * 1024 * 1024))
 
     if want in ("faster-whisper", "faster_whisper", "fw"):
         chosen = "faster-whisper"
@@ -328,3 +353,205 @@ def choose_backend(requested: str | None, device: str, compute: str | None):
         resolved = compute or ("int8_float16" if has_cuda else "int8")
         return FasterWhisperBackend(device if has_cuda else "cpu", resolved)
     return WhisperCppBackend("cuda" if has_cuda else "cpu")
+
+
+# --- OpenAI-compatible transcription over HTTP ------------------------------------------
+#
+# `POST /v1/audio/transcriptions` is the closest thing to a standard here. OpenAI defined it,
+# and Groq, Fireworks, Mistral, Azure and OVHcloud implement it; OpenRouter and LiteLLM route
+# on to Deepgram and AssemblyAI through the same shape. One implementation reaches all of them,
+# which is why there is no per-vendor code -- and why the same setting also reaches a
+# **self-hosted** whisper server on another machine you own. That last case is the point: this
+# is not a cloud backend, it is an HTTP backend that a cloud happens to answer.
+#
+# It exists for one problem. On a machine with no CUDA and no Metal, recognition runs at about
+# 2.8x the length of the audio: an hour-long meeting is a three-hour wait. A hosted
+# whisper-large-v3-turbo returns the same hour in minutes. The download was never the barrier
+# -- the CPU images with a cloud LLM come to under a gigabyte -- the wait was.
+#
+# Deliberately not live. Recognition here is a round trip per chunk, so it belongs to the
+# after-the-meeting path that hosts without acceleration already use: `live_transcription_
+# available` returns False for it and nothing downstream changes. Streaming would mean
+# stitching sessions across the recording pipeline, which is what diarization and
+# click-to-play are built on.
+
+CLOUD_TIMEOUT_S = int(os.environ.get("STT_CLOUD_TIMEOUT", "600"))
+
+
+def _wav_bytes(audio: np.ndarray) -> bytes:
+    """float32 mono @16k -> a 16-bit PCM WAV in memory. What every one of these APIs accepts."""
+    import io
+    import wave
+
+    pcm = (np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SAMPLE_RATE)
+        w.writeframes(pcm)
+    return buf.getvalue()
+
+
+def split_on_silence(audio: np.ndarray, max_samples: int) -> list[tuple[int, int]]:
+    """Cut `audio` into spans no longer than `max_samples`, preferring quiet moments.
+
+    Every one of these endpoints caps the upload -- OpenAI at 25 MB, which for 16 kHz mono
+    16-bit is about thirteen minutes -- so an hour-long meeting *has* to be split. Splitting on
+    a clock would cut words in half and lose them at both ends, so each boundary is moved to
+    the quietest 100 ms in the last fifth of the span. A meeting always has pauses; if one
+    somehow does not, the search still finds the least-loud window and the cut lands there.
+    """
+    if max_samples <= 0 or len(audio) <= max_samples:
+        return [(0, len(audio))]
+
+    win = SAMPLE_RATE // 10  # 100 ms
+    spans: list[tuple[int, int]] = []
+    start = 0
+    while start < len(audio):
+        end = start + max_samples
+        if end >= len(audio):
+            spans.append((start, len(audio)))
+            break
+        search_from = max(start + win, end - max_samples // 5)
+        best_at, best_energy = end, None
+        for at in range(search_from, end - win, win):
+            e = float(np.mean(np.abs(audio[at : at + win])))
+            if best_energy is None or e < best_energy:
+                best_energy, best_at = e, at + win // 2
+        spans.append((start, best_at))
+        start = best_at
+    return spans
+
+
+class OpenAiCompatibleBackend:
+    """Recognition by HTTP, against anything that speaks /v1/audio/transcriptions."""
+
+    name = "openai-compatible"
+    device = "remote"
+
+    def __init__(self, base_url: str, api_key: str, model: str, max_bytes: int) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.default_model = model
+        self.max_bytes = max_bytes
+        # /health reports these for every backend, so they have to exist here too.
+        self.compute = "http"
+        # The host, never the key or the path. The settings screen names it so that "where is
+        # this audio going" is answerable from the app rather than from the .env file.
+        try:
+            from urllib.parse import urlparse
+
+            self.host = urlparse(self.base_url).hostname or self.base_url
+        except Exception:  # noqa: BLE001  a malformed URL should not stop the service booting
+            self.host = self.base_url
+
+    # Nothing to load or free: the model is on someone else's machine. The handle is the model
+    # name, so the caller's "load a different model" path keeps working unchanged.
+    def load(self, model_name: str) -> Any:
+        return model_name or self.default_model
+
+    def unload(self, model: Any) -> None:
+        del model
+
+    def _post(self, wav: bytes, model: str, language: str | None, prompt: str | None) -> dict:
+        """One multipart POST, built by hand to keep this service's dependencies unchanged."""
+        import json
+        import urllib.error
+        import urllib.request
+        import uuid
+
+        boundary = "----voxinq" + uuid.uuid4().hex
+        fields = {"model": model, "response_format": "verbose_json"}
+        if language:
+            fields["language"] = language
+        if prompt:
+            fields["prompt"] = prompt
+
+        parts: list[bytes] = []
+        for k, v in fields.items():
+            head = "--" + boundary + "\r\n"
+            head += 'Content-Disposition: form-data; name="' + k + '"\r\n\r\n'
+            parts.append(head.encode() + str(v).encode() + b"\r\n")
+        filehead = "--" + boundary + "\r\n"
+        filehead += 'Content-Disposition: form-data; name="file"; filename="audio.wav"\r\n'
+        filehead += "Content-Type: audio/wav\r\n\r\n"
+        parts.append(filehead.encode())
+        parts.append(wav)
+        parts.append(("\r\n--" + boundary + "--\r\n").encode())
+        body = b"".join(parts)
+
+        req = urllib.request.Request(
+            self.base_url + "/audio/transcriptions",
+            data=body,
+            headers={
+                "Content-Type": "multipart/form-data; boundary=" + boundary,
+                "Authorization": "Bearer " + self.api_key,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=CLOUD_TIMEOUT_S) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            # The provider's own message is the useful part: a wrong key, an unknown model and
+            # an oversized file all arrive here and all read differently.
+            detail = e.read().decode("utf-8", "replace")[:400]
+            raise RuntimeError(
+                self.base_url + " returned " + str(e.code) + ": " + detail
+            ) from None
+        except urllib.error.URLError as e:
+            raise RuntimeError("could not reach " + self.base_url + ": " + str(e.reason)) from None
+
+    def transcribe(
+        self,
+        model: Any,
+        audio: np.ndarray,
+        *,
+        language: str | None,
+        initial_prompt: str | None,
+        beam_size: int,
+        vad_min_silence_ms: int,
+        no_speech_threshold: float,
+    ) -> tuple[list[Segment], str | None]:
+        # beam_size, vad_min_silence_ms and no_speech_threshold have no equivalent over HTTP.
+        # Accepted and ignored rather than raising: the caller is backend-agnostic on purpose,
+        # and refusing here would make it care which backend it has.
+        del beam_size, vad_min_silence_ms, no_speech_threshold
+
+        max_samples = max(SAMPLE_RATE * 10, (self.max_bytes - 4096) // 2)
+        out: list[Segment] = []
+        detected: str | None = None
+
+        for begin, end in split_on_silence(audio, max_samples):
+            offset = begin / float(SAMPLE_RATE)
+            data = self._post(
+                _wav_bytes(audio[begin:end]), str(model), language, initial_prompt or None
+            )
+            detected = detected or data.get("language")
+            segs = data.get("segments")
+            if isinstance(segs, list) and segs:
+                for s in segs:
+                    text = str(s.get("text") or "").strip()
+                    if not text:
+                        continue
+                    # Confidence fields are left at their defaults, which keep a segment: these
+                    # providers do not report Whisper's, and do not produce the canned
+                    # silence hallucinations those filters exist for either.
+                    out.append(
+                        Segment(
+                            text=text,
+                            start=offset + float(s.get("start") or 0.0),
+                            end=offset + float(s.get("end") or 0.0),
+                        )
+                    )
+            else:
+                # Some providers answer `verbose_json` with only `text`. One span for the whole
+                # chunk is worse than real boundaries and better than dropping the audio.
+                text = str(data.get("text") or "").strip()
+                if text:
+                    out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
+        return out, detected
+
+    def decode_audio(self, path: str) -> np.ndarray:
+        return _ffmpeg_decode(path)
