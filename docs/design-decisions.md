@@ -288,9 +288,18 @@ drops the oldest only when they do not fit, then says so in the footer. For "wha
 so far", missing a meeting because it ranked poorly is worse than a longer prompt — the current
 approach cannot silently skip one.
 
-Revisit when a single series stops fitting in the context window (roughly 30–50 meetings). At
-that point `pgvector` on the existing PostgreSQL is the natural step; a separate vector service
-would not be.
+Revisit when a single series stops fitting in the context window. That is not a meeting count,
+though it was written as one here for a while: the budget is spent on characters, and minutes
+vary enormously in length. Measured across the minutes on one production instance, the shortest
+was 406 characters and the longest 10,993 — the median 963. Against the ~21,300 tokens Ask has
+to work with on the default Ollama budget, that is 40 meetings at the median, 23 at the mean,
+and three or four of the longest. A series of short stand-ups will never reach the wall; a
+series of long workshops reaches it in a handful.
+
+So the trigger is a series whose minutes approach the budget, which the Ask footer already
+reports the moment it starts dropping the oldest. At that point `pgvector` on the existing
+PostgreSQL is the natural step; a separate vector service would not be. Raising `ollamaNumCtx`
+is the cheaper move first, where there is VRAM for it.
 
 ## Minutes are Markdown, not structured JSON
 
