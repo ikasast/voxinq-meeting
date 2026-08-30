@@ -1,0 +1,117 @@
+# Install Voxinq the way a new user would, on machines that are not this one.
+#
+# The tap and the bucket have been published since v2.0.0-beta.3 and, until this workflow, had
+# never been installed from: there is no Mac here for `brew`, and Scoop is not on the
+# development machine. docs/setup.md says so with a warning marker, which is honest but does
+# not make the path work. An external review then read that same page and scored the Homebrew
+# route as a strength -- so the untested path is already being counted as a working one.
+#
+# macOS and Windows runners are free for public repositories, so the gap costs nothing to
+# close. What this checks is the install itself, not the app: `voxinq setup` downloads speech
+# models and takes minutes, and is deliberately out of scope. The question here is narrower and
+# is the one nobody could answer -- does the published package install and run at all.
+#
+# Weekly as well as on demand, because these can break without anything here changing: a new
+# major `node` in Homebrew, a Python version going end-of-life, a runner image moving on.
+
+name: Verify packaging
+
+on:
+  workflow_dispatch:
+  # So that a change to this file is checked by the thing it changes, before it is merged.
+  # Deliberately not triggered by packaging/** : this installs the *published* package, and on
+  # a packaging PR that is still the old one, which would look like a pass for the new formula.
+  pull_request:
+    paths:
+      - ".github/workflows/verify-packaging.yml"
+  schedule:
+    # Mondays, 04:00 UTC. Nothing depends on the timing; it just needs to be regular.
+    - cron: "0 4 * * 1"
+
+# One at a time. Two runs installing the same formula prove nothing extra and the schedule can
+# overlap a manual run.
+concurrency:
+  group: verify-packaging
+  cancel-in-progress: false
+
+jobs:
+  homebrew:
+    name: brew install (macOS)
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Tap
+        run: brew tap ikasast/voxinq https://github.com/ikasast/homebrew-voxinq
+
+      - name: Show what the tap is offering
+        run: brew info ikasast/voxinq/voxinq
+
+      # Style and metadata problems that would not stop an install but would stop the formula
+      # being trusted. Advisory: a new Homebrew release can add a rule overnight, and that is
+      # not a reason to report the install as broken.
+      - name: Audit the formula
+        continue-on-error: true
+        run: brew audit --strict --online ikasast/voxinq/voxinq
+
+      - name: Install
+        run: brew install --verbose ikasast/voxinq/voxinq
+
+      # The formula's own test block: `voxinq help` and `voxinq status` answer without a built
+      # app, which is everything that can be checked without the network and several minutes.
+      - name: brew test
+        run: brew test --verbose ikasast/voxinq/voxinq
+
+      # Run it the way the caveats tell the user to, from a shell rather than through brew.
+      - name: Run the installed binary
+        run: |
+          set -euo pipefail
+          which voxinq
+          voxinq help
+          voxinq status
+          # setup has not run, so this must say so rather than claim to be running.
+          voxinq status | grep -qi "not running"
+
+      - name: Uninstall cleanly
+        run: brew uninstall ikasast/voxinq/voxinq
+
+  scoop:
+    name: scoop install (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      # Scoop refuses to install as an administrator without being told to, and the runner is
+      # one. RemoteSigned is what Scoop's own instructions ask for.
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          $env:SCOOP = "$env:USERPROFILE\scoop"
+          irm get.scoop.sh -outfile install.ps1
+          .\install.ps1 -RunAsAdmin
+          "$env:SCOOP\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Add the bucket
+        shell: pwsh
+        run: scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq
+
+      - name: Show what the bucket is offering
+        shell: pwsh
+        run: scoop info voxinq
+
+      - name: Install
+        shell: pwsh
+        run: scoop install voxinq
+
+      - name: Run the installed binary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          voxinq help
+          voxinq status
+          if (-not (voxinq status | Select-String -Quiet -Pattern "not running")) {
+            throw "status should report that nothing is running before setup"
+          }
+
+      - name: Uninstall cleanly
+        shell: pwsh
+        run: scoop uninstall voxinq
