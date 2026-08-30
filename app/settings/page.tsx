@@ -14,6 +14,7 @@ import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib
 import { DataBackup } from "./data-backup";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
+import { ExternalProviderNotice } from "./external-provider-notice";
 
 type PublicSettings = {
   whisperModel: string;
@@ -57,9 +58,9 @@ const MIC_MODES: { id: string; label: string }[] = [
   { id: "room", label: "Room (pick up distant voices)" },
 ];
 const LLM_PROVIDERS: { id: PublicSettings["llmProvider"]; label: string }[] = [
-  { id: "ollama", label: "Ollama (local, default)" },
-  { id: "anthropic", label: "Anthropic (Claude API)" },
-  { id: "openai", label: "OpenAI-compatible API" },
+  { id: "ollama", label: "Ollama (default)" },
+  { id: "anthropic", label: "Anthropic (Claude API — sends your transcripts off this machine)" },
+  { id: "openai", label: "OpenAI-compatible API (OpenAI, or a local server like LM Studio)" },
 ];
 
 // Settings tabs. Grouped by category as the number of items has grown.
@@ -458,6 +459,8 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
+
+          <ExternalProviderNotice settings={settings} />
 
           {/* Ollama fieldset */}
           <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "ollama")}>
