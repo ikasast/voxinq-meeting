@@ -129,15 +129,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Installs the formula as this branch defines it. Its url and sha256 still point at the
-      # last release, so what this proves is that the *install steps* work -- which is exactly
-      # where the dylib failure was. Changes on the CLI side reach a real install only when the
-      # next release rebuilds the tarball.
-      - name: Install from packaging/homebrew/voxinq.rb
-        run: brew install --verbose --formula ./packaging/homebrew/voxinq.rb
+      # Homebrew refuses to install a formula that is not in a tap, so the branch's formula is
+      # copied into a throwaway local one. `brew tap-new` is what makes a directory Homebrew
+      # will read -- creating it by hand leaves out the git repository some commands expect.
+      - name: Put the branch's formula in a local tap
+        run: |
+          set -euo pipefail
+          brew tap-new local/voxinq --no-git 2>/dev/null || brew tap-new local/voxinq
+          tap="$(brew --repository local/voxinq)"
+          mkdir -p "$tap/Formula"
+          cp packaging/homebrew/voxinq.rb "$tap/Formula/voxinq.rb"
+          brew info local/voxinq/voxinq
+
+      # Its url and sha256 still point at the last release, so what this proves is that the
+      # *install steps* work -- which is exactly where the dylib failure was. Changes on the CLI
+      # side reach a real install only when the next release rebuilds the tarball.
+      - name: Install from the branch's formula
+        run: brew install --verbose local/voxinq/voxinq
 
       - name: brew test
-        run: brew test --verbose voxinq
+        run: brew test --verbose local/voxinq/voxinq
 
       - name: Run the installed binary
         run: |
@@ -151,7 +162,7 @@ jobs:
       - name: No vendored Mach-O in the keg
         run: |
           set -euo pipefail
-          keg="$(brew --cellar voxinq)"
+          keg="$(brew --cellar local/voxinq/voxinq)"
           found="$(find "$keg" -name '*.dylib' -o -name '*.so' | head -20)"
           if [ -n "$found" ]; then
             echo "these would be relocated by Homebrew and must not be installed here:"
@@ -161,7 +172,7 @@ jobs:
           echo "none, as intended"
 
       - name: Uninstall cleanly
-        run: brew uninstall voxinq
+        run: brew uninstall local/voxinq/voxinq
 
   scoop-source:
     name: scoop install from this branch (Windows)
