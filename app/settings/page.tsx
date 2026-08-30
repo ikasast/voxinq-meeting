@@ -15,8 +15,7 @@ import { DataBackup } from "./data-backup";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 import { ExternalProviderNotice } from "./external-provider-notice";
-import { RemoteSttNotice } from "./remote-stt-notice";
-import { sttHealth } from "@/lib/stt/preload";
+import { RemoteSttNotice, sttDestination } from "./remote-stt-notice";
 
 type PublicSettings = {
   whisperModel: string;
@@ -24,6 +23,10 @@ type PublicSettings = {
   sttGlossary: string;
   micMode: string;
   sttTranslate: boolean;
+  sttProvider: "local" | "remote";
+  sttRemoteBaseUrl: string;
+  sttRemoteModel: string;
+  hasSttRemoteApiKey: boolean;
   llmProvider: "ollama" | "anthropic" | "openai";
   ollamaBaseUrl: string;
   ollamaModel: string;
@@ -91,9 +94,7 @@ function fieldsetClass(active: boolean) {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
-  // Where recognition is happening. Asked of the service rather than of settings.json,
-  // because it is configured on the service and the app has no other way to know.
-  const [sttRemoteHost, setSttRemoteHost] = useState<string | null>(null);
+  const [sttRemoteApiKey, setSttRemoteApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
@@ -121,14 +122,7 @@ export default function SettingsPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, []);
 
-  // Failure is silence, not an error: the STT service being unreachable is worth reporting on
-  // the recording screen, which is where it stops you working. Here it would only be noise on
-  // a page you may have opened to fix something else.
-  useEffect(() => {
-    sttHealth()
-      .then((h) => setSttRemoteHost(h?.remoteHost ?? null))
-      .catch(() => setSttRemoteHost(null));
-  }, []);
+  const sttDest = settings ? sttDestination(settings) : null;
 
   const update = <K extends keyof PublicSettings>(key: K, value: PublicSettings[K]) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -159,6 +153,7 @@ export default function SettingsPage() {
         summaryLanguage: settings.summaryLanguage,
         summaryDetail: settings.summaryDetail,
       };
+      if (sttRemoteApiKey.trim()) body.sttRemoteApiKey = sttRemoteApiKey.trim();
       if (anthropicApiKey.trim()) body.anthropicApiKey = anthropicApiKey.trim();
       if (openaiApiKey.trim()) body.openaiApiKey = openaiApiKey.trim();
       if (clearAnthropicApiKey) body.clearAnthropicApiKey = true;
@@ -227,7 +222,84 @@ export default function SettingsPage() {
         {tab === "stt" ? (
         <section className="card space-y-4 p-6">
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Transcription (Whisper)</h2>
-          {sttRemoteHost ? <RemoteSttNotice host={sttRemoteHost} /> : null}
+          {sttDest ? <RemoteSttNotice host={sttDest} /> : null}
+
+          <div>
+            <label htmlFor="sttProvider" className={labelClass}>
+              Recognise speech
+            </label>
+            <select
+              id="sttProvider"
+              value={settings.sttProvider}
+              onChange={(e) => update("sttProvider", e.target.value as "local" | "remote")}
+              disabled={saving}
+              className={inputClass}
+            >
+              <option value="local">On this machine (default)</option>
+              <option value="remote">
+                Send to an OpenAI-compatible endpoint (cloud, or a server of your own)
+              </option>
+            </select>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Sending it elsewhere is for a machine with no NVIDIA card and no Apple silicon,
+              where recognising an hour of audio here takes about three.
+            </p>
+          </div>
+
+          <fieldset disabled={saving} className={fieldsetClass(settings.sttProvider === "remote")}>
+            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">
+              OpenAI-compatible endpoint
+            </legend>
+            <div>
+              <label htmlFor="sttRemoteBaseUrl" className={labelClass}>
+                Base URL
+              </label>
+              <input
+                id="sttRemoteBaseUrl"
+                type="text"
+                value={settings.sttRemoteBaseUrl}
+                onChange={(e) => update("sttRemoteBaseUrl", e.target.value)}
+                placeholder="https://api.groq.com/openai/v1"
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Anything speaking <code>/v1/audio/transcriptions</code> — Groq, OpenAI,
+                Fireworks, OpenRouter, or your own whisper server. A local address raises no
+                notice, because nothing leaves your network.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="sttRemoteModel" className={labelClass}>
+                Model
+              </label>
+              <input
+                id="sttRemoteModel"
+                type="text"
+                value={settings.sttRemoteModel}
+                onChange={(e) => update("sttRemoteModel", e.target.value)}
+                placeholder="whisper-large-v3-turbo"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="sttRemoteApiKey" className={labelClass}>
+                API key
+              </label>
+              <input
+                id="sttRemoteApiKey"
+                type="password"
+                value={sttRemoteApiKey}
+                onChange={(e) => setSttRemoteApiKey(e.target.value)}
+                placeholder={settings.hasSttRemoteApiKey ? "•••••••• (saved)" : "not set"}
+                className={inputClass}
+                autoComplete="off"
+              />
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
+                Stored on the server and never sent to the browser. Leave blank to keep the
+                saved one. A server of your own may not need one.
+              </p>
+            </div>
+          </fieldset>
           <div>
             <label htmlFor="whisperModel" className={labelClass}>
               Model

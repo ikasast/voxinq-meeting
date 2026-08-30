@@ -58,15 +58,19 @@ you happen to visit — is refused.
 
 ### Recognising speech somewhere else
 
-Read by the **STT service**, not the web app. Set all four or none.
+Chosen in the app: **Settings → Transcription → Recognise speech**. The variables below only
+seed its defaults, so an install can come up already configured; what is set in the app wins.
 
 | Variable | Example | Purpose |
 | --- | --- | --- |
-| `STT_BACKEND` | `openai` | Which engine recognises speech. Unset picks from the hardware — faster-whisper on CUDA, whisper.cpp otherwise, both on this machine. `openai` sends the audio to an HTTP endpoint instead. |
+| `STT_BACKEND` | `openai` | Any value selects "remote" on first run. Unset leaves recognition on this machine. |
 | `STT_CLOUD_BASE_URL` | `https://api.groq.com/openai/v1` | Anything that speaks `/v1/audio/transcriptions`. |
 | `STT_CLOUD_API_KEY` | `gsk_…` | Bearer token. Not needed by a server of your own that does not ask for one. |
 | `STT_CLOUD_MODEL` | `whisper-large-v3-turbo` | Defaults to `whisper-large-v3-turbo`. |
-| `STT_CLOUD_MAX_MB` | `20` | Upload cap. 25 MB is the common limit; the default 20 leaves room. |
+
+Read by the **web** service, not the STT one. The key stays there: the app posts the job to the
+STT service over `STT_INTERNAL_URL` with the credential attached, so it never passes through a
+browser — and `toPublic` strips it from everything the settings screen receives.
 
 **This is not a cloud setting, it is an HTTP one.** `/v1/audio/transcriptions` is what Groq,
 OpenAI, Fireworks, Mistral, Azure and OVHcloud implement, what OpenRouter and LiteLLM route on
@@ -78,23 +82,20 @@ It exists for the machine with no NVIDIA card and no Apple silicon, where recogn
 of audio locally takes about three hours. A hosted `whisper-large-v3-turbo` returns it in
 minutes.
 
-**`STT_BACKEND` on its own will not start.** It refuses rather than guessing where to send
-audio. And `STT_CLOUD_BASE_URL` on its own changes nothing: audio leaving the machine is
-something you ask for by name, never something inferred from a variable being present. See
-[the requirement](design-decisions.md#running-entirely-on-your-own-machine-is-a-requirement-not-a-default).
+What it applies to, and what it gives up:
 
-What it gives up:
-
-- **No live transcript.** Recognition is a round trip per chunk, so the meeting is recorded and
-  recognised once it ends — the same path a CPU-only host already uses.
+- **The after-the-meeting pass only.** Live recognition streams and an HTTP round trip does
+  not, so recording still happens the way it always did — and a host slow enough to want this
+  was already deferring. On a machine that transcribes live, this is what *Re-transcribe* uses.
 - **Long meetings are split.** These endpoints cap the upload at around thirteen minutes of
   16 kHz audio, so the recording is cut at the quietest moment near each boundary and sent in
   pieces. Timestamps are stitched back onto the meeting's own clock.
 - **It is billed by the provider**, roughly $0.25–0.40 per hour of audio at current rates.
 
 What stays here regardless: the recording, the voiceprints, speaker separation and the
-database. **Settings → Transcription** names the host in the app while this is in force, so
-nobody has to read a `.env` file to find out where their meetings are going.
+database. The settings screen names the destination host while this is in force, so nobody has
+to read a `.env` file to find out where their meetings are going. See
+[the requirement](design-decisions.md#running-entirely-on-your-own-machine-is-a-requirement-not-a-default).
 
 ## `settings.json`
 

@@ -22,6 +22,15 @@ export type AppSettings = {
   // Translate non-Japanese utterances into Japanese alongside the transcript. Off by default:
   // it downloads a ~600MB CC-BY-NC translation model to the STT host on first use.
   sttTranslate: boolean;
+  // Where speech is recognised. "local" runs it on the STT host, picking an engine from the
+  // hardware. "remote" posts the audio to an OpenAI-compatible /v1/audio/transcriptions --
+  // which is a cloud provider or a whisper server of your own, depending on the URL. Empty
+  // fields fall back to the STT service's own STT_BACKEND / STT_CLOUD_* environment, so an
+  // install configured entirely from .env keeps working without opening this screen.
+  sttProvider: "local" | "remote";
+  sttRemoteBaseUrl: string;
+  sttRemoteApiKey: string;
+  sttRemoteModel: string;
   // LLM
   llmProvider: LlmProviderName;
   ollamaBaseUrl: string;
@@ -50,6 +59,10 @@ function defaults(): AppSettings {
     sttGlossary: "",
     micMode: "standard",
     sttTranslate: false,
+    sttProvider: (process.env.STT_BACKEND ?? "").trim() ? "remote" : "local",
+    sttRemoteBaseUrl: process.env.STT_CLOUD_BASE_URL ?? "",
+    sttRemoteApiKey: process.env.STT_CLOUD_API_KEY ?? "",
+    sttRemoteModel: process.env.STT_CLOUD_MODEL ?? "whisper-large-v3-turbo",
     llmProvider: ((process.env.LLM_PROVIDER ?? "ollama").toLowerCase() as LlmProviderName) || "ollama",
     // 127.0.0.1, not localhost: on Windows `localhost` prefers ::1, so a container publishing
     // the same port on IPv6 would answer instead of the local Ollama.
@@ -179,16 +192,21 @@ export async function getVoiceprintThreshold(): Promise<number> {
 }
 
 /** Client-safe representation with API keys hidden. */
-export type PublicSettings = Omit<AppSettings, "anthropicApiKey" | "openaiApiKey"> & {
+export type PublicSettings = Omit<
+  AppSettings,
+  "anthropicApiKey" | "openaiApiKey" | "sttRemoteApiKey"
+> & {
   hasAnthropicApiKey: boolean;
   hasOpenaiApiKey: boolean;
+  hasSttRemoteApiKey: boolean;
 };
 
 export function toPublic(s: AppSettings): PublicSettings {
-  const { anthropicApiKey, openaiApiKey, ...rest } = s;
+  const { anthropicApiKey, openaiApiKey, sttRemoteApiKey, ...rest } = s;
   return {
     ...rest,
     hasAnthropicApiKey: Boolean(anthropicApiKey),
     hasOpenaiApiKey: Boolean(openaiApiKey),
+    hasSttRemoteApiKey: Boolean(sttRemoteApiKey),
   };
 }

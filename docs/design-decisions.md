@@ -403,10 +403,16 @@ plainly: **a whisper server of your own on another machine answers the same endp
 not a cloud backend that a local server happens to be compatible with. It is an HTTP backend
 that a cloud happens to answer.
 
-**It is never selected by detection.** `STT_BACKEND=openai` names it or it does not run;
-`STT_CLOUD_BASE_URL` on its own does nothing, and `STT_BACKEND` on its own refuses to start
-rather than guess a destination. Configuring a thing is not the same as choosing it, and this
-is the one backend where the difference is someone's meeting audio.
+**It is chosen per job, not at startup, and `choose_backend` never returns it.** The first
+version did select it from the environment, which put two places in charge of the same
+decision: an install that set `STT_BACKEND=openai` and then switched the app back to local
+would have kept uploading audio while the screen said it did not. Now `STT_CLOUD_*` seeds the
+app's settings, the app posts the credential with the job, and there is one answer to "where is
+this going" — the one the settings screen shows.
+
+Per job also suits what it can do. Live recognition streams and an HTTP round trip per chunk
+does not, so this only ever applies to the after-the-meeting pass; the startup choice exists to
+pick something that can stream, and this cannot.
 
 **Not live.** `live_transcription_available` returns False for it, which puts it on the path a
 CPU-only host already uses — record, then recognise once. Streaming would mean stitching

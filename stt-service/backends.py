@@ -313,28 +313,18 @@ def choose_backend(requested: str | None, device: str, compute: str | None):
     but is not installed falls back rather than refusing to start -- an STT service that will
     not boot is worse than one running on the other engine.
 
-    The HTTP backend is never reached by that path. It is selected only when STT_BACKEND names
-    it, and never by detecting that a base URL happens to be set: sending meeting audio off the
-    machine has to be something someone did on purpose, and configuring a thing is not the same
-    as choosing it. See docs/design-decisions.md, "Running entirely on your own machine".
+    **This never returns the HTTP backend**, whatever the environment says. Recognition over
+    HTTP is chosen per job, from the app's settings, and arrives with the request -- see
+    `_retranscribe_job` in server.py. Having it here as well would mean two places deciding,
+    and they can disagree: an install that set it in the environment and then switched the app
+    back to local would keep uploading audio while the screen said it was not.
+
+    It also could not do the one thing the startup choice is for. Live recognition streams, and
+    an HTTP round trip per chunk does not; a host slow enough to want this already defers, and
+    deferring is exactly where the per-job path applies.
     """
     want = (requested or "").strip().lower()
     has_cuda = device == "cuda" and cuda_available()
-
-    if want in ("openai", "openai-compatible", "cloud", "http"):
-        base = (os.environ.get("STT_CLOUD_BASE_URL") or "").strip()
-        if not base:
-            raise SystemExit(
-                "STT_BACKEND=openai needs STT_CLOUD_BASE_URL "
-                "(for example https://api.groq.com/openai/v1)"
-            )
-        key = (os.environ.get("STT_CLOUD_API_KEY") or "").strip()
-        model = (os.environ.get("STT_CLOUD_MODEL") or "whisper-large-v3-turbo").strip()
-        try:
-            max_mb = float(os.environ.get("STT_CLOUD_MAX_MB") or "20")
-        except ValueError:
-            max_mb = 20.0
-        return OpenAiCompatibleBackend(base, key, model, int(max_mb * 1024 * 1024))
 
     if want in ("faster-whisper", "faster_whisper", "fw"):
         chosen = "faster-whisper"

@@ -44,10 +44,16 @@ from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
-from backends import Segment, choose_backend, live_transcription_available
+from backends import (
+    OpenAiCompatibleBackend,
+    Segment,
+    choose_backend,
+    live_transcription_available,
+)
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -584,10 +590,6 @@ async def health() -> dict:
         # False means this host records the meeting and transcribes it afterwards. The
         # recording screen reads this to know whether to expect text during the meeting.
         "liveTranscription": LIVE_TRANSCRIPTION,
-        # Set only when recognition is being done by something over HTTP. The app shows it so
-        # that "my meetings are being sent to this host" is visible in the interface, not just
-        # in whoever-configured-it's .env.
-        "remoteHost": getattr(backend, "host", None),
         "translate": translator_state(),
         # Runs a subprocess the first time, so keep it off the event loop.
         **await asyncio.to_thread(_diarization_info),
@@ -1222,11 +1224,16 @@ def _retranscribe_job(
     model_name: str | None,
     initial_prompt: str | None,
     translate: bool = False,
+    remote_backend: Any = None,
 ) -> None:
     try:
-        model = whisper.get(model_name)
+        # A remote backend holds no VRAM and nothing to release, so it does not go through the
+        # WhisperHolder -- taking the model lock for it would block a local job for the length
+        # of an upload it is not competing with.
+        engine = remote_backend or backend
+        model = engine.load(model_name) if remote_backend else whisper.get(model_name)
         audio = _read_wav_float32(wav)
-        segments, detected = backend.transcribe(
+        segments, detected = engine.transcribe(
             model,
             audio,
             language=language,
@@ -1298,6 +1305,25 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
     initial_prompt = str(ip).strip() or None if ip else None
     translate = bool(body.get("translate")) if isinstance(body, dict) else False
 
+    # Recognition by an HTTP provider, chosen per job rather than at startup.
+    #
+    # Per job because it only ever applies to this path: the streaming side keeps whatever
+    # `choose_backend` picked from the hardware, and cloud recognition is not live anyway. And
+    # because the credential arrives with the request -- it is held by the web app, in
+    # settings.json, and posted here over the internal URL so that it never reaches a browser.
+    remote_backend = None
+    remote = body.get("remote") if isinstance(body, dict) else None
+    if isinstance(remote, dict):
+        base = str(remote.get("baseUrl") or "").strip()
+        if not base:
+            raise HTTPException(status_code=400, detail="remote transcription needs a baseUrl")
+        remote_backend = OpenAiCompatibleBackend(
+            base,
+            str(remote.get("apiKey") or "").strip(),
+            str(remote.get("model") or "whisper-large-v3-turbo").strip(),
+            int(float(remote.get("maxMb") or 20) * 1024 * 1024),
+        )
+
     # Global GPU lock: don't start if another meeting's GPU job is running.
     reason = _gpu_busy_other(mid)
     if reason:
@@ -1310,7 +1336,7 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
         _TR_JOBS[mid] = {"status": "running"}
     threading.Thread(
         target=_retranscribe_job,
-        args=(mid, wav, language, model_name, initial_prompt, translate),
+        args=(mid, wav, language, model_name, initial_prompt, translate, remote_backend),
         daemon=True,
     ).start()
     return {"status": "running"}
