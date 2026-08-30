@@ -39,7 +39,11 @@ export const WHISPER_MODELS: WhisperModel[] = [
   { value: "small", label: "small (light)", sizeGb: 0.5 },
   {
     value: KOTOBA_WHISPER,
-    label: "kotoba-whisper-v2.0 (Japanese only, fast; sparse punctuation, no glossary)",
+    // Short enough to sit in a dropdown next to the others: at 74 characters this was nearly
+    // double the next longest and set the width of every `select` it appeared in. The caveats
+    // it used to carry are in `note` below, which the settings screen shows under the picker,
+    // and are enforced in code by japaneseOnly and refusesGlossary regardless.
+    label: "kotoba-whisper-v2.0 (Japanese only)",
     sizeGb: 1.5,
     japaneseOnly: true,
     refusesGlossary: true,

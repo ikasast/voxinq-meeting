@@ -97,6 +97,7 @@ export default function SettingsPage() {
   const [sttRemoteApiKey, setSttRemoteApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [clearSttRemoteApiKey, setClearSttRemoteApiKey] = useState(false);
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
   const [clearOpenaiApiKey, setClearOpenaiApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -136,26 +137,21 @@ export default function SettingsPage() {
     setSaved(false);
     setSaving(true);
     try {
-      const body: Record<string, unknown> = {
-        whisperModel: settings.whisperModel,
-        sttLanguage: settings.sttLanguage,
-        sttGlossary: settings.sttGlossary,
-        micMode: settings.micMode,
-        sttTranslate: settings.sttTranslate,
-        llmProvider: settings.llmProvider,
-        ollamaBaseUrl: settings.ollamaBaseUrl,
-        ollamaModel: settings.ollamaModel,
-        anthropicModel: settings.anthropicModel,
-        openaiBaseUrl: settings.openaiBaseUrl,
-        openaiModel: settings.openaiModel,
-        llmBackground: settings.llmBackground,
-        summaryFormat: settings.summaryFormat,
-        summaryLanguage: settings.summaryLanguage,
-        summaryDetail: settings.summaryDetail,
-      };
+      // Everything the form holds, rather than a list of field names kept in step by hand.
+      // The hand-written list is how the remote-transcription fields shipped unsaveable: they
+      // were added to the type, the inputs and the API's allow-list, and left out of here, so
+      // saving posted nothing for them and the reply -- the unchanged values -- overwrote what
+      // had just been typed. The server picks what it accepts and ignores the rest, so a field
+      // added above cannot go missing here again.
+      const { hasAnthropicApiKey, hasOpenaiApiKey, hasSttRemoteApiKey, ...rest } = settings;
+      void hasAnthropicApiKey;
+      void hasOpenaiApiKey;
+      void hasSttRemoteApiKey;
+      const body: Record<string, unknown> = { ...rest };
       if (sttRemoteApiKey.trim()) body.sttRemoteApiKey = sttRemoteApiKey.trim();
       if (anthropicApiKey.trim()) body.anthropicApiKey = anthropicApiKey.trim();
       if (openaiApiKey.trim()) body.openaiApiKey = openaiApiKey.trim();
+      if (clearSttRemoteApiKey) body.clearSttRemoteApiKey = true;
       if (clearAnthropicApiKey) body.clearAnthropicApiKey = true;
       if (clearOpenaiApiKey) body.clearOpenaiApiKey = true;
 
@@ -172,6 +168,8 @@ export default function SettingsPage() {
       setSettings(next);
       setAnthropicApiKey("");
       setOpenaiApiKey("");
+      setSttRemoteApiKey("");
+      setClearSttRemoteApiKey(false);
       setClearAnthropicApiKey(false);
       setClearOpenaiApiKey(false);
       setSaved(true);
@@ -298,6 +296,17 @@ export default function SettingsPage() {
                 Stored on the server and never sent to the browser. Leave blank to keep the
                 saved one. A server of your own may not need one.
               </p>
+              {settings.hasSttRemoteApiKey ? (
+                <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                  <input
+                    type="checkbox"
+                    checked={clearSttRemoteApiKey}
+                    onChange={(e) => setClearSttRemoteApiKey(e.target.checked)}
+                    className="accent-[var(--error)]"
+                  />
+                  Delete the saved key
+                </label>
+              ) : null}
             </div>
           </fieldset>
           <div>
