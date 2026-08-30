@@ -1179,13 +1179,17 @@ export function TranscriptList({
             </p>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
+            {/* min-w-0 on both: a select is as wide as its longest option, and a flex item
+                will not shrink below its content unless told it may. Without this a long model
+                name pushes the row past the screen on a phone -- wrapping does not help,
+                because the item that wrapped is still too wide for the line it wrapped to. */}
+            <label className="flex min-w-0 max-w-full items-center gap-1 text-xs text-[var(--text-muted)]">
               Model
               <select
                 value={retransModel}
                 onChange={(e) => setRetransModel(e.target.value)}
                 disabled={busy}
-                className="rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
+                className="min-w-0 max-w-full flex-1 truncate rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
               >
                 {RETRANS_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
