@@ -493,7 +493,12 @@ export function TranscriptList({
 
       const base = sttHttpBase();
       const model = retransModel || settings?.whisperModel;
-      const startRes = await fetch(`${base}/transcribe/${meetingId}`, {
+      // Starting goes through the app's server; the polling below stays direct. Only the start
+      // carries the credential for a remote endpoint, and the browser is not a place to put
+      // one -- lib/stt/transcribe-recording.ts does the same for the same reason. This called
+      // the service directly until it was noticed that Re-transcribe therefore never reached
+      // a configured remote endpoint at all: it silently used whatever the service had.
+      const startRes = await fetch(`/api/meetings/${meetingId}/transcribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -507,7 +512,7 @@ export function TranscriptList({
       });
       if (!startRes.ok) {
         const d = await startRes.json().catch(() => null);
-        throw new Error(d?.detail ?? `Failed to start (HTTP ${startRes.status})`);
+        throw new Error(d?.detail ?? d?.error ?? `Failed to start (HTTP ${startRes.status})`);
       }
       let job = (await startRes.json()) as {
         status: string;

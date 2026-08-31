@@ -340,6 +340,17 @@ export default function SettingsPage() {
               </p>
             ) : null}
             {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
+            {/* With a remote endpoint configured, this picker still matters -- but not for
+                everything, and saying so is the difference between a control that looks broken
+                and one that is doing its job. */}
+            {sttDest ? (
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                This model is used for <strong>live recognition on this machine</strong>. The
+                after-the-meeting pass and <em>Re-transcribe</em> use{" "}
+                <strong>{settings.sttRemoteModel || "the remote model"}</strong> at {sttDest}{" "}
+                instead — these names belong to different services and are not interchangeable.
+              </p>
+            ) : null}
             {isJapaneseOnlyModel(settings.whisperModel) ? (
               <p className="mt-1 text-xs text-[var(--warning)]">
                 This is a Japanese-only model — meetings in other languages will not transcribe.
