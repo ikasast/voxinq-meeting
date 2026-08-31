@@ -247,6 +247,7 @@ class _FakeProvider(http.server.BaseHTTPRequestHandler):
             "path": self.path,
             "auth": self.headers.get("Authorization"),
             "content_type": self.headers.get("Content-Type"),
+            "user_agent": self.headers.get("User-Agent"),
             "body": body,
         }
         payload = json.dumps(
@@ -317,6 +318,28 @@ def test_it_sends_a_multipart_body_the_provider_can_read() -> None:
 
     assert lang == "ja"
     assert [s.text for s in segs] == ["hello", "world"]  # the empty one is dropped
+
+
+def test_it_identifies_itself() -> None:
+    """Groq sits behind Cloudflare, which answers urllib's default `Python-urllib/3.x` with a
+    403 and "error code: 1010" before the request reaches the API -- with nothing wrong with
+    the key or the model, and nothing in the message to say so. A stub that accepts anything
+    cannot catch that, which is how it shipped; this one looks."""
+    with _provider() as base:
+        b = _backend(base)
+        b.transcribe(
+            b.load(""),
+            np.zeros(backends.SAMPLE_RATE, dtype=np.float32),
+            language=None,
+            initial_prompt=None,
+            beam_size=5,
+            vad_min_silence_ms=500,
+            no_speech_threshold=0.6,
+        )
+    ua = _FakeProvider.received["user_agent"]
+    assert ua, "no User-Agent sent"
+    assert "urllib" not in ua.lower(), ua
+    assert "Voxinq" in ua, ua
 
 
 def test_timestamps_are_offset_by_the_chunk_they_came_from() -> None:

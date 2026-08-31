@@ -80,3 +80,28 @@ describe("settings fields stay in step across the files that must agree", () => 
     }
   });
 });
+
+describe("pasted values are cleaned before they are stored", () => {
+  // Not a unit test of the function -- it is not exported -- but of the fact that the route
+  // has one and applies it. A zero-width space in front of `whisper-large-v3` reached the
+  // provider and came back as "The model does not exist", pointing at a name that looked
+  // exactly right; the same in a key gives "Invalid API Key" for a key you can read.
+  it("the route strips zero-width characters and trims", () => {
+    // Matched as text, not as a pattern: writing /\u200D/ here would search for the
+    // character itself rather than for the escape in the source -- and an invisible character
+    // in a test about invisible characters is how this went round twice.
+    expect(routeSrc).toMatch(/function cleanSetting/);
+    expect(routeSrc).toContain(String.raw`\u200B-\u200D`);
+    expect(routeSrc).toContain(String.raw`\uFEFF`);
+    expect(routeSrc).toContain(".trim()");
+    // And the source itself must not contain one.
+    expect(/[\u200B-\u200D\u2060\uFEFF]/.test(routeSrc)).toBe(false);
+  });
+
+  it("applies it to the string fields and to every API key", () => {
+    expect(routeSrc).toMatch(/\[key\] = cleanSetting\(v\)/);
+    for (const key of API_KEYS) {
+      expect(routeSrc, `${key} is stored without cleaning`).toContain(`cleanSetting(body.${key})`);
+    }
+  });
+});
