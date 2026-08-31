@@ -1231,7 +1231,11 @@ def _retranscribe_job(
         # WhisperHolder -- taking the model lock for it would block a local job for the length
         # of an upload it is not competing with.
         engine = remote_backend or backend
-        model = engine.load(model_name) if remote_backend else whisper.get(model_name)
+        # The remote endpoint's model is configured beside its URL, and the two are a pair.
+        # `model_name` here is a *local* Whisper id -- "large-v3-turbo", or a Hugging Face
+        # repo for kotoba -- which the app sends because that is what its model picker offers.
+        # Passing it on would ask Groq for a model that does not exist there.
+        model = engine.load("") if remote_backend else whisper.get(model_name)
         audio = _read_wav_float32(wav)
         segments, detected = engine.transcribe(
             model,
