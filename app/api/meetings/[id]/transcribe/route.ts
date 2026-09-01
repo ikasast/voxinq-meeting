@@ -55,6 +55,27 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       signal: AbortSignal.timeout(15000),
     });
     const text = await res.text();
+    // What actually recognised this, for the meeting to record. The caller cannot work it out:
+    // it knows which model it *asked* for, and a remote endpoint ignores that and uses its own.
+    // Only this route sees both sides of the decision.
+    let usedModel = payload.model ? String(payload.model) : "";
+    if (wantsRemote) {
+      let host = baseUrl;
+      try {
+        host = new URL(baseUrl).hostname || baseUrl;
+      } catch {
+        /* an unparseable URL is still worth naming */
+      }
+      usedModel = `${model || "whisper-large-v3-turbo"} (${host})`;
+    }
+    if (res.ok) {
+      try {
+        const merged = { ...(JSON.parse(text) as Record<string, unknown>), usedModel };
+        return NextResponse.json(merged, { status: res.status });
+      } catch {
+        /* not JSON; fall through and pass it along untouched */
+      }
+    }
     // Pass the service's own message through: "recording not found" and "another job is
     // running" are both things the user can act on, and rewording them here would only lose
     // detail.

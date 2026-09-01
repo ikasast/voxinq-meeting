@@ -117,11 +117,9 @@ export function MeetingMeta({
   const unusedSuggestions = suggestions.filter((s) => !draftTags.includes(s));
 
   return (
-    <section className="card p-5">
+    <section className="card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">
-          Purpose &amp; agenda
-        </h2>
+        <h2 className="text-sm font-semibold text-[var(--text-strong)]">Purpose &amp; agenda</h2>
         {!editing && !readOnly ? (
           <button type="button" onClick={() => setEditing(true)} className="btn-outline">
             Edit

@@ -20,6 +20,7 @@ import { PencilIcon, TrashIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
 import { ShareButton } from "./share-button";
+import { sttDestination } from "@/lib/stt/destination";
 
 type Item = {
   id: string;
@@ -116,6 +117,7 @@ export function TranscriptList({
   // Which model this will actually use. Null while unknown and when recognition is local, in
   // which case the picker below applies and is offered.
   const [remoteModel, setRemoteModel] = useState<string | null>(null);
+  const [remoteHost, setRemoteHost] = useState<string | null>(null);
   const [retransOpen, setRetransOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ name: string }[]>([]);
   const [profileBusy, setProfileBusy] = useState(false);
@@ -184,10 +186,15 @@ export function TranscriptList({
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { sttProvider?: string; sttRemoteModel?: string } | null) =>
-        setRemoteModel(d?.sttProvider === "remote" ? d.sttRemoteModel || "the remote model" : null),
-      )
-      .catch(() => setRemoteModel(null));
+      .then((d: { sttProvider?: string; sttRemoteModel?: string; sttRemoteBaseUrl?: string } | null) => {
+        const remote = d?.sttProvider === "remote";
+        setRemoteModel(remote ? d?.sttRemoteModel || "the remote model" : null);
+        setRemoteHost(remote ? sttDestination(d ?? {}) : null);
+      })
+      .catch(() => {
+        setRemoteModel(null);
+        setRemoteHost(null);
+      });
   }, []);
 
   useEffect(() => {
@@ -487,7 +494,14 @@ export function TranscriptList({
     const ok = await confirm({
       title: "Re-transcribe from the recording",
       message:
-        "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward.",
+        "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward." +
+        // Said here because this is the last point at which it can be stopped. Replacing a
+        // transcript is undone by running it again; uploading the audio is not undone at all.
+        (remoteHost
+          ? `
+
+The recording will be uploaded to ${remoteHost}, which recognises it and bills you for the length of the audio. Change this in Settings → Transcription.`
+          : ""),
       confirmLabel: "Re-transcribe",
       danger: true,
     });
@@ -530,9 +544,12 @@ export function TranscriptList({
       }
       let job = (await startRes.json()) as {
         status: string;
+        usedModel?: string;
         utterances?: { start: number; end: number; text: string; translation?: string }[];
         detail?: string;
       };
+      // Read before the loop: the status endpoint does not repeat it.
+      const usedModel = job.usedModel;
       while (job.status === "running") {
         setRetransStatus("Recognizing… (this can take a few minutes including model load; you can leave this page open)");
         await new Promise((r) => setTimeout(r, 4000));
@@ -548,7 +565,7 @@ export function TranscriptList({
       const applyRes = await fetch(`/api/meetings/${meetingId}/apply-transcript`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ utterances: job.utterances }),
+        body: JSON.stringify({ utterances: job.utterances, usedModel }),
       });
       if (!applyRes.ok) {
         const d = await applyRes.json().catch(() => null);

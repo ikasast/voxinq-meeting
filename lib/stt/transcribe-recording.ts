@@ -33,6 +33,8 @@ export type TranscribeOptions = {
 
 type Job = {
   status: string;
+  /** Added by the app's route: what it actually sent the audio to. */
+  usedModel?: string;
   utterances?: Utterance[];
   detail?: string;
 };
@@ -48,7 +50,7 @@ const POLL_MS = 4000;
 export async function transcribeRecording(
   meetingId: string,
   opts: TranscribeOptions = {},
-): Promise<Utterance[]> {
+): Promise<{ utterances: Utterance[]; usedModel?: string }> {
   const base = sttHttpBase();
   const { onProgress, signal } = opts;
 
@@ -75,7 +77,9 @@ export async function transcribeRecording(
     );
   }
 
-  let job = (await startRes.json()) as Job;
+  const started = (await startRes.json()) as Job;
+  const usedModel = started.usedModel;
+  let job = started;
   while (job.status === "running") {
     onProgress?.("Recognizing… this takes a few minutes, including loading the model.");
     await new Promise((r) => setTimeout(r, POLL_MS));
@@ -87,18 +91,20 @@ export async function transcribeRecording(
   if (job.status !== "done" || !Array.isArray(job.utterances)) {
     throw new Error("The transcription service returned an unexpected result");
   }
-  return job.utterances;
+  return { utterances: job.utterances, usedModel };
 }
 
 /** Store recognised utterances as the meeting's transcript, replacing whatever is there. */
 export async function applyTranscript(
   meetingId: string,
   utterances: Utterance[],
+  /** What recognised them, as reported by the start call. Recorded on the meeting. */
+  usedModel?: string,
 ): Promise<{ replaced: number }> {
   const res = await fetch(`/api/meetings/${meetingId}/apply-transcript`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ utterances }),
+    body: JSON.stringify({ utterances, usedModel }),
   });
   if (!res.ok) {
     const d = await res.json().catch(() => null);
