@@ -113,6 +113,9 @@ export function TranscriptList({
   const [retransing, setRetransing] = useState(false);
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
   const [retransModel, setRetransModel] = useState("");
+  // Which model this will actually use. Null while unknown and when recognition is local, in
+  // which case the picker below applies and is offered.
+  const [remoteModel, setRemoteModel] = useState<string | null>(null);
   const [retransOpen, setRetransOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ name: string }[]>([]);
   const [profileBusy, setProfileBusy] = useState(false);
@@ -176,6 +179,17 @@ export function TranscriptList({
   }, []);
 
   // Fetch the recording (WAV) retention state from STT (stays hidden if unreachable, e.g. external access).
+  // Failure is silence: not knowing leaves the local picker in place, which is what this
+  // screen did before and is the safe way to be wrong.
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { sttProvider?: string; sttRemoteModel?: string } | null) =>
+        setRemoteModel(d?.sttProvider === "remote" ? d.sttRemoteModel || "the remote model" : null),
+      )
+      .catch(() => setRemoteModel(null));
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     fetch(`${sttHttpBase()}/recordings/${meetingId}`, { signal: AbortSignal.timeout(6000) })
@@ -1188,6 +1202,13 @@ export function TranscriptList({
                 will not shrink below its content unless told it may. Without this a long model
                 name pushes the row past the screen on a phone -- wrapping does not help,
                 because the item that wrapped is still too wide for the line it wrapped to. */}
+            {remoteModel ? (
+              <p className="min-w-0 max-w-full text-xs text-[var(--text-muted)]">
+                Recognised by <strong className="text-[var(--foreground)]">{remoteModel}</strong>{" "}
+                at your configured endpoint. The Whisper models in Settings are for recognition
+                on this machine and do not apply here.
+              </p>
+            ) : (
             <label className="flex min-w-0 max-w-full items-center gap-1 text-xs text-[var(--text-muted)]">
               Model
               <select
@@ -1203,6 +1224,7 @@ export function TranscriptList({
                 ))}
               </select>
             </label>
+            )}
             <button
               type="button"
               onClick={() => void retranscribe()}
