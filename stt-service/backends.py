@@ -367,6 +367,10 @@ def choose_backend(requested: str | None, device: str, compute: str | None):
 
 CLOUD_TIMEOUT_S = int(os.environ.get("STT_CLOUD_TIMEOUT", "600"))
 
+# No version in it deliberately: it would have to be threaded in from the web app and kept in
+# step, and what this is for is being a named client rather than an anonymous script.
+USER_AGENT = "Voxinq (+https://github.com/ikasast/voxinq-meeting)"
+
 
 def _wav_bytes(audio: np.ndarray) -> bytes:
     """float32 mono @16k -> a 16-bit PCM WAV in memory. What every one of these APIs accepts."""
@@ -477,6 +481,13 @@ class OpenAiCompatibleBackend:
             headers={
                 "Content-Type": "multipart/form-data; boundary=" + boundary,
                 "Authorization": "Bearer " + self.api_key,
+                # Without this urllib sends `Python-urllib/3.x`, and Groq sits behind
+                # Cloudflare, which answers that signature with 403 and "error code: 1010"
+                # before the request ever reaches the API. Nothing about the key or the model
+                # is wrong at that point, and the message does not say so. Naming the client
+                # is also simply the polite thing to do.
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json",
             },
             method="POST",
         )
