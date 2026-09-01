@@ -15,7 +15,10 @@ import { DataBackup } from "./data-backup";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 import { ExternalProviderNotice } from "./external-provider-notice";
-import { RemoteSttNotice, sttDestination } from "./remote-stt-notice";
+import { RemoteSttNotice } from "./remote-stt-notice";
+import { sttDestination } from "@/lib/stt/destination";
+import { SttProfiles, type DraftProfile } from "./stt-profiles";
+import type { PublicSttProfile } from "@/lib/stt/profiles";
 
 type PublicSettings = {
   whisperModel: string;
@@ -23,10 +26,8 @@ type PublicSettings = {
   sttGlossary: string;
   micMode: string;
   sttTranslate: boolean;
-  sttProvider: "local" | "remote";
-  sttRemoteBaseUrl: string;
-  sttRemoteModel: string;
-  hasSttRemoteApiKey: boolean;
+  sttProfiles: PublicSttProfile[];
+  sttDefaultProfileId: string;
   llmProvider: "ollama" | "anthropic" | "openai";
   ollamaBaseUrl: string;
   ollamaModel: string;
@@ -94,10 +95,10 @@ function fieldsetClass(active: boolean) {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
-  const [sttRemoteApiKey, setSttRemoteApiKey] = useState("");
+  // Edited as a whole, because a key typed into one entry must survive editing another.
+  const [draftProfiles, setDraftProfiles] = useState<DraftProfile[]>([]);
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
-  const [clearSttRemoteApiKey, setClearSttRemoteApiKey] = useState(false);
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
   const [clearOpenaiApiKey, setClearOpenaiApiKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -119,11 +120,15 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((data: PublicSettings) => setSettings(data))
+      .then((data: PublicSettings) => {
+        setSettings(data);
+        setDraftProfiles(data.sttProfiles);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, []);
 
   const sttDest = settings ? sttDestination(settings) : null;
+  const defaultProfile = settings?.sttProfiles.find((p) => p.id === settings.sttDefaultProfileId);
 
   const update = <K extends keyof PublicSettings>(key: K, value: PublicSettings[K]) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -143,15 +148,12 @@ export default function SettingsPage() {
       // saving posted nothing for them and the reply -- the unchanged values -- overwrote what
       // had just been typed. The server picks what it accepts and ignores the rest, so a field
       // added above cannot go missing here again.
-      const { hasAnthropicApiKey, hasOpenaiApiKey, hasSttRemoteApiKey, ...rest } = settings;
+      const { hasAnthropicApiKey, hasOpenaiApiKey, ...rest } = settings;
       void hasAnthropicApiKey;
       void hasOpenaiApiKey;
-      void hasSttRemoteApiKey;
-      const body: Record<string, unknown> = { ...rest };
-      if (sttRemoteApiKey.trim()) body.sttRemoteApiKey = sttRemoteApiKey.trim();
+      const body: Record<string, unknown> = { ...rest, sttProfiles: draftProfiles };
       if (anthropicApiKey.trim()) body.anthropicApiKey = anthropicApiKey.trim();
       if (openaiApiKey.trim()) body.openaiApiKey = openaiApiKey.trim();
-      if (clearSttRemoteApiKey) body.clearSttRemoteApiKey = true;
       if (clearAnthropicApiKey) body.clearAnthropicApiKey = true;
       if (clearOpenaiApiKey) body.clearOpenaiApiKey = true;
 
@@ -166,10 +168,9 @@ export default function SettingsPage() {
       }
       const next = (await res.json()) as PublicSettings;
       setSettings(next);
+      setDraftProfiles(next.sttProfiles);
       setAnthropicApiKey("");
       setOpenaiApiKey("");
-      setSttRemoteApiKey("");
-      setClearSttRemoteApiKey(false);
       setClearAnthropicApiKey(false);
       setClearOpenaiApiKey(false);
       setSaved(true);
@@ -222,93 +223,15 @@ export default function SettingsPage() {
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Transcription (Whisper)</h2>
           {sttDest ? <RemoteSttNotice host={sttDest} /> : null}
 
-          <div>
-            <label htmlFor="sttProvider" className={labelClass}>
-              Recognise speech
-            </label>
-            <select
-              id="sttProvider"
-              value={settings.sttProvider}
-              onChange={(e) => update("sttProvider", e.target.value as "local" | "remote")}
-              disabled={saving}
-              className={inputClass}
-            >
-              <option value="local">On this machine (default)</option>
-              <option value="remote">
-                Send to an OpenAI-compatible endpoint (cloud, or a server of your own)
-              </option>
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Sending it elsewhere is for a machine with no NVIDIA card and no Apple silicon,
-              where recognising an hour of audio here takes about three.
-            </p>
-          </div>
 
-          <fieldset disabled={saving} className={fieldsetClass(settings.sttProvider === "remote")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">
-              OpenAI-compatible endpoint
-            </legend>
-            <div>
-              <label htmlFor="sttRemoteBaseUrl" className={labelClass}>
-                Base URL
-              </label>
-              <input
-                id="sttRemoteBaseUrl"
-                type="text"
-                value={settings.sttRemoteBaseUrl}
-                onChange={(e) => update("sttRemoteBaseUrl", e.target.value)}
-                placeholder="https://api.groq.com/openai/v1"
-                className={inputClass}
-              />
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Anything speaking <code>/v1/audio/transcriptions</code> — Groq, OpenAI,
-                Fireworks, OpenRouter, or your own whisper server. A local address raises no
-                notice, because nothing leaves your network.
-              </p>
-            </div>
-            <div>
-              <label htmlFor="sttRemoteModel" className={labelClass}>
-                Model
-              </label>
-              <input
-                id="sttRemoteModel"
-                type="text"
-                value={settings.sttRemoteModel}
-                onChange={(e) => update("sttRemoteModel", e.target.value)}
-                placeholder="whisper-large-v3-turbo"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="sttRemoteApiKey" className={labelClass}>
-                API key
-              </label>
-              <input
-                id="sttRemoteApiKey"
-                type="password"
-                value={sttRemoteApiKey}
-                onChange={(e) => setSttRemoteApiKey(e.target.value)}
-                placeholder={settings.hasSttRemoteApiKey ? "•••••••• (saved)" : "not set"}
-                className={inputClass}
-                autoComplete="off"
-              />
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Stored on the server and never sent to the browser. Leave blank to keep the
-                saved one. A server of your own may not need one.
-              </p>
-              {settings.hasSttRemoteApiKey ? (
-                <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    checked={clearSttRemoteApiKey}
-                    onChange={(e) => setClearSttRemoteApiKey(e.target.checked)}
-                    className="accent-[var(--error)]"
-                  />
-                  Delete the saved key
-                </label>
-              ) : null}
-            </div>
-          </fieldset>
+          <SttProfiles
+            profiles={draftProfiles}
+            defaultId={settings.sttDefaultProfileId}
+            disabled={saving}
+            onChange={setDraftProfiles}
+            onDefaultChange={(id) => update("sttDefaultProfileId", id)}
+          />
+
           <div>
             <label htmlFor="whisperModel" className={labelClass}>
               Model
@@ -347,7 +270,7 @@ export default function SettingsPage() {
               <p className="mt-1 text-xs text-[var(--text-secondary)]">
                 This model is used for <strong>live recognition on this machine</strong>. The
                 after-the-meeting pass and <em>Re-transcribe</em> use{" "}
-                <strong>{settings.sttRemoteModel || "the remote model"}</strong> at {sttDest}{" "}
+                <strong>{defaultProfile?.model || "the endpoint's model"}</strong> at {sttDest}{" "}
                 instead — these names belong to different services and are not interchangeable.
               </p>
             ) : null}

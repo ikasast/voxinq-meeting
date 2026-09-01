@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type AppSettings, readSettings, toPublic, writeSettings } from "@/lib/settings";
+import { normalizeProfiles } from "@/lib/stt/profiles";
 
 export const runtime = "nodejs";
 
@@ -29,9 +30,7 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "sttLanguage",
   "sttGlossary",
   "micMode",
-  "sttProvider",
-  "sttRemoteBaseUrl",
-  "sttRemoteModel",
+  "sttDefaultProfileId",
   "llmProvider",
   "ollamaBaseUrl",
   "ollamaModel",
@@ -63,13 +62,31 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.openaiApiKey === "string" && cleanSetting(body.openaiApiKey)) {
     patch.openaiApiKey = cleanSetting(body.openaiApiKey);
   }
-  if (typeof body.sttRemoteApiKey === "string" && cleanSetting(body.sttRemoteApiKey)) {
-    patch.sttRemoteApiKey = cleanSetting(body.sttRemoteApiKey);
-  }
+
   // To explicitly clear a key, use the __clear flag.
   if (body.clearAnthropicApiKey === true) patch.anthropicApiKey = "";
   if (body.clearOpenaiApiKey === true) patch.openaiApiKey = "";
-  if (body.clearSttRemoteApiKey === true) patch.sttRemoteApiKey = "";
+
+  // Profiles arrive whole, because the browser never receives the keys and so cannot send them
+  // back. An entry with no key keeps the one already stored under that id; a new entry without
+  // one simply has none, which is right for a server of your own that asks for nothing.
+  if (Array.isArray(body.sttProfiles)) {
+    const current = await readSettings();
+    const kept = new Map(current.sttProfiles.map((p) => [p.id, p.apiKey]));
+    patch.sttProfiles = normalizeProfiles(
+      body.sttProfiles.map((raw) => {
+        const p = (raw ?? {}) as Record<string, unknown>;
+        const supplied = typeof p.apiKey === "string" ? cleanSetting(p.apiKey) : "";
+        const id = typeof p.id === "string" ? p.id : "";
+        return {
+          ...p,
+          baseUrl: typeof p.baseUrl === "string" ? cleanSetting(p.baseUrl) : "",
+          model: typeof p.model === "string" ? cleanSetting(p.model) : "",
+          apiKey: supplied || (p.clearApiKey === true ? "" : (kept.get(id) ?? "")),
+        };
+      }),
+    );
+  }
 
   const next = await writeSettings(patch);
   return NextResponse.json(toPublic(next));

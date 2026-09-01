@@ -32,7 +32,10 @@ function appSettingsFields(): { name: string; type: string }[] {
 }
 
 // Handled by their own branches in the route: written only when non-empty, cleared by a flag.
-const API_KEYS = ["anthropicApiKey", "openaiApiKey", "sttRemoteApiKey"];
+const API_KEYS = ["anthropicApiKey", "openaiApiKey"];
+// Endpoint keys live inside sttProfiles, one per entry, and are handled as a list rather than
+// as named fields -- see tests/stt-profiles.test.ts for that they never reach the browser.
+const LIST_FIELDS = ["sttProfiles"];
 // Not editable from the settings screen; they live in settings.json only.
 const FILE_ONLY = ["voiceprintThreshold", "ollamaNumCtx"];
 
@@ -41,7 +44,7 @@ describe("settings fields stay in step across the files that must agree", () => 
 
   it("found the type at all", () => {
     expect(fields.length).toBeGreaterThan(15);
-    expect(fields.map((f) => f.name)).toContain("sttRemoteBaseUrl");
+    expect(fields.map((f) => f.name)).toContain("sttDefaultProfileId");
   });
 
   it("every string setting the app can edit is in the API's allow-list", () => {
@@ -57,16 +60,22 @@ describe("settings fields stay in step across the files that must agree", () => 
     // `string` or as a union of literals or a named type like LlmProviderName.
     const missing = fields
       .filter((f) => f.type !== "boolean" && f.type !== "number")
-      .filter((f) => !API_KEYS.includes(f.name) && !FILE_ONLY.includes(f.name))
+      .filter(
+        (f) =>
+          !API_KEYS.includes(f.name) &&
+          !FILE_ONLY.includes(f.name) &&
+          !LIST_FIELDS.includes(f.name),
+      )
       .filter((f) => !allow.includes(`"${f.name}"`))
       .map((f) => f.name);
     expect(missing, `not accepted by PATCH /api/settings: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("the settings page posts the whole form rather than a hand-written list", () => {
+    // sttProfiles is added explicitly because it is edited as a draft, not held in `settings`.
     // The specific regression: a body assembled field by field is one someone will forget to
     // add to. Spreading what the form holds cannot go out of step with it.
-    expect(pageSrc).toMatch(/const body: Record<string, unknown> = \{ \.\.\.rest \}/);
+    expect(pageSrc).toMatch(/const body: Record<string, unknown> = \{ \.\.\.rest,/);
     expect(pageSrc).not.toMatch(/const body: Record<string, unknown> = \{\s*\n\s*whisperModel:/);
   });
 
