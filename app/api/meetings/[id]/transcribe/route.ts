@@ -21,16 +21,35 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const s = await readSettings();
 
-  // Settings first, environment second. An install configured entirely from .env keeps working
-  // without anyone opening the settings screen, and filling the screen in overrides it.
-  const baseUrl = (s.sttRemoteBaseUrl || process.env.STT_CLOUD_BASE_URL || "").trim();
-  const apiKey = (s.sttRemoteApiKey || process.env.STT_CLOUD_API_KEY || "").trim();
-  const model = (s.sttRemoteModel || process.env.STT_CLOUD_MODEL || "").trim();
-  const wantsRemote = s.sttProvider === "remote";
+  // Which destination this run uses. The request decides; the setting only supplies the
+  // default. That is the whole point of profiles: choosing a remote endpoint in Settings used
+  // to mean every re-transcription went there, with no way to ask for a local one.
+  //
+  //   profileId: "<id>"   that profile
+  //   profileId: "local"  this machine, whatever the default is
+  //   absent              the default profile, or this machine when there is none
+  const asked = typeof body.profileId === "string" ? body.profileId : null;
+  const wantedId = asked === null ? s.sttDefaultProfileId : asked === "local" ? "" : asked;
+  const profile = wantedId ? s.sttProfiles.find((p) => p.id === wantedId) : undefined;
 
-  if (wantsRemote && !baseUrl) {
+  if (wantedId && !profile) {
     return NextResponse.json(
-      { error: "Remote transcription is selected but has no base URL. Settings → Transcription." },
+      { error: "That transcription endpoint is no longer saved. Settings → Transcription." },
+      { status: 400 },
+    );
+  }
+  // The kind is stored so that saving a Gemini endpoint now needs no migration later, but the
+  // service has no backend for it yet. Refusing here is the difference between "not built yet"
+  // and an obscure failure from sending Gemini's address an OpenAI-shaped request.
+  if (profile?.kind === "gemini") {
+    return NextResponse.json(
+      { error: `"${profile.name}" is a Gemini endpoint, which is not supported yet.` },
+      { status: 400 },
+    );
+  }
+  if (profile && !profile.baseUrl) {
+    return NextResponse.json(
+      { error: `"${profile.name}" has no address saved. Settings → Transcription.` },
       { status: 400 },
     );
   }
@@ -41,10 +60,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     initialPrompt: typeof body.initialPrompt === "string" ? body.initialPrompt : undefined,
     translate: body.translate === true,
   };
-  // Absent means "recognise on the STT host", which is what the service does by default. The
-  // block is only ever added when someone chose it here.
-  if (wantsRemote) {
-    payload.remote = { baseUrl, apiKey, model: model || undefined };
+  if (profile) {
+    payload.remote = {
+      kind: profile.kind,
+      baseUrl: profile.baseUrl,
+      apiKey: profile.apiKey,
+      model: profile.model || undefined,
+    };
+  }
+
+  // What actually recognised this, for the meeting to record. The caller cannot work it out:
+  // it knows which model it asked for, and a remote endpoint ignores that and uses its own.
+  let usedModel = payload.model ? String(payload.model) : "";
+  if (profile) {
+    let host = profile.baseUrl;
+    try {
+      host = new URL(profile.baseUrl).hostname || profile.baseUrl;
+    } catch {
+      /* an unparseable URL is still worth naming */
+    }
+    usedModel = `${profile.model || "default"} (${host})`;
   }
 
   try {
@@ -55,19 +90,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       signal: AbortSignal.timeout(15000),
     });
     const text = await res.text();
-    // What actually recognised this, for the meeting to record. The caller cannot work it out:
-    // it knows which model it *asked* for, and a remote endpoint ignores that and uses its own.
-    // Only this route sees both sides of the decision.
-    let usedModel = payload.model ? String(payload.model) : "";
-    if (wantsRemote) {
-      let host = baseUrl;
-      try {
-        host = new URL(baseUrl).hostname || baseUrl;
-      } catch {
-        /* an unparseable URL is still worth naming */
-      }
-      usedModel = `${model || "whisper-large-v3-turbo"} (${host})`;
-    }
     if (res.ok) {
       try {
         const merged = { ...(JSON.parse(text) as Record<string, unknown>), usedModel };

@@ -45,9 +45,13 @@ describe("starting a transcription", () => {
     expect(used.length).toBeGreaterThan(0);
   });
 
-  it("the route sends the remote block only when the app is set to remote", () => {
+  it("the route attaches an endpoint only when one was resolved", () => {
     const route = readFileSync(join(root, "app/api/meetings/[id]/transcribe/route.ts"), "utf8");
-    expect(route).toMatch(/if \(wantsRemote\) \{\s*\n\s*payload\.remote =/);
-    expect(route).toMatch(/sttProvider === "remote"/);
+    // A profile that could not be found is refused rather than quietly falling back to local:
+    // recognising somewhere other than where you asked is the worse failure.
+    expect(route).toMatch(/if \(profile\) \{\s*\n\s*payload\.remote =/);
+    expect(route).toContain("wantedId && !profile");
+    // "local" has to be expressible, or the picker cannot ask for this machine.
+    expect(route).toContain('asked === "local"');
   });
 });

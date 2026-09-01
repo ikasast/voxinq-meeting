@@ -6,6 +6,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
+import {
+  type SttProfile,
+  type PublicSttProfile,
+  nameFromBaseUrl,
+  normalizeProfiles,
+  publicProfile,
+} from "./stt/profiles";
 
 // Overridable so a container can keep settings on a mounted volume. Bind-mounting a single
 // file would be the obvious alternative, but Docker silently creates a *directory* when the
@@ -27,10 +34,17 @@ export type AppSettings = {
   // which is a cloud provider or a whisper server of your own, depending on the URL. Empty
   // fields fall back to the STT service's own STT_BACKEND / STT_CLOUD_* environment, so an
   // install configured entirely from .env keeps working without opening this screen.
-  sttProvider: "local" | "remote";
-  sttRemoteBaseUrl: string;
-  sttRemoteApiKey: string;
-  sttRemoteModel: string;
+  /**
+   * Saved recognition endpoints. Empty means everything happens on this machine, which is the
+   * default and the usual case.
+   *
+   * A list rather than one endpoint because choosing a remote one used to mean you could no
+   * longer re-transcribe locally: a single setting answered "where does recognition happen"
+   * for everything, when the answer is "wherever you pick, this time".
+   */
+  sttProfiles: SttProfile[];
+  /** Which profile new work uses when nothing else is chosen. Empty = this machine. */
+  sttDefaultProfileId: string;
   // LLM
   llmProvider: LlmProviderName;
   ollamaBaseUrl: string;
@@ -59,10 +73,10 @@ function defaults(): AppSettings {
     sttGlossary: "",
     micMode: "standard",
     sttTranslate: false,
-    sttProvider: (process.env.STT_BACKEND ?? "").trim() ? "remote" : "local",
-    sttRemoteBaseUrl: process.env.STT_CLOUD_BASE_URL ?? "",
-    sttRemoteApiKey: process.env.STT_CLOUD_API_KEY ?? "",
-    sttRemoteModel: process.env.STT_CLOUD_MODEL ?? "whisper-large-v3-turbo",
+    // Seeded from the environment so an install can come up already configured; see
+    // migrateSttSettings for what happens to a single endpoint saved before profiles existed.
+    sttProfiles: envProfile(),
+    sttDefaultProfileId: (process.env.STT_BACKEND ?? "").trim() ? ENV_PROFILE_ID : "",
     llmProvider: ((process.env.LLM_PROVIDER ?? "ollama").toLowerCase() as LlmProviderName) || "ollama",
     // 127.0.0.1, not localhost: on Windows `localhost` prefers ::1, so a container publishing
     // the same port on IPv6 would answer instead of the local Ollama.
@@ -89,12 +103,81 @@ const VALID_MIC_MODES = ["standard", "room"];
 
 const VALID_PROVIDERS: LlmProviderName[] = ["ollama", "anthropic", "openai"];
 
+// The environment still seeds one endpoint, for an install configured entirely from .env.
+const ENV_PROFILE_ID = "env";
+
+function envProfile(): SttProfile[] {
+  const baseUrl = (process.env.STT_CLOUD_BASE_URL ?? "").trim();
+  if (!baseUrl) return [];
+  return [
+    {
+      id: ENV_PROFILE_ID,
+      name: nameFromBaseUrl(baseUrl),
+      kind: "openai",
+      baseUrl,
+      model: (process.env.STT_CLOUD_MODEL ?? "whisper-large-v3-turbo").trim(),
+      apiKey: process.env.STT_CLOUD_API_KEY ?? "",
+    },
+  ];
+}
+
+/**
+ * Bring a settings file written before profiles existed up to date.
+ *
+ * The single-endpoint fields are converted, never dropped. An install with one configured and
+ * working must not lose it on upgrade -- and losing it would be silent, because recognition
+ * would simply start happening locally again with nothing to say why.
+ *
+ * It becomes the default only if it was the one in use. Someone who had filled the fields in
+ * and left the provider on "local" was not using it, and turning it on for them would start
+ * uploading audio they had not asked to upload.
+ */
+export function migrateSttSettings(parsed: Record<string, unknown>): {
+  sttProfiles: SttProfile[];
+  sttDefaultProfileId: string;
+} | null {
+  const profiles = normalizeProfiles(parsed.sttProfiles);
+  if (profiles.length > 0) return null; // already migrated
+
+  const baseUrl = typeof parsed.sttRemoteBaseUrl === "string" ? parsed.sttRemoteBaseUrl.trim() : "";
+  if (!baseUrl) return null;
+
+  const migrated: SttProfile = {
+    id: "migrated",
+    name: nameFromBaseUrl(baseUrl),
+    kind: "openai",
+    baseUrl,
+    model:
+      (typeof parsed.sttRemoteModel === "string" ? parsed.sttRemoteModel.trim() : "") ||
+      "whisper-large-v3-turbo",
+    apiKey: typeof parsed.sttRemoteApiKey === "string" ? parsed.sttRemoteApiKey : "",
+  };
+  return {
+    sttProfiles: [migrated],
+    sttDefaultProfileId: parsed.sttProvider === "remote" ? migrated.id : "",
+  };
+}
+
 export async function readSettings(): Promise<AppSettings> {
   const base = defaults();
   try {
     const raw = await fs.readFile(SETTINGS_PATH, "utf8");
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
     const merged = { ...base, ...stripUndefined(parsed) };
+    // Profiles are validated rather than trusted: this file is hand-editable, and a malformed
+    // entry should be ignored rather than reaching the code that builds a request from it.
+    merged.sttProfiles = normalizeProfiles(merged.sttProfiles);
+    const migration = migrateSttSettings(parsed as Record<string, unknown>);
+    if (migration) Object.assign(merged, migration);
+    // Drop the fields profiles replaced. The spread above carries through whatever the file
+    // holds, so leaving them would keep a *raw API key* on the object that toPublic hands to
+    // the browser -- it strips the keys it knows about, and these are no longer among them.
+    for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel"]) {
+      delete (merged as Record<string, unknown>)[legacy];
+    }
+    if (!merged.sttProfiles.some((p) => p.id === merged.sttDefaultProfileId)) {
+      merged.sttDefaultProfileId = "";
+    }
     if (!VALID_PROVIDERS.includes(merged.llmProvider)) merged.llmProvider = base.llmProvider;
     if (!VALID_STT_LANGUAGES.includes(merged.sttLanguage)) merged.sttLanguage = base.sttLanguage;
     if (!VALID_SUMMARY_LANGUAGES.includes(merged.summaryLanguage))
@@ -194,19 +277,26 @@ export async function getVoiceprintThreshold(): Promise<number> {
 /** Client-safe representation with API keys hidden. */
 export type PublicSettings = Omit<
   AppSettings,
-  "anthropicApiKey" | "openaiApiKey" | "sttRemoteApiKey"
+  "anthropicApiKey" | "openaiApiKey" | "sttProfiles"
 > & {
   hasAnthropicApiKey: boolean;
   hasOpenaiApiKey: boolean;
-  hasSttRemoteApiKey: boolean;
+  sttProfiles: PublicSttProfile[];
 };
 
 export function toPublic(s: AppSettings): PublicSettings {
-  const { anthropicApiKey, openaiApiKey, sttRemoteApiKey, ...rest } = s;
+  const { anthropicApiKey, openaiApiKey, sttProfiles, ...rest } = s;
+  // Belt and braces for the fields profiles replaced. readSettings drops them, but this is the
+  // boundary to the browser and a secret should be removed at the boundary regardless of how it
+  // arrived -- a settings file read some other way, or a caller building the object by hand.
+  for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel"]) {
+    delete (rest as Record<string, unknown>)[legacy];
+  }
   return {
     ...rest,
     hasAnthropicApiKey: Boolean(anthropicApiKey),
     hasOpenaiApiKey: Boolean(openaiApiKey),
-    hasSttRemoteApiKey: Boolean(sttRemoteApiKey),
+    // Every key stripped, one flag each. A profile list is no reason to loosen this.
+    sttProfiles: sttProfiles.map(publicProfile),
   };
 }

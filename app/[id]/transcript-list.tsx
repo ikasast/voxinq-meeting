@@ -20,7 +20,10 @@ import { PencilIcon, TrashIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
 import { ShareButton } from "./share-button";
-import { sttDestination } from "@/lib/stt/destination";
+import { profileDestination, sttDestination } from "@/lib/stt/destination";
+import type { PublicSttProfile } from "@/lib/stt/profiles";
+
+type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
 type Item = {
   id: string;
@@ -113,10 +116,12 @@ export function TranscriptList({
   const [recBusy, setRecBusy] = useState(false);
   const [retransing, setRetransing] = useState(false);
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
-  const [retransModel, setRetransModel] = useState("");
-  // Which model this will actually use. Null while unknown and when recognition is local, in
-  // which case the picker below applies and is offered.
-  const [remoteModel, setRemoteModel] = useState<string | null>(null);
+  // "" = whatever Settings says; "local:<model>" = here; "profile:<id>" = a saved endpoint.
+  const [retransChoice, setRetransChoice] = useState("");
+  // Saved recognition endpoints, offered beside the local models below. `profiles` is already
+  // taken here by voice profiles, which are a different thing entirely.
+  const [sttProfiles, setSttProfiles] = useState<PublicSttProfile[]>([]);
+  const [defaultProfileId, setDefaultProfileId] = useState("");
   const [remoteHost, setRemoteHost] = useState<string | null>(null);
   const [retransOpen, setRetransOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ name: string }[]>([]);
@@ -186,13 +191,13 @@ export function TranscriptList({
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { sttProvider?: string; sttRemoteModel?: string; sttRemoteBaseUrl?: string } | null) => {
-        const remote = d?.sttProvider === "remote";
-        setRemoteModel(remote ? d?.sttRemoteModel || "the remote model" : null);
-        setRemoteHost(remote ? sttDestination(d ?? {}) : null);
+      .then((d: SttSettings | null) => {
+        setSttProfiles(d?.sttProfiles ?? []);
+        setDefaultProfileId(d?.sttDefaultProfileId ?? "");
+        setRemoteHost(d ? sttDestination(d) : null);
       })
       .catch(() => {
-        setRemoteModel(null);
+        setSttProfiles([]);
         setRemoteHost(null);
       });
   }, []);
@@ -490,6 +495,16 @@ export function TranscriptList({
     [speakerLabels, meetingId],
   );
 
+  // Where *this* run would send the audio: the picked endpoint, or the default when the picker
+  // is left alone. Null for anything on this machine or your own network.
+  const uploadTo = (() => {
+    if (retransChoice.startsWith("local:")) return null;
+    if (retransChoice.startsWith("profile:")) {
+      return profileDestination(sttProfiles.find((p) => p.id === retransChoice.slice(8)));
+    }
+    return remoteHost;
+  })();
+
   const retranscribe = useCallback(async () => {
     const ok = await confirm({
       title: "Re-transcribe from the recording",
@@ -497,10 +512,10 @@ export function TranscriptList({
         "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward." +
         // Said here because this is the last point at which it can be stopped. Replacing a
         // transcript is undone by running it again; uploading the audio is not undone at all.
-        (remoteHost
+        (uploadTo
           ? `
 
-The recording will be uploaded to ${remoteHost}, which recognises it and bills you for the length of the audio. Change this in Settings → Transcription.`
+The recording will be uploaded to ${uploadTo}, which recognises it and bills you for the length of the audio.`
           : ""),
       confirmLabel: "Re-transcribe",
       danger: true,
@@ -520,7 +535,10 @@ The recording will be uploaded to ${remoteHost}, which recognises it and bills y
       } | null;
 
       const base = sttHttpBase();
-      const model = retransModel || settings?.whisperModel;
+      // Decode the one picker back into the two things the request needs.
+      const local = retransChoice.startsWith("local:") ? retransChoice.slice(6) : null;
+      const profileId = retransChoice.startsWith("profile:") ? retransChoice.slice(8) : null;
+      const model = local || settings?.whisperModel;
       // Starting goes through the app's server; the polling below stays direct. Only the start
       // carries the credential for a remote endpoint, and the browser is not a place to put
       // one -- lib/stt/transcribe-recording.ts does the same for the same reason. This called
@@ -532,6 +550,9 @@ The recording will be uploaded to ${remoteHost}, which recognises it and bills y
         body: JSON.stringify({
           language: effectiveSttLanguage(model, settings?.sttLanguage),
           model,
+          // Explicit "local" rather than absent: absent means "use the default", and the point
+          // of the picker is being able to ask for this machine when the default is elsewhere.
+          profileId: profileId ?? (local ? "local" : undefined),
           // Global glossary + this meeting's series glossary (if any).
           initialPrompt:
             [settings?.sttGlossary, seriesGlossary].filter(Boolean).join("、") || undefined,
@@ -584,7 +605,7 @@ The recording will be uploaded to ${remoteHost}, which recognises it and bills y
     } finally {
       setRetransing(false);
     }
-  }, [confirm, meetingId, retransModel]);
+  }, [confirm, meetingId, retransChoice, sttProfiles, defaultProfileId, uploadTo]);
 
   const runDiarization = useCallback(async () => {
     setError(null);
@@ -1219,29 +1240,42 @@ The recording will be uploaded to ${remoteHost}, which recognises it and bills y
                 will not shrink below its content unless told it may. Without this a long model
                 name pushes the row past the screen on a phone -- wrapping does not help,
                 because the item that wrapped is still too wide for the line it wrapped to. */}
-            {remoteModel ? (
-              <p className="min-w-0 max-w-full text-xs text-[var(--text-muted)]">
-                Recognised by <strong className="text-[var(--foreground)]">{remoteModel}</strong>{" "}
-                at your configured endpoint. The Whisper models in Settings are for recognition
-                on this machine and do not apply here.
-              </p>
-            ) : (
+            {/* One picker for both, because "where" and "which model" are the same question
+                from here: a saved endpoint brings its own model, and a local model implies this
+                machine. Splitting them into two controls would let you choose a combination
+                that does not exist. */}
             <label className="flex min-w-0 max-w-full items-center gap-1 text-xs text-[var(--text-muted)]">
-              Model
+              Recognise with
               <select
-                value={retransModel}
-                onChange={(e) => setRetransModel(e.target.value)}
+                value={retransChoice}
+                onChange={(e) => setRetransChoice(e.target.value)}
                 disabled={busy}
                 className="min-w-0 max-w-full flex-1 truncate rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
               >
-                {RETRANS_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
+                <option value="">
+                  {defaultProfileId
+                    ? `Same as settings (${sttProfiles.find((p) => p.id === defaultProfileId)?.name ?? "endpoint"})`
+                    : "Same as settings (this machine)"}
+                </option>
+                <optgroup label="On this machine">
+                  {WHISPER_MODELS.map((m) => (
+                    <option key={m.value} value={`local:${m.value}`}>
+                      {m.label}
+                    </option>
+                  ))}
+                </optgroup>
+                {sttProfiles.length > 0 ? (
+                  <optgroup label="Saved endpoints">
+                    {sttProfiles.map((p) => (
+                      <option key={p.id} value={`profile:${p.id}`}>
+                        {p.name}
+                        {p.model ? ` — ${p.model}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
             </label>
-            )}
             <button
               type="button"
               onClick={() => void retranscribe()}
