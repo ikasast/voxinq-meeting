@@ -366,6 +366,7 @@ def choose_backend(requested: str | None, device: str, compute: str | None):
 # click-to-play are built on.
 
 CLOUD_TIMEOUT_S = int(os.environ.get("STT_CLOUD_TIMEOUT", "600"))
+GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 # No version in it deliberately: it would have to be threaded in from the web app and kept in
 # step, and what this is for is being a named client rather than an anonymous script.
@@ -553,6 +554,214 @@ class OpenAiCompatibleBackend:
                 if text:
                     out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
         return out, detected
+
+    def decode_audio(self, path: str) -> np.ndarray:
+        return _ffmpeg_decode(path)
+
+
+# --- Gemini ------------------------------------------------------------------------------
+#
+# Google's transcription models do not answer /v1/audio/transcriptions -- probed, it is a 404 --
+# so they need their own request and their own reading of the reply. What they share with the
+# backend above is the shape of the problem, which is why the chunking and the WAV encoding are
+# reused rather than rewritten.
+#
+# Audio goes inline as base64 rather than through the Files API. The upload route is two round
+# trips, leaves a copy on Google's servers for 48 hours, and is only required above 20 MB per
+# request -- which the chunker already keeps us under. Not uploading is also the smaller
+# promise to have made about where a recording ends up.
+#
+# The reply is `output_text` for the whole chunk plus, when the model provides them, per-word
+# annotations carrying `start_offset`, `end_offset` and a speaker. Utterances are rebuilt from
+# those by cutting at pauses, because this app's unit of work is an utterance with a timestamp
+# and a word list is not one. Where the annotations are missing the chunk becomes a single
+# segment, which is worse than real boundaries and better than nothing.
+
+GEMINI_SEGMENT_GAP_S = float(os.environ.get("STT_GEMINI_GAP", "0.7"))
+
+# What to ask for. Kept plain on purpose: anything resembling a summary, a translation or a
+# tidy-up invites the model to produce one, and this is a transcript.
+GEMINI_PROMPT = (
+    "Transcribe this audio verbatim. Output only the words that were spoken, "
+    "with no commentary, headings, translation or summary."
+)
+
+
+def _seconds(value: Any) -> float:
+    """Google writes durations as "1.250s". Anything unreadable becomes 0."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value or "").strip()
+    if s.endswith("s"):
+        s = s[:-1]
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def group_words(words: list[dict], gap_s: float = GEMINI_SEGMENT_GAP_S) -> list[Segment]:
+    """Turn per-word annotations into utterances by cutting at pauses.
+
+    The same idea as the energy VAD on the streaming path: a silence long enough to be a pause
+    is where one utterance ends. A speaker change ends one too -- the words either side belong
+    to different people whatever the timing says.
+    """
+    out: list[Segment] = []
+    buf: list[str] = []
+    start = end = 0.0
+    speaker: str | None = None
+
+    def flush() -> None:
+        text = " ".join(buf).strip()
+        # Join without spaces for scripts that do not use them; Japanese is the common case
+        # here and " こ ん に ち は " is not a transcript.
+        if text and all(ord(c) > 0x2E80 or c.isspace() for c in text):
+            text = "".join(text.split())
+        if text:
+            out.append(Segment(text=text, start=start, end=end))
+
+    for w in words:
+        text = str(w.get("text") or "").strip()
+        if not text:
+            continue
+        ws, we = _seconds(w.get("start_offset")), _seconds(w.get("end_offset"))
+        spk = w.get("speaker")
+        if buf and (ws - end > gap_s or (speaker is not None and spk != speaker)):
+            flush()
+            buf = []
+        if not buf:
+            start = ws
+        buf.append(text)
+        end = max(we, ws)
+        speaker = spk
+    flush()
+    return out
+
+
+class GeminiBackend:
+    """Recognition by Google's Interactions API."""
+
+    name = "gemini"
+    device = "remote"
+
+    def __init__(self, base_url: str, api_key: str, model: str, max_bytes: int) -> None:
+        self.base_url = (base_url or GEMINI_DEFAULT_BASE).rstrip("/")
+        self.api_key = api_key
+        self.default_model = model or "gemini-3.5-transcribe"
+        # The cap is on the *request*, and base64 is four bytes for every three. Leaving the
+        # audio at the raw limit would send half again as much as the endpoint accepts.
+        self.max_bytes = max(1, int(max_bytes * 0.7))
+        self.compute = "http"
+        try:
+            from urllib.parse import urlparse
+
+            self.host = urlparse(self.base_url).hostname or self.base_url
+        except Exception:  # noqa: BLE001
+            self.host = self.base_url
+
+    def load(self, model_name: str) -> Any:
+        return model_name or self.default_model
+
+    def unload(self, model: Any) -> None:
+        del model
+
+    def _post(self, wav: bytes, model: str, language: str | None) -> dict:
+        import base64
+        import json
+        import urllib.error
+        import urllib.request
+
+        prompt = GEMINI_PROMPT
+        if language:
+            prompt += f" The audio is in {language}."
+        body = json.dumps(
+            {
+                "model": model,
+                "input": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "audio",
+                        "data": base64.b64encode(wav).decode("ascii"),
+                        "mime_type": "audio/wav",
+                    },
+                ],
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            self.base_url + "/interactions",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                # Google's own header, not a bearer token. The OpenAI-shaped Authorization
+                # header is ignored here and the request reads as unauthenticated.
+                "x-goog-api-key": self.api_key,
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=CLOUD_TIMEOUT_S) as r:
+                return json.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", "replace")[:400]
+            raise RuntimeError(
+                self.base_url + " returned " + str(e.code) + ": " + detail
+            ) from None
+        except urllib.error.URLError as e:
+            raise RuntimeError("could not reach " + self.base_url + ": " + str(e.reason)) from None
+
+    @staticmethod
+    def _words(data: dict) -> list[dict]:
+        """Every word_info annotation in the reply, in the order it appears."""
+        out: list[dict] = []
+        for step in data.get("steps") or []:
+            if not isinstance(step, dict):
+                continue
+            for content in step.get("content") or []:
+                if not isinstance(content, dict):
+                    continue
+                for ann in content.get("annotations") or []:
+                    if isinstance(ann, dict) and ann.get("type") == "word_info":
+                        out.append(ann)
+        return out
+
+    def transcribe(
+        self,
+        model: Any,
+        audio: np.ndarray,
+        *,
+        language: str | None,
+        initial_prompt: str | None,
+        beam_size: int,
+        vad_min_silence_ms: int,
+        no_speech_threshold: float,
+    ) -> tuple[list[Segment], str | None]:
+        # A glossary would go in the prompt, where the model may treat it as content to repeat
+        # rather than as spelling guidance. Left out until that is measured on real audio.
+        del initial_prompt, beam_size, vad_min_silence_ms, no_speech_threshold
+
+        max_samples = max(SAMPLE_RATE * 10, (self.max_bytes - 4096) // 2)
+        out: list[Segment] = []
+
+        for begin, end in split_on_silence(audio, max_samples):
+            offset = begin / float(SAMPLE_RATE)
+            data = self._post(_wav_bytes(audio[begin:end]), str(model), language)
+            segments = group_words(self._words(data))
+            if segments:
+                for s in segments:
+                    out.append(
+                        Segment(text=s.text, start=offset + s.start, end=offset + s.end)
+                    )
+            else:
+                # No annotations came back. The transcript is still there, as one block.
+                text = str(data.get("output_text") or "").strip()
+                if text:
+                    out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
+        # Google reports no detected language here; the caller treats None as "unchanged".
+        return out, None
 
     def decode_audio(self, path: str) -> np.ndarray:
         return _ffmpeg_decode(path)

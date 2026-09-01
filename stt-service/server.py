@@ -49,6 +49,7 @@ from typing import Any
 import numpy as np
 
 from backends import (
+    GeminiBackend,
     OpenAiCompatibleBackend,
     Segment,
     choose_backend,
@@ -1321,12 +1322,17 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
         base = str(remote.get("baseUrl") or "").strip()
         if not base:
             raise HTTPException(status_code=400, detail="remote transcription needs a baseUrl")
-        remote_backend = OpenAiCompatibleBackend(
-            base,
-            str(remote.get("apiKey") or "").strip(),
-            str(remote.get("model") or "whisper-large-v3-turbo").strip(),
-            int(float(remote.get("maxMb") or 20) * 1024 * 1024),
-        )
+        key = str(remote.get("apiKey") or "").strip()
+        model = str(remote.get("model") or "").strip()
+        limit = int(float(remote.get("maxMb") or 20) * 1024 * 1024)
+        # The wire format differs, not just the address: Google answers a different path, with a
+        # different auth header, and returns words where the other returns segments.
+        if str(remote.get("kind") or "openai").strip().lower() == "gemini":
+            remote_backend = GeminiBackend(base, key, model, limit)
+        else:
+            remote_backend = OpenAiCompatibleBackend(
+                base, key, model or "whisper-large-v3-turbo", limit
+            )
 
     # Global GPU lock: don't start if another meeting's GPU job is running.
     reason = _gpu_busy_other(mid)

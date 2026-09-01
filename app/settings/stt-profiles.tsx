@@ -140,7 +140,7 @@ export function SttProfiles({
                   className={inputClass}
                 >
                   <option value="openai">OpenAI-compatible (Groq, OpenAI, your own server)</option>
-                  <option value="gemini">Google Gemini (not supported yet)</option>
+                  <option value="gemini">Google Gemini</option>
                 </select>
               </div>
             </div>

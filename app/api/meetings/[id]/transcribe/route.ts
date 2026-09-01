@@ -38,15 +38,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       { status: 400 },
     );
   }
-  // The kind is stored so that saving a Gemini endpoint now needs no migration later, but the
-  // service has no backend for it yet. Refusing here is the difference between "not built yet"
-  // and an obscure failure from sending Gemini's address an OpenAI-shaped request.
-  if (profile?.kind === "gemini") {
-    return NextResponse.json(
-      { error: `"${profile.name}" is a Gemini endpoint, which is not supported yet.` },
-      { status: 400 },
-    );
-  }
   if (profile && !profile.baseUrl) {
     return NextResponse.json(
       { error: `"${profile.name}" has no address saved. Settings → Transcription.` },
