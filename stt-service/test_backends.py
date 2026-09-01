@@ -11,6 +11,7 @@ between "the rules are right" and "the call works".
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import email
 import http.server
@@ -427,6 +428,163 @@ def test_it_reports_the_host_but_never_the_key() -> None:
 def test_the_http_backend_does_not_offer_live_transcription() -> None:
     b = backends.OpenAiCompatibleBackend("https://api.example.com/v1", "k", "m", 1024)
     assert backends.live_transcription_available(b) is False
+
+
+# --- Gemini ------------------------------------------------------------------------------
+#
+# Google returns words; this app's unit is an utterance with a timestamp. The regrouping is
+# ours, so it is what these test -- along with the request shape, which differs from the other
+# backend in every part that matters: a different path, a different auth header, and audio
+# inline as base64 rather than as a multipart file.
+
+
+def test_durations_are_read_the_way_google_writes_them() -> None:
+    assert backends._seconds("1.250s") == 1.25
+    assert backends._seconds("0s") == 0.0
+    assert backends._seconds(2.5) == 2.5
+    # Anything unreadable is 0 rather than an exception: one malformed word must not lose the
+    # whole chunk.
+    assert backends._seconds(None) == 0.0
+    assert backends._seconds("nonsense") == 0.0
+
+
+def _w(text, start, end, speaker="spk_1"):
+    return {"type": "word_info", "text": text, "speaker": speaker,
+            "start_offset": f"{start}s", "end_offset": f"{end}s"}
+
+
+def test_words_become_one_utterance_when_they_run_together() -> None:
+    segs = backends.group_words([_w("hello", 0.0, 0.4), _w("there", 0.45, 0.9)])
+    assert len(segs) == 1
+    assert segs[0].text == "hello there"
+    assert segs[0].start == 0.0 and segs[0].end == 0.9
+
+
+def test_a_pause_ends_an_utterance() -> None:
+    segs = backends.group_words(
+        [_w("first", 0.0, 0.5), _w("second", 3.0, 3.4)], gap_s=0.7
+    )
+    assert [s.text for s in segs] == ["first", "second"]
+    assert segs[1].start == 3.0
+
+
+def test_a_speaker_change_ends_one_too() -> None:
+    """Words either side belong to different people whatever the timing says."""
+    segs = backends.group_words(
+        [_w("mine", 0.0, 0.5, "spk_1"), _w("yours", 0.55, 1.0, "spk_2")], gap_s=0.7
+    )
+    assert [s.text for s in segs] == ["mine", "yours"]
+
+
+def test_japanese_is_not_joined_with_spaces() -> None:
+    """" こ ん に ち は " is not a transcript."""
+    segs = backends.group_words([_w("こんにちは", 0.0, 0.6), _w("世界", 0.65, 1.0)])
+    assert segs[0].text == "こんにちは世界"
+
+
+def test_empty_and_malformed_words_are_skipped_not_fatal() -> None:
+    segs = backends.group_words([_w("kept", 0.0, 0.4), {"type": "word_info", "text": "  "}, {}])
+    assert [s.text for s in segs] == ["kept"]
+
+
+class _FakeGemini(_FakeProvider):
+    reply: dict = {}
+
+    def do_POST(self) -> None:  # noqa: N802
+        body = self.rfile.read(int(self.headers["Content-Length"]))
+        _FakeGemini.received = {
+            "path": self.path,
+            "api_key_header": self.headers.get("x-goog-api-key"),
+            "authorization": self.headers.get("Authorization"),
+            "user_agent": self.headers.get("User-Agent"),
+            "body": body,
+        }
+        payload = json.dumps(_FakeGemini.reply).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+
+def _run_gemini(reply: dict, seconds: int = 1):
+    _FakeGemini.reply = reply
+    with _provider(_FakeGemini) as base:
+        b = backends.GeminiBackend(base, "test-key", "gemini-3.5-transcribe", 20 * 1024 * 1024)
+        segs, lang = b.transcribe(
+            b.load(""),
+            np.zeros(backends.SAMPLE_RATE * seconds, dtype=np.float32),
+            language=None,
+            initial_prompt=None,
+            beam_size=5,
+            vad_min_silence_ms=500,
+            no_speech_threshold=0.6,
+        )
+    return segs, lang, _FakeGemini.received
+
+
+def test_the_request_is_the_shape_google_documents() -> None:
+    segs, _, got = _run_gemini(
+        {"output_text": "hi", "steps": [{"content": [{"annotations": [_w("hi", 0.0, 0.4)]}]}]}
+    )
+    # Appended to whatever base is configured: /v1beta/interactions against Google, and the
+    # stub's own root here. What matters is the endpoint name, not the prefix.
+    assert got["path"].endswith("/interactions"), got["path"]
+    # Google's own header. An Authorization bearer is ignored there and the call reads as
+    # unauthenticated, which is a 401 with nothing to explain it.
+    assert got["api_key_header"] == "test-key"
+    assert got["authorization"] is None
+    assert "urllib" not in (got["user_agent"] or "").lower()
+
+    body = json.loads(got["body"])
+    assert body["model"] == "gemini-3.5-transcribe"
+    kinds = [part["type"] for part in body["input"]]
+    assert kinds == ["text", "audio"]
+    audio = body["input"][1]
+    assert audio["mime_type"] == "audio/wav"
+    assert base64.b64decode(audio["data"]).startswith(b"RIFF")
+    assert [s.text for s in segs] == ["hi"]
+
+
+def test_it_falls_back_to_the_plain_transcript_when_no_words_come_back() -> None:
+    """Worse than real boundaries, and better than dropping the audio."""
+    segs, _, _ = _run_gemini({"output_text": "  the whole chunk  ", "steps": []})
+    assert len(segs) == 1
+    assert segs[0].text == "the whole chunk"
+
+
+def test_timestamps_are_offset_onto_the_meetings_clock() -> None:
+    reply = {
+        "output_text": "x",
+        "steps": [{"content": [{"annotations": [_w("word", 0.5, 1.0)]}]}],
+    }
+    _FakeGemini.reply = reply
+    with _provider(_FakeGemini) as base:
+        # A small cap forces several chunks out of 200 s, each answering with the same 0.5s.
+        b = backends.GeminiBackend(base, "k", "m", 4 * 1024 * 1024)
+        audio = np.float32(np.random.RandomState(3).uniform(-0.3, 0.3, backends.SAMPLE_RATE * 200))
+        segs, _ = b.transcribe(
+            b.load(""), audio, language=None, initial_prompt=None,
+            beam_size=5, vad_min_silence_ms=500, no_speech_threshold=0.6,
+        )
+    assert len(segs) > 2
+    starts = [s.start for s in segs]
+    assert starts == sorted(starts)
+    assert starts[-1] > 60.0, starts
+
+
+def test_the_audio_budget_allows_for_base64() -> None:
+    """The cap is on the request, and base64 is four bytes for every three."""
+    b = backends.GeminiBackend("https://x/v1beta", "k", "m", 20 * 1024 * 1024)
+    assert b.max_bytes < 20 * 1024 * 1024 * 0.76
+
+
+def test_it_reports_the_fields_health_asks_every_backend_for() -> None:
+    b = backends.GeminiBackend("https://generativelanguage.googleapis.com/v1beta", "k", "m", 1024)
+    assert (b.name, b.device, b.compute) == ("gemini", "remote", "http")
+    assert b.host == "generativelanguage.googleapis.com"
+    assert backends.live_transcription_available(b) is False
+
 
 if __name__ == "__main__":
     failed = 0
