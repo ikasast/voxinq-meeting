@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 // (the trailing +index ms stabilizes ordering for same-time ties).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await readJson<{ utterances?: unknown }>(req);
+  const body = await readJson<{ utterances?: unknown; usedModel?: unknown }>(req);
 
   if (!Array.isArray(body?.utterances)) return apiError("utterances is required", 400);
   const utterances: { start: number; end: number; text: string; translation: string | null }[] = [];
@@ -40,8 +40,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!meeting) return apiError("not found", 404);
 
+  // What produced *this* transcript. The column was only ever written when the meeting was
+  // created, so "Transcribed with" reported the model chosen back then no matter how many
+  // times it had been re-recognised since -- and named a local model even when the work was
+  // done by an endpoint somewhere else.
+  const usedModel =
+    typeof body?.usedModel === "string" && body.usedModel.trim()
+      ? body.usedModel.trim().slice(0, 120)
+      : null;
+
   const base = meeting.startedAt.getTime();
   await prisma.$transaction([
+    ...(usedModel ? [prisma.meeting.update({ where: { id }, data: { whisperModel: usedModel } })] : []),
     prisma.transcript.deleteMany({ where: { meetingId: id } }),
     prisma.transcript.createMany({
       data: utterances.map((u, i) => ({

@@ -79,7 +79,25 @@ function DocsLink({ href }: { href: string }) {
   );
 }
 
-export function SideRail({ external, docsUrl }: { external: boolean; docsUrl: string }) {
+// Which version this is, for the question every bug report starts with. Quiet on purpose: it
+// is reference, not navigation, so it does not get a hit area or a hover state.
+function Version({ value }: { value: string }) {
+  return (
+    <p className="pb-1 text-center text-[10px] tabular-nums text-[var(--text-muted)]" title={`Voxinq Meeting ${value}`}>
+      v{value}
+    </p>
+  );
+}
+
+export function SideRail({
+  external,
+  docsUrl,
+  version,
+}: {
+  external: boolean;
+  docsUrl: string;
+  version: string;
+}) {
   const pathname = usePathname();
   // A meeting's own page belongs to the list it came from, so the list stays lit while reading
   // one — otherwise the rail goes blank the moment you open anything.
@@ -112,14 +130,16 @@ export function SideRail({ external, docsUrl }: { external: boolean; docsUrl: st
           {/* Settings sits at the bottom, away from the things used every day. */}
           <div className="mt-auto flex w-full flex-col gap-1">
             <DocsLink href={docsUrl} />
+            <Version value={version} />
             <RailLink href="/settings" label="Settings" active={pathname.startsWith("/settings")}>
               <GearIcon />
             </RailLink>
           </div>
         </>
       ) : (
-        <div className="mt-auto w-full">
+        <div className="mt-auto flex w-full flex-col gap-1">
           <DocsLink href={docsUrl} />
+          <Version value={version} />
         </div>
       )}
     </nav>

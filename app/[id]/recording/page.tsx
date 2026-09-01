@@ -496,7 +496,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         sttGlossary?: string;
         sttTranslate?: boolean;
       } | null;
-      const utterances = await transcribeRecording(meetingId, {
+      const { utterances, usedModel } = await transcribeRecording(meetingId, {
         model: settings?.whisperModel,
         language: settings?.sttLanguage,
         initialPrompt: settings?.sttGlossary || undefined,
@@ -504,7 +504,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         onProgress: setDeferredStatus,
       });
       setDeferredStatus("Saving the transcript…");
-      await applyTranscript(meetingId, utterances);
+      await applyTranscript(meetingId, utterances, usedModel);
       setDeferredStatus(null);
     } catch (e) {
       setDeferredStatus(null);
