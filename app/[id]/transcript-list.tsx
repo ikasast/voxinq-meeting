@@ -116,6 +116,10 @@ export function TranscriptList({
   const [recBusy, setRecBusy] = useState(false);
   const [retransing, setRetransing] = useState(false);
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
+  // Re-transcription changes things this component does not own: "Transcribed with" on the
+  // meeting is rendered on the server, so replacing the transcript here left it showing the
+  // model from before -- correct in the database, stale on screen until a reload.
+  const listRouter = useRouter();
   // "" = whatever Settings says; "local:<model>" = here; "profile:<id>" = a saved endpoint.
   const [retransChoice, setRetransChoice] = useState("");
   // Saved recognition endpoints, offered beside the local models below. `profiles` is already
@@ -599,13 +603,15 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
       setRetransStatus(
         `Done: replaced with ${applied.replaced} utterances. Run "Diarize" to distinguish speakers.`,
       );
+      // Pull the server components down again so the meeting's own details catch up.
+      listRouter.refresh();
     } catch (e) {
       setError(`Re-transcription failed: ${(e as Error).message}`);
       setRetransStatus(null);
     } finally {
       setRetransing(false);
     }
-  }, [confirm, meetingId, retransChoice, sttProfiles, defaultProfileId, uploadTo]);
+  }, [confirm, meetingId, retransChoice, sttProfiles, defaultProfileId, uploadTo, listRouter]);
 
   const runDiarization = useCallback(async () => {
     setError(null);

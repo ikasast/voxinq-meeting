@@ -468,6 +468,23 @@ def test_a_pause_ends_an_utterance() -> None:
     assert segs[1].start == 3.0
 
 
+def test_an_unbroken_stretch_is_still_broken_up() -> None:
+    """A gap threshold cannot help with someone who does not pause, and one enormous line is a
+    transcript you cannot navigate: every timestamp click lands at its start."""
+    words = [_w(f"w{i}", i * 1.0, i * 1.0 + 0.9) for i in range(40)]  # 40 s, no gap over 0.1
+    segs = backends.group_words(words, gap_s=0.35, max_s=10)
+    assert len(segs) >= 3, [round(s.end - s.start, 1) for s in segs]
+    assert all(s.end - s.start <= 11 for s in segs)
+    # No word is lost or repeated across the break.
+    assert sum(len(s.text.split()) for s in segs) == 40
+
+
+def test_the_gap_threshold_matches_what_gemini_actually_reports() -> None:
+    """Its timings run contiguously; the longest gap measured across a real meeting was 0.6 s.
+    At the streaming side's 0.7 s nothing would ever split."""
+    assert backends.GEMINI_SEGMENT_GAP_S < 0.6
+
+
 def test_a_speaker_change_ends_one_too() -> None:
     """Words either side belong to different people whatever the timing says."""
     segs = backends.group_words(
@@ -523,9 +540,11 @@ def _run_gemini(reply: dict, seconds: int = 1):
     return segs, lang, _FakeGemini.received
 
 
-def test_the_request_is_the_shape_google_documents() -> None:
+def test_the_request_is_the_shape_google_actually_wants() -> None:
     segs, _, got = _run_gemini(
-        {"output_text": "hi", "steps": [{"content": [{"annotations": [_w("hi", 0.0, 0.4)]}]}]}
+        {"steps": [{"type": "content", "content": [
+            {"type": "text", "text": "hi", "annotations": [_w("hi", 0.0, 0.4)]}
+        ]}]}
     )
     # Appended to whatever base is configured: /v1beta/interactions against Google, and the
     # stub's own root here. What matters is the endpoint name, not the prefix.
@@ -545,18 +564,32 @@ def test_the_request_is_the_shape_google_documents() -> None:
     assert base64.b64decode(audio["data"]).startswith(b"RIFF")
     assert [s.text for s in segs] == ["hi"]
 
+    # Asking for timestamps is load-bearing: without this block the reply is prose with no
+    # timings, verified against the real API.
+    mode = body["generation_config"]["transcription_config"]["mode"]
+    assert mode["timestamp_granularities"] == ["word"]
+    assert mode["diarization_mode"] == "speaker"
+
 
 def test_it_falls_back_to_the_plain_transcript_when_no_words_come_back() -> None:
     """Worse than real boundaries, and better than dropping the audio."""
-    segs, _, _ = _run_gemini({"output_text": "  the whole chunk  ", "steps": []})
+    segs, _, _ = _run_gemini(
+        {"steps": [{"type": "content", "content": [{"type": "text", "text": "  the whole chunk  "}]}]}
+    )
     assert len(segs) == 1
     assert segs[0].text == "the whole chunk"
 
 
 def test_timestamps_are_offset_onto_the_meetings_clock() -> None:
     reply = {
-        "output_text": "x",
-        "steps": [{"content": [{"annotations": [_w("word", 0.5, 1.0)]}]}],
+        # A real reply often leads with the model's own working, which carries a signature and
+        # no content at all. Indexing into steps[0] would miss the transcript entirely.
+        "steps": [
+            {"type": "thought", "signature": "..."},
+            {"type": "content", "content": [
+                {"type": "text", "text": "word", "annotations": [_w("word", 0.5, 1.0)]}
+            ]},
+        ],
     }
     _FakeGemini.reply = reply
     with _provider(_FakeGemini) as base:

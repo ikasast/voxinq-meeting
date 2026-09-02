@@ -577,7 +577,16 @@ class OpenAiCompatibleBackend:
 # and a word list is not one. Where the annotations are missing the chunk becomes a single
 # segment, which is worse than real boundaries and better than nothing.
 
-GEMINI_SEGMENT_GAP_S = float(os.environ.get("STT_GEMINI_GAP", "0.7"))
+# Measured, not guessed. Across 169 words of a real meeting, Gemini's longest gap between
+# consecutive words was 0.6 s: its timings run contiguously and it does not report the long
+# silences an energy VAD sees. A 0.7 s threshold -- the streaming side's value -- never fired
+# once, and a 43-second recording came back as two utterances, both of them from the speaker
+# changing rather than from any pause.
+GEMINI_SEGMENT_GAP_S = float(os.environ.get("STT_GEMINI_GAP", "0.35"))
+
+# And a ceiling, because a gap threshold alone cannot handle someone who does not pause. One
+# unbroken line is a transcript you cannot navigate: every timestamp click lands at its start.
+GEMINI_MAX_SEGMENT_S = float(os.environ.get("STT_GEMINI_MAX_SEGMENT", "20"))
 
 # What to ask for. Kept plain on purpose: anything resembling a summary, a translation or a
 # tidy-up invites the model to produce one, and this is a transcript.
@@ -600,12 +609,18 @@ def _seconds(value: Any) -> float:
         return 0.0
 
 
-def group_words(words: list[dict], gap_s: float = GEMINI_SEGMENT_GAP_S) -> list[Segment]:
-    """Turn per-word annotations into utterances by cutting at pauses.
+def group_words(
+    words: list[dict],
+    gap_s: float = GEMINI_SEGMENT_GAP_S,
+    max_s: float = GEMINI_MAX_SEGMENT_S,
+) -> list[Segment]:
+    """Turn per-word annotations into utterances.
 
-    The same idea as the energy VAD on the streaming path: a silence long enough to be a pause
-    is where one utterance ends. A speaker change ends one too -- the words either side belong
-    to different people whatever the timing says.
+    Three reasons to end one, in the order they matter:
+
+      a pause longer than `gap_s`   the same idea as the energy VAD on the streaming path
+      the speaker changing          those words belong to different people, whatever the timing
+      `max_s` of unbroken speech    a ceiling, for someone who simply does not pause
     """
     out: list[Segment] = []
     buf: list[str] = []
@@ -627,7 +642,8 @@ def group_words(words: list[dict], gap_s: float = GEMINI_SEGMENT_GAP_S) -> list[
             continue
         ws, we = _seconds(w.get("start_offset")), _seconds(w.get("end_offset"))
         spk = w.get("speaker")
-        if buf and (ws - end > gap_s or (speaker is not None and spk != speaker)):
+        too_long = buf and (we - start) > max_s
+        if buf and (ws - end > gap_s or (speaker is not None and spk != speaker) or too_long):
             flush()
             buf = []
         if not buf:
@@ -686,6 +702,19 @@ class GeminiBackend:
                         "mime_type": "audio/wav",
                     },
                 ],
+                # Load-bearing. Without it the reply is prose and nothing else: no timings, no
+                # speakers, and an utterance list cannot be built from it. Confirmed against
+                # the real API both ways -- the same request minus this block came back with
+                # text alone, from the transcription model as much as from a general one.
+                "generation_config": {
+                    "transcription_config": {
+                        "mode": {
+                            "type": "verbatim",
+                            "timestamp_granularities": ["word"],
+                            "diarization_mode": "speaker",
+                        }
+                    }
+                },
             }
         ).encode("utf-8")
 
@@ -714,19 +743,28 @@ class GeminiBackend:
             raise RuntimeError("could not reach " + self.base_url + ": " + str(e.reason)) from None
 
     @staticmethod
-    def _words(data: dict) -> list[dict]:
-        """Every word_info annotation in the reply, in the order it appears."""
-        out: list[dict] = []
+    def _read(data: dict) -> tuple[list[dict], str]:
+        """The word annotations and the plain transcript, from where Google puts them.
+
+        Not `output_text`: the reply has no such field, whatever the documentation shows. The
+        transcript is the text content inside `steps`, and the annotations hang off that same
+        content. Some steps carry only a `signature` -- the model's own working -- and have no
+        content at all, so every level is checked rather than indexed into.
+        """
+        words: list[dict] = []
+        texts: list[str] = []
         for step in data.get("steps") or []:
             if not isinstance(step, dict):
                 continue
             for content in step.get("content") or []:
                 if not isinstance(content, dict):
                     continue
+                if content.get("type") == "text" and isinstance(content.get("text"), str):
+                    texts.append(content["text"])
                 for ann in content.get("annotations") or []:
                     if isinstance(ann, dict) and ann.get("type") == "word_info":
-                        out.append(ann)
-        return out
+                        words.append(ann)
+        return words, chr(10).join(t.strip() for t in texts if t.strip())
 
     def transcribe(
         self,
@@ -749,17 +787,17 @@ class GeminiBackend:
         for begin, end in split_on_silence(audio, max_samples):
             offset = begin / float(SAMPLE_RATE)
             data = self._post(_wav_bytes(audio[begin:end]), str(model), language)
-            segments = group_words(self._words(data))
+            words, text = self._read(data)
+            segments = group_words(words)
             if segments:
-                for s in segments:
+                for seg in segments:
                     out.append(
-                        Segment(text=s.text, start=offset + s.start, end=offset + s.end)
+                        Segment(text=seg.text, start=offset + seg.start, end=offset + seg.end)
                     )
-            else:
-                # No annotations came back. The transcript is still there, as one block.
-                text = str(data.get("output_text") or "").strip()
-                if text:
-                    out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
+            elif text:
+                # Annotations were asked for and did not come. The transcript is still there,
+                # as one block: worse than real boundaries and better than losing the audio.
+                out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
         # Google reports no detected language here; the caller treats None as "unchanged".
         return out, None
 
