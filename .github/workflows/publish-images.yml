@@ -52,7 +52,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
       - uses: docker/setup-qemu-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -105,7 +105,7 @@ jobs:
             if [ "$MOVES_LATEST" = true ]; then echo "$IMAGE:latest"; fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: stt-service/Dockerfile
@@ -149,7 +149,7 @@ jobs:
             if [ "$MOVES_LATEST" = true ]; then echo "$IMAGE:latest-cpu"; fi
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: stt-service/Dockerfile.cpu
