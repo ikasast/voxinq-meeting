@@ -18,6 +18,8 @@ import { ExternalProviderNotice } from "./external-provider-notice";
 import { RemoteSttNotice } from "./remote-stt-notice";
 import { sttDestination } from "@/lib/stt/destination";
 import { SttProfiles, type DraftProfile } from "./stt-profiles";
+import { MinutesTemplates } from "./minutes-templates";
+import type { MinutesTemplate } from "@/lib/minutes-templates";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 
 type PublicSettings = {
@@ -35,7 +37,8 @@ type PublicSettings = {
   openaiBaseUrl: string;
   openaiModel: string;
   llmBackground: string;
-  summaryFormat: string;
+  minutesTemplates: MinutesTemplate[];
+  defaultMinutesTemplateId: string;
   hasAnthropicApiKey: boolean;
   hasOpenaiApiKey: boolean;
   summaryLanguage: string;
@@ -97,6 +100,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   // Edited as a whole, because a key typed into one entry must survive editing another.
   const [draftProfiles, setDraftProfiles] = useState<DraftProfile[]>([]);
+  const [draftTemplates, setDraftTemplates] = useState<MinutesTemplate[]>([]);
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
@@ -123,6 +127,7 @@ export default function SettingsPage() {
       .then((data: PublicSettings) => {
         setSettings(data);
         setDraftProfiles(data.sttProfiles);
+        setDraftTemplates(data.minutesTemplates);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, []);
@@ -151,7 +156,11 @@ export default function SettingsPage() {
       const { hasAnthropicApiKey, hasOpenaiApiKey, ...rest } = settings;
       void hasAnthropicApiKey;
       void hasOpenaiApiKey;
-      const body: Record<string, unknown> = { ...rest, sttProfiles: draftProfiles };
+      const body: Record<string, unknown> = {
+        ...rest,
+        sttProfiles: draftProfiles,
+        minutesTemplates: draftTemplates,
+      };
       if (anthropicApiKey.trim()) body.anthropicApiKey = anthropicApiKey.trim();
       if (openaiApiKey.trim()) body.openaiApiKey = openaiApiKey.trim();
       if (clearAnthropicApiKey) body.clearAnthropicApiKey = true;
@@ -169,6 +178,7 @@ export default function SettingsPage() {
       const next = (await res.json()) as PublicSettings;
       setSettings(next);
       setDraftProfiles(next.sttProfiles);
+      setDraftTemplates(next.minutesTemplates);
       setAnthropicApiKey("");
       setOpenaiApiKey("");
       setClearAnthropicApiKey(false);
@@ -436,34 +446,13 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label htmlFor="summaryFormat" className="label">
-                Minutes format (optional)
-              </label>
-              <button
-                type="button"
-                onClick={() => update("summaryFormat", DEFAULT_SUMMARY_FORMAT)}
-                disabled={saving}
-                className="rounded-md border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-              >
-                Load default format
-              </button>
-            </div>
-            <textarea
-              id="summaryFormat"
-              value={settings.summaryFormat}
-              onChange={(e) => update("summaryFormat", e.target.value)}
-              disabled={saving}
-              rows={10}
-              placeholder={DEFAULT_SUMMARY_FORMAT}
-              className="input mt-1 resize-y font-mono text-xs leading-relaxed"
-            />
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Specify the heading structure and granularity. If empty, the default format (shown as the placeholder) is used.
-              Click “Load default format” to import it, then edit to make it your own.
-            </p>
-          </div>
+          <MinutesTemplates
+            templates={draftTemplates}
+            defaultId={settings.defaultMinutesTemplateId}
+            disabled={saving}
+            onChange={setDraftTemplates}
+            onDefaultChange={(id) => update("defaultMinutesTemplateId", id)}
+          />
         </section>
         ) : null}
 

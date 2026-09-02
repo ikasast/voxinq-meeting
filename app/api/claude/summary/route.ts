@@ -2,15 +2,16 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requestSummary } from "@/lib/llm";
 import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
-import { getLlmConfig } from "@/lib/settings";
+import { getLlmConfig, readSettings } from "@/lib/settings";
 import { parseSpeakerLabels } from "@/lib/speakers";
+import { resolveTemplate } from "@/lib/minutes-templates";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as
-    | { meetingId?: unknown; detail?: unknown; provider?: unknown }
+    | { meetingId?: unknown; detail?: unknown; provider?: unknown; templateId?: unknown }
     | null;
   const meetingId = typeof body?.meetingId === "string" ? body.meetingId : "";
   if (!meetingId) {
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
   // model configured in Settings; requestSummary validates these values.
   const detail = typeof body?.detail === "string" ? body.detail : undefined;
   const provider = typeof body?.provider === "string" ? body.provider : undefined;
+  // A saved template's id, or "default" to ask for the built-in format explicitly. Absent
+  // leaves the choice to the series and then to the saved default, as it was before templates.
+  const templateId = typeof body?.templateId === "string" ? body.templateId : undefined;
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
@@ -113,6 +117,7 @@ export async function POST(req: NextRequest) {
     // Register an abort handle so an urgent recording can interrupt this run to free the GPU.
     const ac = beginGeneration(meetingId);
     try {
+      const settingsForRun = await readSettings();
       const summaryText = await requestSummary(
         transcriptInput,
         {
@@ -120,7 +125,11 @@ export async function POST(req: NextRequest) {
           speakerLabels,
           detail,
           provider,
-          format: meeting.series?.summaryFormat ?? undefined,
+          format: resolveTemplate(settingsForRun.minutesTemplates, {
+            chosenId: templateId,
+            seriesFormat: meeting.series?.summaryFormat,
+            defaultId: settingsForRun.defaultMinutesTemplateId,
+          }),
           previousMinutes,
         },
         ac.signal,
