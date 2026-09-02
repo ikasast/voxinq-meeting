@@ -25,9 +25,22 @@ updates:
     groups:
       pip-all:
         patterns: ["*"]
+    ignore:
+      # The same rule as npm above, which it did not have: huggingface_hub 0.36 -> 1.29 came
+      # through as a routine monthly bump. It happened to be harmless -- the images build from
+      # `>=` pins, so that version was already installed and working -- but this is the service
+      # that downloads every model, and the next major to arrive this way might not be.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
     open-pull-requests-limit: 1
+    ignore:
+      # And here, where it matters most: these actions run only when a release is published,
+      # so CI cannot tell you a major broke them. docker/build-push-action 6 -> 7 arrived this
+      # way and had to be proved by building a throwaway tag by hand. Worth doing on purpose.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
