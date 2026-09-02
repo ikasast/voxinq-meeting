@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type AppSettings, readSettings, toPublic, writeSettings } from "@/lib/settings";
 import { normalizeProfiles } from "@/lib/stt/profiles";
+import { normalizeTemplates } from "@/lib/minutes-templates";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,7 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "openaiBaseUrl",
   "openaiModel",
   "llmBackground",
-  "summaryFormat",
+  "defaultMinutesTemplateId",
   "summaryLanguage",
   "summaryDetail",
 ];
@@ -86,6 +87,12 @@ export async function PATCH(req: NextRequest) {
         };
       }),
     );
+  }
+
+  // Templates arrive whole, like profiles. Nothing secret in them, so no merging with what is
+  // stored -- what the form holds is what there is.
+  if (Array.isArray(body.minutesTemplates)) {
+    patch.minutesTemplates = normalizeTemplates(body.minutesTemplates);
   }
 
   const next = await writeSettings(patch);

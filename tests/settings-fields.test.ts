@@ -35,7 +35,7 @@ function appSettingsFields(): { name: string; type: string }[] {
 const API_KEYS = ["anthropicApiKey", "openaiApiKey"];
 // Endpoint keys live inside sttProfiles, one per entry, and are handled as a list rather than
 // as named fields -- see tests/stt-profiles.test.ts for that they never reach the browser.
-const LIST_FIELDS = ["sttProfiles"];
+const LIST_FIELDS = ["sttProfiles", "minutesTemplates"];
 // Not editable from the settings screen; they live in settings.json only.
 const FILE_ONLY = ["voiceprintThreshold", "ollamaNumCtx"];
 
@@ -75,8 +75,11 @@ describe("settings fields stay in step across the files that must agree", () => 
     // sttProfiles is added explicitly because it is edited as a draft, not held in `settings`.
     // The specific regression: a body assembled field by field is one someone will forget to
     // add to. Spreading what the form holds cannot go out of step with it.
-    expect(pageSrc).toMatch(/const body: Record<string, unknown> = \{ \.\.\.rest,/);
-    expect(pageSrc).not.toMatch(/const body: Record<string, unknown> = \{\s*\n\s*whisperModel:/);
+    // Matched as text: the body is a multi-line object literal now, and a regex written
+    // with a real newline in it does not survive being written into this file.
+    expect(pageSrc).toContain("const body: Record<string, unknown> = {");
+    expect(pageSrc).toContain("...rest,");
+    expect(pageSrc).not.toContain("whisperModel: settings.whisperModel,");
   });
 
   it("hides every API key from the client, and offers a way to clear each", () => {

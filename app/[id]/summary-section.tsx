@@ -76,6 +76,8 @@ export function SummarySection({
   // "Regenerate with options" panel: per-run detail level + provider, prefilled from saved settings.
   const [showOptions, setShowOptions] = useState(false);
   const [optDetail, setOptDetail] = useState("standard");
+  const [optTemplate, setOptTemplate] = useState("");
+  const [optTemplates, setOptTemplates] = useState<{ id: string; name: string }[]>([]);
   const [optProvider, setOptProvider] = useState("ollama");
   const [optModels, setOptModels] = useState<Record<string, string>>({});
   const [optLoaded, setOptLoaded] = useState(false);
@@ -89,6 +91,8 @@ export function SummarySection({
       const s = await res.json();
       setOptDetail(s.summaryDetail ?? "standard");
       setOptProvider(s.llmProvider ?? "ollama");
+      setOptTemplates(Array.isArray(s.minutesTemplates) ? s.minutesTemplates : []);
+      setOptTemplate(s.defaultMinutesTemplateId ?? "");
       setOptModels({
         ollama: s.ollamaModel ?? "",
         anthropic: s.anthropicModel ?? "",
@@ -151,7 +155,11 @@ export function SummarySection({
     }
   };
 
-  const regenerate = async (overrides?: { detail?: string; provider?: string }) => {
+  const regenerate = async (overrides?: {
+    detail?: string;
+    provider?: string;
+    templateId?: string;
+  }) => {
     setGenBusy(true);
     setError(null);
     try {
@@ -281,6 +289,29 @@ export function SummarySection({
       {/* Regenerate options: one-off detail level + provider for this run (settings unchanged). */}
       {showOptions && !editing ? (
         <div className="mt-3 space-y-3 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3">
+          <div>
+            <label htmlFor="regen-template" className="label">
+              Format
+            </label>
+            <select
+              id="regen-template"
+              value={optTemplate}
+              onChange={(e) => setOptTemplate(e.target.value)}
+              className="input mt-1"
+            >
+              {/* Empty means "whatever the settings and this series say", which is what the
+                  button did before this existed. "default" asks for the built-in explicitly,
+                  which is otherwise unreachable once a series has its own format. */}
+              <option value="">Same as settings</option>
+              <option value="default">Built-in default</option>
+              {optTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="regen-detail" className="label">
@@ -332,7 +363,13 @@ export function SummarySection({
               </button>
               <button
                 type="button"
-                onClick={() => regenerate({ detail: optDetail, provider: optProvider })}
+                onClick={() =>
+                  regenerate({
+                    detail: optDetail,
+                    provider: optProvider,
+                    templateId: optTemplate || undefined,
+                  })
+                }
                 disabled={genBusy || processing || otherBusy}
                 className="btn-ink"
               >

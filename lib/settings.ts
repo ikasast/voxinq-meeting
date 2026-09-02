@@ -7,6 +7,11 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
 import {
+  type MinutesTemplate,
+  migrateMinutesTemplates,
+  normalizeTemplates,
+} from "./minutes-templates";
+import {
   type SttProfile,
   type PublicSttProfile,
   nameFromBaseUrl,
@@ -55,7 +60,13 @@ export type AppSettings = {
   openaiModel: string;
   openaiApiKey: string;
   llmBackground: string; // business background shared across all meetings for the minutes LLM (long text)
-  summaryFormat: string; // minutes format spec (user-specified, takes priority)
+  /**
+   * Saved minutes formats. Empty means the built-in one, which is the default and the usual
+   * case. A list because a lecture is not a meeting: the same headings produce empty sections.
+   */
+  minutesTemplates: MinutesTemplate[];
+  /** Which template new minutes use when nothing else is chosen. Empty = the built-in. */
+  defaultMinutesTemplateId: string;
   summaryLanguage: string; // minutes output language "ja" | "en" | "zh" (generated in this language regardless of speech)
   summaryDetail: string; // minutes verbosity "brief" | "standard" | "detailed" (controls output length + guidance)
   voiceprintThreshold: number; // cosine similarity needed to auto-name a diarized speaker from a voice profile (0..1)
@@ -88,7 +99,8 @@ function defaults(): AppSettings {
     openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
     openaiApiKey: process.env.OPENAI_API_KEY ?? "",
     llmBackground: "",
-    summaryFormat: "",
+    minutesTemplates: [],
+    defaultMinutesTemplateId: "",
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
     voiceprintThreshold: 0.5,
@@ -167,12 +179,18 @@ export async function readSettings(): Promise<AppSettings> {
     // Profiles are validated rather than trusted: this file is hand-editable, and a malformed
     // entry should be ignored rather than reaching the code that builds a request from it.
     merged.sttProfiles = normalizeProfiles(merged.sttProfiles);
+    merged.minutesTemplates = normalizeTemplates(merged.minutesTemplates);
+    const templates = migrateMinutesTemplates(parsed as Record<string, unknown>);
+    if (templates) Object.assign(merged, templates);
+    if (!merged.minutesTemplates.some((t) => t.id === merged.defaultMinutesTemplateId)) {
+      merged.defaultMinutesTemplateId = "";
+    }
     const migration = migrateSttSettings(parsed as Record<string, unknown>);
     if (migration) Object.assign(merged, migration);
     // Drop the fields profiles replaced. The spread above carries through whatever the file
     // holds, so leaving them would keep a *raw API key* on the object that toPublic hands to
     // the browser -- it strips the keys it knows about, and these are no longer among them.
-    for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel"]) {
+    for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel", "summaryFormat"]) {
       delete (merged as Record<string, unknown>)[legacy];
     }
     if (!merged.sttProfiles.some((p) => p.id === merged.sttDefaultProfileId)) {
@@ -212,6 +230,15 @@ export async function writeSettings(patch: Partial<AppSettings>): Promise<AppSet
   const current = await readSettings();
   const next = { ...current, ...stripUndefined(patch) };
   if (!VALID_PROVIDERS.includes(next.llmProvider)) next.llmProvider = current.llmProvider;
+  // A default pointing at something the same save removed. readSettings clears this too, but
+  // only on the way out: without it here the reply to the save still names the deleted entry,
+  // and the file keeps a dangling id until something else happens to rewrite it.
+  if (!next.sttProfiles.some((p) => p.id === next.sttDefaultProfileId)) {
+    next.sttDefaultProfileId = "";
+  }
+  if (!next.minutesTemplates.some((t) => t.id === next.defaultMinutesTemplateId)) {
+    next.defaultMinutesTemplateId = "";
+  }
   await fs.writeFile(SETTINGS_PATH, JSON.stringify(next, null, 2), "utf8");
   return next;
 }
@@ -256,7 +283,9 @@ export async function getSttGlossary(): Promise<string> {
 
 /** User-specified minutes format (empty string if unset). */
 export async function getSummaryFormat(): Promise<string> {
-  return (await readSettings()).summaryFormat?.trim() ?? "";
+  const s = await readSettings();
+  const byId = s.minutesTemplates.find((t) => t.id === s.defaultMinutesTemplateId);
+  return byId?.body.trim() ?? "";
 }
 
 /** Minutes output language (defaults to "ja" if unset). */
@@ -289,7 +318,7 @@ export function toPublic(s: AppSettings): PublicSettings {
   // Belt and braces for the fields profiles replaced. readSettings drops them, but this is the
   // boundary to the browser and a secret should be removed at the boundary regardless of how it
   // arrived -- a settings file read some other way, or a caller building the object by hand.
-  for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel"]) {
+  for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel", "summaryFormat"]) {
     delete (rest as Record<string, unknown>)[legacy];
   }
   return {
