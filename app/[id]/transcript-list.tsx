@@ -116,6 +116,7 @@ export function TranscriptList({
   const [recBusy, setRecBusy] = useState(false);
   const [retransing, setRetransing] = useState(false);
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
+  const [retransWarn, setRetransWarn] = useState<string | null>(null);
   // Re-transcription changes things this component does not own: "Transcribed with" on the
   // meeting is rendered on the server, so replacing the transcript here left it showing the
   // model from before -- correct in the database, stale on screen until a reload.
@@ -526,6 +527,7 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
     });
     if (!ok) return;
     setError(null);
+    setRetransWarn(null);
     setRetransing(true);
     setRetransStatus("Starting transcription…");
     try {
@@ -572,6 +574,7 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
         usedModel?: string;
         utterances?: { start: number; end: number; text: string; translation?: string }[];
         detail?: string;
+        note?: string;
       };
       // Read before the loop: the status endpoint does not repeat it.
       const usedModel = job.usedModel;
@@ -600,6 +603,10 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
       setTranscripts(applied.transcripts);
       setDiarStatus(null);
       setDiarWarn(null);
+      // Whatever the backend wants said about this run — an endpoint that answered without
+      // timings, so far. Left on screen rather than folded into the status line: it explains
+      // a transcript that looks broken, and it is longer than one.
+      setRetransWarn(job.note ?? null);
       setRetransStatus(
         `Done: replaced with ${applied.replaced} utterances. Run "Diarize" to distinguish speakers.`,
       );
@@ -1296,6 +1303,9 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
           </div>
           {retransStatus ? (
             <p className="mt-2 text-xs text-[var(--accent-sub)]">{retransStatus}</p>
+          ) : null}
+          {retransWarn ? (
+            <p className="mt-2 text-xs text-[var(--warning)]">{retransWarn}</p>
           ) : null}
         </div>
       ) : null}

@@ -419,11 +419,39 @@ def split_on_silence(audio: np.ndarray, max_samples: int) -> list[tuple[int, int
     return spans
 
 
+def untimed_note(untimed: int, chunks: int, cause: str, fix: str = "") -> str | None:
+    """Say so when a reply carried words but no times to hang them on.
+
+    Both remote backends fall back to one span for the whole chunk when the endpoint returns
+    the transcript alone. The text survives, so the run reports success -- and what the user
+    gets is a single unbroken utterance they cannot click through, and a speaker separation
+    that finds one speaker because there is one row to attribute. Nothing on the screen said
+    why. This is that sentence.
+
+    `cause` is a clause without its full stop; `fix` is what to do about it, if there is
+    something to do.
+    """
+    if untimed <= 0:
+        return None
+    where = "" if untimed >= chunks else f" for {untimed} of {chunks} parts"
+    note = (
+        cause
+        + where
+        + ". The transcript is there, but as one block per part rather than separate"
+        " utterances — so the timestamps are approximate, and speaker separation finds one"
+        " speaker because there is one line to attribute."
+    )
+    return note + " " + fix if fix else note
+
+
 class OpenAiCompatibleBackend:
     """Recognition by HTTP, against anything that speaks /v1/audio/transcriptions."""
 
     name = "openai-compatible"
     device = "remote"
+    # Set by transcribe(): something about *this* run the user should be told, or None. The
+    # job reports it beside the utterances; nothing else reads it.
+    note: str | None = None
 
     def __init__(self, base_url: str, api_key: str, model: str, max_bytes: int) -> None:
         self.base_url = base_url.rstrip("/")
@@ -524,8 +552,11 @@ class OpenAiCompatibleBackend:
         max_samples = max(SAMPLE_RATE * 10, (self.max_bytes - 4096) // 2)
         out: list[Segment] = []
         detected: str | None = None
+        self.note = None
+        chunks = untimed = 0
 
         for begin, end in split_on_silence(audio, max_samples):
+            chunks += 1
             offset = begin / float(SAMPLE_RATE)
             data = self._post(
                 _wav_bytes(audio[begin:end]), str(model), language, initial_prompt or None
@@ -550,9 +581,15 @@ class OpenAiCompatibleBackend:
             else:
                 # Some providers answer `verbose_json` with only `text`. One span for the whole
                 # chunk is worse than real boundaries and better than dropping the audio.
+                untimed += 1
                 text = str(data.get("text") or "").strip()
                 if text:
                     out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
+        self.note = untimed_note(
+            untimed,
+            chunks,
+            self.host + " returned the transcript without segment times",
+        )
         return out, detected
 
     def decode_audio(self, path: str) -> np.ndarray:
@@ -660,6 +697,9 @@ class GeminiBackend:
 
     name = "gemini"
     device = "remote"
+    # Set by transcribe(): something about *this* run the user should be told, or None. The
+    # job reports it beside the utterances; nothing else reads it.
+    note: str | None = None
 
     def __init__(self, base_url: str, api_key: str, model: str, max_bytes: int) -> None:
         self.base_url = (base_url or GEMINI_DEFAULT_BASE).rstrip("/")
@@ -783,8 +823,11 @@ class GeminiBackend:
 
         max_samples = max(SAMPLE_RATE * 10, (self.max_bytes - 4096) // 2)
         out: list[Segment] = []
+        self.note = None
+        chunks = untimed = 0
 
         for begin, end in split_on_silence(audio, max_samples):
+            chunks += 1
             offset = begin / float(SAMPLE_RATE)
             data = self._post(_wav_bytes(audio[begin:end]), str(model), language)
             words, text = self._read(data)
@@ -797,7 +840,19 @@ class GeminiBackend:
             elif text:
                 # Annotations were asked for and did not come. The transcript is still there,
                 # as one block: worse than real boundaries and better than losing the audio.
+                untimed += 1
                 out.append(Segment(text=text, start=offset, end=end / float(SAMPLE_RATE)))
+        # Which model was asked is the whole of it here: a transcription model reports word
+        # timings and speakers, a general one answers with prose and no annotations at all.
+        # Both are valid model names and both "work", so the difference is invisible until
+        # the transcript arrives as one paragraph.
+        self.note = untimed_note(
+            untimed,
+            chunks,
+            str(model) + " returned the transcript without word timings",
+            "A transcription model — gemini-3.5-transcribe — reports them, and speaker labels"
+            " with them. General models such as gemini-3.5-flash do not.",
+        )
         # Google reports no detected language here; the caller treats None as "unchanged".
         return out, None
 

@@ -1276,8 +1276,14 @@ def _retranscribe_job(
         p["emb"].unlink(missing_ok=True)
         with _DIA_LOCK:
             _DIA_JOBS.pop(mid, None)
+        # Anything the backend wants said about this run. A remote endpoint that answers
+        # without timings still succeeds, and the result looks wrong rather than explained.
+        done: dict = {"status": "done", "utterances": utterances}
+        note = getattr(engine, "note", None)
+        if note:
+            done["note"] = note
         with _TR_LOCK:
-            _TR_JOBS[mid] = {"status": "done", "utterances": utterances}
+            _TR_JOBS[mid] = done
     except Exception as e:  # noqa: BLE001
         with _TR_LOCK:
             _TR_JOBS[mid] = {"status": "error", "detail": str(e)[-300:]}
@@ -1354,7 +1360,10 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
 
 @app.get("/transcribe/{meeting_id}/status")
 async def transcribe_status(meeting_id: str) -> dict:
-    """State of the re-transcription job. When done, includes utterances (an array of start/end/text)."""
+    """State of the re-transcription job.
+
+    When done, includes utterances (an array of start/end/text), and `note` when the
+    backend has something to say about how the run went."""
     mid = _safe_meeting_id(meeting_id)
     if not mid:
         raise HTTPException(status_code=400, detail="invalid meeting id")
@@ -1362,7 +1371,7 @@ async def transcribe_status(meeting_id: str) -> dict:
         job = _TR_JOBS.get(mid)
     if not job:
         return {"status": "none"}
-    return {"status": job["status"], **{k: job[k] for k in ("utterances", "detail") if k in job}}
+    return {"status": job["status"], **{k: job[k] for k in ("utterances", "detail", "note") if k in job}}
 
 
 @app.post("/upload/{meeting_id}")

@@ -369,6 +369,9 @@ def test_timestamps_are_offset_by_the_chunk_they_came_from() -> None:
 
 class _FailingProvider(_FakeProvider):
     def do_POST(self) -> None:  # noqa: N802
+        # Drain the request first. Answering an unread body resets the connection on Windows
+        # (WinError 10053), and the client never gets to read the 404 this test is about.
+        self.rfile.read(int(self.headers["Content-Length"]))
         payload = b'{"error":{"message":"model_not_found"}}'
         self.send_response(404)
         self.send_header("Content-Type", "application/json")
@@ -617,6 +620,106 @@ def test_it_reports_the_fields_health_asks_every_backend_for() -> None:
     assert (b.name, b.device, b.compute) == ("gemini", "remote", "http")
     assert b.host == "generativelanguage.googleapis.com"
     assert backends.live_transcription_available(b) is False
+
+
+
+# --- "it worked" is not the same as "it worked well" ------------------------------------------
+#
+# A remote endpoint that answers with the transcript and no timings still succeeds. What comes
+# back is one unbroken utterance per chunk, every timestamp click lands at its start, and
+# speaker separation finds one speaker because there is one line to attribute. That happened on
+# a real meeting -- 42.8 seconds, one utterance, one speaker -- and nothing on the screen said
+# why. These cover the sentence that now does.
+
+
+def test_a_note_is_only_produced_when_something_was_missing() -> None:
+    assert backends.untimed_note(0, 3, "cause") is None
+    note = backends.untimed_note(3, 3, "x returned no timings")
+    assert note and note.startswith("x returned no timings.")
+    # No "3 of 3": when every part is affected, counting them adds nothing.
+    assert "of 3" not in note
+
+
+def test_a_note_counts_the_parts_when_only_some_were_missing() -> None:
+    note = backends.untimed_note(2, 5, "x returned no timings")
+    assert "2 of 5 parts" in note
+
+
+def test_a_note_carries_the_fix_when_there_is_one() -> None:
+    note = backends.untimed_note(1, 1, "cause", "Use the other model.")
+    assert note.endswith("Use the other model.")
+
+
+def _gemini_run(reply: dict):
+    """Like _run_gemini, but hands back the backend so its note can be read."""
+    _FakeGemini.reply = reply
+    with _provider(_FakeGemini) as base:
+        b = backends.GeminiBackend(base, "k", "gemini-3.5-flash", 20 * 1024 * 1024)
+        segs, _ = b.transcribe(
+            b.load(""), np.zeros(backends.SAMPLE_RATE, dtype=np.float32),
+            language=None, initial_prompt=None,
+            beam_size=5, vad_min_silence_ms=500, no_speech_threshold=0.6,
+        )
+    return segs, b.note
+
+
+def test_gemini_says_which_model_reports_timings_when_none_came_back() -> None:
+    """The model is the whole of it: both names are valid and both "work"."""
+    segs, note = _gemini_run(
+        {"steps": [{"type": "content", "content": [{"type": "text", "text": "one block"}]}]}
+    )
+    assert len(segs) == 1
+    assert note is not None
+    assert "gemini-3.5-flash" in note          # what was asked for
+    assert "gemini-3.5-transcribe" in note     # what to ask for instead
+    assert "speaker separation" in note
+
+
+def test_gemini_says_nothing_when_the_timings_arrived() -> None:
+    _, note = _gemini_run(
+        {"steps": [{"type": "content", "content": [
+            {"type": "text", "text": "hi", "annotations": [_w("hi", 0.0, 0.4)]}
+        ]}]}
+    )
+    assert note is None
+
+
+def test_an_openai_endpoint_without_segments_says_so_too() -> None:
+    """Same fallback, same silence, and the same fix does not apply -- so it is not offered."""
+    class _TextOnly(_FakeProvider):
+        """`verbose_json` answered with the transcript and no `segments` -- some do."""
+
+        def do_POST(self) -> None:  # noqa: N802
+            self.rfile.read(int(self.headers["Content-Length"]))
+            payload = json.dumps({"text": "one block", "language": "ja"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+    with _provider(_TextOnly) as base:
+        b = _backend(base)
+        segs, _ = b.transcribe(
+            b.load(""), np.zeros(backends.SAMPLE_RATE, dtype=np.float32),
+            language=None, initial_prompt=None,
+            beam_size=5, vad_min_silence_ms=500, no_speech_threshold=0.6,
+        )
+    assert len(segs) == 1
+    assert b.note is not None
+    assert "127.0.0.1" in b.note
+    assert "gemini" not in b.note.lower()
+
+
+def test_an_openai_endpoint_with_segments_says_nothing() -> None:
+    with _provider() as base:
+        b = _backend(base)
+        b.transcribe(
+            b.load(""), np.zeros(backends.SAMPLE_RATE, dtype=np.float32),
+            language=None, initial_prompt=None,
+            beam_size=5, vad_min_silence_ms=500, no_speech_threshold=0.6,
+        )
+    assert b.note is None
 
 
 if __name__ == "__main__":

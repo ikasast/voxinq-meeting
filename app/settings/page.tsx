@@ -238,60 +238,62 @@ export default function SettingsPage() {
             profiles={draftProfiles}
             defaultId={settings.sttDefaultProfileId}
             disabled={saving}
+            localModel={settings.whisperModel}
+            localEditor={
+              <>
+                <label htmlFor="whisperModel" className={labelClass}>
+                  Model
+                </label>
+                <select
+                  id="whisperModel"
+                  value={settings.whisperModel}
+                  onChange={(e) => update("whisperModel", e.target.value)}
+                  disabled={saving}
+                  className={inputClass}
+                >
+                  {WHISPER_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                  {isKnownWhisperModel(settings.whisperModel) ? null : (
+                    <option value={settings.whisperModel}>{settings.whisperModel} (custom)</option>
+                  )}
+                </select>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Roughly how much memory each needs: {modelSizeGuide()}. On an 8GB card this is
+                  what has to fit beside whatever else is loaded. Downloaded on first use and
+                  cached afterwards.
+                </p>
+                {whisperModel(settings.whisperModel)?.note ? (
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    {whisperModel(settings.whisperModel)!.note}
+                  </p>
+                ) : null}
+                {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
+                {/* With a remote endpoint configured, this picker still matters -- but not for
+                    everything, and saying so is the difference between a control that looks broken
+                    and one that is doing its job. */}
+                {sttDest ? (
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    This model is used for <strong>live recognition on this machine</strong>. The
+                    after-the-meeting pass and <em>Re-transcribe</em> use{" "}
+                    <strong>{defaultProfile?.model || "the endpoint's model"}</strong> at {sttDest}{" "}
+                    instead — these names belong to different services and are not interchangeable.
+                  </p>
+                ) : null}
+                {isJapaneseOnlyModel(settings.whisperModel) ? (
+                  <p className="mt-1 text-xs text-[var(--warning)]">
+                    This is a Japanese-only model — meetings in other languages will not transcribe.
+                    It becomes the default for every new meeting; you can still pick another model
+                    per meeting on the New meeting screen.
+                  </p>
+                ) : null}
+              </>
+            }
             onChange={setDraftProfiles}
             onDefaultChange={(id) => update("sttDefaultProfileId", id)}
           />
-
-          <div>
-            <label htmlFor="whisperModel" className={labelClass}>
-              Model
-            </label>
-            <select
-              id="whisperModel"
-              value={settings.whisperModel}
-              onChange={(e) => update("whisperModel", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {WHISPER_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-              {isKnownWhisperModel(settings.whisperModel) ? null : (
-                <option value={settings.whisperModel}>{settings.whisperModel} (custom)</option>
-              )}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Roughly how much memory each needs: {modelSizeGuide()}. On an 8GB card this is
-              what has to fit beside whatever else is loaded. Downloaded on first use and
-              cached afterwards.
-            </p>
-            {whisperModel(settings.whisperModel)?.note ? (
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                {whisperModel(settings.whisperModel)!.note}
-              </p>
-            ) : null}
-            {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
-            {/* With a remote endpoint configured, this picker still matters -- but not for
-                everything, and saying so is the difference between a control that looks broken
-                and one that is doing its job. */}
-            {sttDest ? (
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                This model is used for <strong>live recognition on this machine</strong>. The
-                after-the-meeting pass and <em>Re-transcribe</em> use{" "}
-                <strong>{defaultProfile?.model || "the endpoint's model"}</strong> at {sttDest}{" "}
-                instead — these names belong to different services and are not interchangeable.
-              </p>
-            ) : null}
-            {isJapaneseOnlyModel(settings.whisperModel) ? (
-              <p className="mt-1 text-xs text-[var(--warning)]">
-                This is a Japanese-only model — meetings in other languages will not transcribe.
-                It becomes the default for every new meeting; you can still pick another model
-                per meeting on the New meeting screen.
-              </p>
-            ) : null}
-          </div>
 
           <div>
             <label htmlFor="sttLanguage" className={labelClass}>
