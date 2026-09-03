@@ -15,8 +15,8 @@
 class Voxinq < Formula
   desc "Self-hosted meeting minutes: record in the browser, transcribe on your own machine"
   homepage "https://github.com/ikasast/voxinq-meeting"
-  url "https://github.com/ikasast/voxinq-meeting/releases/download/v2.3.0/voxinq-2.3.0.tar.gz"
-  sha256 "4d443f8a046b430cbb45f4ac5236cb2aa4a910a88cba96cc9c126a59f2417000"
+  url "https://github.com/ikasast/voxinq-meeting/releases/download/v2.3.1/voxinq-2.3.1.tar.gz"
+  sha256 "b26e3c83ed69e2d19b69489b5ddc62a6a91db91ec7032310440a06613eb11a52"
   license "MIT"
 
   depends_on "node"
