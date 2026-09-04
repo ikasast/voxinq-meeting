@@ -517,6 +517,7 @@ step rather than a broken install:
 | Recording **from a phone** | Needs `STT_WS_URL` — the phone cannot reach `localhost` |
 | **Telling speakers apart** (diarization) | ✅ without a GPU. With an NVIDIA GPU it uses pyannote, which needs `HF_TOKEN` first ([how](#getting-a-hugging-face-token-nvidia-gpus-only)) |
 | Voice profiles (naming speakers automatically) | Same as above — it uses the same model |
+| **Recognising speech somewhere else** (Groq, Gemini, your own whisper box) | Nothing to install: add an endpoint in **Settings → Transcription** and pick it at *Re-transcribe*. Off until you do ([details](configuration.md#recognising-speech-somewhere-else)) |
 
 ### Speaker separation
 
@@ -680,28 +681,25 @@ STT URL belong to the machine, not to the data.
 
 ### Branches & releases
 
-Two long-lived branches:
+**`main` is the only branch that matters.** Every PR lands there, and a tag on it is a
+version. Nothing deploys from a branch any more: Docker hosts pull a published image, package
+managers install a published tarball, and both are produced by publishing the release.
 
-- **`main`** — development. Every PR lands here.
-- **`release`** — what production runs. Always points at the latest tagged version.
+> There is still a **`release`** branch on the remote. It is a leftover from when production
+> was a git checkout that a redeploy script built in place, and nothing reads it now — it can
+> be deleted. If you find it lagging behind `main`, that is why, and it means nothing.
 
 The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
 `VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
-version changed. Development happens on 2.x, and 1.5 takes fixes only — hotfix it the way any
-release is hotfixed, from a branch off its tag.
-
-Tags (`v1.0.0`, `v1.1.0`, …) mark the versions; `release` just follows the newest one. The
-redeploy scripts default to `release` and refuse to build any other checkout, so a leftover
-feature branch cannot be deployed by accident — pass `-Branch <name>` (PowerShell) or
-`BRANCH=<name>` (shell) when you mean to.
+version changed. Development happens on 2.x, and 1.5 takes fixes only — hotfix it from a branch
+off its tag.
 
 **Cutting a release**
 
 ```bash
 # on main, with everything for this version merged
 npm version 1.1.0 --no-git-tag-version   # commit this via a PR
-git checkout release && git merge --ff-only main
-git tag -a v1.1.0 -m "v1.1.0" && git push origin release v1.1.0
+git tag -a v1.1.0 -m "v1.1.0" && git push origin v1.1.0
 ```
 
 Then publish the GitHub release — **not** as a pre-release, or `latest` stays where it is:
@@ -719,8 +717,9 @@ Deploying comes **after** publishing, and depends on how the host runs:
 
 | host runs | deploy with |
 | --- | --- |
-| Docker | `docker compose pull && docker compose up -d` (set `VOXINQ_VERSION` first to pin) |
-| native | `scripts\windows\redeploy-all.ps1`, or `scripts/redeploy.sh` on Linux |
+| Docker | `docker compose pull && docker compose up -d` (set `VOXINQ_VERSION` to pin, or leave it unset to follow `latest`) |
+| `voxinq` launcher | `brew upgrade` / `scoop update voxinq`, then `voxinq setup` |
+| native (legacy) | `scripts\windows\redeploy-all.ps1`, or `scripts/redeploy.sh` on Linux — these build a git checkout in place, which is not how anything is run now |
 
 Publishing also builds the release tarball the package managers install from, and — for a full
 release, not a prerelease — points the Scoop manifest and Homebrew formula at it and pushes
@@ -737,25 +736,25 @@ way this step **cannot fail the release**: by the time it runs the manifests are
 in the tap and the bucket, and a red release would claim the distribution broke when it did
 not.
 
-**Hotfixing production** — branch from `release`, not `main`, so an unfinished feature cannot
-ride along:
+**Hotfixing** — branch from the tag being fixed, not from `main`, so an unfinished feature
+cannot ride along:
 
 ```bash
-git checkout -b hotfix-x release
-# fix, PR into release, then tag the patch
-git tag -a v1.1.1 -m "v1.1.1" && git push origin release v1.1.1
+git checkout -b hotfix-x v1.1.0
+# fix, then tag the patch from that branch and publish it
+git tag -a v1.1.1 -m "v1.1.1" && git push origin v1.1.1
 git checkout main && git cherry-pick <fix commit>   # keep main in sync
 ```
 
-**Rolling back** — `release` is an ordinary branch, so move it back to the previous tag and
-redeploy:
+**Rolling back** — nothing to move: name the older tag and pull it.
 
 ```bash
-git checkout release && git reset --hard v1.0.0 && git push --force-with-lease
+VOXINQ_VERSION=v2.3.0 docker compose up -d --pull always
 ```
 
 A rollback across a migration needs the database considered separately — `prisma migrate deploy`
-only rolls forward. Restore from the nightly `pg_dump` if the schema has to go back too.
+only rolls forward. Restore from the nightly `pg_dump` if the schema has to go back too. Every
+migration so far has been an added nullable column, which is backward compatible on its own.
 
 ---
 

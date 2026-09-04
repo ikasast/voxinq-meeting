@@ -49,9 +49,9 @@ recording starts immediately.
    because picking the wrong model is silent and costly.
 2. **Set up meeting** → creates the meeting, opens the recording screen and starts loading
    the transcription model. Recording does *not* start yet.
-3. Wait for **● Model ready** next to the button (a cold load takes tens of seconds), then
-   **Start recording** → speak. Words appear about a second behind you and firm up into the
-   final wording when you pause.
+3. Wait for **● Model ready** in the bar at the top (a cold load takes tens of seconds), then
+   **Start recording** — the wide button at the bottom of the screen — and speak. Words appear
+   about a second behind you and firm up into the final wording when you pause.
 
    On a machine with no GPU acceleration the badge instead reads **● Transcribes when the
    meeting ends**, and no text appears while you record. That is the design, not a fault:
@@ -59,7 +59,7 @@ recording starts immediately.
    pass at the end. The model is the same, though the weights are quantised differently for
    that runtime and the transcript is not identical to a CUDA one — see
    [what runs on what](setup.md#what-runs-on-what).
-4. End with one of (all three end the meeting):
+4. End with one of the three quiet buttons above it (all three end the meeting):
    - **Generate minutes** — minutes are generated in the background.
    - **Diarize** — speaker diarization starts automatically on the meeting page
      (enrolled voices get their names); generate minutes after reviewing the speakers.
@@ -68,7 +68,14 @@ recording starts immediately.
 All three land on the meeting itself, where the minutes appear as they finish.
 
 Tips:
-- On a phone, keep the screen on while recording.
+- **Start and Stop are at the bottom**, where a thumb reaches them; the status, the input level
+  and the recording source stay at the top, where they are read rather than pressed.
+- On a phone the screen is kept on for you, because letting it sleep stops the microphone on
+  some devices. That is also what empties the battery, so the screen can **rest**: black, with
+  the running time still counting. **Rest screen** in the top bar does it now, and
+  *Settings → Appearance* can do it by itself after 30 seconds, 1, 5 or 10 minutes of nobody
+  touching it (never, by default). A touch brings it back. Recording is not affected — what you
+  lose while it rests is the live transcript.
 - There is deliberately no link away from the recording screen: navigating away unmounts it
   and drops the recording. Leave via the end actions.
 - Choose the source (mic / PC audio / both) from the top bar; you can switch mid-recording.
@@ -127,8 +134,9 @@ off it and neither is obvious:
   a name that is absent stops being one.** Without a participant list every profile is a
   candidate, so a cluster can be handed the name of someone who was not in the room.
 
-Names are typed freely; enrolled profiles are offered as suggestions. Someone who has never
-been enrolled still counts toward the speaker count.
+Enrolled profiles appear as buttons — `+ 田中` — and **touching one adds it**; any other name
+is typed into the box. Someone who has never been enrolled still counts toward the speaker
+count.
 
 Getting a tick wrong is recoverable — **Diarize** can be re-run, and the **Speakers** box above
 the transcript overrides the count for one run. Under-counting is the direction that hurts:
@@ -138,7 +146,12 @@ telling it to find two voices when three people spoke merges two of them.
 
 On a meeting page → **Diarize**, in the toolbar above the transcript. Enter the participant
 count for better accuracy, run it (the button becomes **Stop** while it works), then rename
-the speakers in the editor that appears. Regenerate minutes to use the names.
+the speakers in the editor that appears — it sits directly below the button, because it is what
+the button produced. Regenerate minutes to use the names.
+
+It reads the saved recording, so **the button is there only while the recording is** — once the
+WAV has expired there is nothing left to separate, and speakers can only be set per line.
+Re-transcribe disappears at the same moment, for the same reason.
 
 ## Voice profiles (auto-name recurring speakers)
 
@@ -162,19 +175,31 @@ wrong names appear).
 
 ## Re-transcribe
 
-**Re-transcribe** (its own toggle in the transcript toolbar) re-runs recognition over the
-saved recording — pick a larger model like `large-v3` for accuracy. This replaces the whole
-transcript, so re-run diarization afterwards.
+**Re-transcribe** — its own row below the speaker names, which opens where it is — re-runs
+recognition over the saved recording. Pick a larger model like `large-v3` for accuracy. This
+replaces the whole transcript, so re-run diarization afterwards.
 
 > Requires the recording to still exist (WAVs auto-delete after 7 days unless protected).
 
-**Recognition can be done elsewhere.** *Settings → Transcription → Recognise speech* can send
-the audio to any `/v1/audio/transcriptions` endpoint — Groq, OpenAI, or a whisper server of your
-own on another machine — instead of running it here. It is for a host with no NVIDIA card and
-no Apple silicon, where recognising an hour takes about three; a hosted model returns it in
-minutes. It applies to this pass and to the after-the-meeting one, never to live recognition,
-which has to stream. Long recordings are split at a silent moment because these endpoints cap
-the upload. See [configuration](configuration.md#recognising-speech-somewhere-else).
+**Recognition can be done elsewhere, and the choice is per run.** *Settings → Transcription*
+holds a list of saved endpoints beside this machine, and the picker here offers all of them —
+so a meeting can go to a hosted model once without changing what anything else uses. Two kinds
+are understood: anything speaking `/v1/audio/transcriptions` (Groq, OpenAI, or **a whisper
+server of your own on another machine**), and Google's own API, which does not.
+
+It is for a host with no NVIDIA card and no Apple silicon, where recognising an hour takes
+about three; a hosted model returns it in minutes. It applies to this pass and to the
+after-the-meeting one, never to live recognition, which has to stream. Long recordings are
+split at a silent moment because these endpoints cap the upload.
+
+For Gemini, use **`gemini-3.5-transcribe`**: a general model such as `gemini-3.5-flash` answers
+with prose and no word timings at all, which arrives as one unbroken utterance and leaves
+speaker separation with a single line to attribute. Voxinq says so when that happens rather
+than leaving you to work it out.
+
+Sending a recording off this machine is named where it is chosen — in the confirmation, and as
+the host under each endpoint in Settings. See
+[configuration](configuration.md#recognising-speech-somewhere-else).
 
 **Expect different wording even with the same model.** Recognition is not reproducible: on a
 12-minute meeting, two runs over identical audio differed in about 15% of characters. That is
@@ -186,9 +211,11 @@ it; re-transcribing rerolls the whole meeting. See
 
 ## Regenerate minutes
 
-The **Regenerate** button opens a small panel to pick a **detail level** and **provider**
-for that one run — handy to try a bigger model on a specific meeting without changing your
-defaults. Past versions are kept; switch between them with the version selector.
+The **Regenerate** button opens a small panel to pick a **detail level**, a **provider** and a
+**format** for that one run — handy to try a bigger model on a specific meeting, or to write a
+talk up as a lecture rather than as a meeting, without changing your defaults. Formats are
+saved in *Settings → Minutes*; a series with its own format keeps using that unless one is
+chosen here. Past versions are kept; switch between them with the version selector.
 
 ## Play back the recording
 
@@ -215,8 +242,9 @@ to check what was actually said before correcting a line, or to settle what a de
 
 ## Find & replace
 
-**Edit tools → Find & replace** fixes a term the recognizer got wrong the same way throughout —
-a company name heard as "ネクサス" in forty places rather than NEXUS.
+**Find & replace** — a row below the speaker names, which opens where it is — fixes a term the
+recognizer got wrong the same way throughout: a company name heard as "ネクサス" in forty places
+rather than NEXUS.
 
 Type the term and its replacement, then **Preview**: it reports how many utterances match and
 shows the first few before/after. Nothing is written until you press replace.

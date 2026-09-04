@@ -34,7 +34,8 @@ control — the server. On the left is whatever you are actually using: a phone,
 same machine's own browser. They are often the same box on a desk, and the diagram separates
 them because the distinction is what makes phone recording work: audio goes from the browser
 **straight to the STT service**, never through the web app, so the only thing crossing the
-network is the recording itself.
+network is the recording itself. It stops there unless you have chosen an endpoint to recognise
+with, in which case the STT service — not the browser — is what posts the audio on.
 
 The UI is shaded as Voxinq's code even though it sits on the left: it is this project's code,
 delivered to and run by your browser.
@@ -54,9 +55,11 @@ and a native install expects both already there.
 
 - **Web app** (`app/`, `lib/`) — Next.js 16 (React 19), Prisma. Serves pages and APIs;
   generates minutes via the LLM. Auth is handled by `proxy.ts` (Next.js 16 "proxy").
-- **STT service** (`stt-service/server.py`) — FastAPI, with **two recognition backends chosen
-  from the hardware** (`backends.py`): faster-whisper where there is CUDA, whisper.cpp
-  everywhere else. Where neither is accelerated, recognition is slower than speech, so the
+- **STT service** (`stt-service/server.py`) — FastAPI, with **two local recognition backends
+  chosen from the hardware** (`backends.py`): faster-whisper where there is CUDA, whisper.cpp
+  everywhere else. Two more exist for recognising somewhere else — one OpenAI-compatible, one
+  for Google Gemini — and neither is ever chosen at startup: they arrive with the job, because
+  where the audio goes is a decision that belongs in one place. Where neither is accelerated, recognition is slower than speech, so the
   meeting is recorded and transcribed in one pass at the end instead of falling behind live
   (`live_transcription_available`). Streams live audio
   over WebSocket, saves the meeting WAV + utterance boundaries, and runs re-transcription and
@@ -95,6 +98,11 @@ running.
    streamed first, then the final wording; the browser saves each utterance to the DB.
 3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization.
 4. The web app calls the LLM with the transcript to produce the minutes.
+
+Re-transcription takes the same path from step 3: the web app posts the job to STT, attaching
+the chosen endpoint and its key if the run is going somewhere else, and STT rewrites both the
+utterances and `segments.json` — they have to stay the same length, because diarization maps
+speakers onto utterances by index.
 
 ## Data & retention
 

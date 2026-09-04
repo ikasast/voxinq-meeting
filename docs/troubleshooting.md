@@ -160,6 +160,13 @@ Usually the business-background context leaking in, or the transcript being trun
 sizes the LLM context from the input and chunk-summarizes long meetings; if you changed models,
 make sure the endpoint's context window is adequate. Keep `llmBackground` concise.
 
+## The recording screen went black on its own
+
+That is **Settings → Appearance → Rest the screen while recording**, which is off by default
+but on if someone set it. A touch brings the screen back; recording never stopped — the screen
+lock, the microphone and the upload all keep going, which is why the running time on the black
+screen is still counting. Set it back to *Never* if it is not wanted.
+
 ## Recording lost after ending on a phone
 
 Fixed: pressing "back" to the recording page no longer restarts an ended meeting. If a WAV is
@@ -181,8 +188,17 @@ problem — see "Transcript stays on Preparing" above.
 
 ## Diarization finds only one speaker
 
-The recording may be too short or one-sided. Try a longer clip where both sides speak multiple
-times, pass the participant count, or assign speakers manually per line.
+**Count the utterances first.** Diarization attaches a speaker to each one, so if the whole
+meeting is a single line there is one thing to attribute and one speaker is the only possible
+answer. That happens when a recognition endpoint returns the transcript without timings —
+which a *general* model does: `gemini-3.5-flash` and its like answer with prose, while word
+timings and speaker labels come from `gemini-3.5-transcribe`. Re-transcribe reports this now,
+naming the model that was asked and the one that reports timings; older runs pre-date the
+message. Fix the model in **Settings → Transcription** and re-transcribe, then diarize again.
+
+If the transcript is properly split and diarization still finds one speaker, the recording may
+be too short or one-sided. Try a longer clip where both sides speak multiple times, pass the
+participant count, or assign speakers manually per line.
 
 **Which backend ran matters here.** `curl http://127.0.0.1:8000/health` reports
 `diarizationBackend`. `sherpa` is the ONNX backend used where there is no CUDA, and it is
