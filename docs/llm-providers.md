@@ -65,7 +65,7 @@ Set `Model` (e.g. `claude-sonnet-4-6`) and `API key` in Settings.
 
 ## Choosing per run
 
-The minutes **Regenerate** panel (sliders icon) lets you pick a **detail level**, a
+The minutes **Regenerate** panel (the ↻ icon on the Minutes card) lets you pick a **detail level**, a
 **provider** and a **format** for a single run without changing saved settings — e.g.
 regenerate one meeting with a bigger cloud model, or write a talk up as a lecture rather than
 as a meeting. Formats are saved in *Settings → Minutes*; a series with its own format keeps
