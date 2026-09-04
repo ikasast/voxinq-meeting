@@ -1053,6 +1053,55 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
         </div>
       ) : null}
 
+      {/* Speaker names — revealed as soon as diarization has produced speakers to name. */}
+      {showSpeakerTools ? (
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
+          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+            Speaker names (edits apply to all lines)
+          </p>
+          <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
+
+          {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void saveVoiceProfiles()}
+              disabled={profileBusy || busy}
+              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+            >
+              {profileBusy ? "Saving…" : "Save voice profiles"}
+            </button>
+            <span className="text-xs text-[var(--text-muted)]">
+              Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
+              runs will name them automatically.
+            </span>
+          </div>
+          {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
+          {profiles.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
+              {profiles.map((p) => (
+                <span
+                  key={p.name}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
+                >
+                  {p.name}
+                  <button
+                    type="button"
+                    onClick={() => void deleteProfile(p.name)}
+                    aria-label={`Delete voice profile ${p.name}`}
+                    title="Delete this voice profile"
+                    className="text-[var(--text-muted)] hover:text-[var(--error)]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Find and replace — for a term misheard the same way throughout. Rewriting text moves
           no positions, so the recording's utterance boundaries stay valid. */}
       {transcripts.length > 0 && !readOnly ? (
@@ -1242,55 +1291,6 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
             <p className="mt-2 text-xs text-[var(--warning)]">{retransWarn}</p>
           ) : null}
         </Disclosure>
-      ) : null}
-
-      {/* Speaker names — revealed as soon as diarization has produced speakers to name. */}
-      {showSpeakerTools ? (
-        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
-          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-            Speaker names (edits apply to all lines)
-          </p>
-          <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
-
-          {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void saveVoiceProfiles()}
-              disabled={profileBusy || busy}
-              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-            >
-              {profileBusy ? "Saving…" : "Save voice profiles"}
-            </button>
-            <span className="text-xs text-[var(--text-muted)]">
-              Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
-              runs will name them automatically.
-            </span>
-          </div>
-          {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
-          {profiles.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
-              {profiles.map((p) => (
-                <span
-                  key={p.name}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
-                >
-                  {p.name}
-                  <button
-                    type="button"
-                    onClick={() => void deleteProfile(p.name)}
-                    aria-label={`Delete voice profile ${p.name}`}
-                    title="Delete this voice profile"
-                    className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
       ) : null}
 
       {/* Suggested glossary fixes: a summary line, plus a bulk action once there are several.

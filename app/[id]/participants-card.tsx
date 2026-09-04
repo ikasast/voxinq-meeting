@@ -67,8 +67,8 @@ export function ParticipantsCard({
     void save(people);
   }, [people, save]);
 
-  const add = () => {
-    const name = draft.trim().slice(0, 80);
+  const add = (from?: string) => {
+    const name = (from ?? draft).trim().slice(0, 80);
     if (!name) return;
     if (people.some((p) => p.name === name)) {
       setDraft("");
@@ -79,6 +79,12 @@ export function ParticipantsCard({
   };
 
   const speakers = people.filter((p) => p.speaking).length;
+
+  // Enrolled names not in this meeting yet. Offered as buttons rather than only as an
+  // autocomplete: picking a suggestion filled the box and then waited for Add to be pressed,
+  // which is one tap too many on a phone and reads as nothing having happened. A name here is
+  // added by touching it.
+  const suggestions = knownNames.filter((n) => !people.some((p) => p.name === n));
 
   return (
     <section className="card p-4">
@@ -132,29 +138,56 @@ export function ParticipantsCard({
       )}
 
       {!readOnly ? (
-        <div className="mt-2 flex gap-1">
-          <input
-            list={listId}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                add();
-              }
-            }}
-            placeholder="Add a name"
-            className="input min-w-0 flex-1 !py-1 text-sm"
-          />
-          <datalist id={listId}>
-            {knownNames.map((n) => (
-              <option key={n} value={n} />
-            ))}
-          </datalist>
-          <button type="button" onClick={add} className="btn-outline !px-2 !py-1 text-xs">
-            Add
-          </button>
-        </div>
+        <>
+          {suggestions.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {suggestions.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => add(n)}
+                  className="rounded-full border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
+                  title={`Add ${n} to this meeting`}
+                >
+                  + {n}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-2 flex gap-1">
+            <input
+              list={listId}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              // Choosing from the autocomplete adds straight away, the same as touching a
+              // name above. Browsers report that choice as `insertReplacementText`; where one
+              // does not, the value is simply typed in and Add still works.
+              onInput={(e) => {
+                const native = e.nativeEvent as InputEvent;
+                const value = (e.target as HTMLInputElement).value;
+                if (native.inputType === "insertReplacementText" && knownNames.includes(value)) {
+                  add(value);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  add();
+                }
+              }}
+              placeholder="Add a name"
+              className="input min-w-0 flex-1 !py-1 text-sm"
+            />
+            <datalist id={listId}>
+              {knownNames.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
+            <button type="button" onClick={() => add()} className="btn-outline !px-2 !py-1 text-xs">
+              Add
+            </button>
+          </div>
+        </>
       ) : null}
 
       {people.length > 0 ? (

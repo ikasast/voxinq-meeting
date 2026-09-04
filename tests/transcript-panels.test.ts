@@ -5,27 +5,30 @@ import { describe, expect, it } from "vitest";
 // Where the transcript's controls sit, and what they depend on.
 //
 // Find & replace and Re-transcribe were pills in the toolbar, and the panels they opened
-// rendered several screens below it — past the speaker names. On a phone, tapping one
-// appeared to do nothing at all. They are their own rows now and open in place, which is only
-// true while the panels stay above the speaker section: the order of two blocks in one file
-// is the whole of it, and nothing else would notice them drifting apart again.
+// rendered several screens below it. On a phone, tapping one appeared to do nothing at all.
+// They are their own rows now and open inside their own headers, so how far down the page
+// they sit no longer separates a control from what it controls.
+//
+// What their position does decide is what ends up between Diarize and the speaker names it
+// produces — which is why they sit below that card and not above it. Nothing but the order of
+// blocks in one file holds that, and nothing else would notice it changing.
 
 const root = join(__dirname, "..");
 const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
 const settings = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
 
 describe("the transcript's disclosures", () => {
-  it("open where their headers are", () => {
+  it("stay out from between Diarize and the names it produces", () => {
     const toolbar = list.indexOf("{/* Top toolbar");
+    const speakers = list.indexOf("{/* Speaker names");
     const replace = list.indexOf("{/* Find and replace");
     const retrans = list.indexOf("{/* Re-transcription");
-    const speakers = list.indexOf("{/* Speaker names");
-    for (const [name, at] of Object.entries({ toolbar, replace, retrans, speakers })) {
+    for (const [name, at] of Object.entries({ toolbar, speakers, replace, retrans })) {
       expect(at, `${name} block not found`).toBeGreaterThan(-1);
     }
     expect(
-      toolbar < replace && replace < retrans && retrans < speakers,
-      "a panel drifted below the speaker section again, where its header cannot be seen with it",
+      toolbar < speakers && speakers < replace && replace < retrans,
+      "something is between the Diarize button and the speaker names, which are its result",
     ).toBe(true);
   });
 
