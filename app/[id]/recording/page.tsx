@@ -64,6 +64,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
 
   const [status, setStatus] = useState<RecognizerStatus | "idle">("idle");
+  const active = status === "connecting" || status === "open" || status === "reconnecting";
   const [partial, setPartial] = useState<string>("");
   const [level, setLevel] = useState(0); // input audio level (RMS 0..1)
   // Set while the input is hitting the rails. Clipping cannot be undone afterwards, so this is
@@ -117,6 +118,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     };
   }, []);
 
+  // Seconds of stillness before the screen goes black, from Settings. 0 = never; resting by
+  // hand still works.
+  const [restAfter, setRestAfter] = useState(0);
+  const [resting, setResting] = useState(false);
+  // The level meter fires ~10 times a second and re-renders the page each time. Nothing is on
+  // screen to show it while resting, and the point of resting is to stop spending.
+  const restingRef = useRef(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"none" | "summary">("none");
@@ -233,9 +241,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             sttGlossary?: string;
             micMode?: string;
             sttTranslate?: boolean;
+            restScreenSeconds?: number;
           } | null,
         ) => {
           if (cancelled) return;
+          if (typeof s?.restScreenSeconds === "number") setRestAfter(s.restScreenSeconds);
           if (s?.whisperModel) settingsModelRef.current = s.whisperModel;
           if (s?.sttLanguage) sttLanguageRef.current = s.sttLanguage;
           if (s?.sttGlossary) sttGlossaryRef.current = s.sttGlossary;
@@ -395,7 +405,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       onTranslation: applyTranslation,
       onStatus: (s: RecognizerStatus) => setStatus(s),
       onError: (message: string) => showToast(message),
-      onLevel: (rms: number) => setLevel(rms),
+      // Skipped while the screen rests: the meter is not on screen, and this is the one thing
+      // on this page that re-renders it ten times a second.
+      onLevel: (rms: number) => {
+        if (!restingRef.current) setLevel(rms);
+      },
       onClipping: () => {
         setClipping(true);
         window.setTimeout(() => setClipping(false), 4000);
@@ -652,6 +666,41 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     };
   }, [status]);
 
+  // Rest the screen after a while of nobody touching it.
+  //
+  // The wake lock above keeps the screen on for the whole meeting, because letting it sleep
+  // stops the microphone -- and a screen that is on for an hour is what empties a phone. Black
+  // is the one lever a web page has: no brightness API exists, and on an OLED panel a black
+  // pixel does not light up at all.
+  //
+  // Nothing about the recording changes. The lock is still held, the microphone is still open,
+  // audio is still going up. Only the picture is gone, and one touch brings it back.
+  useEffect(() => {
+    restingRef.current = resting;
+  }, [resting]);
+
+  useEffect(() => {
+    if (!active) setResting(false);
+  }, [active]);
+
+  useEffect(() => {
+    if (!active || restAfter <= 0 || resting) return;
+    let timer = 0;
+    const arm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setResting(true), restAfter * 1000);
+    };
+    // Anything that says a person is there. Re-armed on each, and again when the screen is
+    // woken, since this effect re-runs as `resting` goes back to false.
+    const events = ["pointerdown", "keydown", "touchstart", "wheel"] as const;
+    for (const e of events) window.addEventListener(e, arm, { passive: true });
+    arm();
+    return () => {
+      window.clearTimeout(timer);
+      for (const e of events) window.removeEventListener(e, arm);
+    };
+  }, [active, restAfter, resting]);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -663,7 +712,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     ? Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000))
     : 0;
 
-  const active = status === "connecting" || status === "open" || status === "reconnecting";
   // Block starting a recording if the meeting already ended, or while another GPU task runs
   // (minutes generation, or an STT job elsewhere). Stopping the current recording stays allowed.
   const startBlocked = ended || (gpu.busy && !active);
@@ -678,6 +726,28 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="space-y-4">
+      {/* The resting screen. Black, and as close to nothing as it can be while still saying
+          that the meeting is still being recorded -- a dim dot and the running time, because a
+          phone that looks switched off during a meeting you cannot afford to lose is worse
+          than the battery it saves. */}
+      {resting ? (
+        <button
+          type="button"
+          onClick={() => setResting(false)}
+          aria-label="Screen resting. Recording continues. Activate to show the recording screen."
+          // Sized explicitly, not just `inset-0`: as a <button> it came out 16px short of the
+          // viewport, and the sticky bar at the bottom of the page showed through the gap.
+          // dvh rather than vh so a phone's collapsing address bar cannot open one either.
+          className="fixed inset-0 z-[100] flex h-[100dvh] w-screen cursor-pointer flex-col items-center justify-center gap-3 bg-black"
+        >
+          <span aria-hidden className="h-2 w-2 rounded-full bg-[#7f1d1d]" />
+          <span className="font-mono text-sm tabular-nums text-white/40">
+            {formatElapsed(elapsedSec)}
+          </span>
+          <span className="text-xs text-white/25">Recording — touch to show</span>
+        </button>
+      ) : null}
+
       {/* Sticky top bar: keeps recording controls always visible. Pulses with accent while recording. */}
       <div
         className={`sticky top-0 z-20 -mx-4 border-b bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-3 backdrop-blur transition-colors ${
@@ -767,6 +837,21 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
               </span>
             ) : null}
           </div>
+
+          {active ? (
+            <button
+              type="button"
+              onClick={() => setResting(true)}
+              className="btn-outline px-3 py-1.5 text-xs"
+              title={
+                restAfter > 0
+                  ? "Black out the screen. Recording continues; one touch brings it back, and it rests again by itself."
+                  : "Black out the screen. Recording continues; one touch brings it back. Settings → Appearance can do this on its own after a while."
+              }
+            >
+              Rest screen
+            </button>
+          ) : null}
 
           <select
             value={source}
