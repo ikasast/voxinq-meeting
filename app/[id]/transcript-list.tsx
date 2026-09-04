@@ -96,6 +96,7 @@ export function TranscriptList({
   const [diarizing, setDiarizing] = useState(false);
   const [stoppingDiar, setStoppingDiar] = useState(false);
   const stopDiarRef = useRef(false); // set by the Stop button to break the polling loop
+  const diarJobRef = useRef<string | null>(null); // the queued job, so Stop can cancel it
   const [diarStatus, setDiarStatus] = useState<string | null>(null);
   const [needsHfToken, setNeedsHfToken] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
@@ -510,17 +511,57 @@ export function TranscriptList({
     return remoteHost;
   })();
 
+  // Wait for a queued job, reporting where it is while it waits.
+  //
+  // The browser used to run these itself: start on the STT service, poll it, post the results
+  // back here. It does not any more — closing the tab abandoned the run, and the browser was
+  // the thing deciding when to start, which is why the buttons had to be disabled whenever
+  // anything else held the GPU. Now it asks the queue how its job is getting on.
+  const awaitJob = useCallback(
+    async (jobId: string, report: (s: string) => void, stopped?: () => boolean) => {
+      for (;;) {
+        if (stopped?.()) return null;
+        const res = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("The job could not be found.");
+        const job = (await res.json()) as {
+          status: string;
+          detail?: string | null;
+          ahead?: number;
+        };
+        if (job.status === "queued") {
+          report(
+            job.ahead
+              ? `Waiting — ${job.ahead} job(s) ahead of it.`
+              : "Waiting for the GPU to be free…",
+          );
+        } else if (job.status === "running") {
+          report("Working… (you can leave this page; it finishes on the server)");
+        } else {
+          return job;
+        }
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    },
+    [],
+  );
+
+  /** Pull the transcript and speaker names back after a job has rewritten them. */
+  const reloadTranscript = useCallback(async () => {
+    const res = await fetch(`/api/meetings/${meetingId}/live`, { cache: "no-store" });
+    if (!res.ok) return;
+    const d = (await res.json()) as { transcripts?: Item[]; speakerLabels?: string | null };
+    if (Array.isArray(d.transcripts)) setTranscripts(d.transcripts);
+    setSpeakerLabels(parseSpeakerLabels(d.speakerLabels ?? null));
+    listRouter.refresh();
+  }, [meetingId, listRouter]);
+
   const retranscribe = useCallback(async () => {
     const ok = await confirm({
       title: "Re-transcribe from the recording",
       message:
         "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward." +
-        // Said here because this is the last point at which it can be stopped. Replacing a
-        // transcript is undone by running it again; uploading the audio is not undone at all.
         (uploadTo
-          ? `
-
-The recording will be uploaded to ${uploadTo}, which recognises it and bills you for the length of the audio.`
+          ? `\n\nThe recording will be uploaded to ${uploadTo}, which recognises it and bills you for the length of the audio.`
           : ""),
       confirmLabel: "Re-transcribe",
       danger: true,
@@ -529,7 +570,7 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
     setError(null);
     setRetransWarn(null);
     setRetransing(true);
-    setRetransStatus("Starting transcription…");
+    setRetransStatus("Adding to the queue…");
     try {
       const settings = (await fetch("/api/settings")
         .then((r) => (r.ok ? r.json() : null))
@@ -540,16 +581,11 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
         sttTranslate?: boolean;
       } | null;
 
-      const base = sttHttpBase();
       // Decode the one picker back into the two things the request needs.
       const local = retransChoice.startsWith("local:") ? retransChoice.slice(6) : null;
       const profileId = retransChoice.startsWith("profile:") ? retransChoice.slice(8) : null;
       const model = local || settings?.whisperModel;
-      // Starting goes through the app's server; the polling below stays direct. Only the start
-      // carries the credential for a remote endpoint, and the browser is not a place to put
-      // one -- lib/stt/transcribe-recording.ts does the same for the same reason. This called
-      // the service directly until it was noticed that Re-transcribe therefore never reached
-      // a configured remote endpoint at all: it silently used whatever the service had.
+
       const startRes = await fetch(`/api/meetings/${meetingId}/transcribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -559,7 +595,6 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
           // Explicit "local" rather than absent: absent means "use the default", and the point
           // of the picker is being able to ask for this machine when the default is elsewhere.
           profileId: profileId ?? (local ? "local" : undefined),
-          // Global glossary + this meeting's series glossary (if any).
           initialPrompt:
             [settings?.sttGlossary, seriesGlossary].filter(Boolean).join("、") || undefined,
           translate: Boolean(settings?.sttTranslate),
@@ -567,191 +602,98 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
       });
       if (!startRes.ok) {
         const d = await startRes.json().catch(() => null);
-        throw new Error(d?.detail ?? d?.error ?? `Failed to start (HTTP ${startRes.status})`);
+        throw new Error(d?.error ?? `Failed to queue (HTTP ${startRes.status})`);
       }
-      let job = (await startRes.json()) as {
-        status: string;
-        usedModel?: string;
-        utterances?: { start: number; end: number; text: string; translation?: string }[];
-        detail?: string;
-        note?: string;
-      };
-      // Read before the loop: the status endpoint does not repeat it.
-      const usedModel = job.usedModel;
-      while (job.status === "running") {
-        setRetransStatus("Recognizing… (this can take a few minutes including model load; you can leave this page open)");
-        await new Promise((r) => setTimeout(r, 4000));
-        const sres = await fetch(`${base}/transcribe/${meetingId}/status`);
-        job = (await sres.json()) as typeof job;
-      }
-      if (job.status === "error") throw new Error(job.detail ?? "Transcription failed");
-      if (job.status !== "done" || !Array.isArray(job.utterances)) {
-        throw new Error("Invalid transcription result");
+      const { jobId } = (await startRes.json()) as { jobId: string };
+
+      const job = await awaitJob(jobId, setRetransStatus);
+      if (!job) return;
+      if (job.status === "error") throw new Error(job.detail ?? "Re-transcription failed");
+      if (job.status === "cancelled") {
+        setRetransStatus("Cancelled.");
+        return;
       }
 
-      setRetransStatus("Replacing the transcript…");
-      const applyRes = await fetch(`/api/meetings/${meetingId}/apply-transcript`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ utterances: job.utterances, usedModel }),
-      });
-      if (!applyRes.ok) {
-        const d = await applyRes.json().catch(() => null);
-        throw new Error(d?.error ?? `Failed to apply (HTTP ${applyRes.status})`);
-      }
-      const applied = (await applyRes.json()) as { replaced: number; transcripts: Item[] };
-      setTranscripts(applied.transcripts);
+      await reloadTranscript();
       setDiarStatus(null);
       setDiarWarn(null);
-      // Whatever the backend wants said about this run — an endpoint that answered without
-      // timings, so far. Left on screen rather than folded into the status line: it explains
-      // a transcript that looks broken, and it is longer than one.
-      setRetransWarn(job.note ?? null);
-      setRetransStatus(
-        `Done: replaced with ${applied.replaced} utterances. Run "Diarize" to distinguish speakers.`,
-      );
-      // Pull the server components down again so the meeting's own details catch up.
-      listRouter.refresh();
+      // Whatever the backend wanted said about this run — an endpoint that answered without
+      // timings, so far.
+      setRetransWarn(job.detail ?? null);
+      setRetransStatus('Done. Run "Diarize" to distinguish speakers.');
     } catch (e) {
       setError(`Re-transcription failed: ${(e as Error).message}`);
       setRetransStatus(null);
     } finally {
       setRetransing(false);
     }
-  }, [confirm, meetingId, retransChoice, sttProfiles, defaultProfileId, uploadTo, listRouter]);
+  }, [
+    confirm,
+    meetingId,
+    retransChoice,
+    uploadTo,
+    seriesGlossary,
+    awaitJob,
+    reloadTranscript,
+  ]);
 
   const runDiarization = useCallback(async () => {
     setError(null);
     setDiarWarn(null);
     setDiarizing(true);
     stopDiarRef.current = false;
-    setDiarStatus("Starting diarization…");
+    setDiarStatus("Adding to the queue…");
     try {
-      const base = sttHttpBase();
-      const qs = new URLSearchParams({ force: "true" });
       // The box wins when it has a number in it. Otherwise the count comes from the participant
       // list, read now rather than held in state: it is edited elsewhere on this page, and a
       // stale count is worse than none -- too low merges two people into one.
-      let want = numSpeakers.trim();
-      if (!want) {
-        const n = await expectedSpeakerCount(meetingId);
-        want = n > 0 ? String(n) : "";
-      }
-      if (want) qs.set("num_speakers", want);
-      const startRes = await fetch(`${base}/diarize/${meetingId}?${qs}`, { method: "POST" });
-      if (!startRes.ok) {
-        const d = await startRes.json().catch(() => null);
-        throw new Error(d?.detail ?? `Failed to start (HTTP ${startRes.status})`);
-      }
-      let data = (await startRes.json()) as {
-        status: string;
-        speakers?: string[];
-        embeddings?: Record<string, number[]>;
-        // Which model produced those embeddings — pyannote or sherpa-onnx, depending on the
-        // STT host's hardware. Stored with them so a voiceprint is never compared with a
-        // vector from the other model, which would score like a stranger.
-        embeddingModel?: string | null;
-        detail?: string;
-        code?: string;
-      };
-      while (data.status === "running") {
-        if (stopDiarRef.current) break;
-        setDiarStatus("Analyzing… (longer meetings take longer; you can leave this page open)");
-        await new Promise((r) => setTimeout(r, 4000));
-        const sres = await fetch(`${base}/diarize/${meetingId}/status`);
-        data = (await sres.json()) as typeof data;
-      }
-      if (stopDiarRef.current) {
-        setDiarStatus("Stopped.");
-        return; // don't apply partial/aborted results
-      }
-      if (data.code === "hf_token_required") {
-        // Nothing before this point needs a token, so this is where a fresh install finds
-        // out. Say what to do rather than handing over the tail of a Python traceback.
-        setNeedsHfToken(true);
-        setDiarStatus(null);
-        return;
-      }
-      if (data.status === "error") throw new Error(data.detail ?? "Diarization failed");
-      if (data.status !== "done" || !Array.isArray(data.speakers)) {
-        throw new Error("Invalid diarization result");
-      }
-      const speakers = data.speakers;
+      let want = Number(numSpeakers.trim());
+      if (!Number.isFinite(want) || want <= 0) want = await expectedSpeakerCount(meetingId);
 
-      setDiarStatus("Applying results to the transcript…");
-      const applyRes = await fetch(`/api/meetings/${meetingId}/apply-speakers`, {
+      const startRes = await fetch(`/api/meetings/${meetingId}/diarize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ speakers }),
+        body: JSON.stringify({ numSpeakers: want > 0 ? want : undefined }),
       });
-      if (!applyRes.ok) {
-        const d = await applyRes.json().catch(() => null);
-        throw new Error(d?.error ?? `Failed to apply (HTTP ${applyRes.status})`);
+      if (!startRes.ok) {
+        const d = await startRes.json().catch(() => null);
+        throw new Error(d?.error ?? `Failed to queue (HTTP ${startRes.status})`);
       }
-      const applied = (await applyRes.json()) as {
-        updated: number;
-        transcriptCount?: number;
-        speakerCount?: number;
-        speakerKeys?: string[];
-      };
-      setTranscripts((list) =>
-        list.map((t, i) =>
-          i < speakers.length ? { ...t, speakerType: diarizerLabelToKey(speakers[i]) } : t,
-        ),
-      );
+      const { jobId } = (await startRes.json()) as { jobId: string };
+      diarJobRef.current = jobId;
 
-      // Voiceprints: store the cluster embeddings on the meeting and auto-name any
-      // clusters that match enrolled voice profiles (never overwrites manual names).
-      let recognized: string[] = [];
-      try {
-        const embRes = await fetch(`/api/meetings/${meetingId}/diarization-embeddings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            embeddings: data.embeddings ?? {},
-            embeddingModel: data.embeddingModel ?? null,
-          }),
-        });
-        if (embRes.ok) {
-          const emb = (await embRes.json()) as {
-            labels: SpeakerLabels;
-            matched: Record<string, string>;
-          };
-          setSpeakerLabels(emb.labels);
-          recognized = Object.values(emb.matched);
+      const job = await awaitJob(jobId, setDiarStatus, () => stopDiarRef.current);
+      if (!job) {
+        setDiarStatus("Stopped.");
+        return;
+      }
+      if (job.status === "error") {
+        // Nothing before this point needs a token, so this is where a fresh install finds out.
+        if (/hf_token|hugging ?face/i.test(job.detail ?? "")) {
+          setNeedsHfToken(true);
+          setDiarStatus(null);
+          return;
         }
-      } catch {
-        // voiceprint matching is best-effort; diarization itself already succeeded
+        throw new Error(job.detail ?? "Diarization failed");
+      }
+      if (job.status === "cancelled") {
+        setDiarStatus("Stopped.");
+        return;
       }
 
-      const distinct = applied.speakerKeys?.length ?? 0;
-      const wanted = numSpeakers.trim() ? Number(numSpeakers.trim()) : 0;
-      const missed = (applied.transcriptCount ?? 0) - (applied.speakerCount ?? 0);
-      if (distinct <= 1 || (wanted && distinct < wanted) || missed > 0) {
-        setDiarStatus(null);
-        setDiarWarn(
-          `Only ${distinct} speaker(s) detected. The recording may be short or have few utterances. ` +
-            "Try a longer conversation (both sides speaking multiple times), or assign speakers manually per line.",
-        );
-      } else {
-        setDiarWarn(null);
-        const recognizedNote =
-          recognized.length > 0
-            ? ` Recognized by voiceprint: ${recognized.join(", ")}.`
-            : "";
-        setDiarStatus(
-          `Done: assigned speakers to ${applied.updated} lines (${distinct} speakers).` +
-            recognizedNote +
-            ' Name the rest under "Speaker names" below.',
-        );
-      }
+      await reloadTranscript();
+      // The runner reports what it found — one speaker where several were expected has causes
+      // the person can act on.
+      setDiarWarn(job.detail ?? null);
+      setDiarStatus(job.detail ? null : "Done. Rename the speakers below if you like.");
     } catch (e) {
       setError(`Diarization failed: ${(e as Error).message}`);
       setDiarStatus(null);
     } finally {
       setDiarizing(false);
+      setStoppingDiar(false);
     }
-  }, [meetingId, numSpeakers]);
+  }, [meetingId, numSpeakers, awaitJob, reloadTranscript]);
 
   // Force-stop a running diarization: tell STT to kill the subprocess and break the poll loop.
   const stopDiarization = useCallback(async () => {
@@ -759,10 +701,14 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
     setStoppingDiar(true);
     setDiarStatus("Stopping…");
     try {
-      await fetch(`${sttHttpBase()}/diarize/${meetingId}/cancel`, {
-        method: "POST",
-        signal: AbortSignal.timeout(6000),
-      }).catch(() => {});
+      // The job, not the service: the queue owns the run now, and it knows which of its
+      // kinds can actually be stopped.
+      if (diarJobRef.current) {
+        await fetch(`/api/jobs/${diarJobRef.current}/cancel`, {
+          method: "POST",
+          signal: AbortSignal.timeout(6000),
+        }).catch(() => {});
+      }
     } finally {
       setStoppingDiar(false);
     }

@@ -1,5 +1,7 @@
 import { claimNext, finish, recoverInterrupted } from "./queue";
+import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
+import { runTranscribe } from "./runners/transcribe";
 
 // The one thing that decides what runs.
 //
@@ -18,6 +20,22 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let ticking = false;
 /** Ids this process is running. The row says `running` too; this is what `finally` needs. */
 const inFlight = new Set<string>();
+/**
+ * One controller per running job, so a cancel can stop the waiting.
+ *
+ * Aborting stops this side watching; whether the work itself stops depends on the work.
+ * Diarization can be stopped on the STT service, minutes generation mid-stream. A recognition
+ * pass runs to its end and its result is discarded — better than a cancel button that lies.
+ */
+const signals = new Map<string, AbortController>();
+
+/** Stop watching a running job. Returns false if it is not running here. */
+export function abortJob(id: string): boolean {
+  const ac = signals.get(id);
+  if (!ac) return false;
+  ac.abort();
+  return true;
+}
 
 export function isRunning(): boolean {
   return timer !== null;
@@ -54,7 +72,11 @@ export async function tick(): Promise<void> {
     const job = await claimNext();
     if (!job) return;
     inFlight.add(job.id);
-    void run(job).finally(() => inFlight.delete(job.id));
+    signals.set(job.id, new AbortController());
+    void run(job).finally(() => {
+      inFlight.delete(job.id);
+      signals.delete(job.id);
+    });
   } catch (e) {
     console.error("[queue] tick failed", e);
   } finally {
@@ -71,6 +93,16 @@ async function run(job: { id: string; kind: string; meetingId: string | null; pa
         // already carries the reason. It does not go back in the queue on its own — whoever
         // stopped it decides whether it should run again.
         await finish(job.id, r.aborted ? "cancelled" : r.reason ? "error" : "done", r.reason);
+        return;
+      }
+      case "transcribe": {
+        const r = await runTranscribe(job, signals.get(job.id)?.signal);
+        await finish(job.id, "done", r.note);
+        return;
+      }
+      case "diarize": {
+        const r = await runDiarize(job, signals.get(job.id)?.signal);
+        await finish(job.id, "done", r.note);
         return;
       }
       default:

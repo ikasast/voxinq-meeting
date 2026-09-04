@@ -1098,9 +1098,9 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
         raise HTTPException(status_code=500, detail="Diarization environment not found")
 
     # Global GPU lock: don't start if another meeting's GPU job is running.
-    reason = _gpu_busy_other(mid)
-    if reason:
-        raise HTTPException(status_code=409, detail=reason)
+    # No refusal here any more. The web app's queue decides what runs and when -- it is the
+    # only component that can see the LLM's work as well as this service's, and two places
+    # holding one decision is how they disagree. This service does what it is told.
 
     with _DIA_LOCK:
         cur = _DIA_JOBS.get(mid)
@@ -1197,6 +1197,15 @@ def _running_jobs() -> dict:
 
 def _gpu_busy_other(mid: str) -> str | None:
     """Return a reason string if a GPU job for a DIFFERENT meeting is running, else None.
+
+    Only the voiceprint endpoint still asks. Transcription and diarization used to refuse here
+    as well; they do not any more, because the web app's queue decides what runs and when, and
+    it is the only component that can see the LLM's work alongside this service's. Two places
+    holding one decision is how they come to disagree.
+
+    Enrolling a voiceprint is not queued -- it is seconds of work started from a settings
+    screen -- so it keeps a guard of its own rather than being allowed to land on top of a
+    diarization run.
 
     Diarization (pyannote) and re-transcription (Whisper) both use the single GPU, so only
     one may run at a time to avoid VRAM contention."""
@@ -1341,9 +1350,9 @@ async def transcribe_start(meeting_id: str, request: Request) -> dict:
             )
 
     # Global GPU lock: don't start if another meeting's GPU job is running.
-    reason = _gpu_busy_other(mid)
-    if reason:
-        raise HTTPException(status_code=409, detail=reason)
+    # No refusal here any more. The web app's queue decides what runs and when -- it is the
+    # only component that can see the LLM's work as well as this service's, and two places
+    # holding one decision is how they disagree. This service does what it is told.
 
     with _TR_LOCK:
         cur = _TR_JOBS.get(mid)
@@ -1400,9 +1409,9 @@ async def upload_recording(
         cur = _TR_JOBS.get(mid)
         if cur and cur.get("status") == "running":
             return {"status": "running"}
-    reason = _gpu_busy_other(mid)
-    if reason:
-        raise HTTPException(status_code=409, detail=reason)
+    # No refusal here any more. The web app's queue decides what runs and when -- it is the
+    # only component that can see the LLM's work as well as this service's, and two places
+    # holding one decision is how they disagree. This service does what it is told.
 
     RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
     p = _rec_paths(mid)
