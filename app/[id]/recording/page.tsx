@@ -755,33 +755,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         }`}
       >
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={active ? stopRecording : startRecording}
-            disabled={(external && !active) || startBlocked}
-            title={
-              external
-                ? "Recording is not available from an external network"
-                : ended
-                  ? "This meeting has ended"
-                  : startBlocked
-                    ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
-                    : undefined
-            }
-            className={`inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
-              active
-                ? "bg-[var(--error)] text-white hover:opacity-90"
-                : "btn-ink"
-            }`}
-          >
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${
-                active ? "bg-white animate-pulse" : "bg-[var(--accent-contrast)]"
-              }`}
-            />
-            {active ? "Stop recording" : "Start recording"}
-          </button>
-
           {/* Before recording, say whether the model is loaded — the wait for a cold load is
               silent otherwise, and starting into it means the first minutes go unrecognized. */}
           {!active && !ended && !external ? (
@@ -809,9 +782,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           <div className="flex items-center gap-2 text-sm">
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusDot(status)}`} />
             <span className="text-[var(--text-secondary)]">{statusLabel(status)}</span>
-            <span className="tabular-nums text-[var(--text-muted)]">
-              {formatElapsed(elapsedSec)}
-            </span>
             {active ? (
               <div
                 className={`h-1.5 w-16 overflow-hidden rounded-full bg-[var(--elevated)] ${
@@ -997,45 +967,87 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
                 {deferred
                   ? active
                     ? "Recording. This machine has no GPU acceleration, so speech is recognized once — when you end the meeting — rather than as you speak. The transcript appears then, at full quality."
-                    : 'Press "Start recording" above. Text appears when the meeting ends, not during it — see below.'
+                    : 'Press "Start recording" below. Text appears when the meeting ends, not during it.'
                   : status === "connecting"
                     ? "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes."
-                    : 'Press "Start recording" above to begin transcription.'}
+                    : 'Press "Start recording" below to begin transcription.'}
               </div>
             ) : null}
           </div>
       </section>
 
-      {/* Sticky bottom bar: end actions */}
-      <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-3 backdrop-blur">
-        <div className="grow" />
-        {/* The two follow-up actions are the colored ones (they end the meeting and start work);
-            "End only" stays gray because it just stops. */}
+      {/* Sticky bottom bar: the recording control, and the ways to end the meeting.
+          Start/Stop was at the top of the page, which on a phone is the far corner from your
+          thumb and the one control you may need in a hurry. It is the primary action, so it is
+          the big one at the bottom; the end actions were the coloured ones and are now the
+          quiet ones above it, which is the right way round -- they are what you press once, at
+          the end. The running time comes down with the button; the status and the input level
+          stay at the top, where they are read rather than acted on. */}
+      <div className="sticky bottom-0 -mx-4 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-3 backdrop-blur">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="tabular-nums text-sm font-medium text-[var(--text-secondary)]">
+            {formatElapsed(elapsedSec)}
+          </span>
+          <div className="grow" />
+          <button
+            type="button"
+            onClick={generateSummaryAndEnd}
+            disabled={busy !== "none" || transcripts.length === 0}
+            className="btn-outline !px-3 !py-1.5 !text-xs"
+            title="End the meeting and start generating minutes in the background"
+          >
+            {busy === "summary" ? "Starting…" : "Generate minutes"}
+          </button>
+          <button
+            type="button"
+            onClick={diarizeAndEnd}
+            disabled={busy !== "none" || transcripts.length === 0}
+            className="btn-outline !px-3 !py-1.5 !text-xs"
+            title="End the meeting and assign speakers automatically; generate minutes after reviewing them"
+          >
+            Diarize
+          </button>
+          <button
+            type="button"
+            onClick={endWithoutSummary}
+            disabled={busy !== "none"}
+            className="btn-outline !px-3 !py-1.5 !text-xs"
+          >
+            End only
+          </button>
+        </div>
         <button
           type="button"
-          onClick={generateSummaryAndEnd}
-          disabled={busy !== "none" || transcripts.length === 0}
-          className="btn-ink"
-          title="End the meeting and start generating minutes in the background"
+          onClick={active ? stopRecording : startRecording}
+          disabled={(external && !active) || startBlocked}
+          title={
+            external
+              ? "Recording is not available from an external network"
+              : ended
+                ? "This meeting has ended"
+                : startBlocked
+                  ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
+                  : undefined
+          }
+          // Full width where the thumb is the input, capped and centred where a mouse is: the
+          // same button spanning a desktop window is a metre of saturated red for a click that
+          // does not need help being found.
+          className={`flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-50 sm:mx-auto sm:w-auto sm:min-w-[18rem] ${
+            active ? "bg-[var(--error)] text-white hover:opacity-90" : "btn-ink"
+          }`}
         >
-          {busy === "summary" ? "Starting…" : "Generate minutes"}
-        </button>
-        <button
-          type="button"
-          onClick={diarizeAndEnd}
-          disabled={busy !== "none" || transcripts.length === 0}
-          className="btn-ink"
-          title="End the meeting and assign speakers automatically; generate minutes after reviewing them"
-        >
-          Diarize
-        </button>
-        <button type="button" onClick={endWithoutSummary} disabled={busy !== "none"} className="btn-soft">
-          End only
+          <span
+            className={`inline-block h-3 w-3 ${
+              active ? "rounded-[3px] bg-white" : "rounded-full bg-[var(--accent-contrast)]"
+            }`}
+          />
+          {active ? "Stop recording" : "Start recording"}
         </button>
       </div>
 
       {toast ? (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--elevated)] px-4 py-2 text-sm text-[var(--foreground)] shadow-lg">
+        // Clear of the bottom bar, which grew when the recording control moved into it.
+        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--elevated)] px-4 py-2 text-sm text-[var(--foreground)] shadow-lg">
           {toast}
         </div>
       ) : null}
