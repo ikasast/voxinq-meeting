@@ -132,10 +132,11 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 ```
 
 **Two questions before you start it**, because both change what gets downloaded — the first
-pull is around 20 GB, and neither is worth doing twice.
+pull is around 7.5 GB compressed — 21 GB once unpacked — and neither is worth doing twice.
 
 **Is there an NVIDIA GPU on this machine?** If not, use the CPU images: multi-arch, so they
-also run on Apple silicon, and about 1.8 GB rather than 21 because nothing CUDA-shaped is in
+also run on Apple silicon, and about 1.8 GB on disk rather than 21 because nothing CUDA-shaped
+is in
 them. Either add the override to the command below, or make the same two edits in
 `docker-compose.yml` — the `-cpu` image tag and no `deploy:` block. What that costs is in
 [what runs on what](#what-runs-on-what).
@@ -207,10 +208,11 @@ Everything above assumes a terminal. On Windows it can be done almost entirely w
    docker compose up -d
    ```
 
-   The first start downloads about 20 GB and takes a while. **Without an NVIDIA GPU**, also
+   The first start downloads about 7.5 GB, unpacks to about 21 GB, and takes a while.
+   **Without an NVIDIA GPU**, also
    save [`docker-compose.cpu.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml)
    into the folder and use `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d`
-   instead — 1.8 GB rather than 21.
+   instead — under 0.5 GB to download and 1.8 GB on disk.
 
 6. **Get the minutes model.** In Docker Desktop → **Containers**, expand the `voxinq` project,
    click the `ollama` container, open its **Exec** tab and run:
@@ -681,13 +683,23 @@ STT URL belong to the machine, not to the data.
 
 ### Branches & releases
 
-**`main` is the only branch that matters.** Every PR lands there, and a tag on it is a
-version. Nothing deploys from a branch any more: Docker hosts pull a published image, package
-managers install a published tarball, and both are produced by publishing the release.
+Two branches, with different jobs:
 
-> There is still a **`release`** branch on the remote. It is a leftover from when production
-> was a git checkout that a redeploy script built in place, and nothing reads it now — it can
-> be deleted. If you find it lagging behind `main`, that is why, and it means nothing.
+- **`main`** — development. Every PR lands there, and a tag on it is a version. Nothing is
+  *deployed* from a branch: Docker hosts pull a published image and package managers install a
+  published tarball, both produced by publishing the release.
+- **`release`** — **what the documentation's download links point at.** `docker-compose.yml`,
+  `docker-compose.cpu.yml` and `.env.example` are fetched from
+  `raw.githubusercontent.com/…/release/…` in seventeen places across the two READMEs, and the
+  app's own link to this guide uses `blob/release`. It has to mean *the current release*, so
+  **moving it is part of cutting one** (below). It no longer builds anything — that was the
+  redeploy scripts, and they are legacy — but a reader downloading a compose file from it is
+  not.
+
+> This was got wrong twice: the branch sat on `v2.3.0` through two releases while the docs
+> handed people files from it. Nothing broke, because those three files happened not to change
+> in between — which is the kind of near miss that gets written off rather than fixed. If it is
+> behind, fast-forward it.
 
 The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
 `VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
@@ -700,6 +712,7 @@ off its tag.
 # on main, with everything for this version merged
 npm version 1.1.0 --no-git-tag-version   # commit this via a PR
 git tag -a v1.1.0 -m "v1.1.0" && git push origin v1.1.0
+git push origin v1.1.0:refs/heads/release   # the docs' download links follow this
 ```
 
 Then publish the GitHub release — **not** as a pre-release, or `latest` stays where it is:

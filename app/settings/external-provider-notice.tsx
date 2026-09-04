@@ -41,8 +41,15 @@ export function ExternalProviderNotice({
         </li>
         <li>You are billed by them, per token. Long meetings cost more than short ones.</li>
       </ul>
+      {/* Was "audio never leaves this machine either way — transcription is always local",
+          which stopped being true when recognition endpoints arrived: a reassurance that is
+          false for some installs is worse than none, and this is the screen people read when
+          they are deciding what they are comfortable sending. What is said instead is the part
+          that is still true of every install — this setting moves text, not audio — and where
+          to look for the other answer. */}
       <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-        Audio never leaves this machine either way — transcription is always local.
+        This setting sends <strong>text</strong>, never the recording. Where the audio itself
+        goes is decided separately, under <em>Transcription</em>.
       </p>
     </div>
   );

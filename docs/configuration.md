@@ -28,6 +28,12 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 | `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v2.0.0`. Prereleases never move `latest`, so a beta or rc has to be named here to be used. `v1.5.0` is the last of the 1.x line — pin it to stay there; it needs an NVIDIA GPU, which 2.0 does not. |
 | `TZ` | unset (= UTC) | Timezone the **server** formats meeting dates in: the meeting list, the detail header, the print page and the DOCX/PDF exports. A container has no timezone unless given one, so leaving this unset shows those in UTC while the browser shows transcript timestamps in local time. Set it to yours, e.g. `Asia/Tokyo`. Native installs take the machine's own timezone. |
 | `WEB_PORT` / `STT_PORT` / `DB_PORT` / `OLLAMA_PORT` | `3000` / `8000` / `127.0.0.1:5432` / `127.0.0.1:11434` | Host ports. Only affect access from the host — containers always reach each other by service name. |
+| `OLLAMA_PROFILE` | unset | Set it to anything (`external` reads well) to **not** start the bundled Ollama, for a host already running one. The container is behind a compose profile, so a name that matches nothing leaves it out. Then point **Settings → LLM** at `http://host.docker.internal:11434`. |
+
+> A host Ollama also needs `OLLAMA_HOST=0.0.0.0` **set on Ollama itself**, not here: it listens
+> on loopback by default, and from inside a container loopback is the container. This is the one
+> variable in `.env.example` that is a note about another program rather than a setting Voxinq
+> reads.
 
 STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
 `WHISPER_COMPUTE` (unset = int8_float16 on CUDA, int8 on CPU), `STT_BACKEND` (unset = choose by
@@ -101,9 +107,11 @@ What it applies to, and what it gives up:
 - **The after-the-meeting pass only.** Live recognition streams and an HTTP round trip does
   not, so recording still happens the way it always did — and a host slow enough to want this
   was already deferring. On a machine that transcribes live, this is what *Re-transcribe* uses.
-- **Long meetings are split.** These endpoints cap the upload at around thirteen minutes of
-  16 kHz audio, so the recording is cut at the quietest moment near each boundary and sent in
-  pieces. Timestamps are stitched back onto the meeting's own clock.
+- **Long meetings are split.** These endpoints cap the upload, so the recording is cut at the
+  quietest moment near each boundary and sent in pieces, with the timestamps stitched back onto
+  the meeting's own clock. With the default 20 MB budget that is about **11 minutes** of
+  16 kHz audio per request for an OpenAI-compatible endpoint, and about **7.5** for Gemini,
+  which sends its audio base64-encoded — four bytes for every three.
 - **It is billed by the provider**, roughly $0.25–0.40 per hour of audio at current rates.
 
 What stays here regardless: the recording, the voiceprints, speaker separation and the

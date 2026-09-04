@@ -234,7 +234,7 @@ to check what was actually said before correcting a line, or to settle what a de
   are built from the right words, without re-transcribing the meeting. Enter saves,
   Shift+Enter adds a line, Esc cancels. Rewording is safe for diarization — only deleting
   changes positions.
-- **Delete a single utterance** with the ✕ on its row (hover on desktop, always visible on
+- **Delete a single utterance** with the 🗑 on its row (hover on desktop, always visible on
   touch). Use it for hallucinations and mic glitches so they cannot reach the minutes; the
   audio itself is kept. The recording's matching utterance boundary is removed at the same
   time, because diarization maps speakers onto utterances by position — if the two could not
@@ -256,7 +256,7 @@ shows the first few before/after. Nothing is written until you press replace.
 - Rewording is safe for diarization; only deleting an utterance changes positions.
 - A replacement that would **empty** an utterance is skipped rather than turned into a deletion
   — deleting has to remove the matching boundary in the recording, so it stays a deliberate act
-  (the ✕ on the row).
+  (the 🗑 on the row).
 
 The preview and the write are planned server-side from the stored transcript, so a tab left
 open while someone edited a line cannot write back a stale copy.

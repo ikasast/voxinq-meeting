@@ -36,8 +36,13 @@ export function RemoteSttNotice({ host }: { host: string }) {
           in pieces. Timestamps are stitched back together.
         </li>
       </ul>
+      {/* "Recordings ... stay on this machine either way" sat directly under a bullet saying
+          the recording is uploaded, and read as a contradiction. The stored file does stay —
+          that is the true and useful half — but saying it in the same breath as "either way"
+          invited the reading that nothing goes at all. */}
       <p className="mt-1.5 text-[11px] text-[var(--text-muted)]">
-        Recordings, voiceprints and speaker separation stay on this machine either way.
+        The saved file, the voiceprints and speaker separation all stay here — a copy of the
+        audio is sent for recognition, and nothing else moves.
       </p>
     </div>
   );

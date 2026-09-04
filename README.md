@@ -2,7 +2,7 @@
 
 # Voxinq Meeting
 
-**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own machine. Your audio never leaves it, and by default nothing else does either.**
+**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own machine. By default nothing leaves it, and every route off it is one you choose.**
 
 [**日本語の解説はこちら →**](README.ja.md)
 
@@ -85,8 +85,9 @@ docker compose up -d
 docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model (see below)
 ```
 
-The first pull is about 20 GB. **Without an NVIDIA GPU, use the CPU images instead** — they are
-multi-arch, so they also run on Apple silicon, and 1.8 GB rather than 21 GB:
+The first pull is about 7.5 GB and unpacks to about 21 GB on disk — nearly all of it CUDA and
+PyTorch. **Without an NVIDIA GPU, use the CPU images instead** — they are multi-arch, so they
+also run on Apple silicon, and take under 0.5 GB to pull and 1.8 GB on disk:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
@@ -129,7 +130,7 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 - **Summarize an existing file:** drag a recording onto the New meeting screen → it transcribes, then summarizes.
 - **Ask about past meetings:** open a series (↻ chip) → *Ask about these minutes* → “前回までのTODOを教えて”.
 - **Improve speaker labels:** open a meeting → *Diarize* above the transcript → rename speakers; regenerate minutes.
-- **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, ✕ to remove it. Minutes are then built from the right words.
+- **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, 🗑 to remove it. Minutes are then built from the right words.
 - **Fix the same mishearing everywhere:** *Find & replace*, below the speaker names — preview the matches, then replace across the transcript in one go.
 - **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`) or a saved endpoint, then regenerate.
 - **Send the minutes on:** the ⬇ on the Minutes card saves them as Markdown, **Word (`.docx`)** with real formatting, or **PDF** through your browser's print view. The meeting's own ⬇ bundles transcript, metadata and recording alongside.
