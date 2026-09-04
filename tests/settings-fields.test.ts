@@ -47,6 +47,18 @@ describe("settings fields stay in step across the files that must agree", () => 
     expect(fields.map((f) => f.name)).toContain("sttDefaultProfileId");
   });
 
+  // Numbers are not in STRING_FIELDS, so they need their own branch in the route -- and the
+  // only way to notice one that has no branch is that saving silently does nothing.
+  it("every number setting the app can edit is accepted by the route", () => {
+    const numbers = fields
+      .filter((f) => f.type === "number" && !FILE_ONLY.includes(f.name))
+      .map((f) => f.name);
+    expect(numbers, "no editable number settings — has one been dropped?").not.toEqual([]);
+    for (const name of numbers) {
+      expect(routeSrc, `${name} is never read from the PATCH body`).toContain(`body.${name}`);
+    }
+  });
+
   it("every string setting the app can edit is in the API's allow-list", () => {
     // From the declaration to its closing bracket. `export async function GET` sits *above*
     // STRING_FIELDS in this file, so slicing to the first one of those gives nothing at all --

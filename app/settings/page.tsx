@@ -43,6 +43,7 @@ type PublicSettings = {
   hasOpenaiApiKey: boolean;
   summaryLanguage: string;
   summaryDetail: string;
+  restScreenSeconds: number;
 };
 
 const SUMMARY_DETAILS: { id: string; label: string }[] = [
@@ -73,6 +74,16 @@ const LLM_PROVIDERS: { id: PublicSettings["llmProvider"]; label: string }[] = [
 ];
 
 // Settings tabs. Grouped by category as the number of items has grown.
+// Minutes, in the words a phone user would use. The values are the ones lib/settings.ts
+// accepts; anything else is refused there and by the API.
+const REST_SCREEN_CHOICES = [
+  { value: 0, label: "Never — keep the screen on" },
+  { value: 30, label: "After 30 seconds" },
+  { value: 60, label: "After 1 minute" },
+  { value: 300, label: "After 5 minutes" },
+  { value: 600, label: "After 10 minutes" },
+];
+
 const TABS = [
   { id: "stt", label: "Transcription" },
   { id: "speakers", label: "Speakers" },
@@ -655,6 +666,36 @@ export default function SettingsPage() {
               Applied instantly and saved per device (browser). No need to press “Save”.
               “System” follows your OS and changes with it. Read-only visitors get the same
               choice from the icon in the header.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="restScreenSeconds" className={labelClass}>
+              Rest the screen while recording
+            </label>
+            <select
+              id="restScreenSeconds"
+              value={String(settings.restScreenSeconds)}
+              onChange={(e) => update("restScreenSeconds", Number(e.target.value))}
+              disabled={saving}
+              className={`${inputClass} max-w-sm`}
+            >
+              {REST_SCREEN_CHOICES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              After this long without a touch, the recording screen goes black. Tapping brings
+              it back, and it rests again after the same wait. Recording is not affected — the
+              microphone, the upload and the screen lock all keep going.
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              On a phone with an OLED screen this is most of the battery: black pixels do not
+              light up. <strong>You cannot watch the live transcript while it rests</strong>,
+              which is the trade — worth it for a long meeting recorded from a pocket, not for
+              one you are reading along with.
             </p>
           </div>
         </section>

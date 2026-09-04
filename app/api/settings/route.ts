@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { type AppSettings, readSettings, toPublic, writeSettings } from "@/lib/settings";
+import {
+  type AppSettings,
+  VALID_REST_SCREEN_SECONDS,
+  readSettings,
+  toPublic,
+  writeSettings,
+} from "@/lib/settings";
 import { normalizeProfiles } from "@/lib/stt/profiles";
 import { normalizeTemplates } from "@/lib/minutes-templates";
 
@@ -56,6 +62,11 @@ export async function PATCH(req: NextRequest) {
     if (typeof v === "string") (patch as Record<string, string>)[key] = cleanSetting(v);
   }
   if (typeof body.sttTranslate === "boolean") patch.sttTranslate = body.sttTranslate;
+  // The only number the settings screen edits. Checked against the list it offers rather than
+  // a range: anything else is a mistake, and writeSettings would drop it anyway.
+  if (typeof body.restScreenSeconds === "number" && VALID_REST_SCREEN_SECONDS.includes(body.restScreenSeconds)) {
+    patch.restScreenSeconds = body.restScreenSeconds;
+  }
   // Update API keys only when a value is passed (empty string is ignored as "no change").
   if (typeof body.anthropicApiKey === "string" && cleanSetting(body.anthropicApiKey)) {
     patch.anthropicApiKey = cleanSetting(body.anthropicApiKey);
