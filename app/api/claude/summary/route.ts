@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requestSummary } from "@/lib/llm";
-import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
-import { getLlmConfig, readSettings } from "@/lib/settings";
-import { parseSpeakerLabels } from "@/lib/speakers";
-import { resolveTemplate } from "@/lib/minutes-templates";
+import { enqueue, openJobFor } from "@/lib/queue/queue";
+import { tick } from "@/lib/queue/dispatcher";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
 
+// Ask for the minutes to be written. The writing itself is a queued job — see
+// lib/queue/runners/minutes.ts — so this route validates, queues, and returns.
+//
+// It used to run the generation in an `after()` and refuse outright while any meeting was
+// generating, because two LLM runs would contend for the one card. The refusal is now a
+// position in a queue instead. What is still refused is a *second* job for the same meeting:
+// two sets of minutes for one meeting is not a queue, it is a duplicate.
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as
     | { meetingId?: unknown; detail?: unknown; provider?: unknown; templateId?: unknown }
@@ -18,45 +21,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "meetingId is required" }, { status: 400 });
   }
 
-  // Optional per-generation overrides (from the "Regenerate with options" panel).
-  // Not persisted to settings — they only affect this run. Each provider uses its own
-  // model configured in Settings; requestSummary validates these values.
+  // Overrides for this run only, never saved. requestSummary validates the values.
   const detail = typeof body?.detail === "string" ? body.detail : undefined;
   const provider = typeof body?.provider === "string" ? body.provider : undefined;
-  // A saved template's id, or "default" to ask for the built-in format explicitly. Absent
-  // leaves the choice to the series and then to the saved default, as it was before templates.
   const templateId = typeof body?.templateId === "string" ? body.templateId : undefined;
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: {
-      id: true,
-      description: true,
-      speakerLabels: true,
-      summaryStatus: true,
-      seriesId: true,
-      startedAt: true,
-      series: { select: { summaryFormat: true } },
-    },
+    select: { id: true },
   });
   if (!meeting) {
     return NextResponse.json({ error: "meeting not found" }, { status: 404 });
   }
 
-  // Global single-flight: only one minutes generation at a time, since concurrent LLM runs
-  // contend for the (single) GPU. Reject if this or any other meeting is already generating.
-  const inFlight = await prisma.meeting.findFirst({
-    where: { summaryStatus: "processing" },
-    select: { id: true, title: true },
-  });
-  if (inFlight) {
-    const mine = inFlight.id === meetingId;
+  const already = await openJobFor("minutes", meetingId);
+  if (already) {
     return NextResponse.json(
       {
-        error: mine
-          ? "Minutes are already being generated for this meeting."
-          : `Busy: minutes are being generated for "${inFlight.title}". Please wait until it finishes.`,
-        busyMeetingId: inFlight.id,
+        error:
+          already.status === "running"
+            ? "Minutes are already being generated for this meeting."
+            : "Minutes for this meeting are already waiting in the queue.",
+        busyMeetingId: meetingId,
       },
       { status: 409 },
     );
@@ -71,121 +57,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No utterances recorded" }, { status: 400 });
   }
 
-  // Set the processing flag and run minutes generation in the background (after the response is sent).
+  // Marked before the job starts, deliberately: from here on something is under way for this
+  // meeting, and the screen should say so whether the job is running or waiting its turn.
   await prisma.meeting.update({
     where: { id: meetingId },
     data: { summaryStatus: "processing", summaryError: null },
   });
 
-  const description = meeting.description;
-  const speakerLabels = parseSpeakerLabels(meeting.speakerLabels);
-
-  // Series context: the latest minutes of the previous meeting in the same series,
-  // passed to the LLM as reference-only material (helps "continuing from last time").
-  let previousMinutes: { title: string; date: string; text: string } | undefined;
-  if (meeting.seriesId) {
-    const prev = await prisma.meeting.findFirst({
-      where: {
-        seriesId: meeting.seriesId,
-        deletedAt: null,
-        id: { not: meeting.id },
-        startedAt: { lt: meeting.startedAt },
-        summaries: { some: {} },
-      },
-      orderBy: { startedAt: "desc" },
-      select: {
-        title: true,
-        startedAt: true,
-        summaries: { orderBy: { createdAt: "desc" }, take: 1, select: { summaryText: true } },
-      },
-    });
-    if (prev?.summaries[0]) {
-      previousMinutes = {
-        title: prev.title,
-        date: prev.startedAt.toISOString().slice(0, 10),
-        text: prev.summaries[0].summaryText,
-      };
-    }
-  }
-  const transcriptInput = transcripts.map((t) => ({
-    speakerType: t.speakerType,
-    text: t.text,
-    createdAt: t.createdAt,
-  }));
-
-  after(async () => {
-    // Register an abort handle so an urgent recording can interrupt this run to free the GPU.
-    const ac = beginGeneration(meetingId);
-    try {
-      const settingsForRun = await readSettings();
-      const summaryText = await requestSummary(
-        transcriptInput,
-        {
-          description,
-          speakerLabels,
-          detail,
-          provider,
-          format: resolveTemplate(settingsForRun.minutesTemplates, {
-            chosenId: templateId,
-            seriesFormat: meeting.series?.summaryFormat,
-            defaultId: settingsForRun.defaultMinutesTemplateId,
-          }),
-          previousMinutes,
-        },
-        ac.signal,
-      );
-      // Record which provider/model produced this version (mirrors the resolution
-      // in requestSummary: valid override wins, else the saved setting).
-      const cfg = await getLlmConfig();
-      const effProvider =
-        provider && ["ollama", "anthropic", "openai"].includes(provider)
-          ? (provider as typeof cfg.provider)
-          : cfg.provider;
-      const effModel =
-        effProvider === "ollama"
-          ? cfg.ollamaModel
-          : effProvider === "anthropic"
-            ? cfg.anthropicModel
-            : cfg.openaiModel;
-      await prisma.meetingSummary.create({
-        data: { meetingId, summaryText, provider: effProvider, model: effModel },
-      });
-      await prisma.meeting.update({
-        where: { id: meetingId },
-        data: { summaryStatus: "done" },
-      });
-    } catch (e) {
-      // Aborted on purpose (to start a recording): record a friendly, actionable reason
-      // rather than a raw AbortError, and let the user regenerate later.
-      const aborted =
-        ac.signal.aborted || (e instanceof Error && e.name === "AbortError");
-      if (aborted) {
-        await prisma.meeting
-          .update({
-            where: { id: meetingId },
-            data: {
-              summaryStatus: "error",
-              summaryError: "Minutes generation was stopped. You can regenerate them.",
-            },
-          })
-          .catch(() => {});
-      } else {
-        console.error("summary generation failed", e);
-        // Keep a human-readable reason for the UI (include the network-level cause,
-        // e.g. UND_ERR_HEADERS_TIMEOUT, which the top-level message often hides).
-        const cause = e instanceof Error && e.cause instanceof Error ? ` (${e.cause.message})` : "";
-        const reason = `${e instanceof Error ? e.message : String(e)}${cause}`.slice(0, 300);
-        await prisma.meeting
-          .update({
-            where: { id: meetingId },
-            data: { summaryStatus: "error", summaryError: reason },
-          })
-          .catch(() => {});
-      }
-    } finally {
-      endGeneration(meetingId, ac);
-    }
-  });
+  await enqueue({ kind: "minutes", meetingId, params: { detail, provider, templateId } });
+  // Nudge the loop so a queue that is empty does not wait out a tick before starting.
+  void tick();
 
   return NextResponse.json({ status: "processing" }, { status: 202 });
 }

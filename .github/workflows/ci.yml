@@ -25,6 +25,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://voxinq:voxinq@localhost:5432/voxinq
       NEXT_PUBLIC_STT_WS_URL: ws://localhost:8000/ws
+      # The queue's tests write to the database and claim whatever is queued, so they only run
+      # where the database is disposable. Here it is a container that dies with the job.
+      VOXINQ_QUEUE_DB_TESTS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
