@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { isExternalRequest } from "@/lib/is-tailnet";
 import { isValidSpeakerKey } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
 import { pruneOrphanSeries } from "@/lib/series";
@@ -37,6 +38,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     speakerLabels?: unknown;
     archived?: unknown;
   }>(req);
+
+  // From outside the private network this route is open so a meeting can be *set up* — its
+  // title, agenda, series and tags. The same route also archives and renames speakers, and
+  // neither is setting a meeting up: archiving takes something off the list, and speaker names
+  // belong to a transcript that was made in here. Refused rather than ignored, so a caller
+  // that tries is told, not left thinking it worked.
+  if (await isExternalRequest()) {
+    for (const field of ["archived", "speakerLabels"] as const) {
+      if (body?.[field] !== undefined) {
+        return apiError(`${field} cannot be changed from outside your private network`, 403);
+      }
+    }
+  }
 
   const data: {
     title?: string;

@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_COOKIE, expectedAuthToken } from "./lib/auth-token";
+import { allowedFromOutside } from "./lib/external-writes";
 
 // Password auth + a read-only boundary for access from outside the private network.
 // Passes everything through when APP_PASSWORD is unset (auth disabled).
 // (In Next.js 16 middleware.ts is deprecated -> migrated to proxy.ts. Same behavior.)
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-// Screens that only make sense for a writer (recording / creating a meeting). External
-// viewers are sent home rather than landing on a page whose every action would be refused.
-const WRITER_PAGES = [/^\/new$/, /^\/quick-record$/, /^\/[^/]+\/recording$/];
+// Screens that only make sense next to the microphone. External viewers are sent home rather
+// than landing on a page whose every action would be refused.
+//
+// `/new` is deliberately not among them any more: setting a meeting up — its title, agenda,
+// series, participants and time — needs no GPU, no audio and no STT service, and it is the
+// part someone does from a work laptop the evening before. The page drops the recording half
+// of itself when it is reached from outside; see app/new/new-meeting-form.tsx.
+const WRITER_PAGES = [/^\/quick-record$/, /^\/[^/]+\/recording$/];
 
 export async function proxy(req: NextRequest) {
   const expected = await expectedAuthToken();
@@ -33,7 +39,8 @@ export async function proxy(req: NextRequest) {
     if (
       MUTATING.has(req.method) &&
       pathname.startsWith("/api/") &&
-      !pathname.startsWith("/api/auth/") // login/logout must still work
+      !pathname.startsWith("/api/auth/") && // login/logout must still work
+      !allowedFromOutside(req.method, pathname)
     ) {
       return NextResponse.json(
         { error: "This server is read-only from outside your private network." },
