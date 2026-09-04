@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audioPosition, displayOffset } from "@/lib/audio-position";
@@ -717,8 +718,12 @@ export function TranscriptList({
   const gpu = useGpuBusy();
   // Diarization and re-transcription both use the GPU. Block starting one while any other
   // GPU task (minutes generation, or an STT job we didn't start) is running.
-  const gpuBlocked = gpu.busy && !diarizing && !retransing;
-  const busy = diarizing || retransing || gpuBlocked;
+  // Whether *this page* has something in flight. What the GPU is doing elsewhere no longer
+  // stops these buttons: Diarize and Re-transcribe are queued jobs, and a queue you may not
+  // add to while it is busy is a disabled button with extra steps. The one thing still refused
+  // is asking twice for the same meeting, which the routes answer with a 409.
+  const busy = diarizing || retransing;
+  const elsewhere = gpu.busy && !diarizing && !retransing ? gpu.label : null;
 
   // --- Following a meeting that is being recorded elsewhere ---------------------------------
   //
@@ -1269,9 +1274,13 @@ export function TranscriptList({
       ) : null}
 
       {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
-      {gpuBlocked ? (
-        <p className="mt-2 text-xs text-[var(--warning)]">
-          {gpu.label ?? "A GPU task is running"} — diarization / re-transcription can be used once it finishes.
+      {elsewhere ? (
+        <p className="mt-2 text-xs text-[var(--text-muted)]">
+          {elsewhere} — anything started now waits its turn. See the{" "}
+          <Link href="/queue" className="underline">
+            queue
+          </Link>
+          .
         </p>
       ) : null}
 

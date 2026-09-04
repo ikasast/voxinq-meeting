@@ -109,7 +109,10 @@ export function SummarySection({
   // Another GPU task running elsewhere (another meeting's minutes, or an STT job) blocks
   // starting a new generation here. This meeting's own "processing" is handled separately.
   const gpu = useGpuBusy();
-  const otherBusy = gpu.busy && gpu.minutesMeetingId !== meetingId;
+  // Another meeting's work used to block this button. Minutes are a queued job now, so asking
+  // while something else runs puts it in line instead of being refused — the wait is real, it
+  // is just no longer a wall. What is left is something to say, not something to disable.
+  const waitingOn = gpu.busy && gpu.minutesMeetingId !== meetingId ? gpu.label : null;
 
   // While processing, refresh the server periodically to pick up completion.
   useEffect(() => {
@@ -225,11 +228,11 @@ export function SummarySection({
               <button
                 type="button"
                 onClick={toggleOptions}
-                disabled={genBusy || otherBusy}
+                disabled={genBusy}
                 className="btn-icon-accent"
                 title={
-                  otherBusy
-                    ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
+                  waitingOn
+                    ? `${waitingOn} — this will wait its turn in the queue.`
                     : "Regenerate the minutes (choose detail & provider)"
                 }
                 aria-label="Regenerate"
@@ -265,13 +268,13 @@ export function SummarySection({
                 <span className="mt-1 block text-xs opacity-90">Reason: {summaryError}</span>
               ) : null}
             </p>
-            {canGenerate && !readOnly ? <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Retry" /> : null}
+            {canGenerate && !readOnly ? <GenButton onClick={() => regenerate()} busy={genBusy} label="Retry" /> : null}
           </>
         ) : (
           <>
             <p className="mt-4 text-sm text-[var(--text-muted)]">No minutes generated yet.</p>
             {canGenerate && !readOnly ? (
-              <GenButton onClick={() => regenerate()} busy={genBusy || otherBusy} label="Generate minutes" />
+              <GenButton onClick={() => regenerate()} busy={genBusy} label="Generate minutes" />
             ) : readOnly ? null : (
               <p className="mt-2 text-xs text-[var(--text-muted)]">No transcript, so minutes cannot be generated.</p>
             )}
@@ -370,7 +373,7 @@ export function SummarySection({
                     templateId: optTemplate || undefined,
                   })
                 }
-                disabled={genBusy || processing || otherBusy}
+                disabled={genBusy || processing}
                 className="btn-ink"
               >
                 {genBusy ? "Starting…" : "Regenerate"}

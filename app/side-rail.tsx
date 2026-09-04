@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { GearIcon, HelpIcon, MeetingsIcon, MicIcon, PlusCircleIcon } from "./icons";
+import { useEffect, useState } from "react";
+import { GearIcon, HelpIcon, MeetingsIcon, MicIcon, PlusCircleIcon, QueueIcon } from "./icons";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.
 //
@@ -127,6 +128,7 @@ export function SideRail({
           <RailLink href="/quick-record" label="Record NOW" active={pathname.startsWith("/quick-record")}>
             <MicIcon />
           </RailLink>
+          <QueueRailLink active={pathname.startsWith("/queue")} />
           {/* Settings sits at the bottom, away from the things used every day. */}
           <div className="mt-auto flex w-full flex-col gap-1">
             <DocsLink href={docsUrl} />
@@ -143,5 +145,47 @@ export function SideRail({
         </div>
       )}
     </nav>
+  );
+}
+
+/**
+ * Queue, with what is waiting on it.
+ *
+ * Polled, because the number changes when work finishes rather than when anyone navigates —
+ * and the whole point of the badge is to be right while you are looking at something else.
+ */
+function QueueRailLink({ active }: { active: boolean }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let stop = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/jobs", { cache: "no-store" });
+        if (!res.ok || stop) return;
+        const d = (await res.json()) as { jobs: unknown[] };
+        setCount(d.jobs.length);
+      } catch {
+        // Not worth showing. The next poll is five seconds away.
+      }
+    };
+    void load();
+    const t = setInterval(() => void load(), 5000);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, []);
+
+  return (
+    <RailLink href="/queue" label="Queue" active={active}>
+      <span className="relative">
+        <QueueIcon />
+        {count > 0 ? (
+          <span className="absolute -right-2 -top-1.5 min-w-[15px] rounded-full bg-[var(--accent-solid)] px-1 text-[10px] font-semibold leading-[15px] text-[var(--accent-contrast)]">
+            {count}
+          </span>
+        ) : null}
+      </span>
+    </RailLink>
   );
 }

@@ -24,6 +24,12 @@ const eslintConfig = defineConfig([
     // Python services (do not lint bundled JS inside their venvs)
     "stt-service/**",
     "diarization/**",
+    // Worktrees the agent tooling leaves behind: a copy of this repo from some earlier state,
+    // whose warnings are reported as if they were this one's. Eight of twenty-four were coming
+    // from an abandoned one. Same reason vitest.config.ts pins its include to tests/.
+    ".claude/**",
+    // The launcher has its own dependencies and its own config.
+    "cli/node_modules/**",
   ]),
 ]);
 
