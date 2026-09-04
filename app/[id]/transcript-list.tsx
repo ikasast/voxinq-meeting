@@ -973,7 +973,7 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
           </div>
           {!readOnly ? (
             <div className="flex flex-wrap items-center gap-2">
-              {transcripts.length > 0 ? (
+              {transcripts.length > 0 && (recInfo?.exists || diarizing) ? (
                 <>
                   <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
                     title="How many voices to look for. Left empty, the participant list decides."
@@ -1024,27 +1024,6 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
                   {suggesting ? "Checking…" : "Suggest fixes"}
                 </button>
               ) : null}
-              {transcripts.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setReplaceOpen((v) => !v)}
-                  className="btn-outline"
-                  aria-expanded={replaceOpen}
-                  title="Fix a term that was misheard the same way throughout"
-                >
-                  Find &amp; replace {replaceOpen ? "▲" : "▼"}
-                </button>
-              ) : null}
-              {recInfo?.exists ? (
-                <button
-                  type="button"
-                  onClick={() => setRetransOpen((v) => !v)}
-                  className="btn-outline"
-                  aria-expanded={retransOpen}
-                >
-                  Re-transcribe {retransOpen ? "▲" : "▼"}
-                </button>
-              ) : null}
             </div>
           ) : null}
         </div>
@@ -1074,62 +1053,15 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
         </div>
       ) : null}
 
-      {/* Speaker names — revealed as soon as diarization has produced speakers to name. */}
-      {showSpeakerTools ? (
-        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
-          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-            Speaker names (edits apply to all lines)
-          </p>
-          <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
-
-          {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void saveVoiceProfiles()}
-              disabled={profileBusy || busy}
-              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-            >
-              {profileBusy ? "Saving…" : "Save voice profiles"}
-            </button>
-            <span className="text-xs text-[var(--text-muted)]">
-              Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
-              runs will name them automatically.
-            </span>
-          </div>
-          {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
-          {profiles.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
-              {profiles.map((p) => (
-                <span
-                  key={p.name}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
-                >
-                  {p.name}
-                  <button
-                    type="button"
-                    onClick={() => void deleteProfile(p.name)}
-                    aria-label={`Delete voice profile ${p.name}`}
-                    title="Delete this voice profile"
-                    className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
       {/* Find and replace — for a term misheard the same way throughout. Rewriting text moves
           no positions, so the recording's utterance boundaries stay valid. */}
-      {replaceOpen && !readOnly ? (
-        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
-          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-            Find &amp; replace in this transcript
-          </p>
+      {transcripts.length > 0 && !readOnly ? (
+        <Disclosure
+          title="Find & replace"
+          hint="Fix a term that was misheard the same way throughout"
+          open={replaceOpen}
+          onToggle={() => setReplaceOpen((v) => !v)}
+        >
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
               <span className="label">Find</span>
@@ -1233,16 +1165,18 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
           {replaceMsg ? (
             <p className="mt-2 text-xs text-[var(--accent-sub)]">{replaceMsg}</p>
           ) : null}
-        </div>
+        </Disclosure>
       ) : null}
 
       {/* Re-transcription — separate from diarization: it re-runs speech recognition and
           replaces the whole transcript. Collapsed by default. */}
-      {retransOpen && recInfo?.exists && !readOnly ? (
-        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
-          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-            Re-transcribe from the recording
-          </p>
+      {recInfo?.exists && !readOnly ? (
+        <Disclosure
+          title="Re-transcribe"
+          hint="Recognise the recording again and replace the transcript"
+          open={retransOpen}
+          onToggle={() => setRetransOpen((v) => !v)}
+        >
           {transcripts.length === 0 ? (
             <p className="mb-2 text-xs text-[var(--text-muted)]">
               There is no transcript, but the recording remains. You can restore it from here.
@@ -1306,6 +1240,55 @@ The recording will be uploaded to ${uploadTo}, which recognises it and bills you
           ) : null}
           {retransWarn ? (
             <p className="mt-2 text-xs text-[var(--warning)]">{retransWarn}</p>
+          ) : null}
+        </Disclosure>
+      ) : null}
+
+      {/* Speaker names — revealed as soon as diarization has produced speakers to name. */}
+      {showSpeakerTools ? (
+        <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
+          <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+            Speaker names (edits apply to all lines)
+          </p>
+          <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
+
+          {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void saveVoiceProfiles()}
+              disabled={profileBusy || busy}
+              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+            >
+              {profileBusy ? "Saving…" : "Save voice profiles"}
+            </button>
+            <span className="text-xs text-[var(--text-muted)]">
+              Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
+              runs will name them automatically.
+            </span>
+          </div>
+          {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
+          {profiles.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
+              {profiles.map((p) => (
+                <span
+                  key={p.name}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
+                >
+                  {p.name}
+                  <button
+                    type="button"
+                    onClick={() => void deleteProfile(p.name)}
+                    aria-label={`Delete voice profile ${p.name}`}
+                    title="Delete this voice profile"
+                    className="text-[var(--text-muted)] hover:text-[var(--error)]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -1571,6 +1554,46 @@ function TranscriptRow({
         </p>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * A section that opens where its header is.
+ *
+ * These were two pills in the toolbar above, and the panels they opened rendered several
+ * screens further down, past the speaker names -- so on a phone, tapping one appeared to do
+ * nothing. The toolbar is for things that happen when you press them; these are things that
+ * open, so they are their own rows and they open in place.
+ */
+function Disclosure({
+  title,
+  hint,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  hint: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--elevated)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        title={hint}
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-[var(--text-strong)] hover:bg-[var(--hover-surface)]"
+      >
+        <span>{title}</span>
+        <span aria-hidden className="text-xs text-[var(--text-muted)]">
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+      {open ? <div className="border-t border-[var(--border)] p-4">{children}</div> : null}
+    </div>
   );
 }
 

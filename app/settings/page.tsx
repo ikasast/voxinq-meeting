@@ -193,7 +193,7 @@ export default function SettingsPage() {
 
   if (!settings) {
     return (
-      <div className="mx-auto max-w-xl space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">Settings</h1>
         {error ? (
           <p className="text-sm text-[var(--error)]">{error}</p>
@@ -205,7 +205,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">Settings</h1>
 
       <form onSubmit={onSubmit} className="space-y-6">
@@ -231,14 +231,13 @@ export default function SettingsPage() {
         {tab === "stt" ? (
         <section className="card space-y-4 p-6">
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Transcription (Whisper)</h2>
-          {sttDest ? <RemoteSttNotice host={sttDest} /> : null}
-
 
           <SttProfiles
             profiles={draftProfiles}
             defaultId={settings.sttDefaultProfileId}
             disabled={saving}
             localModel={settings.whisperModel}
+            notice={sttDest ? <RemoteSttNotice host={sttDest} /> : null}
             localEditor={
               <>
                 <label htmlFor="whisperModel" className={labelClass}>
