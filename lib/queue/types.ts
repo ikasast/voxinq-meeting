@@ -5,7 +5,7 @@
 // nothing here however long it takes, because what is being rationed is the card.
 
 /** Every kind the dispatcher knows how to run. Anything else in the table is ignored. */
-export const JOB_KINDS = ["minutes"] as const;
+export const JOB_KINDS = ["minutes", "transcribe", "diarize"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_STATUSES = ["queued", "running", "done", "error", "cancelled"] as const;
@@ -21,6 +21,13 @@ export type MinutesParams = {
   provider?: string;
   /** A saved template id, or "default" for the built-in format. */
   templateId?: string;
+};
+
+/** What each kind is called on screen. */
+export const JOB_LABEL: Record<JobKind, string> = {
+  minutes: "Minutes",
+  transcribe: "Re-transcribe",
+  diarize: "Diarize",
 };
 
 export function isJobKind(v: unknown): v is JobKind {

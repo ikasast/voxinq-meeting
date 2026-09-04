@@ -45,13 +45,23 @@ describe("starting a transcription", () => {
     expect(used.length).toBeGreaterThan(0);
   });
 
-  it("the route attaches an endpoint only when one was resolved", () => {
-    const route = readFileSync(join(root, "app/api/meetings/[id]/transcribe/route.ts"), "utf8");
+  it("attaches an endpoint only when one was resolved", () => {
+    // Moved out of the route when the queue took the work: the job runs later, so resolving
+    // where it goes had to become a function the runner can call too.
+    const src = readFileSync(join(root, "lib/queue/runners/transcribe.ts"), "utf8");
     // A profile that could not be found is refused rather than quietly falling back to local:
     // recognising somewhere other than where you asked is the worse failure.
-    expect(route).toMatch(/if \(profile\) \{\s*\n\s*payload\.remote =/);
-    expect(route).toContain("wantedId && !profile");
+    expect(src).toMatch(/if \(profile\) \{\s+payload\.remote =/);
+    expect(src).toContain("wantedId && !profile");
     // "local" has to be expressible, or the picker cannot ask for this machine.
-    expect(route).toContain('asked === "local"');
+    expect(src).toContain('asked === "local"');
+  });
+
+  it("refuses a missing endpoint while someone is still looking at the button", () => {
+    // Resolved at enqueue as well as at run: a job that discovers its endpoint is gone when it
+    // reaches the front of the queue reports it minutes after the click.
+    const route = readFileSync(join(root, "app/api/meetings/[id]/transcribe/route.ts"), "utf8");
+    expect(route).toContain("resolveDestination");
+    expect(route).toContain("400");
   });
 });

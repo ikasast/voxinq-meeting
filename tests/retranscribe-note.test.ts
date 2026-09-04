@@ -27,9 +27,13 @@ describe("what the backend has to say about a run", () => {
     expect(status).toMatch(/"utterances", "detail", "note"/);
   });
 
-  it("is read and shown by the page", () => {
-    expect(page).toMatch(/note\?: string;/);
-    expect(page).toMatch(/setRetransWarn\(job\.note \?\? null\)/);
+  it("is carried on the job the page is watching", () => {
+    // The hop changed when the queue took the work: the runner returns the note, the
+    // dispatcher stores it as the job's `detail`, and the page reads it from there rather than
+    // from the STT service it no longer polls.
+    const runner = readFileSync(join(root, "lib/queue/runners/transcribe.ts"), "utf8");
+    expect(runner).toMatch(/note: typeof result\.note === "string"/);
+    expect(page).toMatch(/setRetransWarn\(job\.detail \?\? null\)/);
     // Cleared when the next run starts, or last time's explanation is read as this time's.
     expect(page).toMatch(/setRetransWarn\(null\)/);
     expect(page).toMatch(/\{retransWarn \?/);

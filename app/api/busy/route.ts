@@ -13,10 +13,14 @@ export const dynamic = "force-dynamic";
 // screen's point of view the work has been asked for, and whether it has reached the front of
 // the queue is the queue's business.
 export async function GET() {
+  // Any kind, not just minutes: diarization and re-transcription are queued jobs now too, and
+  // a busy signal that only knows about one of the three would let the screen say "free" while
+  // the card is occupied. The shape stays as it was — the UI reads `minutes` — until the queue
+  // screen replaces this with the list.
   const job = await prisma.job.findFirst({
-    where: { kind: "minutes", status: { in: ["running", "queued"] } },
+    where: { status: { in: ["running", "queued"] } },
     orderBy: [{ status: "desc" }, { position: "asc" }, { createdAt: "asc" }],
-    select: { status: true, meetingId: true, meeting: { select: { title: true } } },
+    select: { status: true, kind: true, meetingId: true, meeting: { select: { title: true } } },
   });
   return NextResponse.json({
     minutes: job
@@ -25,6 +29,7 @@ export async function GET() {
           meetingId: job.meetingId,
           title: job.meeting?.title ?? "",
           queued: job.status === "queued",
+          kind: job.kind,
         }
       : { busy: false },
   });
