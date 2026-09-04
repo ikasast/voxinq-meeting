@@ -58,25 +58,39 @@ you happen to visit — is refused.
 
 ### Recognising speech somewhere else
 
-Chosen in the app: **Settings → Transcription → Recognise speech**. The variables below only
-seed its defaults, so an install can come up already configured; what is set in the app wins.
+Endpoints are saved in the app — **Settings → Transcription** — with a name each, and the one
+to use is picked per run from *Re-transcribe*, this machine included. The variables below seed
+**one** of them so an install can come up already configured; what is set in the app wins.
 
 | Variable | Example | Purpose |
 | --- | --- | --- |
-| `STT_BACKEND` | `openai` | Any value selects "remote" on first run. Unset leaves recognition on this machine. |
-| `STT_CLOUD_BASE_URL` | `https://api.groq.com/openai/v1` | Anything that speaks `/v1/audio/transcriptions`. |
+| `STT_BACKEND` | `openai` | Any value makes the seeded endpoint the default on first run. Unset leaves the default on this machine. (The STT service reads a variable of the same name for something else — which recognition engine to run locally. They are different settings that happen to share a name.) |
+| `STT_CLOUD_BASE_URL` | `https://api.groq.com/openai/v1` | Anything that speaks `/v1/audio/transcriptions`. Seeds one endpoint; leave unset and add them in the app instead. |
 | `STT_CLOUD_API_KEY` | `gsk_…` | Bearer token. Not needed by a server of your own that does not ask for one. |
 | `STT_CLOUD_MODEL` | `whisper-large-v3-turbo` | Defaults to `whisper-large-v3-turbo`. |
+
+There is no environment variable for a Gemini endpoint: it needs a different request shape and
+a different header, so it is added in the app rather than guessed from a URL.
 
 Read by the **web** service, not the STT one. The key stays there: the app posts the job to the
 STT service over `STT_INTERNAL_URL` with the credential attached, so it never passes through a
 browser — and `toPublic` strips it from everything the settings screen receives.
 
-**This is not a cloud setting, it is an HTTP one.** `/v1/audio/transcriptions` is what Groq,
-OpenAI, Fireworks, Mistral, Azure and OVHcloud implement, what OpenRouter and LiteLLM route on
-to Deepgram and AssemblyAI through — and what a **whisper server of your own on another
-machine** answers. Pointing this at your own box is a supported configuration and raises no
-warning in the app, because nothing is leaving your network.
+**Two kinds are understood.** *OpenAI-compatible* means anything speaking
+`/v1/audio/transcriptions`: what Groq, OpenAI, Fireworks, Mistral, Azure and OVHcloud
+implement, what OpenRouter and LiteLLM route on to Deepgram and AssemblyAI through — and what a
+**whisper server of your own on another machine** answers. *Google Gemini* is the second,
+because Google's models do not answer that path at all.
+
+The field is the **request format, not the vendor**; the address is separate. Pointing an
+OpenAI-compatible endpoint at your own box is a supported configuration and raises no warning in
+the app, because nothing is leaving your network — the endpoint list says `your network` for it.
+
+For Gemini, use **`gemini-3.5-transcribe`**. A general model such as `gemini-3.5-flash` answers
+with prose and no word timings, which arrives as one unbroken utterance per part and leaves
+speaker separation with a single line to attribute; the app reports that rather than leaving a
+transcript that merely looks broken. Asking for timings costs a little accuracy and caps
+diarized audio at 30 minutes per request — well beyond the ~7.6 minutes each request carries.
 
 It exists for the machine with no NVIDIA card and no Apple silicon, where recognising an hour
 of audio locally takes about three hours. A hosted `whisper-large-v3-turbo` returns it in
@@ -114,6 +128,11 @@ here (single on-prem user assumed), so keep the file private.
   are also what **Suggest fixes** looks for after a meeting, which is how a glossary reaches
   kotoba-whisper transcripts at all — see [Usage](usage.md#suggest-fixes-glossary-terms-the-recognizer-missed).
 - `micMode` — `standard` / `room` (room picks up distant voices)
+- `sttProfiles` — saved recognition endpoints, one object each:
+  `{ id, name, kind: "openai" | "gemini", baseUrl, model, apiKey }`. Edited in the UI; the keys
+  never reach the browser. Empty (the default) means recognition only happens here.
+- `sttDefaultProfileId` — which of them new work uses. Empty = this machine. A run can still
+  choose any of them, or this machine, from *Re-transcribe*.
 - `sttTranslate` — `false` (default). Shows a Japanese translation under each non-Japanese
   utterance, live and on the transcript; minutes are still generated from the original words.
   Translation runs on the **CPU**, so it does not compete with transcription for the GPU.
@@ -123,18 +142,32 @@ here (single on-prem user assumed), so keep the file private.
 **Minutes**
 - `summaryLanguage` — `ja` / `en` / `zh` (output language, regardless of what was spoken)
 - `summaryDetail` — `brief` / `standard` / `detailed`
-- `summaryFormat` — custom heading structure (empty = default)
+- `minutesTemplates` — saved heading structures, `{ id, name, body }` each. A lecture is not a
+  meeting, and the same headings leave one with empty sections. Empty (the default) means the
+  built-in format. A `summaryFormat` from an older settings file is migrated into one entry and
+  becomes the default, so nothing changes on upgrade.
+- `defaultMinutesTemplateId` — which one new minutes use. Empty = the built-in format. Any of
+  them can be chosen for a single run from *Regenerate*.
 - `llmBackground` — always-on business/research context (used to interpret terms, not copied into minutes)
 
 **Per-series overrides** (edited on a series page, not in `settings.json`)
 - A series can define its own **minutes format** and **transcription glossary**. The series
-  format replaces `summaryFormat`, and the series glossary is appended to `sttGlossary`.
+  format wins over `defaultMinutesTemplateId` — it was set for that series deliberately, and a
+  later default should not quietly override it — and a template chosen at *Regenerate* wins over
+  both. The series glossary is appended to `sttGlossary`.
 
 **LLM**
 - `llmProvider` — `ollama` (default) / `anthropic` / `openai`
 - `ollamaBaseUrl`, `ollamaModel`
 - `anthropicModel`, `anthropicApiKey`
 - `openaiBaseUrl`, `openaiModel`, `openaiApiKey` — key optional for local servers
+
+**Appearance**
+- `restScreenSeconds` — seconds of no touch before the recording screen goes black while it
+  records: `0` (never, the default), `30`, `60`, `300` or `600`. A touch brings it back and it
+  rests again after the same wait. The screen lock, the microphone and the upload are all
+  unaffected; what it costs is the live transcript. See
+  [Usage](usage.md#record-a-meeting).
 
 **Search & speakers** (edit `settings.json` directly)
 - `voiceprintThreshold` — cosine similarity needed for voice-profile auto-naming, default `0.5`

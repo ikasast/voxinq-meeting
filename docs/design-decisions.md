@@ -38,10 +38,18 @@ API would be less effort — two speech backends instead of one, two diarization
 model-download step in `voxinq setup` that a cloud call would not need, and an 8 GB VRAM budget
 threaded through the LLM context sizing. Several entries below are that bill arriving.
 
-**Where the line sits.** Recordings, voiceprints and the database stay on the machine
-regardless: a voiceprint is biometric, and the people in a meeting consented to being recorded
-by *you*. Sending a transcript somewhere is a decision its owner can make. Sending everyone's
-voice somewhere is not obviously theirs alone.
+**Where the line sits.** Voiceprints and the database stay on the machine, full stop: a
+voiceprint is biometric, and nothing in the app has a route that sends one anywhere. Recordings
+are *stored* only here too — but recognition can be sent to an endpoint you name, and what goes
+over that wire is the audio itself, not the transcript.
+
+That is the sharpest case of the paragraph above, and it is why the audio path has the loudest
+notices in the app rather than the quietest. Sending a transcript somewhere is a decision its
+owner can make. Sending everyone's voice somewhere is not obviously theirs alone — so it is off
+until it is chosen, chosen per run rather than once in a setting, and the destination host is
+named in the confirmation, in the endpoint list and on the settings screen while it is in force.
+What is refused is the version of this where it is the default, or where a screen says "local"
+while audio leaves.
 
 The point of the requirement is not that everyone will want it. Most people are already sending
 this material somewhere. It is that **being able to stop is a property you cannot add later** —
@@ -395,8 +403,16 @@ minutes.
 **It is one implementation because the endpoint is a de-facto standard.** OpenAI defined it;
 Groq, Fireworks, Mistral, Azure and OVHcloud implement it; OpenRouter and LiteLLM route on to
 Deepgram and AssemblyAI through the same shape. Writing an adapter per vendor would be several
-times the code for the same reach. Gemini, Deepgram and AssemblyAI have their own request
-shapes and are not covered — if one is wanted, it is a new adapter, not a new setting.
+times the code for the same reach.
+
+**Gemini turned out to be worth the second adapter, and it is the only one.** Google's models do
+not answer `/v1/audio/transcriptions` — probed, it is a 404 — so they need their own request and
+their own reading of the reply: audio inline as base64, `x-goog-api-key` rather than a bearer
+token, and per-word annotations instead of segments, which are regrouped into utterances here.
+What made it worth writing rather than declining, as it was declined when this was written, is
+that it is the one widely available endpoint that returns speaker labels along with the words.
+Deepgram and AssemblyAI still have their own shapes and are still not covered; the rule has not
+changed, this cleared it.
 
 The choice also pays for itself in the other direction, which is the part worth stating
 plainly: **a whisper server of your own on another machine answers the same endpoint.** This is

@@ -14,6 +14,7 @@ want to do:
 | **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](design-decisions.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
 
-> Voxinq Meeting is self-hosted: audio, transcripts, and minutes stay on your own machine.
+> Voxinq Meeting is self-hosted: by default the audio, the transcripts and the minutes all stay
+> on your own machine, and every route off it is one you choose and can see.
 
 日本語で読みたい方は **[日本語ガイド](../README.ja.md)** をどうぞ（導入から日常運用まで一通り解説しています）。
