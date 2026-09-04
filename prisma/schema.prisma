@@ -11,36 +11,37 @@ datasource db {
 }
 
 model Meeting {
-  id          String    @id @default(cuid())
-  title       String
-  description   String?   @map("description") // meta info such as the meeting's purpose/contents
-  sttLanguage   String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
-  whisperModel  String?   @map("whisper_model") // this meeting's transcription model (null = settings default)
-  speakerLabels String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
-  summaryStatus String?   @map("summary_status") // minutes generation state: processing | done | error
-  summaryError  String?   @map("summary_error") // why the last generation failed (shown in the UI; cleared on the next run)
-  seriesId    String?   @map("series_id") // recurring-series membership (null = standalone)
-  diarizationEmbeddings String? @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
-  diarizationEmbeddingModel String? @map("diarization_embedding_model") // which model produced them (null = pyannote, i.e. before there was a choice) — see lib/embedding-models.ts
-  embedding      String?  @map("embedding") // unused: leftover from the removed AI (semantic) search
-  embeddingModel String?  @map("embedding_model") // unused: leftover from the removed AI (semantic) search
+  id                        String    @id @default(cuid())
+  title                     String
+  description               String?   @map("description") // meta info such as the meeting's purpose/contents
+  sttLanguage               String?   @map("stt_language") // this meeting's STT language "auto"|"ja"|"en" (null = settings default)
+  whisperModel              String?   @map("whisper_model") // this meeting's transcription model (null = settings default)
+  speakerLabels             String?   @map("speaker_labels") // speaker key -> display name map (stringified JSON object)
+  summaryStatus             String?   @map("summary_status") // minutes generation state: processing | done | error
+  summaryError              String?   @map("summary_error") // why the last generation failed (shown in the UI; cleared on the next run)
+  seriesId                  String?   @map("series_id") // recurring-series membership (null = standalone)
+  diarizationEmbeddings     String?   @map("diarization_embeddings") // per-cluster voice embeddings from the last diarization run (JSON: {"speaker0": [floats]})
+  diarizationEmbeddingModel String?   @map("diarization_embedding_model") // which model produced them (null = pyannote, i.e. before there was a choice) — see lib/embedding-models.ts
+  embedding                 String?   @map("embedding") // unused: leftover from the removed AI (semantic) search
+  embeddingModel            String?   @map("embedding_model") // unused: leftover from the removed AI (semantic) search
   // Set when a meeting is put in the diary before it happens. `startedAt` is set to the same
   // moment so the date on screen is the meeting's, and is corrected to the real one when the
   // recording ends. Null on everything created the old way: recorded first, filed after.
-  scheduledAt DateTime? @map("scheduled_at")
-  startedAt   DateTime  @default(now()) @map("started_at")
-  endedAt     DateTime? @map("ended_at")
-  recordedMs  Int?      @map("recorded_ms") // actual recorded audio length in ms (set on end from the WAV); null for older meetings
-  deletedAt   DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
-  archivedAt  DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  scheduledAt               DateTime? @map("scheduled_at")
+  startedAt                 DateTime  @default(now()) @map("started_at")
+  endedAt                   DateTime? @map("ended_at")
+  recordedMs                Int?      @map("recorded_ms") // actual recorded audio length in ms (set on end from the WAV); null for older meetings
+  deletedAt                 DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
+  archivedAt                DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
 
-  transcripts Transcript[]
-  summaries   MeetingSummary[]
-  tags        Tag[]
+  jobs         Job[]
+  transcripts  Transcript[]
+  summaries    MeetingSummary[]
+  tags         Tag[]
   participants MeetingParticipant[]
-  series      Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  series       Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([deletedAt])
@@ -52,6 +53,47 @@ model Meeting {
 // A recurring meeting series ("weekly sync" etc.). When generating minutes for a
 // meeting in a series, the previous meeting's minutes are fed to the LLM as
 // reference-only context so follow-up topics are interpreted correctly.
+/// Work that needs the GPU, in the order it will get it.
+///
+/// Before this there were two job systems and no queue: the STT service kept its runs in
+/// process memory, minutes generation ran in `after()` with a column for a flag, and they
+/// avoided each other by each refusing to start while the other said it was busy. That
+/// arbitration was spread across the UI, the STT service and this app -- three places holding
+/// one decision -- and its only outcome was a disabled button.
+///
+/// The table is the queue. It survives a restart, it can be ordered, and one dispatcher reads
+/// it, so "what runs next" has a single answer that can be shown to the person waiting.
+model Job {
+  id         String    @id @default(cuid())
+  /// What to run. See JOB_KINDS in lib/queue/types.ts.
+  kind       String
+  /// The meeting this is for, when it is about one. Null for work that is not.
+  meetingId  String?   @map("meeting_id")
+  /// queued -> running -> done | error, or cancelled from either of the first two.
+  status     String    @default("queued")
+  /// Order among queued jobs; ties break by createdAt, so the default 0 is FIFO. Reordering
+  /// writes explicit values.
+  position   Int       @default(0)
+  /// What it is expected to occupy on the GPU, in MB. Zero for work that does not touch it --
+  /// recognition sent to an endpoint, minutes written by a cloud model, sherpa diarization.
+  vramMb     Int       @default(0) @map("vram_mb")
+  /// Arguments for the run, as JSON. Read when the job starts, not when it is queued: a
+  /// transcript edited while the job waited should be the one the minutes are written from.
+  params     String    @default("{}")
+  attempts   Int       @default(0)
+  /// Why it failed, or what happened to it -- "interrupted by a recording", "restarted".
+  detail     String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  startedAt  DateTime? @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+
+  meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([status, position])
+  @@index([meetingId])
+  @@map("jobs")
+}
+
 model Series {
   id            String   @id @default(cuid())
   name          String   @unique
@@ -95,16 +137,16 @@ model SpeakerProfile {
 }
 
 model Transcript {
-  id          String   @id @default(cuid())
-  meetingId   String   @map("meeting_id")
-  speakerType String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
-  text        String
-  translation String?  // Japanese translation of a non-Japanese utterance (null = none/not needed)
+  id           String   @id @default(cuid())
+  meetingId    String   @map("meeting_id")
+  speakerType  String   @map("speaker_type") // 'self' | 'partner-0' | 'partner-1' | ...
+  text         String
+  translation  String? // Japanese translation of a non-Japanese utterance (null = none/not needed)
   // Where this utterance sits in the recording. Null on rows written before this was stored, and
   // on any row whose utterance was not saved to a WAV; the player falls back to segments.json.
-  audioStartMs Int?    @map("audio_start_ms")
-  audioEndMs   Int?    @map("audio_end_ms")
-  createdAt   DateTime @default(now()) @map("created_at")
+  audioStartMs Int?     @map("audio_start_ms")
+  audioEndMs   Int?     @map("audio_end_ms")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
