@@ -242,7 +242,7 @@ want the feature they belong to.
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v2.0.0`. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v2.3.2`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -688,13 +688,19 @@ Two branches, with different jobs:
 - **`main`** — development. Every PR lands there, and a tag on it is a version. Nothing is
   *deployed* from a branch: Docker hosts pull a published image and package managers install a
   published tarball, both produced by publishing the release.
-- **`release`** — **what the documentation's download links point at.** `docker-compose.yml`,
-  `docker-compose.cpu.yml` and `.env.example` are fetched from
+- **`release`** — **the current stable release**, and what the documentation's download links
+  point at. `docker-compose.yml`, `docker-compose.cpu.yml` and `.env.example` are fetched from
   `raw.githubusercontent.com/…/release/…` in seventeen places across the two READMEs, and the
-  app's own link to this guide uses `blob/release`. It has to mean *the current release*, so
-  **moving it is part of cutting one** (below). It no longer builds anything — that was the
+  app's own link to this guide uses `blob/release`. It has to mean the release it says it does,
+  so **moving it is part of cutting one** (below). It no longer builds anything — that was the
   redeploy scripts, and they are legacy — but a reader downloading a compose file from it is
   not.
+
+**"Stable" is not a separate thing to maintain.** The stable 2.x release is the newest full
+release: the one GitHub marks *Latest*, the one the `latest` image tag resolves to, and the one
+`release` points at — three names for the same commit. **As of v2.3.2 that is v2.3.2.** There is
+no `stable` tag and no long-lived 2.x maintenance branch, because a second pointer is a second
+thing to forget, and this branch has already been forgotten twice.
 
 > This was got wrong twice: the branch sat on `v2.3.0` through two releases while the docs
 > handed people files from it. Nothing broke, because those three files happened not to change
@@ -712,7 +718,9 @@ off its tag.
 # on main, with everything for this version merged
 npm version 1.1.0 --no-git-tag-version   # commit this via a PR
 git tag -a v1.1.0 -m "v1.1.0" && git push origin v1.1.0
-git push origin v1.1.0:refs/heads/release   # the docs' download links follow this
+# The `^{}` is load-bearing: an annotated tag is a tag object, and a branch must point at a
+# commit. Without it the push is rejected with nothing but "failed" to explain why.
+git push origin 'v1.1.0^{}:refs/heads/release'   # the docs' download links follow this
 ```
 
 Then publish the GitHub release — **not** as a pre-release, or `latest` stays where it is:
