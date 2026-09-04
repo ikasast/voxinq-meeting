@@ -42,6 +42,7 @@ export function SttProfiles({
   disabled,
   localModel,
   localEditor,
+  notice,
   onChange,
   onDefaultChange,
 }: {
@@ -53,6 +54,10 @@ export function SttProfiles({
   /** The controls behind that row's Edit. The settings page owns them -- it knows the model
    *  list and the warnings that go with it; this component only decides when to show them. */
   localEditor: ReactNode;
+  /** Shown under the picker when the default sends recordings off this machine. Rendered here
+   *  rather than at the top of the card because it is about the choice in that select, and a
+   *  warning above the control it is about reads as being about the page. */
+  notice: ReactNode;
   onChange: (next: DraftProfile[]) => void;
   onDefaultChange: (id: string) => void;
 }) {
@@ -111,6 +116,8 @@ export function SttProfiles({
         </div>
         <AddMenu disabled={disabled} onPick={add} />
       </div>
+
+      {notice}
 
       <div className="overflow-x-auto rounded-md border border-[var(--border)]">
         <table className="w-full min-w-[26rem] text-sm">
