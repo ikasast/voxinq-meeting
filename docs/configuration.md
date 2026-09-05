@@ -136,6 +136,13 @@ here (single on-prem user assumed), so keep the file private.
   are also what **Suggest fixes** looks for after a meeting, which is how a glossary reaches
   kotoba-whisper transcripts at all — see [Usage](usage.md#suggest-fixes-glossary-terms-the-recognizer-missed).
 - `micMode` — `standard` / `room` (room picks up distant voices)
+- `vramBudgetMb` — megabytes of video memory the [queue](usage.md#the-queue) may commit at
+  once. `0` (the default) works it out: the card's total less 1 GB for the display, or 4 GB
+  where there is no NVIDIA card and CPU contention serialises the work anyway. Raise it to let
+  two things run together on a bigger card; lower it if something else on the machine needs the
+  memory. It is a scheduling figure, not a cap on any one job — something larger than the whole
+  budget still runs, on its own, because the alternative is a queue that silently never moves.
+  Work sent to an endpoint or a cloud model is priced at zero and never waits for the card.
 - `sttProfiles` — saved recognition endpoints, one object each:
   `{ id, name, kind: "openai" | "gemini", baseUrl, model, apiKey }`. Edited in the UI; the keys
   never reach the browser. Empty (the default) means recognition only happens here.

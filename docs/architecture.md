@@ -80,13 +80,48 @@ and a native install expects both already there.
 ## GPU time-sharing
 
 On a machine with one CUDA card of about 8 GB — which is what Voxinq was written on. A host
-without a GPU has no VRAM to arbitrate; the same lock still serialises the work, but what is
-being shared is CPU time.
+without a GPU has no VRAM to arbitrate; the queue still serialises the work, but what is being
+shared is CPU time.
 
 Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM. Voxinq Meeting
-**releases Whisper on meeting end** so the LLM can run. A UI lock also prevents starting a
-second GPU task (another minutes generation, transcription, or diarization) while one is
-running.
+**releases Whisper on meeting end** so the LLM can run.
+
+## The job queue
+
+Minutes, diarization and re-transcription are rows in a `jobs` table rather than work the
+browser drives, which is why closing a tab no longer abandons a run.
+
+- **Claiming** — `lib/queue/queue.ts` takes the next job with `FOR UPDATE SKIP LOCKED`, so two
+  processes cannot claim the same one. A job is admitted when its estimated VRAM plus what is
+  already running fits the budget; a job larger than the whole budget runs alone rather than
+  never.
+- **Pricing** — `lib/queue/capacity.ts` estimates each job when it is queued. An Ollama model
+  is costed by asking Ollama, plus a fifth for context. Work sent to a cloud model or a remote
+  endpoint costs **zero**; a whisper server on *this* machine is costed as the local model,
+  because "over HTTP" does not mean "somewhere else".
+- **Budget** — `vramBudgetMb` when set, otherwise the card's total (from `nvidia-smi`, reported
+  on `/health`) less 1 GB of headroom, or 4 GB where there is no NVIDIA card.
+- **Dispatching** — `lib/queue/dispatcher.ts` ticks every 2 s from `instrumentation.ts`, and
+  re-ticks 50 ms after a claim so a zero-cost job can start beside what it just admitted. It
+  holds an `AbortController` per running job, which is what Stop uses.
+- **Recovery** — jobs left `running` by a process that is gone are requeued at startup.
+
+### Recordings hold the card
+
+A live recording is not scheduled — it starts when someone presses a button — but it needs the
+GPU as much as anything queued. It takes a row of `kind = "recording"`, already `running`, so
+admission control sees the card is occupied without knowing anything about recordings.
+
+Starting a recording while something is on the GPU asks whether to interrupt it (the running
+job is requeued at the front) or to record without live recognition. The STT service takes a
+per-session `live` flag for the second case; it only ever narrows, so a host that cannot keep
+up does not start doing so because a client asked.
+
+Releasing the hold has three paths and a backstop: the meeting ending, the screen unmounting,
+`pagehide` — and, for a browser that is killed outright, a sweep that asks the STT service
+which meetings still have a live connection (`POST /activity`). The sweep releases only what it
+can confirm, and never a hold younger than 90 s. Restart recovery skips recordings, because a
+recording survives the web app restarting.
 
 ## Data flow (recording)
 

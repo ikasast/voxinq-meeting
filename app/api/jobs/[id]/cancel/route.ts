@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { abortJob } from "@/lib/queue/dispatcher";
 import { finish } from "@/lib/queue/queue";
+import { RECORDING_KIND } from "@/lib/queue/types";
 import { cancelDiarize } from "@/lib/queue/runners/diarize";
 import { abortGeneration } from "@/lib/llm/generation-registry";
 
@@ -17,6 +18,9 @@ export const runtime = "nodejs";
 //   transcribe  the recognition pass runs to its end on the service and the result is thrown
 //               away. There is no cancel endpoint for it, and pretending otherwise would mean
 //               a button that reports success and frees nothing.
+//   recording   refused. The row is a live meeting's hold on the card, and finishing it here
+//               would not stop the recording — it would only hand the GPU to something else
+//               while people are still talking into it.
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const job = await prisma.job.findUnique({
@@ -24,6 +28,16 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     select: { id: true, kind: true, status: true, meetingId: true },
   });
   if (!job) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (job.kind === RECORDING_KIND) {
+    return NextResponse.json(
+      {
+        error:
+          "That is a recording in progress. Its hold on the GPU ends when the meeting does —" +
+          " end the meeting from the recording screen.",
+      },
+      { status: 409 },
+    );
+  }
   if (job.status !== "queued" && job.status !== "running") {
     return NextResponse.json({ status: job.status, alreadyFinished: true });
   }
