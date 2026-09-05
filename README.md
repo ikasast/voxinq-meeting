@@ -202,6 +202,12 @@ same machine's own browser.
   one machine.
 - On a single 8 GB NVIDIA card the GPU is **time-shared**: Whisper runs during the meeting, the
   LLM after it ends. With more VRAM, or none at all, there is nothing to take turns over.
+- The meeting list is banded by how long ago things happened, a **calendar** over it turns a
+  half-remembered date into a place to click, and a recurring series lists its meetings
+  individually rather than folding them behind a disclosure — its chip filters the list instead.
+- **The microphone can be checked before recording**, and the microphone the check opens is the
+  one the recording uses. A meeting nobody recorded is the one failure here that cannot be
+  undone.
 - Minutes, speaker separation and re-transcription are a **server-side queue**, so closing the
   tab does not abandon them. How many run at once is worked out from what each expects to need
   and what the card has — work sent to a cloud model or an endpoint costs nothing here and
