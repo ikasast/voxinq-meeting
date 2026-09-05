@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
+import { bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTime, formatDurationMs } from "@/lib/utils";
 import { MinutesWatcher } from "./minutes-watcher";
@@ -8,7 +9,6 @@ import { ArchiveIcon, TrashIcon } from "./icons";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
 import { RecordingBadges } from "./recording-badges";
-import { SeriesStack } from "./series-stack";
 import { SwipeableRow } from "./swipeable-row";
 import { TagFilter } from "./tag-filter";
 
@@ -34,19 +34,28 @@ type MeetingCardData = {
 export async function MeetingListPane({
   q,
   tag,
+  series,
   activeId,
   readOnly = false,
 }: {
   q?: string;
   tag?: string;
+  series?: string;
   activeId?: string;
   // External (read-only) access: no swipe actions or per-card ⋯ menu, no Trash link.
   readOnly?: boolean;
 }) {
   const query = (q ?? "").trim();
   const activeTag = (tag ?? "").trim();
+  const activeSeries = (series ?? "").trim();
 
-  const where = buildMeetingWhere({ query, tag: activeTag });
+  // An async server component renders once per request, so this is the request's own time —
+  // not something that can shift under a re-render. Read once so every row is banded against
+  // the same instant.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+
+  const where = buildMeetingWhere({ query, tag: activeTag, series: activeSeries });
 
   const [meetingsRaw, allTags] = await Promise.all([
     prisma.meeting.findMany({
@@ -147,36 +156,43 @@ export async function MeetingListPane({
   // The meeting currently generating minutes (first-time OR regeneration), if any — used to
   // seed the live watcher so it only refreshes the list when that changes.
   const generatingId = meetings.find((m) => m.summaryStatus === "processing")?.id ?? "";
-  const filtering = Boolean(query || activeTag);
+  const filtering = Boolean(query || activeTag || activeSeries);
   const base = activeId ? `/${activeId}` : "/";
 
   // Query string representing the current filters ("?..." or ""). overrides replaces individual parts.
-  const queryString = (over: { tag?: string | null } = {}) => {
+  const queryString = (over: { tag?: string | null; series?: string | null } = {}) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     const t = "tag" in over ? over.tag : activeTag;
     if (t) params.set("tag", t);
+    const sr = "series" in over ? over.series : activeSeries;
+    if (sr) params.set("series", sr);
     const s = params.toString();
     return s ? `?${s}` : "";
   };
-  const hrefWith = (over: { tag?: string | null }) => `${base}${queryString(over)}`;
+  const hrefWith = (over: { tag?: string | null; series?: string | null }) =>
+    `${base}${queryString(over)}`;
 
-  // `inSeries` cards sit inside a SeriesStack, which already names the series in its header —
-  // repeating it on every card is noise.
-  const card = (m: MeetingCardData, inSeries = false) => {
+  // The card is a link, and the badges under it are not part of it: the series chip filters
+  // the list rather than opening the meeting, and a link inside a link is invalid HTML. So the
+  // border and the padding belong to the wrapper, and the meeting link covers only the part
+  // that opens the meeting.
+  const card = (m: MeetingCardData) => {
     const active = m.id === activeId;
-    const showSeriesChip = Boolean(m.seriesName) && !inSeries;
+    const showSeriesChip = Boolean(m.seriesName) && m.seriesName !== activeSeries;
     const hit = matched.get(m.id);
     return (
-      <div className="relative">
+      <div
+        className={`group relative rounded-lg border p-3 transition ${
+          active
+            ? "border-[var(--accent)] bg-[var(--elevated)]"
+            : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]"
+        }`}
+      >
         <Link
           href={`/${m.id}${queryString()}`}
           aria-current={active ? "page" : undefined}
-          className={`block rounded-lg border p-3 transition ${
-            active
-              ? "border-[var(--accent)] bg-[var(--elevated)]"
-              : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]"
-          }`}
+          className="block"
         >
           <div className="flex items-center justify-between gap-2 pr-6">
             <span className="truncate text-sm font-medium text-[var(--text-strong)]">
@@ -221,37 +237,38 @@ export async function MeetingListPane({
           {hit?.snippet ? (
             <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{hit.snippet}</p>
           ) : null}
-          {m.tags.length > 0 || showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
-            <p className="mt-1.5 flex flex-wrap items-center gap-1">
-              {/* Recording/protection icon (RecordingBadges fills it in after querying STT) */}
-              <span data-rec-badge={m.id} />
-              {showSeriesChip ? (
-                <span
-                  className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
-                  title={`Series: ${m.seriesName}`}
-                >
-                  ↻ {m.seriesName}
-                </span>
-              ) : null}
-              {m.tags.map((t) => (
-                <span
-                  key={t.name}
-                  className="rounded-full border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
-                >
-                  {t.name}
-                </span>
-              ))}
-              {hit?.fields.map((f) => (
-                <span
-                  key={f}
-                  className="rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
-                >
-                  match: {f}
-                </span>
-              ))}
-            </p>
-          ) : null}
         </Link>
+        {m.tags.length > 0 || showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
+          <p className="mt-1.5 flex flex-wrap items-center gap-1">
+            {/* Recording/protection icon (RecordingBadges fills it in after querying STT) */}
+            <span data-rec-badge={m.id} />
+            {showSeriesChip ? (
+              <Link
+                href={hrefWith({ series: m.seriesName })}
+                className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)] hover:border-[var(--accent)]"
+                title={`Show only "${m.seriesName}"`}
+              >
+                ↻ {m.seriesName}
+              </Link>
+            ) : null}
+            {m.tags.map((t) => (
+              <span
+                key={t.name}
+                className="rounded-full border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
+              >
+                {t.name}
+              </span>
+            ))}
+            {hit?.fields.map((f) => (
+              <span
+                key={f}
+                className="rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
+              >
+                match: {f}
+              </span>
+            ))}
+          </p>
+        ) : null}
         {!readOnly ? (
           <div className="absolute right-1.5 top-1.5">
             <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} />
@@ -269,8 +286,12 @@ export async function MeetingListPane({
       </SwipeableRow>
     );
 
-  // Group recurring series into a single stacked entry (latest on top) — but only in
-  // the plain list; during a search every hit should stay individually visible.
+  const divider = (label: string) => (
+    <li key={`__${label}`} className="px-1 pt-2 text-xs font-medium text-[var(--text-muted)]">
+      {label}
+    </li>
+  );
+
   const entries: ReactNode[] = [];
   if (query) {
     for (const m of meetings) {
@@ -284,52 +305,30 @@ export async function MeetingListPane({
       .filter((m) => m.upcoming)
       .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
     if (booked.length > 0) {
-      entries.push(
-        <li key="__upcoming" className="px-1 pt-1 text-xs font-medium text-[var(--text-muted)]">
-          Upcoming
-        </li>,
-      );
+      entries.push(divider("Upcoming"));
       for (const m of booked) {
         entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
       }
     }
 
-    const past = meetings.filter((m) => !m.upcoming);
-    const seriesCounts = new Map<string, number>();
+    // A series used to be folded into one stacked entry. It is not any more: a weekly meeting
+    // is a meeting, and hiding four of them behind a disclosure meant the list was not the list.
+    // The series chip on each card filters to it instead, which is the same information without
+    // taking the rows away.
+    //
+    // Sorted by when they happened rather than when the row was made, so the bands below are
+    // monotonic — a meeting booked last month and recorded yesterday belongs to yesterday.
+    const past = meetings
+      .filter((m) => !m.upcoming)
+      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    let lastBand: string | null = null;
     for (const m of past) {
-      if (m.seriesName) seriesCounts.set(m.seriesName, (seriesCounts.get(m.seriesName) ?? 0) + 1);
-    }
-    const seen = new Set<string>();
-    for (const m of past) {
-      if (!m.seriesName || (seriesCounts.get(m.seriesName) ?? 0) < 2) {
-        entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
-        continue;
+      const b = bandOf(m.startedAt, now);
+      if (b !== lastBand) {
+        entries.push(divider(b));
+        lastBand = b;
       }
-      if (seen.has(m.seriesName)) continue; // folded into the stack of its newest meeting
-      seen.add(m.seriesName);
-      const group = past.filter((x) => x.seriesName === m.seriesName);
-      entries.push(
-        <li key={m.id}>
-          <SeriesStack
-            name={m.seriesName}
-            seriesId={m.seriesId}
-            count={group.length}
-            // Collapsed, the pile represents the whole series: swiping it archives or
-            // trashes every meeting at once. Expanded rows act on a single meeting.
-            seriesIds={group.map((x) => x.id)}
-            latestId={group[0].id}
-            latestTitle={group[0].title}
-            readOnly={readOnly}
-            // Opening any meeting in the series shows the rest of it, so its history is at
-            // hand — and picking one of the older ones cannot fold the series shut around it.
-            defaultOpen={group.some((x) => x.id === activeId)}
-            latest={card(group[0], true)}
-            rest={group.slice(1).map((x) => (
-              <div key={x.id}>{swipeWrap(card(x, true), [x.id], x.title)}</div>
-            ))}
-          />
-        </li>,
-      );
+      entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
     }
   }
 
@@ -343,8 +342,28 @@ export async function MeetingListPane({
         </>
       ) : null}
 
+      <div className="flex justify-end gap-4">
+        <Link
+          href="/archive"
+          className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
+        >
+          <ArchiveIcon className="h-3.5 w-3.5" />
+          Archived
+        </Link>
+        {!readOnly ? (
+          <Link
+            href="/trash"
+            className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+            Trash
+          </Link>
+        ) : null}
+      </div>
+
       <form action={base} className="flex flex-wrap items-center gap-2">
         {activeTag ? <input type="hidden" name="tag" value={activeTag} /> : null}
+        {activeSeries ? <input type="hidden" name="series" value={activeSeries} /> : null}
         <input
           type="search"
           name="q"
@@ -368,7 +387,21 @@ export async function MeetingListPane({
         }))}
       />
 
-      {filtering ? (
+      {/* The series is stated once, with its count and the way out of it. Repeating it in the
+          line below would be three restatements of one filter stacked on top of each other. */}
+      {activeSeries ? (
+        <p className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]">
+            ↻ {activeSeries}
+          </span>
+          <span className="text-[var(--text-muted)]">{meetings.length} meeting(s) in this series</span>
+          <Link href={hrefWith({ series: null })} className="text-[var(--text-muted)] underline">
+            show all
+          </Link>
+        </p>
+      ) : null}
+
+      {query || activeTag ? (
         <p className="text-xs text-[var(--text-muted)]">
           {[query ? `"${query}"` : null, activeTag ? `tag "${activeTag}"` : null]
             .filter(Boolean)
@@ -385,24 +418,6 @@ export async function MeetingListPane({
         <ul className="space-y-2">{entries}</ul>
       )}
 
-      <div className="flex justify-end gap-4 pt-1">
-        <Link
-          href="/archive"
-          className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
-        >
-          <ArchiveIcon className="h-3.5 w-3.5" />
-          Archived
-        </Link>
-        {!readOnly ? (
-          <Link
-            href="/trash"
-            className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
-          >
-            <TrashIcon className="h-3.5 w-3.5" />
-            Trash
-          </Link>
-        ) : null}
-      </div>
     </div>
   );
 }

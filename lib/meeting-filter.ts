@@ -1,4 +1,4 @@
-// Shared logic for list filtering (search / tag).
+// Shared logic for list filtering (search / tag / series).
 // Extracted so meeting-list-pane and each page build the same conditions.
 
 import type { Prisma } from "@prisma/client";
@@ -8,10 +8,12 @@ import type { Prisma } from "@prisma/client";
 export function buildMeetingWhere(opts: {
   query?: string;
   tag?: string;
+  series?: string;
 }): Prisma.MeetingWhereInput {
   const and: Prisma.MeetingWhereInput[] = [{ deletedAt: null }];
   const query = opts.query?.trim();
   const tag = opts.tag?.trim();
+  const series = opts.series?.trim();
 
   if (query) {
     and.push({
@@ -27,6 +29,9 @@ export function buildMeetingWhere(opts: {
     and.push({ archivedAt: null });
   }
   if (tag) and.push({ tags: { some: { name: tag } } });
+  // By name rather than id: `Series.name` is unique, it is what the chip shows, and it keeps
+  // the URL readable in the same way `?tag=` already is.
+  if (series) and.push({ series: { name: series } });
 
   return { AND: and };
 }

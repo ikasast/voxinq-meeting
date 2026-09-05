@@ -43,3 +43,23 @@ describe("makeSnippet", () => {
     expect(snip?.endsWith("…")).toBe(true);
   });
 });
+
+describe("the series filter", () => {
+  it("narrows to one series by name", () => {
+    // By name because `Series.name` is unique and it is what the chip shows, so the URL says
+    // what the list is showing.
+    const where = buildMeetingWhere({ series: "Weekly standup" });
+    expect(where.AND).toContainEqual({ series: { name: "Weekly standup" } });
+  });
+
+  it("combines with a tag rather than replacing it", () => {
+    const where = buildMeetingWhere({ series: "Weekly standup", tag: "budget" });
+    expect(where.AND).toContainEqual({ series: { name: "Weekly standup" } });
+    expect(where.AND).toContainEqual({ tags: { some: { name: "budget" } } });
+  });
+
+  it("ignores a whitespace-only series", () => {
+    const where = buildMeetingWhere({ series: "   " });
+    expect((where.AND as Record<string, unknown>[]).some((c) => "series" in c)).toBe(false);
+  });
+});
