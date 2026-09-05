@@ -86,6 +86,41 @@ shared is CPU time.
 Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM. Voxinq Meeting
 **releases Whisper on meeting end** so the LLM can run.
 
+## Accounts, ownership and encryption
+
+**Identity.** `User` and `Session`. Two doors: a username and password, or the
+`Tailscale-User-Login` header, which becomes an account the first time it is seen. Sessions are
+rows, so signing a device out takes effect immediately; the cookie carries a signature the proxy
+checks without a database, and the row is what makes it revocable.
+
+**Ownership is in the client, not the routes.** `lib/prisma.ts` extends Prisma so every query is
+narrowed to its owner — meetings by `ownerId`, their content through the meeting, tags and series
+by having one. A route that forgets cannot leak, because forgetting is not available to it.
+Anything running outside a request must declare `asSystem` or `asUser`; anything that declares
+nothing throws on its first query.
+
+**Keys.** One random master key per account, wrapped twice — by the password, and by a recovery
+code shown once and never stored. Both hold the same key; there is no third copy. An account with
+no password has no key and is not encrypted.
+
+**Open keys live in a row** (`KeyUnlock`), wrapped with `VOXINQ_KEY_SECRET`, not in memory: Next.js
+loads a module into several registries in one process, each with its own globals, so the map the
+login route writes is not the map the dispatcher reads. The row is deleted once its owner has no
+work queued and has not used it for fifteen minutes.
+
+**Encrypted columns** are `Transcript.text` and `MeetingSummary.summaryText`, stored as
+`enc:v1.<purpose>.<iv>.<ct>.<tag>`. The prefix lets encrypted and plaintext rows share a column,
+which they must during a migration and for ever on accounts with no key. The client encrypts on
+write and decrypts anything carrying the prefix on read, wherever it appears in a result.
+
+**Search** is a blind index. `MeetingGram` holds keyed hashes of the two-character sequences a
+meeting contains; a query is hashed the same way and must match every token. The index narrows
+and the candidates are then decrypted and scanned, which removes the overlaps bigrams inevitably
+produce and yields the snippet.
+
+**Migration** is a queued `encrypt` job, started at sign-in when anything is unencrypted or
+unindexed. It is idempotent, so an interrupted run finds the rest next time.
+
 ## The job queue
 
 Minutes, diarization and re-transcription are rows in a `jobs` table rather than work the

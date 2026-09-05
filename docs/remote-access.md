@@ -163,6 +163,12 @@ password:
   delete, archive, settings — is **refused server-side** (HTTP 403), not just hidden. So even
   the password holder on an untrusted machine cannot trigger those.
 
+> **With accounts**, the same boundary holds and the door changes: people sign in with their own
+> username and password rather than the shared one, `APP_PASSWORD` stops being a way in, and each
+> visitor sees only their own meetings. Read-only from outside applies to everybody, administrator
+> included — a tailnet identity is what lifts it, and Funnel requests never carry one. See
+> [Accounts](usage.md#accounts).
+
 This is safe to combine with the phone-over-Tailscale setup: tailnet devices keep full access
 (the identity header marks them internal), only Funnel visitors are read-only. Because Funnel
 requests never carry the `Tailscale-User-Login` header — and Tailscale controls that header —

@@ -694,16 +694,88 @@ The bundled binaries are the **server** only — `pg_ctl` and `postgres`, no `ps
 What it does not do yet: bundle Node and Python. `voxinq setup` installs everything that sits
 on top of those two runtimes, and packaging them is what a Homebrew or Scoop formula would add.
 
-## Single user, by design
+## Multiple people, and how the single-user assumption was undone
 
-There is no user model, no per-meeting ownership, and one `settings.json`. The threat model is
-"my meetings, on my machine, reachable from my phone" — served by Tailscale, optional password
-auth, and a read-only public link for sharing.
+For most of this app's life there was no user model, no ownership and one `settings.json`. The
+threat model was "my meetings, on my machine, reachable from my phone", and the note here said
+that multi-user would mean an ownership column, authorization on some thirty API routes — one
+miss being somebody else's minutes — and per-user settings.
 
-Multi-user would mean an ownership column, authorization on ~30 API routes (one miss = someone
-else's minutes), and per-user settings — and 8 GB still allows only one recording at a time. If
-it is ever added, the cheap path is the `Tailscale-User-Login` header that already arrives on
-every tailnet request.
+That is what was built, and the estimate was right about the danger and wrong about where to
+put the check. **Authorization is not on the routes.** It is in the Prisma client: every query
+is narrowed to its owner underneath, so a route that forgets cannot leak, because forgetting is
+not something a route is able to do. What the routes still decide is whether a person may take
+an action; what they can no longer decide is which rows they see.
+
+Anything that runs outside a request has to say what it is — the queue scheduler declares itself
+`asSystem` and each job runs `asUser` its owner — and anything that says nothing throws on its
+first query. Failing closed is the point: a leak that crashes in development is a bug report,
+and one that succeeds is nobody finding out.
+
+Identity arrives two ways, and the cheap path this note predicted is one of them. A username and
+password, or the `Tailscale-User-Login` header that already came with every tailnet request —
+which becomes an account the first time it is seen, because turning it into a login prompt would
+break every phone in the house to defend against somebody already inside the tailnet.
+
+The 8 GB observation still holds: one recording at a time, arbitrated by the queue, which is now
+shared across accounts and shows everybody's work without showing what any of it is about.
+
+## What encryption at rest protects, and what it does not
+
+Transcripts and minutes are encrypted under a key that belongs to the account. Titles, dates and
+tags are not: they are what the list, the calendar and the search bar are made of, and
+encrypting them would mean an app that cannot show you your own meetings without unlocking every
+one of them.
+
+**Protected**: a stolen disk, a database dump, a backup file, and an administrator reading rows.
+
+**Not protected**: somebody who controls the running server. While a key is open, a person with
+the database and the environment can read that account's data. This is not a gap to be closed
+later — it follows from the queue. Minutes are written after the meeting, often after the
+browser has gone, and work that needs plaintext needs a key that outlives the request. The
+alternative was decrypting only inside a request, which would mean minutes, diarization and
+re-transcription stopped running in the background at all.
+
+So the answer is to keep the window small rather than to pretend it is not there. A key is
+opened by signing in and forgotten once its owner has no work left *and* has not used it for
+fifteen minutes. On an instance where nobody is working at three in the morning, there are no
+open keys.
+
+The key lives in a row rather than in memory, and that was measured rather than assumed: Next.js
+loads a module into several separate registries in one process — four different ids under one
+pid, when each load was stamped — each with its own globals, so the map the login route wrote to
+was never the map the dispatcher read.
+
+## The recovery code is the only way back, and nobody else has one
+
+An account's key is wrapped twice: by the password, and by a recovery code shown once and never
+stored. Both hold the same key. There is no third copy, which is what makes the rest of it mean
+anything — an administrator can issue a reset link and cannot read what it unlocks.
+
+The cost is real and is stated wherever somebody might meet it. Forgetting the password without
+the code leaves an account that signs in and cannot read what it wrote before. Resetting refuses,
+with a 409, to do that quietly: give the code and everything is kept, or say "start again" in
+those words and get a new key.
+
+## Search is a blind index, and it is not free
+
+A column of ciphertext cannot be searched with `LIKE`, and decrypting every meeting on every
+keystroke does not survive a year of them. So each meeting also carries keyed hashes of the
+two-character sequences its text contains. A search hashes the query the same way and asks for
+meetings holding every token: the server matches without ever holding the words.
+
+Two characters because this is a Japanese app first. There are no spaces to split on, a word
+index would need a tokeniser, and it would still miss the substring searches people type.
+
+The index narrows and reading decides. Overlapping pairs mean a meeting can hold every token of
+a phrase without containing it, so candidates are decrypted and scanned — which removes those
+and produces the snippet in the same pass.
+
+**What it leaks**: somebody with the database can see how many distinct pairs a meeting holds
+and which meetings share them — a frequency and co-occurrence pattern, not the words, and not
+reversible without the key. Tokens are keyed per account, so two people writing the same
+sentence produce rows that do not line up. This was accepted deliberately in exchange for search
+that works.
 
 ## Fonts are bundled for Latin, borrowed from the OS for Japanese
 
