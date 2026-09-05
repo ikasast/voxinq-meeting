@@ -60,6 +60,8 @@ model User {
 
   sessions Session[]
   meetings Meeting[]
+  jobs     Job[]
+  unlock   KeyUnlock?
   resets   PasswordReset[]
   voices   SpeakerProfile[]
 
@@ -111,6 +113,35 @@ model PasswordReset {
   @@index([userId])
   @@index([expiresAt])
   @@map("password_resets")
+}
+
+/// An open key, for as long as there is work that needs it.
+///
+/// It exists because a key opened by signing in has to reach the queue, and it cannot do so in
+/// memory: Next.js loads a module into several separate registries in one process, each with
+/// its own globals, so the map the login route writes is not the map the dispatcher reads. That
+/// was measured, not assumed.
+///
+/// What is stored is the account's master key encrypted under a secret from the environment —
+/// so a stolen database, dump or backup is not a set of open keys, and somebody who has both the
+/// database and the `.env` can read whatever is unlocked at that moment. That is the same
+/// exposure as holding it in this process's memory, which is what the plan already accepted;
+/// what it adds is a brief appearance on disk.
+///
+/// The row is deleted the moment its owner's queue empties, so the window is the work, not the
+/// session.
+model KeyUnlock {
+  userId  String @id @map("user_id")
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The master key, wrapped with the server secret. Never the key itself.
+  wrapped   String
+  createdAt DateTime @default(now()) @map("created_at")
+  /// When it was last actually used to read or write something. The queue is not the only thing
+  /// that needs a key — somebody reading their own meetings needs it too — so "finished" is not
+  /// the same as "done with it".
+  lastUsedAt DateTime @default(now()) @map("last_used_at")
+
+  @@map("key_unlocks")
 }
 
 model Meeting {
@@ -173,6 +204,12 @@ model Meeting {
 /// The table is the queue. It survives a restart, it can be ordered, and one dispatcher reads
 /// it, so "what runs next" has a single answer that can be shown to the person waiting.
 model Job {
+  /// Whose work this is. Held on the job rather than derived from its meeting, because not
+  /// every job has one — encrypting an account's older meetings belongs to a person and to no
+  /// single meeting — and because "run this as its owner" should not depend on a join.
+  ownerId String? @map("owner_id")
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
   id         String    @id @default(cuid())
   /// What to run. See JOB_KINDS in lib/queue/types.ts.
   kind       String
@@ -199,6 +236,7 @@ model Job {
   meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
   @@index([status, position])
+  @@index([ownerId])
   @@index([meetingId])
   @@map("jobs")
 }

@@ -1,73 +1,79 @@
-// The unwrapped keys this process is holding, and for how long.
+import { clearIdleUnlocks, clearUnlock, loadUnlock, storeUnlock } from "./unlock";
+
+// The open keys this part of the app is using, and for how long.
 //
-// A key has to be here at all because of the queue: minutes are written after the meeting, often
-// after the browser has gone, and the work needs the plaintext. The alternative — decrypting
-// only inside a request — would mean minutes, diarization and re-transcription stopped running
-// in the background at all, which is the thing v3.0 was built to make possible.
+// A key is available at all because of the queue: minutes are written after the meeting, often
+// after the browser has gone, and the work needs the plaintext. Decrypting only inside a request
+// would mean minutes, diarization and re-transcription stopped running in the background, which
+// is the thing v3.0 was built to make possible.
 //
-// So the honest statement, which belongs in the documentation and not only here:
+// The honest statement, which belongs in the documentation and not only here:
 //
 //   **This does not protect you from somebody who controls the running server.** While a key is
-//   held, a person with access to this process's memory can read that account's data. What it
-//   protects is the disk, a database dump, a backup file, and an administrator reading rows —
-//   which is what "encrypted at rest" means and all it has ever meant.
+//   open, a person with the database and the environment can read that account's data. What is
+//   protected is a stolen disk, a database dump, a backup file, and an administrator reading
+//   rows — which is what "encrypted at rest" means and all it has ever meant.
 //
-// The lifetime is therefore made as short as the queue allows: a key is taken when its owner
-// signs in, and dropped as soon as that owner has nothing left in the queue. On an instance
-// where nobody is working at three in the morning, this map is empty.
+// So the lifetime is made as short as the queue allows: a key is opened when its owner signs in
+// and forgotten as soon as they have nothing left to run.
+//
+// The memory below is only a read-through cache, and it has to be short-lived: *this module
+// exists several times over in one process* — Next.js gives route handlers, server components
+// and the dispatcher separate registries, each with its own globals — so one context cannot be
+// told that another has forgotten a key. The row is the truth; this decides how often it is
+// re-read.
 
-type Held = { key: Buffer; takenAt: number };
+type Cached = { key: Buffer; readAt: number };
 
-const held = new Map<string, Held>();
+/** Long enough to serve a page without re-reading per query, short enough not to outlive much. */
+const CACHE_MS = 30_000;
 
-/** Remember a key for somebody who has just proved they own it. */
-export function holdKey(userId: string, key: Buffer): void {
-  held.set(userId, { key, takenAt: Date.now() });
+const store = globalThis as typeof globalThis & { __voxinqKeys?: Map<string, Cached> };
+const cache: Map<string, Cached> = (store.__voxinqKeys ??= new Map());
+
+/** Open a key: remembered here, and written where the rest of the app can find it. */
+export async function holdKey(userId: string, key: Buffer): Promise<void> {
+  await storeUnlock(userId, key);
+  cache.set(userId, { key, readAt: Date.now() });
 }
 
-export function heldKey(userId: string): Buffer | null {
-  return held.get(userId)?.key ?? null;
+/** The open key for this account, or null. Reads through to the row when the cache is stale. */
+export async function keyFor(userId: string): Promise<Buffer | null> {
+  const hit = cache.get(userId);
+  if (hit && Date.now() - hit.readAt < CACHE_MS) return hit.key;
+  const key = await loadUnlock(userId);
+  if (key) cache.set(userId, { key, readAt: Date.now() });
+  else cache.delete(userId);
+  return key;
 }
 
-export function hasKey(userId: string): boolean {
-  return held.has(userId);
+export async function hasKey(userId: string): Promise<boolean> {
+  return (await keyFor(userId)) !== null;
 }
 
-/**
- * Forget one, zeroing the bytes first.
- *
- * Zeroing is not a guarantee — the garbage collector may already have copied the buffer — but
- * it costs nothing and removes the copy this map was holding.
- */
-export function dropKey(userId: string): void {
-  const entry = held.get(userId);
+/** Forget one, here and everywhere. */
+export async function dropKey(userId: string): Promise<void> {
+  const entry = cache.get(userId);
+  // Zeroing is not a guarantee — the collector may have copied it — but it removes the copy this
+  // map was holding, which is the one copy that can be removed.
   if (entry) entry.key.fill(0);
-  held.delete(userId);
+  cache.delete(userId);
+  await clearUnlock(userId);
 }
 
 /**
- * Drop the keys of everybody with nothing left to run.
+ * Forget the keys of everybody with nothing left to run.
  *
- * Called by the dispatcher after each tick. `busy` is who still has work: they keep their key,
- * and everybody else loses theirs the moment their queue empties.
+ * Called by the dispatcher after each tick. `busy` is who still has work; everybody else loses
+ * theirs the moment their queue empties. On an instance where nobody is working at three in the
+ * morning, there are no open keys at all.
  */
-export function dropIdleKeys(busy: Set<string>): number {
-  let dropped = 0;
-  for (const userId of [...held.keys()]) {
+export async function dropIdleKeys(busy: Set<string>): Promise<number> {
+  for (const [userId, entry] of [...cache.entries()]) {
     if (!busy.has(userId)) {
-      dropKey(userId);
-      dropped++;
+      entry.key.fill(0);
+      cache.delete(userId);
     }
   }
-  return dropped;
-}
-
-/** For the account screen, which should be able to say whether the server is holding one. */
-export function heldSince(userId: string): number | null {
-  return held.get(userId)?.takenAt ?? null;
-}
-
-/** Signing out everywhere, an account being disabled, a password changing. */
-export function forget(userId: string): void {
-  dropKey(userId);
+  return clearIdleUnlocks(busy);
 }

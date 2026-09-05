@@ -1,62 +1,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
-import { dropIdleKeys, dropKey, hasKey, heldKey, holdKey } from "../lib/crypto/key-cache";
+import { describe, expect, it } from "vitest";
 
-// How long a key is in memory, which is the whole of what this design costs.
+// How long a key stays open, which is the whole of what this design costs.
 //
-// A key is here only because work outlives the browser that asked for it. It cannot protect
-// against somebody who controls the running process — while a key is held, that person can read
-// that account's data — so the answer is to hold it for as short a time as the queue allows.
+// A key is open at all because work outlives the browser that asked for it, so it cannot protect
+// against somebody who controls the running server. The answer is to keep it open for as short a
+// time as the queue allows.
 
-const KEY_A = Buffer.alloc(32, 1);
-const KEY_B = Buffer.alloc(32, 2);
-
-beforeEach(() => {
-  dropKey("a");
-  dropKey("b");
-});
-
-describe("holding a key", () => {
-  it("gives it back to the account it belongs to, and nobody else", () => {
-    holdKey("a", Buffer.from(KEY_A));
-    expect(heldKey("a")?.equals(KEY_A)).toBe(true);
-    expect(heldKey("b")).toBeNull();
-  });
-
-  it("zeroes the bytes it was holding when it forgets", () => {
-    // Not a guarantee — the collector may have copied it already — but it removes the copy this
-    // map was keeping, which is the one thing that can actually be removed.
-    const mine = Buffer.from(KEY_A);
-    holdKey("a", mine);
-    dropKey("a");
-    expect(mine.every((b) => b === 0)).toBe(true);
-    expect(hasKey("a")).toBe(false);
-  });
-});
-
-describe("dropping the keys of people with nothing running", () => {
-  it("keeps the busy and forgets the rest", () => {
-    holdKey("a", Buffer.from(KEY_A));
-    holdKey("b", Buffer.from(KEY_B));
-    expect(dropIdleKeys(new Set(["a"]))).toBe(1);
-    expect(hasKey("a")).toBe(true);
-    expect(hasKey("b")).toBe(false);
-  });
-
-  it("empties completely when nobody has work", () => {
-    // The property worth having: at three in the morning this process holds nothing.
-    holdKey("a", Buffer.from(KEY_A));
-    holdKey("b", Buffer.from(KEY_B));
-    expect(dropIdleKeys(new Set())).toBe(2);
-    expect(hasKey("a")).toBe(false);
-    expect(hasKey("b")).toBe(false);
-  });
-
-  it("does nothing when there is nothing to drop", () => {
-    expect(dropIdleKeys(new Set(["a", "b"]))).toBe(0);
-  });
-});
+// The in-memory half is now only a read-through cache in front of a row, so the parts worth
+// testing without a database are the wiring and the lifetime rule. The row itself is exercised
+// against a real PostgreSQL in tests/key-unlock.test.ts.
 
 describe("what the queue does with them", () => {
   const dispatcher = readFileSync(
@@ -73,5 +27,35 @@ describe("what the queue does with them", () => {
     // the last thing that needed it finished — which is most of the way back to not encrypting.
     expect(dispatcher).toContain('status: { in: ["queued", "running"] }');
     expect(dispatcher).toContain("j.meeting?.ownerId");
+  });
+});
+
+describe("where an open key lives", () => {
+  const cache = readFileSync(join(__dirname, "..", "lib/crypto/key-cache.ts"), "utf8");
+  const unlock = readFileSync(join(__dirname, "..", "lib/crypto/unlock.ts"), "utf8");
+
+  it("is a row, because memory cannot cross the app", () => {
+    // Next.js loads a module into several registries in one process, each with its own globals.
+    // Measured by stamping each load: four ids under one pid. The login route's map is not the
+    // dispatcher's map, so a key opened by signing in was invisible to the work that needed it.
+    expect(cache).toContain("storeUnlock");
+    expect(cache).toContain("loadUnlock");
+    expect(unlock).toContain("prismaRaw.keyUnlock.upsert");
+  });
+
+  it("is never stored as the key itself", () => {
+    expect(unlock).toContain("wrapKey(master, serverSecret())");
+    expect(unlock).not.toMatch(/wrapped:\s*master/);
+  });
+
+  it("warns when the server secret was left at its default", () => {
+    // Without one, a stolen database alone reads whatever is unlocked.
+    expect(unlock).toContain("VOXINQ_KEY_SECRET is not set");
+  });
+
+  it("has a short read-through cache, not a long-lived copy", () => {
+    // One context cannot be told that another has forgotten a key, so the row is the truth and
+    // this is only how often it is re-read.
+    expect(cache).toContain("CACHE_MS = 30_000");
   });
 });

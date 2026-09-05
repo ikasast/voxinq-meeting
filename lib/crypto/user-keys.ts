@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { holdKey, dropKey } from "./key-cache";
+import { dropKey, holdKey } from "./key-cache";
 import {
   newMasterKey,
   newRecoveryCode,
@@ -47,7 +47,7 @@ export async function setUpKey(userId: string, password: string): Promise<KeySet
   });
 
   // Held straight away: whoever just set this up is signed in and about to use it.
-  holdKey(userId, master);
+  await holdKey(userId, master);
   return { recoveryCode };
 }
 
@@ -59,7 +59,7 @@ export async function unlockWithPassword(userId: string, password: string): Prom
   });
   if (!row?.keySalt) return null;
   const master = unwrapKey(row.keyWrappedPassword, await wrappingKey(password, row.keySalt));
-  if (master) holdKey(userId, master);
+  if (master) await holdKey(userId, master);
   return master;
 }
 
@@ -77,7 +77,7 @@ export async function unlockWithRecoveryCode(
     row.keyWrappedRecovery,
     await wrappingKey(normaliseRecoveryCode(code), row.keySalt),
   );
-  if (master) holdKey(userId, master);
+  if (master) await holdKey(userId, master);
   return master;
 }
 

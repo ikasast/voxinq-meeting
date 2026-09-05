@@ -80,6 +80,10 @@ services:
       # Set here rather than in the app on purpose: somebody who can change settings should not
       # be able to reopen the door. The first account is exempt either way.
       VOXINQ_SIGNUP: ${VOXINQ_SIGNUP:-open}
+      # Wraps the keys that are open while somebody is using the app or has work queued. Without
+      # it a stolen database alone reads whatever was unlocked; with it, a dump or a backup on
+      # its own does not. Keep it out of the backup.
+      VOXINQ_KEY_SECRET: ${VOXINQ_KEY_SECRET:-}
       # Meeting dates on the list, the detail header, the print page and the exports are
       # formatted here, in the container. A container has no timezone unless it is given
       # one, so leaving this unset renders them in UTC while the browser renders the
