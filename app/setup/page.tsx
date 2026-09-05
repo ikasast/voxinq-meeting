@@ -27,13 +27,6 @@ export default async function SetupPage() {
 
   return (
     <div className="mx-auto max-w-sm py-16">
-      <h1 className="mb-1 text-center text-xl font-semibold text-[var(--text-strong)]">
-        Create the first account
-      </h1>
-      <p className="mb-4 text-center text-xs text-[var(--text-muted)]">
-        It is an administrator. From then on this server asks who you are instead of sharing one
-        password, and <code>APP_PASSWORD</code> stops being a way in.
-      </p>
       <SetupForm />
     </div>
   );
