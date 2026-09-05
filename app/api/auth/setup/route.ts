@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
+import { adoptOrphanedMeetings } from "@/lib/auth/adopt";
 import { forgetUserCount, hasUsersCached } from "@/lib/auth/has-users";
 import { hashPassword } from "@/lib/auth/password";
 import { startSession } from "@/lib/auth/session";
@@ -61,6 +62,9 @@ export async function POST(req: Request) {
       select: { id: true },
     });
     forgetUserCount();
+    // Everything recorded before this moment belonged to whoever had the shared password. It
+    // belongs to this account now, or it would belong to nobody and be visible to nobody.
+    await adoptOrphanedMeetings(user.id);
     const { value, expiresAt } = await startSession(user.id, req.headers.get("user-agent"));
     const res = NextResponse.json({ ok: true });
     res.cookies.set(SESSION_COOKIE, value, {

@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { asSystem } from "../lib/db/scope";
 import { prisma } from "../lib/prisma";
 import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "../lib/queue/queue";
 import { reorderQueue } from "../lib/queue/reorder";
@@ -33,6 +34,7 @@ let reachable = false;
 
 beforeAll(async () => {
   if (!ENABLED) return;
+  await sys(async () => {
   await prisma.$queryRaw`SELECT 1`;
   // Start from an empty queue. `claimNext` takes whatever is waiting, so a row left over from
   // anything else makes the capacity and ordering tests assert about the wrong queue — which is
@@ -40,7 +42,16 @@ beforeAll(async () => {
   // is only safe because VOXINQ_QUEUE_DB_TESTS already says this database is disposable.
   await prisma.job.deleteMany({});
   reachable = true;
+  });
 });
+
+
+// Every query below runs outside a request, and the scoped client refuses those unless they say
+// what they are — which is the point of it. The queue is the scheduler, so these say "system",
+// exactly as the dispatcher does.
+const sys = <T>(fn: () => Promise<T>) => asSystem("queue tests exercise the scheduler", fn);
+const sysIt = (name: string, fn: () => void | Promise<void>) =>
+  it(name, () => sys(async () => void (await fn())));
 
 const made: string[] = [];
 async function job(over: Parameters<typeof enqueue>[0]) {
@@ -50,20 +61,20 @@ async function job(over: Parameters<typeof enqueue>[0]) {
 }
 
 afterEach(async () => {
-  if (made.length) await prisma.job.deleteMany({ where: { id: { in: made } } });
+  if (made.length) await sys(() => prisma.job.deleteMany({ where: { id: { in: made } } }));
   made.length = 0;
 });
 
 describe.skipIf(!ENABLED)("the queue", () => {
-  it("is reachable (set VOXINQ_QUEUE_DB_TESTS=1 against a disposable database)", () => {
+  sysIt("is reachable (set VOXINQ_QUEUE_DB_TESTS=1 against a disposable database)", () => {
     expect(reachable).toBe(true);
   });
 
-  it("hands out nothing when nothing is waiting", async () => {
+  sysIt("hands out nothing when nothing is waiting", async () => {
     expect(await claimNext(BUDGET)).toBeNull();
   });
 
-  it("hands out the oldest first", async () => {
+  sysIt("hands out the oldest first", async () => {
     const a = await job({ kind: "minutes", params: { tag: "a" } });
     const b = await job({ kind: "minutes", params: { tag: "b" } });
     const first = await claimNext(BUDGET);
@@ -74,7 +85,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await finish(b, "done");
   });
 
-  it("lets position override age, which is what reordering will write", async () => {
+  sysIt("lets position override age, which is what reordering will write", async () => {
     const older = await job({ kind: "minutes", params: { tag: "older" }, position: 10 });
     const newer = await job({ kind: "minutes", params: { tag: "newer" }, position: 1 });
     const first = await claimNext(BUDGET);
@@ -84,7 +95,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await finish(older, "done");
   });
 
-  it("stops at the capacity it is given", async () => {
+  sysIt("stops at the capacity it is given", async () => {
     const a = await job({ kind: "minutes", vramMb: SLOT });
     await job({ kind: "minutes", vramMb: SLOT });
     expect((await claimNext(ONE_SLOT))?.id).toBe(a);
@@ -95,7 +106,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
-  it("never hands the same job to two callers", async () => {
+  sysIt("never hands the same job to two callers", async () => {
     await job({ kind: "minutes" });
     // Both claims race against the same single queued row. `FOR UPDATE SKIP LOCKED` is what
     // makes the loser see nothing rather than the same row.
@@ -104,7 +115,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     expect(got).toHaveLength(1);
   });
 
-  it("counts a run against capacity even when it was started by someone else", async () => {
+  sysIt("counts a run against capacity even when it was started by someone else", async () => {
     // A row left `running` — by another process, or by this one before a crash.
     const stuck = await job({ kind: "minutes", vramMb: SLOT });
     await prisma.job.update({ where: { id: stuck }, data: { status: "running" } });
@@ -112,7 +123,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     expect(await claimNext(ONE_SLOT)).toBeNull();
   });
 
-  it("starts free work beside a job that is holding the card", async () => {
+  sysIt("starts free work beside a job that is holding the card", async () => {
     // The whole point of measuring rather than counting: recognition sent to an endpoint uses
     // no video memory, and used to queue behind hardware it never touched.
     const heavy = await job({ kind: "minutes", vramMb: SLOT });
@@ -122,7 +133,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
-  it("steps over what does not fit and takes what does", async () => {
+  sysIt("steps over what does not fit and takes what does", async () => {
     const heavy = await job({ kind: "minutes", vramMb: SLOT });
     await prisma.job.update({ where: { id: heavy }, data: { status: "running" } });
     await job({ kind: "diarize", vramMb: SLOT, position: 1 }); // too big to join it
@@ -131,7 +142,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
-  it("runs a job bigger than the whole budget, alone", async () => {
+  sysIt("runs a job bigger than the whole budget, alone", async () => {
     // Otherwise a budget set too low, or an estimate that is wrong, is a queue that never
     // moves and never says why.
     const huge = await job({ kind: "minutes", vramMb: 999_999 });
@@ -142,7 +153,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
-  it("puts back what a restart interrupted, and says so", async () => {
+  sysIt("puts back what a restart interrupted, and says so", async () => {
     const id = await job({ kind: "minutes" });
     await prisma.job.update({ where: { id }, data: { status: "running" } });
 
@@ -157,7 +168,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     expect(back.detail).toMatch(/restart/i);
   });
 
-  it("reorders what is waiting, and leaves what is running alone", async () => {
+  sysIt("reorders what is waiting, and leaves what is running alone", async () => {
     const a = await job({ kind: "minutes" });
     const b = await job({ kind: "diarize" });
     const c = await job({ kind: "transcribe" });
@@ -175,7 +186,7 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
-  it("keeps a job the caller did not mention, at the back", async () => {
+  sysIt("keeps a job the caller did not mention, at the back", async () => {
     // The screen listing the queue and the drag being let go are not the same moment: a job can
     // arrive in between. Dropping it because nobody named it would lose work silently.
     const a = await job({ kind: "minutes" });
@@ -191,14 +202,14 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
-  it("ignores an id that is not waiting any more", async () => {
+  sysIt("ignores an id that is not waiting any more", async () => {
     const a = await job({ kind: "minutes" });
     await reorderQueue(["a-job-that-finished-while-you-dragged", a]);
     expect((await prisma.job.findUniqueOrThrow({ where: { id: a } })).position).toBe(1);
     await finish(a, "done");
   });
 
-  it("knows when a meeting already has one, and when it no longer does", async () => {
+  sysIt("knows when a meeting already has one, and when it no longer does", async () => {
     const meeting = await prisma.meeting.create({
       data: { title: "queue test", startedAt: new Date() },
       select: { id: true },
@@ -223,7 +234,7 @@ describe.skipIf(!ENABLED)("a recording's claim on the card", () => {
     ).id;
   }
 
-  it("counts only what is actually on the GPU as being in the way", async () => {
+  sysIt("counts only what is actually on the GPU as being in the way", async () => {
     const m = await meeting("recording test");
     try {
       const heavy = await job({ kind: "minutes", meetingId: m, vramMb: SLOT });
@@ -242,7 +253,7 @@ describe.skipIf(!ENABLED)("a recording's claim on the card", () => {
     }
   });
 
-  it("puts what it interrupted back at the front, and says why", async () => {
+  sysIt("puts what it interrupted back at the front, and says why", async () => {
     const m = await meeting("recording test");
     try {
       const heavy = await job({ kind: "minutes", meetingId: m, vramMb: SLOT });
@@ -263,7 +274,7 @@ describe.skipIf(!ENABLED)("a recording's claim on the card", () => {
     }
   });
 
-  it("survives this process restarting, because the recording does", async () => {
+  sysIt("survives this process restarting, because the recording does", async () => {
     const m = await prisma.meeting.create({
       data: { title: "recording through a redeploy", startedAt: new Date() },
       select: { id: true },
@@ -290,7 +301,7 @@ describe.skipIf(!ENABLED)("a recording's claim on the card", () => {
     }
   });
 
-  it("holds the card until the meeting ends, then gives it back", async () => {
+  sysIt("holds the card until the meeting ends, then gives it back", async () => {
     const rec = await meeting("the one being recorded");
     const other = await meeting("the one that was waiting");
     try {
@@ -364,7 +375,7 @@ describe.skipIf(!ENABLED)("a hold left behind by a browser that went away", () =
   const status = async (id: string) =>
     (await prisma.job.findUniqueOrThrow({ where: { id } })).status;
 
-  it("leaves a recording that is still connected alone", async () => {
+  sysIt("leaves a recording that is still connected alone", async () => {
     const m = await prisma.meeting.create({
       data: { title: "still going", startedAt: new Date() },
       select: { id: true },
@@ -381,7 +392,7 @@ describe.skipIf(!ENABLED)("a hold left behind by a browser that went away", () =
     }
   });
 
-  it("leaves one that only just started alone, connection or not", async () => {
+  sysIt("leaves one that only just started alone, connection or not", async () => {
     const m = await prisma.meeting.create({
       data: { title: "just pressed record", startedAt: new Date() },
       select: { id: true },
@@ -402,7 +413,7 @@ describe.skipIf(!ENABLED)("a hold left behind by a browser that went away", () =
     }
   });
 
-  it("takes the card back when nothing is recording that meeting any more", async () => {
+  sysIt("takes the card back when nothing is recording that meeting any more", async () => {
     const m = await prisma.meeting.create({
       data: { title: "the tab was closed", startedAt: new Date() },
       select: { id: true },
@@ -419,7 +430,7 @@ describe.skipIf(!ENABLED)("a hold left behind by a browser that went away", () =
     }
   });
 
-  it("releases nothing when the service cannot be reached", async () => {
+  sysIt("releases nothing when the service cannot be reached", async () => {
     const m = await prisma.meeting.create({
       data: { title: "cannot tell", startedAt: new Date() },
       select: { id: true },

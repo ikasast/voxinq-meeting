@@ -8,6 +8,7 @@ import {
   parseDay,
   parseMonth,
 } from "@/lib/calendar-month";
+import { currentUser } from "@/lib/auth/session";
 import { bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTime, formatDurationMs } from "@/lib/utils";
@@ -79,6 +80,12 @@ export async function MeetingListPane({
   const now = Date.now();
 
   const thisMonth = dayKey(new Date(now)).slice(0, 7);
+  // Needed for the tag counts below and nothing else. The scoped client hides the owner from
+  // every other query on this page, but a `where` nested inside a `_count` is not rewritten,
+  // so this one has to name it — otherwise the number beside a tag counts other people's
+  // meetings, and says they exist.
+  const me = await currentUser();
+  const mine = me ? { ownerId: me.id } : {};
 
   const where = buildMeetingWhere({
     query,
@@ -113,7 +120,7 @@ export async function MeetingListPane({
       where: { meetings: { some: { deletedAt: null, archivedAt: null } } },
       orderBy: { name: "asc" },
       include: {
-        _count: { select: { meetings: { where: { deletedAt: null, archivedAt: null } } } },
+        _count: { select: { meetings: { where: { deletedAt: null, archivedAt: null, ...mine } } } },
       },
     }),
     // Dots come from their own query. The list takes 100 rows newest-first, which cannot answer

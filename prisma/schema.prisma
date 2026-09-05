@@ -35,6 +35,8 @@ model User {
   lastSeenAt DateTime? @map("last_seen_at")
 
   sessions Session[]
+  meetings Meeting[]
+  voices   SpeakerProfile[]
 
   @@map("users")
 }
@@ -61,6 +63,11 @@ model Session {
 }
 
 model Meeting {
+  /// Who this belongs to. Null only for meetings recorded before the instance had accounts —
+  /// the first account adopts them, and everything made after one exists has an owner.
+  ownerId String? @map("owner_id")
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
   id                        String    @id @default(cuid())
   title                     String
   description               String?   @map("description") // meta info such as the meeting's purpose/contents
@@ -97,6 +104,7 @@ model Meeting {
   @@index([deletedAt])
   @@index([archivedAt])
   @@index([seriesId])
+  @@index([ownerId])
   @@map("meetings")
 }
 
@@ -171,8 +179,13 @@ model Tag {
 // Enrolled from a diarized meeting's clusters; matched against future diarization runs
 // to auto-name recurring speakers.
 model SpeakerProfile {
+  /// Whose voiceprint library this is. Per person rather than shared, even though it means the
+  /// same colleague gets enrolled twice: a shared library says who each of you meets with.
+  ownerId String? @map("owner_id")
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
   id              String   @id @default(cuid())
-  name            String   @unique
+  name            String
   embedding       String // JSON float array (speaker centroid), averaged over all enrollments
   // Which model produced `embedding`. Two models can share a dimension and mean entirely
   // different things, so without this a model change makes every profile stop matching with
@@ -183,6 +196,10 @@ model SpeakerProfile {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  /// Unique per person, not globally: two people may both know a 田中, and before this the
+  /// second one to enrol him would have collided with the first.
+  @@unique([ownerId, name])
+  @@index([ownerId])
   @@map("speaker_profiles")
 }
 

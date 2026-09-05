@@ -1,4 +1,6 @@
 import { budgetMb } from "./capacity";
+import { asSystem, asUser } from "@/lib/db/scope";
+import { prismaRaw } from "@/lib/prisma-raw";
 import { sweepStaleRecordings } from "./recording";
 import { claimNext, finish, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
@@ -50,7 +52,9 @@ export function isRunning(): boolean {
 
 export async function startDispatcher(): Promise<void> {
   if (timer) return;
-  const recovered = await recoverInterrupted().catch((e) => {
+  const recovered = await asSystem("restart recovery spans every account's queue", () =>
+    recoverInterrupted(),
+  ).catch((e) => {
     // A database that is not up yet is the normal case at boot; the tick will retry.
     console.error("[queue] could not recover interrupted jobs", e);
     return 0;
@@ -76,6 +80,10 @@ export async function tick(): Promise<void> {
   if (ticking) return;
   ticking = true;
   try {
+    // The scheduler looks at everybody's queue, and has to: it is the thing deciding what the
+    // one GPU does next, and it cannot do that seeing a third of the work. It only ever reads
+    // which job is next and marks it running — the job itself then runs as whoever owns it.
+    await asSystem("the queue scheduler arbitrates one GPU across every account", async () => {
     // Before choosing what fits: a hold left behind by a browser that went away makes the card
     // look full forever, and nothing else in the loop would ever notice.
     if (Date.now() - lastSweep > SWEEP_MS) {
@@ -83,22 +91,38 @@ export async function tick(): Promise<void> {
       const freed = await sweepStaleRecordings().catch(() => 0);
       if (freed > 0) console.log(`[queue] released ${freed} recording hold(s) nobody was using`);
     }
-    const job = await claimNext(await budgetMb());
-    if (!job) return;
-    // Keep going: what was just started may leave room for the next one — a remote
-    // recognition costs nothing here, and used to wait behind hardware it never touched.
-    setTimeout(() => void tick(), 50);
-    inFlight.add(job.id);
-    signals.set(job.id, new AbortController());
-    void run(job).finally(() => {
-      inFlight.delete(job.id);
-      signals.delete(job.id);
+      const job = await claimNext(await budgetMb());
+      if (!job) return;
+      // Keep going: what was just started may leave room for the next one — a remote
+      // recognition costs nothing here, and used to wait behind hardware it never touched.
+      setTimeout(() => void tick(), 50);
+      inFlight.add(job.id);
+      signals.set(job.id, new AbortController());
+      // Whose job it is, so its reads and writes are scoped like anything that person does.
+      // A job with no owner is from before this instance had accounts and runs unscoped.
+      const owner = job.meetingId ? await ownerOf(job.meetingId) : null;
+      const running = owner
+        ? asUser(owner, () => run(job))
+        : asSystem("a job from before this instance had accounts", () => run(job));
+      void running.finally(() => {
+        inFlight.delete(job.id);
+        signals.delete(job.id);
+      });
     });
   } catch (e) {
     console.error("[queue] tick failed", e);
   } finally {
     ticking = false;
   }
+}
+
+/** The owner of the meeting a job belongs to. Read unscoped, because this *is* the scoping. */
+async function ownerOf(meetingId: string): Promise<string | null> {
+  const m = await prismaRaw.meeting.findUnique({
+    where: { id: meetingId },
+    select: { ownerId: true },
+  });
+  return m?.ownerId ?? null;
 }
 
 async function run(job: { id: string; kind: string; meetingId: string | null; params: string }) {
