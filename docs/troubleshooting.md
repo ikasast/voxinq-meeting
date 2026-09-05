@@ -229,6 +229,46 @@ measurably weaker at this on long meetings — that is the known trade for worki
 those machines. `pyannote` is the accurate one; if you have an NVIDIA GPU and see `sherpa`,
 pyannote did not install (check `HF_TOKEN` and the diarization venv).
 
+## A transcript shows 🔒 encrypted
+
+The content is there and this browser cannot read it. Two causes, and they are told apart by
+whose meeting it is.
+
+**It is yours.** Your key is not open. Sign in again — signing in is what opens it. A key is
+forgotten once you have no work in the queue and have been away for fifteen minutes, so this is
+the ordinary state of an account nobody is using; loading the page after signing in fixes it.
+
+**It is yours and signing in does not fix it.** The meeting was encrypted under a key that no
+longer exists — which happens when a password was reset with *"I do not have my recovery code"*.
+Everything from before that point stays on the disk and stays unreadable. There is no recovery:
+that is what the warning at the time was about, and no administrator, backup or support step can
+undo it. Meetings recorded since are fine.
+
+**`VOXINQ_KEY_SECRET` changed.** Any key that was open becomes unreadable, which is harmless —
+the next sign-in opens it again from the password.
+
+## A job says "Waiting for you to sign in"
+
+It needs your key to read the meeting, and your key is only open while you are. Sign in and it
+runs. This is not a failure and nothing has to be asked for again — the job keeps its place at
+the front of the queue.
+
+It is the normal way a long-running job ends up waiting overnight: the server restarted, or the
+key was released because nothing had used it. Nothing is lost either way.
+
+## Search finds nothing in a meeting you can read
+
+**A recording that has not ended yet** is not searchable. The index is written when the meeting
+is ended, because rebuilding it on every utterance would make a long recording quadratic.
+
+**A single character** cannot be searched inside encrypted content: the index is built from
+two-character sequences, so a one-character query falls back to matching titles only. Type one
+more character.
+
+**Everything from an account that was encrypted before search existed** is indexed on the next
+sign-in, as part of the same job that reports "Encrypting and indexing". Until it finishes, older
+meetings are findable by title and not by content.
+
 ## The queue is not moving
 
 Open **Queue**. It says what is running and what is waiting; a job that has been going for

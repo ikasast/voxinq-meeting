@@ -30,7 +30,9 @@
 - 👥 **Participants, which the diarizer uses** — list who was there and tick who is expected to speak; the count becomes the number of voices separation looks for, and the names narrow which enrolled voice profiles can be matched. Someone who attended in silence stays on the list and off the count.
 - 🗓️ **Book a meeting before it happens** — put the title, agenda, series and participants in ahead of time; it waits under **Upcoming** until you press record.
 - 🔁 **Recurring series** — link meetings into a series; the previous minutes are fed to the LLM as context, and each series can carry its own minutes format and glossary.
-- 🔍 **Search, tags, archive & trash** — find meetings fast; soft-delete with 30-day restore.
+- 🔍 **Search, tags, archive & trash** — find meetings fast; soft-delete with 30-day restore. Search keeps working after encryption, through an index of keyed hashes rather than by reading.
+- 👤 **Accounts, if you want them** — one person needs nothing; the moment somebody creates an account the server becomes multi-user, and each person's meetings, voiceprints and settings are their own. **An administrator runs the machine and cannot read what is on it** — the shared queue shows whose work is waiting and never what it is about.
+- 🔐 **Encrypted at rest** — transcripts and minutes are encrypted under a key belonging to the account, unwrapped by your password and by a **recovery code shown once**. A stolen disk, a database dump or a backup on its own reads nothing.
 - 🌐 **Phone access & read-only sharing** — install as a PWA and reach it over [Tailscale](https://tailscale.com) with optional password auth. One click in **Settings → Remote access** publishes a password-protected, **read-only** public link (view & download only) for people outside your tailnet — recording, editing and the transcription service stay private.
 
 ## 💡 Why Voxinq Meeting?
@@ -42,6 +44,7 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 | | **Voxinq Meeting** | Cloud SaaS |
 | --- | --- | --- |
 | **Privacy** | Runs entirely on your own hardware; every route off it is opt-in and named on screen | Audio uploaded to a third party |
+| **Who can read it** | Encrypted per account — not even the administrator of the machine | Whoever holds the vendor's keys |
 | **Cost** | Free — a consumer GPU (8 GB VRAM) is plenty, and it runs without one | Per-user / per-minute subscription |
 | **Record anywhere** | Any browser incl. phone (PWA + Tailscale) | Any browser — via their cloud |
 | **Models** | Choose the Whisper model and the LLM; swap or upgrade anytime | Fixed, vendor-chosen |
@@ -135,6 +138,7 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 - **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`) or a saved endpoint, then regenerate.
 - **Send the minutes on:** the ⬇ on the Minutes card saves them as Markdown, **Word (`.docx`)** with real formatting, or **PDF** through your browser's print view. The meeting's own ⬇ bundles transcript, metadata and recording alongside.
 - **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and save formats to pick from when writing.
+- **Share the machine:** create the first account (**Create an account**, linked from the login screen) — you become the administrator, and everything already on the server becomes yours. Everyone else signs in, or is recognised by their tailnet identity. **Keep the recovery code you are shown**; it is the only way back into your own meetings if you forget the password.
 - **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
 
 ![Voxinq Meeting in action](docs/screenshots/demo.gif)
@@ -208,6 +212,15 @@ same machine's own browser.
 - **The microphone can be checked before recording**, and the microphone the check opens is the
   one the recording uses. A meeting nobody recorded is the one failure here that cannot be
   undone.
+- **Several people can share one instance.** Each person's meetings, minutes, voiceprints and
+  settings are their own; an administrator runs the machine and cannot read what is on it.
+  Ownership is enforced inside the database client rather than on each route, so a route that
+  forgets cannot leak.
+- **Transcripts and minutes are encrypted at rest** under a key belonging to the account, opened
+  by signing in and forgotten when nothing needs it. Titles and dates stay readable — they are
+  what the list and the calendar are made of. Search still works, through an index of keyed
+  hashes, so the server matches without holding the words. What that protects, and what it does
+  not, is written down in [design decisions](docs/design-decisions.md).
 - Minutes, speaker separation and re-transcription are a **server-side queue**, so closing the
   tab does not abandon them. How many run at once is worked out from what each expects to need
   and what the card has — work sent to a cloud model or an endpoint costs nothing here and
@@ -218,8 +231,8 @@ same machine's own browser.
 
 ## ⚙ Configuration
 
-- **`.env`** (copy from [`.env.example`](.env.example)) — `DATABASE_URL`, the STT WebSocket URL, optional password auth.
-- **`settings.json`** (edit in the UI under **Settings**, no restart) — Whisper model, LLM provider/model (Ollama / vLLM / LM Studio / Anthropic / OpenAI), minutes language, detail level, custom format, API keys.
+- **`.env`** (copy from [`.env.example`](.env.example)) — `DATABASE_URL`, the STT WebSocket URL, optional password auth, whether accounts can be created (`VOXINQ_SIGNUP`), and the secret that wraps unlocked keys (`VOXINQ_KEY_SECRET`).
+- **`settings.json`** (edit in the UI under **Settings**, no restart) — Whisper model, LLM provider/model (Ollama / vLLM / LM Studio / Anthropic / OpenAI), minutes language, detail level, custom format, API keys. With accounts, some of these belong to the machine and some to each person; an administrator sets the defaults everyone starts from.
 - **Retention** — recordings auto-delete after 7 days (protect to keep); trashed meetings purge after 30 days.
 
 Full reference: **[docs/configuration.md](docs/configuration.md)**.

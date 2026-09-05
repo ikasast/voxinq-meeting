@@ -278,6 +278,13 @@ See [`vramBudgetMb`](configuration.md#settingsjson) for the budget and how it is
 A live recording holds the card too, and appears in the queue while it lasts — which is what
 stops a five-gigabyte job starting underneath a meeting in progress.
 
+**On a server with accounts, the queue is everybody's**, and it is the one place that is. There
+is one card, and "why has mine not started" cannot be answered by a list with other people's work
+missing from it. So somebody else's row shows **whose it is** — their picture and display name —
+and **what kind of work** it is, and nothing about the meeting: no title, no link, and the row
+does not open. Your own rows are unchanged. An administrator can reorder and stop other people's
+work, on the same terms: enough to unblock the machine, not enough to learn what is on it.
+
 ## Play back the recording
 
 While the meeting's WAV still exists, a player sits above the transcript. Each utterance shows
@@ -446,6 +453,97 @@ or sent to someone rather than read in the app:
 > carry its own fonts, and a Japanese face is 5.4 MB that this project deliberately does not
 > ship (see [Design decisions](design-decisions.md)). Your browser already has the fonts and a
 > PDF writer, so it produces better Japanese output than we could.
+
+## Accounts
+
+Until somebody creates one, this app is what it always was: one shared password, or none, and
+everything on the machine visible to whoever can reach it. Nothing changes until you decide it
+should.
+
+**Creating the first account** (`/setup`, linked from the login page) switches the server over.
+That account is an administrator, everything already recorded becomes theirs, and `APP_PASSWORD`
+stops being a way in.
+
+From then on there are two ways to be somebody:
+
+- **A username and password** — what you type from outside the tailnet.
+- **Your tailnet login** — inside the tailnet you are already identified, so you are not asked
+  again. An identity nobody has seen becomes an account the first time it appears.
+
+An account made that way has no password, which means it cannot be used from anywhere else. Set
+one under **your name → Account**, and while you are there give yourself a display name and a
+picture — they are what other people see beside your work in the queue.
+
+### What is yours
+
+Your meetings, transcripts, minutes, recordings, voiceprints and queue are yours. Nobody else
+sees them, including an administrator — opening somebody else's meeting is a *not found*, not a
+refusal, because whether it exists is not something to tell you either.
+
+The queue is the exception, and deliberately: it lists **everybody's** work, because one GPU is
+shared and "why has mine not started" cannot be answered by a list with the reason missing. For
+anybody else's row you see who it belongs to and what kind of work it is — never which meeting.
+
+### If you administer this server
+
+**People** (in the rail, and in your account menu) is where accounts are made, disabled and made
+administrators. It shows how many meetings each person has, which says the disk is filling up
+and nothing about what filled it.
+
+- **Accounts are disabled, never deleted.** An account holds meetings, and deleting one would
+  either destroy them or hand them to somebody who was never in the room. Disabling ends their
+  sessions immediately and is reversible.
+- **You cannot set somebody's password.** You issue a one-time link, valid for fifteen minutes,
+  and hand it over. An administrator who could set passwords could read the minutes of anybody
+  who never noticed.
+- The last administrator cannot be demoted or disabled, and nobody can disable themselves.
+- You can reorder and stop anybody's queue rows. You still cannot see what they are about.
+
+`VOXINQ_SIGNUP=closed` stops the server making accounts at all — see
+[configuration](configuration.md#env).
+
+## Encryption
+
+Once an account has a password it has a key, and its transcripts and minutes are encrypted with
+it. Titles, dates and tags are not: they are what the list, the calendar and the search bar are
+made of.
+
+**Your recovery code is shown once.** It is the only way back into your meetings if you forget
+your password, and it is not stored anywhere — an administrator can send you a link to set a new
+password, and without the code that new password opens an account whose old meetings cannot be
+read. Put it in a password manager. On paper is fine too; the characters avoid anything that can
+be misread.
+
+Resetting a password asks for it. Give it and everything is kept. Say *"I do not have it"* and
+you are told, in those words, what you are about to lose before anything happens.
+
+### What this protects
+
+A stolen disk, a database dump, a backup file, and an administrator reading rows.
+
+### What it does not
+
+Somebody who controls the running server. Your key is open while you are using the app and while
+you have work in the queue — minutes are written after the meeting, often after you have closed
+the browser, and that work needs to be able to read the meeting. It is forgotten once you have
+nothing running and have been away for fifteen minutes.
+
+Set `VOXINQ_KEY_SECRET` so that a stolen database on its own is not enough; see
+[configuration](configuration.md#env).
+
+### Searching encrypted meetings
+
+Search works as it always did, and finds the same things. Underneath, an encrypted meeting is
+found through an index of keyed hashes rather than by reading it — the server matches without
+holding the words, then decrypts the handful of candidates to produce the snippet.
+
+Two things follow. **A recording in progress is not searchable until it ends**, because the
+index is written when the meeting is. And a single-character query cannot use the index, so it
+falls back to matching titles.
+
+The index is not free: somebody with the database can see how many distinct two-character
+sequences a meeting holds and which meetings share them. Not the words, and not reversible
+without the key — but not nothing, and the reason search is possible at all.
 
 ## Backup & restore
 

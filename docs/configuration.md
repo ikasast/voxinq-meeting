@@ -10,8 +10,10 @@ in the UI). Both are gitignored.
 | `DATABASE_URL` | — | PostgreSQL connection string (required). Under Docker this names the compose service: `postgresql://voxinq:PASSWORD@db:5432/voxinq` — a loopback address would mean the web container itself. |
 | `STT_WS_URL` | falls back to the build-time value | **Docker path.** STT WebSocket URL the *browser* connects to. Read at request time, so `docker compose up -d` applies it — no rebuild. Set this to record from a phone: `wss://<host>.<tailnet>.ts.net:8443/ws`. |
 | `NEXT_PUBLIC_STT_WS_URL` | `ws://localhost:8000/ws` | **Native path.** Same URL, compiled into the browser bundle — **rebuild after changing**. Ignored when `STT_WS_URL` is set. |
-| `APP_PASSWORD` | unset | Enables password login. Unset = open within your network. When set, access without a tailnet identity (e.g. via Tailscale Funnel / a public URL) is **read-only**: view & download only, all state-changing requests are refused (HTTP 403). |
-| `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD`. |
+| `APP_PASSWORD` | unset | The shared password, for an instance with **no accounts**. Unset = open within your network. When set, access without a tailnet identity (Funnel, a public URL) is **read-only**: view & download only, state-changing requests are refused (403). Creating the first account replaces it — see [Accounts](usage.md#accounts). |
+| `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD` or accounts. |
+| `VOXINQ_SIGNUP` | `open` | `open`: a tailnet identity nobody has seen becomes an account the first time it appears — what keeps a household's phones working with nobody administering anything. `closed`: only an administrator makes accounts, and an unknown identity is sent to the login page. The **first** account is exempt either way, or a server with this closed and nobody on it would have no administrator and no way to make one. An unrecognised value reads as `open`. |
+| `VOXINQ_KEY_SECRET` | falls back to `APP_SESSION_SECRET`, then a built-in default | Wraps the keys that are open while somebody is using the app or has work queued. **Without it a stolen database alone reads whatever was unlocked at that moment; with it, a dump or a backup on its own does not.** Keep it out of the backup. Changing it costs nothing: any open key becomes unreadable and the next sign-in opens it again from the password. |
 | `NETWORK_MODE` | `tailscale` | `tailscale`: external (non-tailnet) access is login-gated. `lan`: any reachable client is trusted. |
 | `STT_INTERNAL_URL` | `http://127.0.0.1:8000` | Where the web server reaches the STT service (server-side), used on meeting end to read the recorded length and to keep utterance boundaries in step when a line is deleted. Set if STT runs on another host. **Literal `127.0.0.1`, not `localhost`** — see below. |
 | `TAILSCALE_BIN` | auto | Path to the `tailscale` CLI, used by **Settings → Remote access** to publish/unpublish. Defaults to the OS install path, then `PATH`. |
@@ -121,8 +123,25 @@ to read a `.env` file to find out where their meetings are going. See
 
 ## `settings.json`
 
-Edit these in **Settings** in the UI (no restart needed). API keys are stored in plaintext
-here (single on-prem user assumed), so keep the file private.
+Edit these in **Settings** in the UI (no restart needed). Keep the file private: the API keys in
+it are stored in plaintext.
+
+**With accounts, this file is only half the story.** A setting is either the machine's or a
+person's, and the split is by what it is *about*:
+
+- **The machine** — `whisperModel`, `vramBudgetMb`, `ollamaNumCtx`. Hardware exists once: two
+  people cannot each choose which model is resident on the one GPU. Only an administrator can
+  change these, and they live in this file.
+- **A person** — everything else below. Stored against the account, and **sparsely**: a setting
+  somebody has never touched follows the value in this file, so an administrator moving the house
+  standard reaches everybody who has not formed an opinion, and nobody is frozen at the settings
+  of the day they signed up.
+- **Both** — `sttProfiles`. An administrator publishes endpoints everybody can use, and anybody
+  may add their own on top. One list on screen, two underneath.
+
+An administrator edits the values everybody starts from under **Settings → Defaults for
+everyone**, which is a separate tab on purpose: setting Japanese for yourself and setting it for
+the household are different acts.
 
 **Transcription**
 - `whisperModel` — `large-v3-turbo` (default), `large-v3`, `medium`, `distil-large-v3`, `small`,
