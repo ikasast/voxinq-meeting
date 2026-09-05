@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { HouseDefaults } from "./house-defaults";
+import { MachineNote } from "./machine-note";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import {
   WHISPER_MODELS,
@@ -23,6 +25,8 @@ import type { MinutesTemplate } from "@/lib/minutes-templates";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 
 type PublicSettings = {
+  /** Whether the reader may change the settings that describe the machine. */
+  isAdmin: boolean;
   whisperModel: string;
   sttLanguage: string;
   sttGlossary: string;
@@ -93,6 +97,9 @@ const TABS = [
   { id: "remote", label: "Remote access" },
   { id: "data", label: "Data" },
   { id: "appearance", label: "Appearance" },
+  // Only shown to an administrator; see the tab bar below. Last, because it is the one tab that
+  // is not about the reader.
+  { id: "defaults", label: "Defaults for everyone" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -223,7 +230,9 @@ export default function SettingsPage() {
       <form onSubmit={onSubmit} className="space-y-6">
         {/* Category tabs */}
         <div className="flex flex-wrap gap-1 border-b border-[var(--border)]">
-          {TABS.map((t) => (
+          {/* The defaults tab is not the reader's own settings, so it is only offered to
+              somebody who can change them for everybody. */}
+          {TABS.filter((t) => t.id !== "defaults" || settings.isAdmin).map((t) => (
             <button
               key={t.id}
               type="button"
@@ -259,7 +268,7 @@ export default function SettingsPage() {
                   id="whisperModel"
                   value={settings.whisperModel}
                   onChange={(e) => update("whisperModel", e.target.value)}
-                  disabled={saving}
+                  disabled={saving || !settings.isAdmin}
                   className={inputClass}
                 >
                   {WHISPER_MODELS.map((m) => (
@@ -271,6 +280,7 @@ export default function SettingsPage() {
                     <option value={settings.whisperModel}>{settings.whisperModel} (custom)</option>
                   )}
                 </select>
+                <MachineNote isAdmin={settings.isAdmin} />
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
                   Roughly how much memory each needs: {modelSizeGuide()}. On an 8GB card this is
                   what has to fit beside whatever else is loaded. Downloaded on first use and
@@ -317,10 +327,11 @@ export default function SettingsPage() {
               step={512}
               value={settings.vramBudgetMb || ""}
               onChange={(e) => update("vramBudgetMb", Math.max(0, Number(e.target.value) || 0))}
-              disabled={saving}
+              disabled={saving || !settings.isAdmin}
               placeholder="Auto — from the card, less room for the display"
               className={`${inputClass} max-w-sm`}
             />
+            <MachineNote isAdmin={settings.isAdmin} />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               Megabytes of video memory the <em>queue</em> may commit at once. Leave it empty to
               work it out from the card. Jobs that run somewhere else — recognition sent to an
@@ -666,6 +677,8 @@ export default function SettingsPage() {
         {tab === "data" ? <DataBackup /> : null}
 
         {/* Appearance */}
+        {tab === "defaults" ? <HouseDefaults /> : null}
+
         {tab === "appearance" ? (
         <section className="card space-y-4 p-6">
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Appearance</h2>
