@@ -4,6 +4,7 @@ import { adoptOrphanedMeetings } from "@/lib/auth/adopt";
 import { forgetUserCount, hasUsersCached } from "@/lib/auth/has-users";
 import { hashPassword } from "@/lib/auth/password";
 import { startSession } from "@/lib/auth/session";
+import { setUpKey } from "@/lib/crypto/user-keys";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -65,8 +66,11 @@ export async function POST(req: Request) {
     // Everything recorded before this moment belonged to whoever had the shared password. It
     // belongs to this account now, or it would belong to nobody and be visible to nobody.
     await adoptOrphanedMeetings(user.id);
+    // The recovery code is shown once, on the screen that follows, and never stored — only its
+    // wrapping of the key is.
+    const { recoveryCode } = await setUpKey(user.id, password);
     const { value, expiresAt } = await startSession(user.id, req.headers.get("user-agent"));
-    const res = NextResponse.json({ ok: true });
+    const res = NextResponse.json({ ok: true, recoveryCode });
     res.cookies.set(SESSION_COOKIE, value, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

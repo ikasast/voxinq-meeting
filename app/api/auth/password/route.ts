@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { currentUser } from "@/lib/auth/session";
+import { rewrapForNewPassword, setUpKey, unlockWithPassword } from "@/lib/crypto/user-keys";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -12,6 +13,11 @@ export const runtime = "nodejs";
 // route exists for, and why it can be used by somebody who has no current password to give.
 
 const MIN_PASSWORD = 8;
+
+/** The current password as posted, for opening the key before the password changes. */
+function current(body: { current?: unknown } | null): string {
+  return typeof body?.current === "string" ? body.current : "";
+}
 
 export async function POST(req: Request) {
   const me = await currentUser();
@@ -28,7 +34,7 @@ export async function POST(req: Request) {
 
   const existing = await prisma.user.findUniqueOrThrow({
     where: { id: me.id },
-    select: { passwordHash: true },
+    select: { passwordHash: true, keySalt: true },
   });
 
   // Changing a password you have needs the old one — otherwise a borrowed unlocked browser is
@@ -41,11 +47,32 @@ export async function POST(req: Request) {
     }
   }
 
+  // The key has to move with the password, and it has to move *before* the password does:
+  // opening it needs the old one.
+  const hadKey = existing.keySalt !== null;
+  const master = hadKey ? await unlockWithPassword(me.id, current(body)) : null;
+
   await prisma.user.update({
     where: { id: me.id },
     data: { passwordHash: await hashPassword(password) },
   });
-  return NextResponse.json({ ok: true, hadPassword: Boolean(existing.passwordHash) });
+
+  let recoveryCode: string | null = null;
+  if (!hadKey) {
+    // A first password is also the first chance this account has had to hold a key at all: an
+    // account that only arrives through the tailnet has no secret to derive one from.
+    ({ recoveryCode } = await setUpKey(me.id, password));
+  } else if (master) {
+    // The same key, wrapped under the new password. Nothing already encrypted is rewritten,
+    // which is what makes changing a password cheap rather than a migration.
+    await rewrapForNewPassword(me.id, master, password);
+  }
+
+  return NextResponse.json({
+    ok: true,
+    hadPassword: Boolean(existing.passwordHash),
+    recoveryCode,
+  });
 }
 
 /** Sign out everywhere. The point of server-side sessions: a lost phone can be cut off. */

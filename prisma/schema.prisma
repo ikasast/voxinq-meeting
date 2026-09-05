@@ -42,6 +42,16 @@ model User {
   /// of the day they joined, and leave no way to change anything for everybody.
   settings Json? @map("settings")
 
+  /// The account's master key, wrapped twice — by the password, and by a recovery code. Both
+  /// hold the same key, so either opens everything and neither is stored in the clear. There is
+  /// no third copy: an administrator can issue a reset link, and a reset without the recovery
+  /// code leaves an account that signs in and cannot read what it wrote before.
+  keyWrappedPassword String? @map("key_wrapped_password")
+  keyWrappedRecovery String? @map("key_wrapped_recovery")
+  /// Salt for both wrappings. One salt, two secrets, two derived keys.
+  keySalt      String?   @map("key_salt")
+  keyCreatedAt DateTime? @map("key_created_at")
+
   isAdmin    Boolean   @default(false) @map("is_admin")
   /// Set to lock the account out without deleting what it owns.
   disabledAt DateTime? @map("disabled_at")
