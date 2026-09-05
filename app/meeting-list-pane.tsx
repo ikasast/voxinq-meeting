@@ -1,11 +1,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
+import {
+  dayKey,
+  monthKey,
+  monthRange,
+  parseDay,
+  parseMonth,
+} from "@/lib/calendar-month";
 import { bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTime, formatDurationMs } from "@/lib/utils";
 import { MinutesWatcher } from "./minutes-watcher";
 import { ArchiveIcon, TrashIcon } from "./icons";
+import { MeetingCalendar } from "./meeting-calendar";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
 import { RecordingBadges } from "./recording-badges";
@@ -31,16 +39,30 @@ type MeetingCardData = {
 
 // Left side of the 2-pane UI: meeting list with search/tag filters.
 // Used by both the home page and the meeting detail page (activeId highlights the selected one).
+/** "18 September 2026" — the heading over a day picked in the calendar. */
+function longDay(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export async function MeetingListPane({
   q,
   tag,
   series,
+  date,
+  month,
   activeId,
   readOnly = false,
 }: {
   q?: string;
   tag?: string;
   series?: string;
+  date?: string;
+  month?: string;
   activeId?: string;
   // External (read-only) access: no swipe actions or per-card ⋯ menu, no Trash link.
   readOnly?: boolean;
@@ -48,6 +70,7 @@ export async function MeetingListPane({
   const query = (q ?? "").trim();
   const activeTag = (tag ?? "").trim();
   const activeSeries = (series ?? "").trim();
+  const activeDate = parseDay(date);
 
   // An async server component renders once per request, so this is the request's own time —
   // not something that can shift under a re-render. Read once so every row is banded against
@@ -55,9 +78,23 @@ export async function MeetingListPane({
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
 
-  const where = buildMeetingWhere({ query, tag: activeTag, series: activeSeries });
+  const thisMonth = dayKey(new Date(now)).slice(0, 7);
 
-  const [meetingsRaw, allTags] = await Promise.all([
+  const where = buildMeetingWhere({
+    query,
+    tag: activeTag,
+    series: activeSeries,
+    date: activeDate ?? undefined,
+  });
+
+  // The calendar is about when things happened, which a text search and a series filter have
+  // both already answered in their own terms — showing it beside them offers a third axis that
+  // only ever narrows to nothing. A picked day keeps it, because that is what it is showing.
+  const showCalendar = !query && !activeSeries;
+  const shownMonth = parseMonth(month ?? activeDate?.slice(0, 7), new Date(now));
+  const { start: monthStart, end: monthEnd } = monthRange(shownMonth);
+
+  const [meetingsRaw, allTags, monthDays] = await Promise.all([
     prisma.meeting.findMany({
       where,
       // Upcoming meetings sort by when they are due, ascending, and are separated out below;
@@ -79,7 +116,26 @@ export async function MeetingListPane({
         _count: { select: { meetings: { where: { deletedAt: null, archivedAt: null } } } },
       },
     }),
+    // Dots come from their own query. The list takes 100 rows newest-first, which cannot answer
+    // "how many on the 3rd of March" — and asking it to would mean a page size that grows with
+    // how far back somebody scrolls.
+    showCalendar
+      ? prisma.meeting.findMany({
+          where: {
+            deletedAt: null,
+            archivedAt: null,
+            startedAt: { gte: monthStart, lt: monthEnd },
+          },
+          select: { startedAt: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const dayCounts = new Map<string, number>();
+  for (const m of monthDays) {
+    const k = dayKey(m.startedAt);
+    dayCounts.set(k, (dayCounts.get(k) ?? 0) + 1);
+  }
   // Actual recording time: prefer the stored recorded length; for meetings recorded before
   // that was captured, fall back to the transcript time span (first -> last utterance).
   const ids = meetingsRaw.map((m) => m.id);
@@ -156,22 +212,34 @@ export async function MeetingListPane({
   // The meeting currently generating minutes (first-time OR regeneration), if any — used to
   // seed the live watcher so it only refreshes the list when that changes.
   const generatingId = meetings.find((m) => m.summaryStatus === "processing")?.id ?? "";
-  const filtering = Boolean(query || activeTag || activeSeries);
+  const filtering = Boolean(query || activeTag || activeSeries || activeDate);
   const base = activeId ? `/${activeId}` : "/";
 
   // Query string representing the current filters ("?..." or ""). overrides replaces individual parts.
-  const queryString = (over: { tag?: string | null; series?: string | null } = {}) => {
+  type Over = {
+    tag?: string | null;
+    series?: string | null;
+    date?: string | null;
+    month?: string | null;
+  };
+  const queryString = (over: Over = {}) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     const t = "tag" in over ? over.tag : activeTag;
     if (t) params.set("tag", t);
     const sr = "series" in over ? over.series : activeSeries;
     if (sr) params.set("series", sr);
+    const d = "date" in over ? over.date : activeDate;
+    if (d) params.set("date", d);
+    // The month is only worth carrying when it is not the one that would be shown anyway —
+    // the picked day's month, or this month when no day is picked. Otherwise every link grows a
+    // parameter that repeats what the URL already says.
+    const mo = "month" in over ? over.month : month;
+    if (mo && mo !== (d?.slice(0, 7) ?? thisMonth)) params.set("month", mo);
     const s = params.toString();
     return s ? `?${s}` : "";
   };
-  const hrefWith = (over: { tag?: string | null; series?: string | null }) =>
-    `${base}${queryString(over)}`;
+  const hrefWith = (over: Over) => `${base}${queryString(over)}`;
 
   // The card is a link, and the badges under it are not part of it: the series chip filters
   // the list rather than opening the meeting, and a link inside a link is invalid HTML. So the
@@ -364,6 +432,7 @@ export async function MeetingListPane({
       <form action={base} className="flex flex-wrap items-center gap-2">
         {activeTag ? <input type="hidden" name="tag" value={activeTag} /> : null}
         {activeSeries ? <input type="hidden" name="series" value={activeSeries} /> : null}
+        {activeDate ? <input type="hidden" name="date" value={activeDate} /> : null}
         <input
           type="search"
           name="q"
@@ -386,6 +455,46 @@ export async function MeetingListPane({
           active: t.name === activeTag,
         }))}
       />
+
+      {showCalendar ? (
+        <MeetingCalendar
+          month={shownMonth}
+          counts={dayCounts}
+          selected={activeDate}
+          today={dayKey(new Date(now))}
+          hrefForMonth={(key) => hrefWith({ month: key })}
+          hrefForDay={(key) =>
+            // Picking a day in a month you navigated to keeps you there; clearing the day keeps
+            // the month you were looking at rather than snapping back to today.
+            hrefWith({ date: key, month: key ? key.slice(0, 7) : monthKey(shownMonth) })
+          }
+        />
+      ) : null}
+
+      {/* Always the way to add one, whether or not the day already has meetings. An empty day
+          is not a special case that unlocks a button — it is the same day with nothing in it
+          yet, and a day that is already busy is exactly when another gets booked. */}
+      {activeDate ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-xs">
+          <span className="font-medium text-[var(--text-strong)]">{longDay(activeDate)}</span>
+          <span className="text-[var(--text-muted)]">
+            {meetings.length === 0
+              ? "no meetings"
+              : `${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`}
+          </span>
+          {!readOnly ? (
+            <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] underline">
+              + Add a meeting on this day
+            </Link>
+          ) : null}
+          <Link
+            href={hrefWith({ date: null, month: monthKey(shownMonth) })}
+            className="ml-auto text-[var(--text-muted)] underline"
+          >
+            clear
+          </Link>
+        </div>
+      ) : null}
 
       {/* The series is stated once, with its count and the way out of it. Repeating it in the
           line below would be three restatements of one filter stacked on top of each other. */}
@@ -410,11 +519,12 @@ export async function MeetingListPane({
         </p>
       ) : null}
 
-      {meetings.length === 0 ? (
+      {/* A picked day with nothing on it has already said so, in the band above. */}
+      {meetings.length === 0 && !activeDate ? (
         <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
           {filtering ? "No matching meetings." : "No meetings yet."}
         </p>
-      ) : (
+      ) : meetings.length === 0 ? null : (
         <ul className="space-y-2">{entries}</ul>
       )}
 

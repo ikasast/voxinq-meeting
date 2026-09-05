@@ -27,10 +27,10 @@ export default async function MeetingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ q?: string; tag?: string; series?: string }>;
+  searchParams: Promise<{ q?: string; tag?: string; series?: string; date?: string; month?: string }>;
 }) {
   const { id } = await params;
-  const { q, tag, series } = await searchParams;
+  const { q, tag, series, date, month } = await searchParams;
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     include: {
@@ -72,7 +72,15 @@ export default async function MeetingDetailPage({
 
       <div className="grid gap-5 lg:grid-cols-[minmax(300px,400px)_1fr] lg:items-start">
       <aside className="hidden lg:block">
-        <MeetingListPane q={q} tag={tag} series={series} activeId={meeting.id} readOnly={external} />
+        <MeetingListPane
+          q={q}
+          tag={tag}
+          series={series}
+          date={date}
+          month={month}
+          activeId={meeting.id}
+          readOnly={external}
+        />
       </aside>
 
       <div className="min-w-0 space-y-6">

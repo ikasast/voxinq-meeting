@@ -52,3 +52,54 @@ describe("the meeting list", () => {
     expect(src).toContain("bandOf(m.startedAt, now)");
   });
 });
+
+describe("the calendar over the list", () => {
+  const cal = readFileSync(join(__dirname, "..", "app", "meeting-calendar.tsx"), "utf8");
+  const form = readFileSync(join(__dirname, "..", "app", "new", "new-meeting-form.tsx"), "utf8");
+  const newPage = readFileSync(join(__dirname, "..", "app", "new", "page.tsx"), "utf8");
+
+  it("counts the month with its own query", () => {
+    // The list takes 100 rows newest-first, which cannot answer "how many on the 3rd of March".
+    // Counting from what the list happens to hold would draw an empty March.
+    expect(src).toContain("startedAt: { gte: monthStart, lt: monthEnd }");
+    expect(src).toContain("select: { startedAt: true }");
+  });
+
+  it("is hidden beside a search or a series, and kept beside a picked day", () => {
+    // Both already answer "when" in their own terms; a third axis beside them only narrows to
+    // nothing. A picked day is what the calendar is showing, so it stays.
+    expect(src).toContain("const showCalendar = !query && !activeSeries;");
+  });
+
+  it("offers to add a meeting whether or not the day is empty", () => {
+    // The correction to the original mock, which only offered it on empty days: a day that is
+    // already busy is exactly when another one gets booked.
+    const band = src.slice(src.indexOf("{activeDate ? ("));
+    const add = band.indexOf("+ Add a meeting on this day");
+    expect(add).toBeGreaterThan(0);
+    expect(band.slice(0, add)).not.toContain("meetings.length === 0 ?");
+  });
+
+  it("keeps the picked day when the search form is submitted", () => {
+    expect(src).toContain('<input type="hidden" name="date" value={activeDate} />');
+  });
+
+  it("carries the picked day into the new-meeting form", () => {
+    expect(src).toContain("href={`/new?date=${activeDate}`}");
+    expect(newPage).toContain("searchParams: Promise<{ date?: string }>");
+    expect(form).toContain("`${date}T09:00`");
+  });
+
+  it("makes the selected day its own way out", () => {
+    // Clicking the day already selected clears it, so the same cell is both directions.
+    expect(cal).toContain("hrefForDay(isSelected ? null : cell.key)");
+  });
+
+  it("caps the dots at three", () => {
+    expect(cal).toContain("Math.min(count, 3)");
+  });
+
+  it("names each day for a screen reader, including the empty ones", () => {
+    expect(cal).toMatch(/aria-label=\{`\$\{cell\.key\}, \$\{count\} meeting/);
+  });
+});

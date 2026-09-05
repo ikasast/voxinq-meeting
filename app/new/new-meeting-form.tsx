@@ -37,14 +37,26 @@ type Phase = null | "creating" | "transcribing" | "summarizing";
  *   the recording source, the model warm-up and the drop-a-file path, and it always lands on
  *   the meeting rather than the recording screen.
  */
-export default function NewMeetingForm({ external = false }: { external?: boolean }) {
+export default function NewMeetingForm({
+  external = false,
+  date,
+}: {
+  external?: boolean;
+  /** "2026-09-18" from the calendar. Books the meeting on that day rather than recording now. */
+  date?: string;
+}) {
   const router = useRouter();
   const gpu = useGpuBusy();
   const [title, setTitle] = useState(() => defaultMeetingTitle());
   const [description, setDescription] = useState("");
   const [series, setSeries] = useState("");
   // Empty means "record it now", which is how every meeting was made until this existed.
-  const [scheduledAt, setScheduledAt] = useState("");
+  // A day picked in the calendar fills it in: arriving here from "+ Add a meeting on this day"
+  // and finding the date blank would make the click look like it did nothing. The hour is a
+  // starting point, not a guess to be defended — it is the first thing anybody changes.
+  const [scheduledAt, setScheduledAt] = useState(() =>
+    /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? `${date}T09:00` : "",
+  );
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
