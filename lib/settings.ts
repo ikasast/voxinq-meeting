@@ -5,7 +5,11 @@
 
 import { promises as fs } from "fs";
 import path from "path";
+import type { Prisma } from "@prisma/client";
+import { resolveScope } from "./db/owner";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
+import { prisma } from "./prisma";
+import { onlyUserKeys } from "./settings-scope";
 import {
   type MinutesTemplate,
   migrateMinutesTemplates,
@@ -196,7 +200,7 @@ export function migrateSttSettings(parsed: Record<string, unknown>): {
   };
 }
 
-export async function readSettings(): Promise<AppSettings> {
+export async function readMachineSettings(): Promise<AppSettings> {
   const base = defaults();
   try {
     const raw = await fs.readFile(SETTINGS_PATH, "utf8");
@@ -266,7 +270,7 @@ export async function readSettings(): Promise<AppSettings> {
 }
 
 export async function writeSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
-  const current = await readSettings();
+  const current = await readMachineSettings();
   const next = { ...current, ...stripUndefined(patch) };
   if (!VALID_PROVIDERS.includes(next.llmProvider)) next.llmProvider = current.llmProvider;
   // A default pointing at something the same save removed. readSettings clears this too, but
@@ -370,4 +374,98 @@ export function toPublic(s: AppSettings): PublicSettings {
     // Every key stripped, one flag each. A profile list is no reason to loosen this.
     sttProfiles: sttProfiles.map(publicProfile),
   };
+}
+
+/**
+ * The settings in force for whoever is asking.
+ *
+ * The machine's file, with this person's own answers laid over it. Which person is not passed
+ * in: it comes from the same scope the database queries use, so a route, a server component and
+ * a queued job all get the settings of the person the work belongs to without any of them
+ * having to remember to say so. A job running as its owner writes minutes with that owner's
+ * model and that owner's API key.
+ *
+ * Outside a request and without a declared scope — a timer, a boot hook — this is the machine's
+ * settings and nobody's preferences, which is the only honest answer available there.
+ */
+export async function readSettings(): Promise<AppSettings> {
+  const machine = await readMachineSettings();
+  const userId = await settingsOwner();
+  if (!userId) return machine;
+
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { settings: true },
+  });
+  const overrides = onlyUserKeys(
+    (row?.settings ?? {}) as Record<string, unknown>,
+  ) as Partial<AppSettings>;
+  return finish({ ...machine, ...stripUndefined(overrides) }, machine);
+}
+
+/** Whose settings these are, or null when the answer is "the machine's". */
+async function settingsOwner(): Promise<string | null> {
+  try {
+    const scope = await resolveScope();
+    return scope.mode === "user" ? scope.userId : null;
+  } catch {
+    // resolveScope refuses a query it cannot attribute. Settings are not data, and refusing to
+    // read them would take down the boot path rather than protect anything — the machine's own
+    // values are the safe answer.
+    return null;
+  }
+}
+
+/**
+ * Store what one person has changed.
+ *
+ * Only their keys, and only the ones they actually set: writing the whole effective object
+ * would freeze them at today's machine defaults for every key they never touched, which is the
+ * one thing the sparse shape exists to avoid.
+ */
+export async function writeUserSettings(
+  userId: string,
+  patch: Partial<AppSettings>,
+): Promise<AppSettings> {
+  const row = await prisma.user.findUnique({ where: { id: userId }, select: { settings: true } });
+  const current = onlyUserKeys((row?.settings ?? {}) as Record<string, unknown>);
+  const next = onlyUserKeys({ ...current, ...stripUndefined(patch) });
+  await prisma.user.update({
+    where: { id: userId },
+    // Cast because Prisma's Json input type does not accept a plain record; the value is
+    // already narrowed to the keys a person may set.
+    data: { settings: next as Prisma.InputJsonValue },
+  });
+  const machine = await readMachineSettings();
+  return finish({ ...machine, ...(next as Partial<AppSettings>) }, machine);
+}
+
+/**
+ * The consistency passes that apply however the object was assembled.
+ *
+ * A default pointing at an endpoint or a template that is not in the list is the same bug
+ * whether the list came from the file or from somebody's overrides, and it reads as a setting
+ * that silently does nothing.
+ */
+function finish(next: AppSettings, machine: AppSettings): AppSettings {
+  const out = { ...next };
+  // An administrator's endpoints, plus this person's own. Merged rather than replaced: the
+  // shared ones are the reason most people never open this screen, and a personal key should
+  // add to them rather than hide them.
+  out.sttProfiles = mergeProfiles(machine.sttProfiles, next.sttProfiles);
+  if (!VALID_PROVIDERS.includes(out.llmProvider)) out.llmProvider = machine.llmProvider;
+  if (!out.sttProfiles.some((p) => p.id === out.sttDefaultProfileId)) out.sttDefaultProfileId = "";
+  if (!out.minutesTemplates.some((t) => t.id === out.defaultMinutesTemplateId)) {
+    out.defaultMinutesTemplateId = "";
+  }
+  if (!VALID_REST_SCREEN_SECONDS.includes(out.restScreenSeconds)) {
+    out.restScreenSeconds = machine.restScreenSeconds;
+  }
+  return out;
+}
+
+/** Shared first, then personal. An id in both is the shared one — a person cannot shadow it. */
+function mergeProfiles(shared: SttProfile[], own: SttProfile[]): SttProfile[] {
+  const ids = new Set(shared.map((p) => p.id));
+  return [...shared, ...normalizeProfiles(own).filter((p) => !ids.has(p.id))];
 }

@@ -39,6 +39,62 @@ const LIST_FIELDS = ["sttProfiles", "minutesTemplates"];
 // Not editable from the settings screen; they live in settings.json only.
 const FILE_ONLY = ["voiceprintThreshold", "ollamaNumCtx"];
 
+describe("every setting says whose it is", () => {
+  // The split is only safe if it is exhaustive. A setting in neither list is one the API will
+  // not write and the screen cannot save — which looks exactly like the field not working, with
+  // nothing anywhere to say why. A setting in both is worse: it would be written to two places
+  // and read from one, and the other copy would drift silently.
+  const scopeSrc = readFileSync(join(root, "lib/settings-scope.ts"), "utf8");
+
+  const listed = (name: string): string[] => {
+    const from = scopeSrc.indexOf(`export const ${name} = [`);
+    expect(from, `${name} not found`).toBeGreaterThan(-1);
+    const body = scopeSrc.slice(from, scopeSrc.indexOf("] as const", from));
+    return [...body.matchAll(/"(\w+)"/g)].map((m) => m[1]);
+  };
+
+  it("classifies every field exactly once", () => {
+    const machine = listed("MACHINE_KEYS");
+    const user = listed("USER_KEYS");
+    const split = listed("SPLIT_KEYS");
+    const all = [...machine, ...user, ...split];
+
+    const fields = appSettingsFields().map((f) => f.name);
+    expect(fields.length).toBeGreaterThan(15);
+
+    const missing = fields.filter((f) => !all.includes(f));
+    expect(missing, "settings nobody has classified as the machine's or a person's").toEqual([]);
+
+    const twice = all.filter((k, i) => all.indexOf(k) !== i);
+    expect(twice, "settings claimed by two lists").toEqual([]);
+
+    const unknown = all.filter((k) => !fields.includes(k));
+    expect(unknown, "classified settings that no longer exist").toEqual([]);
+  });
+
+  it("keeps hardware out of a person's hands", () => {
+    // These describe the one card and the one STT host. Per-person answers to them would be two
+    // recordings fighting over which model is loaded.
+    for (const k of ["whisperModel", "vramBudgetMb", "ollamaNumCtx"]) {
+      expect(listed("MACHINE_KEYS")).toContain(k);
+    }
+  });
+
+  it("refuses a machine key posted by somebody who is not an administrator", () => {
+    expect(routeSrc).toContain("machineBits.length > 0 && me && !me.isAdmin");
+    expect(routeSrc).toContain("status: 403");
+  });
+
+  it("drops a machine key that turns up inside a person's stored settings", () => {
+    // From an older release, or edited by hand. Trusting it would let one account choose the
+    // Whisper model for the whole machine.
+    expect(scopeSrc).toContain("export function onlyUserKeys");
+    const settings = readFileSync(join(root, "lib/settings.ts"), "utf8");
+    // Both on the way out of the database and on the way in.
+    expect(settings.match(/onlyUserKeys\(/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+  });
+});
+
 describe("settings fields stay in step across the files that must agree", () => {
   const fields = appSettingsFields();
 
@@ -127,5 +183,32 @@ describe("pasted values are cleaned before they are stored", () => {
     for (const key of API_KEYS) {
       expect(routeSrc, `${key} is stored without cleaning`).toContain(`cleanSetting(body.${key})`);
     }
+  });
+});
+
+describe("the defaults everybody starts from", () => {
+  const defaultsRoute = readFileSync(join(root, "app/api/settings/defaults/route.ts"), "utf8");
+  const pageSrc2 = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
+
+  it("is a separate place, not a mode on the ordinary screen", () => {
+    // Setting Japanese for yourself and setting it for the household are different acts, and
+    // doing the second by accident is the kind of mistake nobody notices until other people ask
+    // why their minutes changed language.
+    expect(pageSrc2).toContain('{ id: "defaults", label: "Defaults for everyone" }');
+  });
+
+  it("is offered only to somebody who can change them for everybody", () => {
+    expect(pageSrc2).toContain('t.id !== "defaults" || settings.isAdmin');
+  });
+
+  it("refuses everybody else, and ignores hardware", () => {
+    expect(defaultsRoute).toContain("me && !me.isAdmin");
+    // A machine key arriving here would reach settings.json through a second route with none of
+    // the first one's checks.
+    expect(defaultsRoute).toContain("if (!isUserKey(k)) continue;");
+  });
+
+  it("writes the machine file, which is what an unset person reads", () => {
+    expect(defaultsRoute).toContain("writeSettings(patch)");
   });
 });

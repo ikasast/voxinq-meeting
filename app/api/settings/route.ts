@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   type AppSettings,
   VALID_REST_SCREEN_SECONDS,
+  readMachineSettings,
   readSettings,
   toPublic,
   writeSettings,
+  writeUserSettings,
 } from "@/lib/settings";
+import { currentUser } from "@/lib/auth/session";
+import { isMachineKey, isSplitKey } from "@/lib/settings-scope";
 import { normalizeProfiles } from "@/lib/stt/profiles";
 import { normalizeTemplates } from "@/lib/minutes-templates";
 
@@ -13,7 +17,10 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const s = await readSettings();
-  return NextResponse.json(toPublic(s));
+  const me = await currentUser();
+  // The screen needs to know which fields it may offer, and saying so here keeps that answer
+  // in one place rather than in the component's idea of who is an administrator.
+  return NextResponse.json({ ...toPublic(s), isAdmin: me?.isAdmin ?? true });
 }
 
 /**
@@ -115,6 +122,46 @@ export async function PATCH(req: NextRequest) {
     patch.minutesTemplates = normalizeTemplates(body.minutesTemplates);
   }
 
-  const next = await writeSettings(patch);
-  return NextResponse.json(toPublic(next));
+  // Where the patch goes depends on what is in it. Hardware belongs to the machine and only an
+  // administrator may set it; everything else is this person's own preference.
+  const me = await currentUser();
+  const machineBits = Object.keys(patch).filter(isMachineKey);
+  if (machineBits.length > 0 && me && !me.isAdmin) {
+    return NextResponse.json(
+      {
+        error: `Only an administrator can change ${machineBits.join(", ")} — they describe the machine, not you.`,
+      },
+      { status: 403 },
+    );
+  }
+
+  // With no accounts at all this is the app it has always been: one settings file, no owner.
+  if (!me) {
+    const next = await writeSettings(patch);
+    return NextResponse.json(toPublic(next));
+  }
+
+  const machinePatch: Partial<AppSettings> = {};
+  const userPatch: Partial<AppSettings> = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (isSplitKey(k)) continue; // handled below, because it is two lists in one field
+    (isMachineKey(k) ? machinePatch : userPatch)[k as keyof AppSettings] = v as never;
+  }
+
+  // The endpoint list arrives as one list and is stored as two. Entries the machine publishes
+  // stay the machine's — an administrator editing them changes them for everybody, and anybody
+  // else's copy of them is ignored rather than refused, because the screen already shows them
+  // as not theirs to edit and a rejected save would only be confusing.
+  if (patch.sttProfiles) {
+    const sharedIds = new Set((await readMachineSettings()).sttProfiles.map((p) => p.id));
+    const posted = patch.sttProfiles;
+    userPatch.sttProfiles = posted.filter((p) => !sharedIds.has(p.id));
+    if (me.isAdmin) machinePatch.sttProfiles = posted.filter((p) => sharedIds.has(p.id));
+  }
+  if (Object.keys(machinePatch).length > 0) await writeSettings(machinePatch);
+  const next =
+    Object.keys(userPatch).length > 0
+      ? await writeUserSettings(me.id, userPatch)
+      : await readSettings();
+  return NextResponse.json({ ...toPublic(next), isAdmin: me.isAdmin });
 }

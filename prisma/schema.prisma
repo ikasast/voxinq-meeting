@@ -34,6 +34,14 @@ model User {
   image     Bytes?  @map("image")
   imageType String? @map("image_type")
 
+  /// What this person has changed, and only that.
+  ///
+  /// Sparse on purpose: a key that is absent means "whatever the machine's default is now", so
+  /// an administrator changing the house standard reaches everybody who has not formed an
+  /// opinion. Storing a full copy at account creation would freeze each person at the settings
+  /// of the day they joined, and leave no way to change anything for everybody.
+  settings Json? @map("settings")
+
   isAdmin    Boolean   @default(false) @map("is_admin")
   /// Set to lock the account out without deleting what it owns.
   disabledAt DateTime? @map("disabled_at")
