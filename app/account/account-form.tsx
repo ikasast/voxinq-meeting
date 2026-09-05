@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RecoveryCode } from "../recovery-code";
 
 export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
   const [current, setCurrent] = useState("");
@@ -9,6 +10,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +27,17 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ current, password }),
       });
-      const d = (await res.json().catch(() => null)) as { error?: string } | null;
+      const d = (await res.json().catch(() => null)) as {
+        error?: string;
+        recoveryCode?: string;
+      } | null;
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      // A first password is also this account's first key, and the code that goes with it is
+      // shown once — here, before anything else on the screen matters.
+      if (d?.recoveryCode) {
+        setRecoveryCode(d.recoveryCode);
+        return;
+      }
       setMsg("Saved. You can now sign in from anywhere with it.");
       setCurrent("");
       setPassword("");
@@ -47,6 +58,16 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
       setBusy(false);
     }
   };
+
+  if (recoveryCode) {
+    return (
+      <RecoveryCode
+        code={recoveryCode}
+        context="Your account"
+        onDone={() => window.location.reload()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
