@@ -32,7 +32,9 @@ describe("the proxy", () => {
   });
 
   it("leaves /setup reachable, since it is where the first account comes from", () => {
-    expect(proxy).toMatch(/pathname === "\/login" \|\| pathname === "\/setup"/);
+    expect(proxy).toContain('pathname === "/setup"');
+    // And the reset link, which is the credential of somebody who cannot sign in.
+    expect(proxy).toContain('pathname.startsWith("/reset/")');
   });
 });
 

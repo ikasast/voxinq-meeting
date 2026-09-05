@@ -32,7 +32,7 @@ export default async function QueuePage() {
           Work that needs the GPU, in the order it will get it.
         </p>
       </div>
-      <QueueList initial={initial} />
+      <QueueList initial={initial} isAdmin={me?.isAdmin ?? false} />
     </div>
   );
 }

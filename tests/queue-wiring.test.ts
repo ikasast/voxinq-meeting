@@ -76,9 +76,10 @@ describe("a recording in the queue is shown, not operated on", () => {
 
   it("offers no Stop button for it", () => {
     expect(list).toContain("const isRecording = job.kind === RECORDING_KIND");
-    // Also gated on `mine` now: the screen lists everybody's rows, and somebody else's is not
-    // yours to stop either.
-    expect(list).toContain("{!isRecording && job.mine ? (");
+    // A recording is never operated on from here, by anybody — not even an administrator, for
+    // whom every other row is fair game. Stopping it would not stop the recording.
+    expect(list).toContain("{!isRecording && (job.mine || isAdmin) ? (");
+    expect(list).toContain("{isRecording ? (");
     expect(list).toContain("ends with the meeting");
   });
 

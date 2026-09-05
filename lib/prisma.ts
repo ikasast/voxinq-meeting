@@ -27,7 +27,7 @@ import { prismaRaw } from "./prisma-raw";
 // say so itself. There is a test naming the ones that do.
 
 /** Rows that are not meeting content. Shared, or scoped by being about a person already. */
-const UNOWNED = new Set(["user", "session"]);
+const UNOWNED = new Set(["user", "session", "passwordReset"]);
 
 /**
  * Belongs to a person directly, through an `ownerId` of its own.
