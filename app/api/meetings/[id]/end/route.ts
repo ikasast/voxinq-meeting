@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 
@@ -58,6 +59,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         ...(correctedStart ? { startedAt: correctedStart } : {}),
       },
     });
+    // Indexed here rather than per utterance: a recording writes one row at a time, and
+    // rebuilding the whole meeting on each would make a long meeting quadratic. The cost is that
+    // a recording in progress is not searchable until it ends, which is when people look.
+    await reindexAfterWrite(id);
     return NextResponse.json(ended);
   } catch {
     return apiError("not found", 404);

@@ -9,6 +9,7 @@ import {
   parseMonth,
 } from "@/lib/calendar-month";
 import { currentUser } from "@/lib/auth/session";
+import { searchTokens } from "@/lib/crypto/index-meeting";
 import { bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTime, formatDurationMs } from "@/lib/utils";
@@ -87,11 +88,18 @@ export async function MeetingListPane({
   const me = await currentUser();
   const mine = me ? { ownerId: me.id } : {};
 
+  // Encrypted content cannot be searched with `contains`, so a search for somebody with a key
+  // goes through the index instead. Null when there is no key or the query is a single
+  // character, and then the plaintext conditions apply — which is still right for an account
+  // that has no key, and for titles, which are never encrypted.
+  const grams = query && me ? await searchTokens(query, me.id) : null;
+
   const where = buildMeetingWhere({
     query,
     tag: activeTag,
     series: activeSeries,
     date: activeDate ?? undefined,
+    grams,
   });
 
   // The calendar is about when things happened, which a text search and a series filter have
@@ -167,7 +175,7 @@ export async function MeetingListPane({
   // has been said into it, or it has been ended, it is an ordinary meeting whatever the diary
   // said -- so a booking somebody forgot to record does not sit at the top of the list forever
   // once it is used.
-  const meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
+  let meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
     ...m,
     seriesName: m.series?.name ?? null,
     seriesId: m.series?.id ?? null,
@@ -179,20 +187,44 @@ export async function MeetingListPane({
   const matched = new Map<string, { fields: string[]; snippet: string | null }>();
   if (query && meetings.length > 0) {
     const ids = meetings.map((m) => m.id);
+    // Two ways to find the matching text, and which one applies is decided by whether the index
+    // was used.
+    //
+    // Against ciphertext, `contains` matches nothing — the comparison happens in Postgres, on
+    // bytes it cannot read. So for an indexed search the rows are fetched and scanned here,
+    // where the client has already decrypted them. The candidate set is small because the index
+    // chose it, and the scan is doing a second job: bigrams overlap, so a meeting can hold every
+    // token of "予算会議" without containing the phrase, and reading is what tells the
+    // difference.
+    const needleFor = query.toLowerCase();
     const [transcriptHits, summaryHits] = await Promise.all([
       prisma.transcript.findMany({
-        where: { meetingId: { in: ids }, text: { contains: query, mode: "insensitive" } },
+        where: grams
+          ? { meetingId: { in: ids } }
+          : { meetingId: { in: ids }, text: { contains: query, mode: "insensitive" } },
         select: { meetingId: true, text: true },
-        distinct: ["meetingId"],
+        ...(grams ? {} : { distinct: ["meetingId" as const] }),
       }),
       prisma.meetingSummary.findMany({
-        where: { meetingId: { in: ids }, summaryText: { contains: query, mode: "insensitive" } },
+        where: grams
+          ? { meetingId: { in: ids } }
+          : { meetingId: { in: ids }, summaryText: { contains: query, mode: "insensitive" } },
         select: { meetingId: true, summaryText: true },
-        distinct: ["meetingId"],
+        ...(grams ? {} : { distinct: ["meetingId" as const] }),
       }),
     ]);
-    const trMap = new Map(transcriptHits.map((h) => [h.meetingId, h.text]));
-    const smMap = new Map(summaryHits.map((h) => [h.meetingId, h.summaryText]));
+    const trMap = new Map<string, string>();
+    for (const h of transcriptHits) {
+      if (trMap.has(h.meetingId)) continue;
+      if (grams && !h.text.toLowerCase().includes(needleFor)) continue;
+      trMap.set(h.meetingId, h.text);
+    }
+    const smMap = new Map<string, string>();
+    for (const h of summaryHits) {
+      if (smMap.has(h.meetingId)) continue;
+      if (grams && !h.summaryText.toLowerCase().includes(needleFor)) continue;
+      smMap.set(h.meetingId, h.summaryText);
+    }
     const descByMeeting = new Map(meetingsRaw.map((m) => [m.id, m.description ?? ""]));
     for (const m of meetings) {
       const fields: string[] = [];
@@ -213,6 +245,14 @@ export async function MeetingListPane({
         snippet ??= makeSnippet(smMap.get(m.id)!, query);
       }
       matched.set(m.id, { fields, snippet });
+    }
+
+    // What the index could not decide. A meeting holding every token of "予算会議" without
+    // containing the phrase is a real result of using overlapping two-character sequences, and
+    // showing it would be a search that answers questions nobody asked. The reading above is
+    // what settles it, so anything with nothing to show is dropped here.
+    if (grams) {
+      meetings = meetings.filter((m) => (matched.get(m.id)?.fields.length ?? 0) > 0);
     }
   }
 

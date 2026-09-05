@@ -12,6 +12,15 @@ export function buildMeetingWhere(opts: {
   series?: string;
   /** "2026-09-18" — one day, picked from the calendar. */
   date?: string;
+  /**
+   * Keyed hashes of the query's two-character sequences, when the reader has a key.
+   *
+   * With these, the text conditions below cannot work: `contains` against ciphertext matches
+   * nothing. A meeting has to hold *every* token — which narrows to candidates rather than
+   * answering, because bigrams overlap: "予算会議" becomes 予算/算会/会議, and a meeting holding
+   * all three somewhere else matches too. The caller reads the candidates to decide.
+   */
+  grams?: string[] | null;
 }): Prisma.MeetingWhereInput {
   const and: Prisma.MeetingWhereInput[] = [{ deletedAt: null }];
   const query = opts.query?.trim();
@@ -19,14 +28,26 @@ export function buildMeetingWhere(opts: {
   const series = opts.series?.trim();
 
   if (query) {
-    and.push({
-      OR: [
-        { title: { contains: query, mode: "insensitive" } },
-        { description: { contains: query, mode: "insensitive" } },
-        { transcripts: { some: { text: { contains: query, mode: "insensitive" } } } },
-        { summaries: { some: { summaryText: { contains: query, mode: "insensitive" } } } },
-      ],
-    });
+    if (opts.grams && opts.grams.length > 0) {
+      // Every token, so the meeting contains all of the query's sequences somewhere. The title
+      // and description go into the index too, so this one condition covers what the four
+      // conditions below used to — one search box should not quietly search two sets of things.
+      and.push({
+        AND: opts.grams.map((token) => ({ grams: { some: { token } } })),
+      });
+    } else {
+      // No key, or a query too short to make a bigram from. Plaintext still matches: an account
+      // with no key has all of its content this way, and even an encrypted one keeps its titles
+      // in the clear.
+      and.push({
+        OR: [
+          { title: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+          { transcripts: { some: { text: { contains: query, mode: "insensitive" } } } },
+          { summaries: { some: { summaryText: { contains: query, mode: "insensitive" } } } },
+        ],
+      });
+    }
   } else {
     // No text query: hide archived meetings from the list (they stay searchable).
     and.push({ archivedAt: null });

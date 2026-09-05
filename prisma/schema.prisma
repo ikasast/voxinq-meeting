@@ -144,6 +144,25 @@ model KeyUnlock {
   @@map("key_unlocks")
 }
 
+/// A keyed hash of one two-character sequence appearing somewhere in a meeting.
+///
+/// This is what makes encrypted meetings findable. A search hashes the query the same way and
+/// looks for meetings holding every token — the server matches without holding the words.
+///
+/// Per meeting rather than per utterance: the list searches for meetings, and one row per
+/// occurrence would multiply the index by the length of everything said while telling anybody
+/// with the database exactly how often each pair appears.
+model MeetingGram {
+  meetingId String  @map("meeting_id")
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  /// HMAC of the sequence under the account's index key. Not reversible without it.
+  token String
+
+  @@id([meetingId, token])
+  @@index([token])
+  @@map("meeting_grams")
+}
+
 model Meeting {
   /// Who this belongs to. Null only for meetings recorded before the instance had accounts —
   /// the first account adopts them, and everything made after one exists has an owner.
@@ -177,6 +196,7 @@ model Meeting {
 
   jobs         Job[]
   transcripts  Transcript[]
+  grams        MeetingGram[]
   summaries    MeetingSummary[]
   tags         Tag[]
   participants MeetingParticipant[]

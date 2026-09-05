@@ -1,4 +1,4 @@
-import { hasPlaintext } from "@/lib/queue/runners/encrypt";
+import { needsEncryptionPass } from "@/lib/queue/runners/encrypt";
 import { prismaRaw } from "@/lib/prisma-raw";
 
 // Deciding whether an account still has anything to encrypt.
@@ -16,7 +16,7 @@ export async function enqueueEncryptionIfNeeded(ownerId: string): Promise<boolea
   });
   if (already) return false;
 
-  if (!(await hasPlaintext(ownerId))) return false;
+  if (!(await needsEncryptionPass(ownerId))) return false;
 
   await prismaRaw.job.create({
     data: {
@@ -27,7 +27,7 @@ export async function enqueueEncryptionIfNeeded(ownerId: string): Promise<boolea
       // behind exactly the work it is meant to finish before.
       vramMb: 0,
       params: "{}",
-      detail: "Encrypting the meetings recorded before this account had a key.",
+      detail: "Encrypting and indexing the meetings that still need it.",
     },
   });
   return true;

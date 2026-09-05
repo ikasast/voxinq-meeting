@@ -1,6 +1,7 @@
 import {
   createCipheriv,
   createDecipheriv,
+  createHash,
   randomBytes,
   scrypt as scryptCb,
   timingSafeEqual,
@@ -38,6 +39,17 @@ const scrypt = promisify(scryptCb) as (
 const KDF = { N: 32768, r: 8, p: 1, maxmem: 128 * 1024 * 1024 };
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
+
+/**
+ * A key for one purpose, derived from the master.
+ *
+ * So that the search index and the transcripts are not encrypted under the same key: one being
+ * broken open should not hand over the other, and the index is the more exposed of the two
+ * because its tokens are stored in a form built to be matched against.
+ */
+export function fieldSubkey(master: Buffer, purpose: string): Buffer {
+  return createHash("sha256").update(master).update(" ").update(purpose).digest();
+}
 
 export function newMasterKey(): Buffer {
   return randomBytes(KEY_BYTES);

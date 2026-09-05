@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { parseEmbeddingModelId } from "@/lib/embedding-models";
 import { getVoiceprintThreshold } from "@/lib/settings";
 import { SELF_KEY, diarizerLabelToKey, isValidSpeakerKey, parseSpeakerLabels } from "@/lib/speakers";
@@ -187,6 +188,8 @@ export async function applyTranscript(
       })),
     }),
   ]);
+
+  await reindexAfterWrite(meetingId);
 
   const transcripts = await prisma.transcript.findMany({
     where: { meetingId },
