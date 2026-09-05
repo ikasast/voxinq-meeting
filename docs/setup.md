@@ -242,7 +242,7 @@ want the feature they belong to.
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v2.3.2`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.0.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -698,7 +698,7 @@ Two branches, with different jobs:
 
 **"Stable" is not a separate thing to maintain.** The stable 2.x release is the newest full
 release: the one GitHub marks *Latest*, the one the `latest` image tag resolves to, and the one
-`release` points at — three names for the same commit. **As of v2.3.2 that is v2.3.2.** There is
+`release` points at — three names for the same commit. **As of v3.0.0 that is v3.0.0.** There is
 no `stable` tag and no long-lived 2.x maintenance branch, because a second pointer is a second
 thing to forget, and this branch has already been forgotten twice.
 
