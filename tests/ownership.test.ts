@@ -73,7 +73,7 @@ describe("the scoped client", () => {
 
   it("stamps the owner on creation, and refuses to create for nobody", () => {
     expect(src).toContain("stampOwner");
-    expect(src).toContain("Cannot create anything while signed out.");
+    expect(src).toContain("Cannot write anything while signed out.");
   });
 });
 
