@@ -113,3 +113,19 @@ describe("an administrator and the shared queue", () => {
     expect(list).toContain("(job.mine || isAdmin)");
   });
 });
+
+describe("reaching the people screen", () => {
+  const menu = readFileSync(join(root, "app/account-menu.tsx"), "utf8");
+  const rail = readFileSync(join(root, "app/side-rail.tsx"), "utf8");
+
+  it("is in the account menu, not only in the rail", () => {
+    // The rail is desktop-only. Leaving the link there alone would give an administrator no way
+    // to reach it from the device they actually carry — the same gap the queue had.
+    expect(menu).toContain('href="/admin"');
+    expect(menu).toContain("{isAdmin ? (");
+  });
+
+  it("is not shown to anybody else, in either place", () => {
+    expect(rail).toContain("{isAdmin ? (");
+  });
+});
