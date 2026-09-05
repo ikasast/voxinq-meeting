@@ -1,4 +1,5 @@
 import { budgetMb } from "./capacity";
+import { sweepStaleRecordings } from "./recording";
 import { claimNext, finish, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
@@ -19,6 +20,11 @@ const TICK_MS = 2000;
 
 let timer: ReturnType<typeof setInterval> | null = null;
 let ticking = false;
+
+/** The sweep is a round trip to the STT service; a stale hold is not urgent enough to ask
+ * about every couple of seconds. */
+const SWEEP_MS = 30_000;
+let lastSweep = 0;
 /** Ids this process is running. The row says `running` too; this is what `finally` needs. */
 const inFlight = new Set<string>();
 /**
@@ -70,6 +76,13 @@ export async function tick(): Promise<void> {
   if (ticking) return;
   ticking = true;
   try {
+    // Before choosing what fits: a hold left behind by a browser that went away makes the card
+    // look full forever, and nothing else in the loop would ever notice.
+    if (Date.now() - lastSweep > SWEEP_MS) {
+      lastSweep = Date.now();
+      const freed = await sweepStaleRecordings().catch(() => 0);
+      if (freed > 0) console.log(`[queue] released ${freed} recording hold(s) nobody was using`);
+    }
     const job = await claimNext(await budgetMb());
     if (!job) return;
     // Keep going: what was just started may leave room for the next one — a remote

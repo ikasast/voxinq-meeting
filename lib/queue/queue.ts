@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { estimateVramMb } from "./capacity";
-import { type JobKind, type JobStatus, OPEN_STATUSES } from "./types";
+import { type JobKind, type JobStatus, OPEN_STATUSES, RECORDING_KIND } from "./types";
 
 // The queue's own operations. Everything that decides *what runs next* is here, so there is
 // one place to read when the answer is surprising.
@@ -150,7 +150,11 @@ export async function openJobs() {
  */
 export async function recoverInterrupted(): Promise<number> {
   const { count } = await prisma.job.updateMany({
-    where: { status: "running" },
+    // Not recordings. A recording is a browser talking straight to the STT service, and this
+    // process restarting does not interrupt it — the card really is still in use. Requeueing it
+    // would drop the hold mid-meeting and let something heavy start underneath. When a
+    // recording has genuinely stopped, `sweepStaleRecordings` is what notices.
+    where: { status: "running", kind: { not: RECORDING_KIND } },
     data: {
       status: "queued",
       startedAt: null,

@@ -4,6 +4,14 @@
 // else's machine — recognition sent to an endpoint, minutes written by a cloud model — costs
 // nothing here however long it takes, because what is being rationed is the card.
 
+/**
+ * A live recording's hold on the card. Not a kind the dispatcher runs — it is created already
+ * `running` by the screen that is recording, and exists so admission control can see that the
+ * GPU is spoken for. It lives here rather than beside its own code because the queue has to
+ * recognise it without importing the recording module, which imports the dispatcher.
+ */
+export const RECORDING_KIND = "recording";
+
 /** Every kind the dispatcher knows how to run. Anything else in the table is ignored. */
 export const JOB_KINDS = ["minutes", "transcribe", "diarize"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
