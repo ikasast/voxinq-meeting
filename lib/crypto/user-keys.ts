@@ -1,3 +1,4 @@
+import { enqueueEncryptionIfNeeded } from "@/lib/crypto/migrate";
 import { prisma } from "@/lib/prisma";
 import { dropKey, holdKey } from "./key-cache";
 import {
@@ -48,6 +49,16 @@ export async function setUpKey(userId: string, password: string): Promise<KeySet
 
   // Held straight away: whoever just set this up is signed in and about to use it.
   await holdKey(userId, master);
+
+  // Everything this account already has is in the clear and, more to the point, not in the
+  // search index — and from this moment a search by somebody with a key goes through the index
+  // and nowhere else. Leaving it would make every meeting they already had vanish from search,
+  // titles included, until they happened to sign out and back in.
+  //
+  // Queued here rather than at each of the three call sites, because it was forgotten at all
+  // three: this is the one place a key comes into existence, so it is the one place that cannot
+  // be walked past.
+  await enqueueEncryptionIfNeeded(userId);
   return { recoveryCode };
 }
 
