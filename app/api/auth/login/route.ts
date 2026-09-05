@@ -4,6 +4,7 @@ import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { hasUsersCached } from "@/lib/auth/has-users";
 import { verifyPassword } from "@/lib/auth/password";
 import { pruneSessions, startSession } from "@/lib/auth/session";
+import { unlockWithPassword } from "@/lib/crypto/user-keys";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -45,6 +46,11 @@ export async function POST(req: Request) {
   if (!user || user.disabledAt || !(await verifyPassword(password, user.passwordHash))) {
     return NextResponse.json({ error: "Wrong username or password" }, { status: 401 });
   }
+
+  // Signing in is the one moment the password exists in this process, so it is the only moment
+  // the key can be opened. Failing to open it is not a failed login — an account may simply have
+  // no key yet — so nothing here depends on the result.
+  await unlockWithPassword(user.id, password);
 
   await pruneSessions();
   const ua = req.headers.get("user-agent");

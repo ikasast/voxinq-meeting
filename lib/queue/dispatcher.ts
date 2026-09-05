@@ -1,4 +1,5 @@
 import { budgetMb } from "./capacity";
+import { dropIdleKeys } from "@/lib/crypto/key-cache";
 import { asSystem, asUser } from "@/lib/db/scope";
 import { prismaRaw } from "@/lib/prisma-raw";
 import { sweepStaleRecordings } from "./recording";
@@ -91,6 +92,11 @@ export async function tick(): Promise<void> {
       const freed = await sweepStaleRecordings().catch(() => 0);
       if (freed > 0) console.log(`[queue] released ${freed} recording hold(s) nobody was using`);
     }
+      // Whoever still has work keeps their key; everybody else loses theirs now. This is what
+      // bounds how long a key is in memory at all — on an instance where nobody is working, the
+      // cache is empty rather than holding whatever was last used.
+      await releaseIdleKeys();
+
       const job = await claimNext(await budgetMb());
       if (!job) return;
       // Keep going: what was just started may leave room for the next one — a remote
@@ -156,4 +162,22 @@ async function run(job: { id: string; kind: string; meetingId: string | null; pa
     console.error(`[queue] ${job.kind} failed`, e);
     await finish(job.id, "error", reason).catch(() => {});
   }
+}
+
+/**
+ * Forget the keys of everybody whose queue has emptied.
+ *
+ * A key is in this process only because work outlives the browser that asked for it. The moment
+ * there is no such work for somebody, there is no reason to still be holding theirs — so the
+ * lifetime is the queue's, not the session's.
+ */
+async function releaseIdleKeys(): Promise<void> {
+  const open = await prismaRaw.job.findMany({
+    where: { status: { in: ["queued", "running"] } },
+    select: { meeting: { select: { ownerId: true } } },
+  });
+  const busy = new Set<string>();
+  for (const j of open) if (j.meeting?.ownerId) busy.add(j.meeting.ownerId);
+  const dropped = dropIdleKeys(busy);
+  if (dropped > 0) console.log(`[queue] released ${dropped} key(s) whose work is finished`);
 }
