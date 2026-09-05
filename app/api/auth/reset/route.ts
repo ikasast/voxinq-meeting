@@ -3,7 +3,7 @@ import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { hashPassword } from "@/lib/auth/password";
 import { consumeReset } from "@/lib/auth/reset";
 import { startSession } from "@/lib/auth/session";
-import { resetKey, rewrapForNewPassword, unlockWithRecoveryCode } from "@/lib/crypto/user-keys";
+import { resetKey, rewrapForNewPassword, setUpKey, unlockWithRecoveryCode } from "@/lib/crypto/user-keys";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -71,6 +71,13 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+  } else {
+    // No key yet, which is the ordinary way somebody joins: an administrator adds them — the
+    // form does not offer to set a password, deliberately — and hands over a link. This is the
+    // first moment there is a password to derive a key from, so it is where the key is made and
+    // where the recovery code is shown, once. Without this, everybody but the very first account
+    // ended up with a password, no key, and meetings stored in the clear.
+    ({ recoveryCode: recovered } = await setUpKey(spent.userId, password));
   }
 
   await prisma.user.update({

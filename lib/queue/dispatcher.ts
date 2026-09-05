@@ -112,7 +112,10 @@ export async function tick(): Promise<void> {
       // Encrypted work needs its owner's key, and the key is only here while they are. Rather
       // than fail — a meeting whose minutes error overnight because nobody was signed in is a
       // bad way to find out — the job goes back and waits. It runs on their next sign-in.
-      if (owner && (await needsKey(owner)) && !hasKey(owner)) {
+      // `await` on hasKey, and it matters more than it looks: it returns a promise, and `!promise`
+      // is always false, so without it this gate never closed. Jobs ran without their owner's
+      // key and read `🔒 encrypted` where the words should be — minutes written from padlocks.
+      if (owner && (await needsKey(owner)) && !(await hasKey(owner))) {
         await waitForKey(job.id);
         return;
       }

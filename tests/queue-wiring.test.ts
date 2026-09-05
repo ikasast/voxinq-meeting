@@ -87,3 +87,22 @@ describe("a recording in the queue is shown, not operated on", () => {
     expect(list).toContain('? "Recording"');
   });
 });
+
+describe("a job that needs a key it cannot have", () => {
+  const dispatcher = read("lib/queue/dispatcher.ts");
+
+  it("waits for its owner rather than running blind", () => {
+    // The gate was written and did not close: `hasKey` returns a promise, and `!promise` is
+    // always false, so every job ran whether or not its owner's key was open. What that looks
+    // like is minutes summarising a transcript of `🔒 encrypted` — a whole meeting written from
+    // padlocks, saved, and indistinguishable from a bad model.
+    expect(dispatcher).toContain("!(await hasKey(owner))");
+    expect(dispatcher).not.toMatch(/!hasKey\(/);
+    expect(dispatcher).toContain("await waitForKey(job.id)");
+  });
+
+  it("says why it is not moving", () => {
+    // A job that sits still with no explanation looks like a queue that has broken.
+    expect(dispatcher).toContain("Waiting for you to sign in");
+  });
+});

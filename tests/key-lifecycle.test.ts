@@ -20,6 +20,37 @@ describe("a key is made where a password first exists", () => {
     expect(read("app/api/auth/password/route.ts")).toContain("if (!hadKey) {");
     expect(read("app/api/auth/password/route.ts")).toContain("setUpKey(me.id, password)");
   });
+
+  it("and when a reset link is what gives them one", () => {
+    // The ordinary way somebody joins: an administrator adds them — the form does not offer to
+    // set a password — and hands over a link. Without this branch the link set a password and
+    // stopped there, so every account but the very first ended up with no key at all and its
+    // meetings stored in the clear, while the app said they were encrypted.
+    const route = read("app/api/auth/reset/route.ts");
+    expect(route).toContain("setUpKey(spent.userId, password)");
+    // In the `else` of "does this account already have a key", not somewhere that would also
+    // fire for an account whose key must be kept.
+    expect(route.indexOf("} else {")).toBeGreaterThan(route.indexOf("if (hasKey?.keySalt) {"));
+  });
+});
+
+describe("a new key schedules the walk over what is already there", () => {
+  it("from the one place a key is made", () => {
+    // Not at the three call sites — it was forgotten at all three. The effect was not only that
+    // old meetings stayed in the clear: a reader with a key searches the index and nothing else,
+    // so everything recorded before the key vanished from search, titles included, until that
+    // person happened to sign out and back in.
+    const keys = read("lib/crypto/user-keys.ts");
+    expect(keys).toContain("enqueueEncryptionIfNeeded(userId)");
+    expect(keys.indexOf("enqueueEncryptionIfNeeded(userId)")).toBeGreaterThan(
+      keys.indexOf("holdKey(userId, master)"),
+    );
+  });
+
+  it("and signing in still catches whatever was left", () => {
+    // The self-correcting half: a pass interrupted by a restart finds the rest next time.
+    expect(read("app/api/auth/login/route.ts")).toContain("enqueueEncryptionIfNeeded(user.id)");
+  });
 });
 
 describe("the recovery code", () => {

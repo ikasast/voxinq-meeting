@@ -547,9 +547,14 @@ without the key — but not nothing, and the reason search is possible at all.
 
 ## Backup & restore
 
-**Settings → Data** exports everything the instance holds — meetings, transcripts, minutes,
-series, tags, voice profiles, your settings, and optionally the audio — as a single encrypted
-`.voxbak` file.
+**Settings → Data** exports your meetings, transcripts, minutes, series, tags, voice profiles,
+your settings, and optionally the audio — as a single encrypted `.voxbak` file.
+
+**On a server with accounts it holds yours and nobody else's**, administrator included. That is
+encryption doing what it says rather than a restriction: nobody can put transcripts they cannot
+read into a file. Everyone takes their own backup, and a database dump is still how you copy the
+whole machine — though a dump of encrypted meetings restores only for the people whose keys go
+with it.
 
 The file is encrypted with a password you choose there. That is not decoration: the export
 contains every transcript and your API keys in the clear, and it is meant to be copied to
@@ -566,7 +571,7 @@ also carries the audio, without which a restored meeting cannot be played, re-tr
 diarized.
 
 > Both export and restore are refused for anyone reaching the app from outside your private
-> network, even with the password: the file is the whole database.
+> network, even with the password: the file is everything the person asking for it can read.
 
 For an unattended nightly database dump alongside this, see
 [Setup → Moving or rebuilding an instance](setup.md#moving-or-rebuilding).

@@ -3,7 +3,13 @@
 import { useRef, useState } from "react";
 import { useConfirm } from "../confirm-dialog";
 
-// Backup and restore of everything the app holds, as one encrypted file.
+// Backup and restore of everything the reader can see, as one encrypted file.
+//
+// Not everything the *server* holds, on an instance with accounts: the export runs through the
+// scoped client, so it carries the exporter's own meetings and nobody else's. That falls out of
+// encryption rather than being a policy — an administrator cannot put other people's transcripts
+// in a file they would then be able to read. Everyone takes their own, and a database dump is
+// still the whole-machine answer.
 //
 // The file carries every transcript and the API keys from settings.json, so it is encrypted
 // with a password the user chooses here — a backup is meant to be copied to another machine or
@@ -180,10 +186,11 @@ export function DataBackup() {
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-[var(--text-strong)]">Export</h3>
         <p className="text-xs text-[var(--text-muted)]">
-          Everything in one file: meetings, transcripts, minutes, series, tags and voice profiles,
-          plus your settings. The file is encrypted with the password below —{" "}
-          <strong>without it the backup cannot be opened</strong>, and there is no way to recover
-          it, so store it somewhere safe.
+          <strong>Your</strong> meetings, transcripts, minutes, series, tags and voice profiles, plus
+          your settings, in one file. On a server several people share this is yours alone — nobody
+          can export what they cannot read, so everyone takes their own. The file is encrypted with
+          the password below — <strong>without it the backup cannot be opened</strong>, and there is
+          no way to recover it, so store it somewhere safe.
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
