@@ -44,6 +44,7 @@ type PublicSettings = {
   summaryLanguage: string;
   summaryDetail: string;
   restScreenSeconds: number;
+  vramBudgetMb: number;
 };
 
 const SUMMARY_DETAILS: { id: string; label: string }[] = [
@@ -304,6 +305,34 @@ export default function SettingsPage() {
             onChange={setDraftProfiles}
             onDefaultChange={(id) => update("sttDefaultProfileId", id)}
           />
+
+          <div>
+            <label htmlFor="vramBudgetMb" className={labelClass}>
+              GPU budget for queued work
+            </label>
+            <input
+              id="vramBudgetMb"
+              type="number"
+              min={0}
+              step={512}
+              value={settings.vramBudgetMb || ""}
+              onChange={(e) => update("vramBudgetMb", Math.max(0, Number(e.target.value) || 0))}
+              disabled={saving}
+              placeholder="Auto — from the card, less room for the display"
+              className={`${inputClass} max-w-sm`}
+            />
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Megabytes of video memory the <em>queue</em> may commit at once. Leave it empty to
+              work it out from the card. Jobs that run somewhere else — recognition sent to an
+              endpoint, minutes written by a cloud model — cost nothing here and never wait for
+              it.
+            </p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              This is a scheduling figure, not a limit on any one job: something larger than the
+              whole budget still runs, on its own. Raise it to let two things run together on a
+              bigger card; lower it if something else on this machine needs the memory.
+            </p>
+          </div>
 
           <div>
             <label htmlFor="sttLanguage" className={labelClass}>

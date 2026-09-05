@@ -12,6 +12,7 @@ export default async function QueuePage() {
     status: j.status,
     meetingId: j.meetingId,
     startedAt: j.startedAt ? j.startedAt.toISOString() : null,
+    vramMb: j.vramMb,
     meeting: j.meeting ? { title: j.meeting.title } : null,
   }));
 

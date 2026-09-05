@@ -70,6 +70,14 @@ export type AppSettings = {
   summaryLanguage: string; // minutes output language "ja" | "en" | "zh" (generated in this language regardless of speech)
   summaryDetail: string; // minutes verbosity "brief" | "standard" | "detailed" (controls output length + guidance)
   /**
+   * What the queue may run at once, in MB of video memory. 0 = work it out from the card.
+   *
+   * An estimate is a guess about someone else's machine. The number is derived from what
+   * nvidia-smi reports, less headroom for the display — but the person sitting at the machine
+   * knows what else is on the card, and setting it here overrides the guess entirely.
+   */
+  vramBudgetMb: number;
+  /**
    * Seconds of no interaction before the recording screen goes black. 0 = never.
    *
    * A phone recording a meeting has to keep its screen on -- when it sleeps the page is
@@ -116,6 +124,7 @@ function defaults(): AppSettings {
     defaultMinutesTemplateId: "",
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
+    vramBudgetMb: 0,
     restScreenSeconds: 0,
     voiceprintThreshold: 0.5,
     ollamaNumCtx: 0,
@@ -221,6 +230,16 @@ export async function readSettings(): Promise<AppSettings> {
       merged.summaryDetail = base.summaryDetail;
     if (!VALID_MIC_MODES.includes(merged.micMode)) merged.micMode = base.micMode;
     if (typeof merged.sttTranslate !== "boolean") merged.sttTranslate = base.sttTranslate;
+    // Nonsense is worse than the estimate it overrides: a budget of 12 MB is a queue that
+    // never moves, and a negative one is a typo.
+    if (
+      typeof merged.vramBudgetMb !== "number" ||
+      !Number.isFinite(merged.vramBudgetMb) ||
+      merged.vramBudgetMb < 0 ||
+      (merged.vramBudgetMb > 0 && merged.vramBudgetMb < 512)
+    ) {
+      merged.vramBudgetMb = base.vramBudgetMb;
+    }
     if (!VALID_REST_SCREEN_SECONDS.includes(merged.restScreenSeconds)) {
       merged.restScreenSeconds = base.restScreenSeconds;
     }

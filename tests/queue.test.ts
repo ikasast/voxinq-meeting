@@ -14,6 +14,13 @@ import { reorderQueue } from "../lib/queue/reorder";
 // database is a container that lives for the length of the run.
 
 const ENABLED = process.env.VOXINQ_QUEUE_DB_TESTS === "1";
+
+// Capacity is measured in MB now, so the tests price their jobs. SLOT is what a job "costs"
+// when a test wants one to fill the card.
+const SLOT = 4000;
+const BUDGET = 100_000; // room for anything
+const ONE_SLOT = SLOT;
+const TWO_SLOTS = SLOT * 2;
 let reachable = false;
 
 beforeAll(async () => {
@@ -45,16 +52,16 @@ describe.skipIf(!ENABLED)("the queue", () => {
   });
 
   it("hands out nothing when nothing is waiting", async () => {
-    expect(await claimNext()).toBeNull();
+    expect(await claimNext(BUDGET)).toBeNull();
   });
 
   it("hands out the oldest first", async () => {
     const a = await job({ kind: "minutes", params: { tag: "a" } });
     const b = await job({ kind: "minutes", params: { tag: "b" } });
-    const first = await claimNext();
+    const first = await claimNext(BUDGET);
     expect(first?.id).toBe(a);
     await finish(a, "done");
-    const second = await claimNext();
+    const second = await claimNext(BUDGET);
     expect(second?.id).toBe(b);
     await finish(b, "done");
   });
@@ -62,21 +69,21 @@ describe.skipIf(!ENABLED)("the queue", () => {
   it("lets position override age, which is what reordering will write", async () => {
     const older = await job({ kind: "minutes", params: { tag: "older" }, position: 10 });
     const newer = await job({ kind: "minutes", params: { tag: "newer" }, position: 1 });
-    const first = await claimNext();
+    const first = await claimNext(BUDGET);
     expect(first?.id, "the job moved to the front should go first").toBe(newer);
     await finish(newer, "done");
-    expect((await claimNext())?.id).toBe(older);
+    expect((await claimNext(BUDGET))?.id).toBe(older);
     await finish(older, "done");
   });
 
   it("stops at the capacity it is given", async () => {
-    const a = await job({ kind: "minutes" });
-    await job({ kind: "minutes" });
-    expect((await claimNext(1))?.id).toBe(a);
+    const a = await job({ kind: "minutes", vramMb: SLOT });
+    await job({ kind: "minutes", vramMb: SLOT });
+    expect((await claimNext(ONE_SLOT))?.id).toBe(a);
     // One is running, so a second may not start — this is the whole of the GPU rule today.
-    expect(await claimNext(1)).toBeNull();
+    expect(await claimNext(ONE_SLOT)).toBeNull();
     // Room for two, and the second goes.
-    expect(await claimNext(2)).not.toBeNull();
+    expect(await claimNext(TWO_SLOTS)).not.toBeNull();
     await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
@@ -91,10 +98,40 @@ describe.skipIf(!ENABLED)("the queue", () => {
 
   it("counts a run against capacity even when it was started by someone else", async () => {
     // A row left `running` — by another process, or by this one before a crash.
-    const stuck = await job({ kind: "minutes" });
+    const stuck = await job({ kind: "minutes", vramMb: SLOT });
     await prisma.job.update({ where: { id: stuck }, data: { status: "running" } });
-    await job({ kind: "minutes" });
-    expect(await claimNext(1)).toBeNull();
+    await job({ kind: "minutes", vramMb: SLOT });
+    expect(await claimNext(ONE_SLOT)).toBeNull();
+  });
+
+  it("starts free work beside a job that is holding the card", async () => {
+    // The whole point of measuring rather than counting: recognition sent to an endpoint uses
+    // no video memory, and used to queue behind hardware it never touched.
+    const heavy = await job({ kind: "minutes", vramMb: SLOT });
+    await prisma.job.update({ where: { id: heavy }, data: { status: "running" } });
+    const free = await job({ kind: "transcribe", vramMb: 0 });
+    expect((await claimNext(ONE_SLOT))?.id).toBe(free);
+    await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
+  });
+
+  it("steps over what does not fit and takes what does", async () => {
+    const heavy = await job({ kind: "minutes", vramMb: SLOT });
+    await prisma.job.update({ where: { id: heavy }, data: { status: "running" } });
+    await job({ kind: "diarize", vramMb: SLOT, position: 1 }); // too big to join it
+    const small = await job({ kind: "transcribe", vramMb: 0, position: 2 });
+    expect((await claimNext(ONE_SLOT))?.id, "the one that fits should go").toBe(small);
+    await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
+  });
+
+  it("runs a job bigger than the whole budget, alone", async () => {
+    // Otherwise a budget set too low, or an estimate that is wrong, is a queue that never
+    // moves and never says why.
+    const huge = await job({ kind: "minutes", vramMb: 999_999 });
+    expect((await claimNext(1024))?.id).toBe(huge);
+    // And nothing joins it while it holds more than everything.
+    await job({ kind: "transcribe", vramMb: 0 });
+    expect(await claimNext(1024)).toBeNull();
+    await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
   it("puts back what a restart interrupted, and says so", async () => {

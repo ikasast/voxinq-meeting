@@ -35,6 +35,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -519,6 +520,39 @@ def rms(frame: np.ndarray) -> float:
 _DIA_INFO: dict | None = None
 
 
+_VRAM_INFO: dict | None = None
+
+
+def _vram_info() -> dict:
+    """How much video memory this host has, in MB, or nulls when there is no NVIDIA card.
+
+    The queue needs it to decide how much can run at once, and it is the one number nothing on
+    the web side can see -- the card is here. Asked of nvidia-smi rather than of a library so
+    that a host without CUDA answers the same way it does everything else: by not having one.
+
+    Cached. Total does not change, and /health is polled.
+    """
+    global _VRAM_INFO
+    if _VRAM_INFO is not None:
+        return _VRAM_INFO
+    info: dict = {"vramTotalMb": None, "vramFreeMb": None}
+    exe = shutil.which("nvidia-smi")
+    if exe:
+        try:
+            out = subprocess.run(
+                [exe, "--query-gpu=memory.total,memory.free", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=10, check=False,
+            )
+            if out.returncode == 0 and out.stdout.strip():
+                # The first card. A second one is not something this app can spread work over.
+                total, free = (int(x.strip()) for x in out.stdout.strip().splitlines()[0].split(","))
+                info = {"vramTotalMb": total, "vramFreeMb": free}
+        except Exception:  # noqa: BLE001  a health check must not fail over this
+            pass
+    _VRAM_INFO = info
+    return info
+
+
 def _diarization_info() -> dict:
     """Which diarization backend would run here, and the embedding model it stamps.
 
@@ -594,6 +628,7 @@ async def health() -> dict:
         "translate": translator_state(),
         # Runs a subprocess the first time, so keep it off the event loop.
         **await asyncio.to_thread(_diarization_info),
+        **await asyncio.to_thread(_vram_info),
     }
 
 

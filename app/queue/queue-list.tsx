@@ -16,6 +16,7 @@ export type QueueJob = {
   status: string;
   meetingId: string | null;
   startedAt: string | null;
+  vramMb: number;
   meeting: { title: string } | null;
 };
 
@@ -130,6 +131,16 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                   )}
                 </span>
               </div>
+              <span
+                className="shrink-0 text-xs text-[var(--text-muted)]"
+                title={
+                  job.vramMb === 0
+                    ? "Uses no video memory — it runs somewhere else, so it does not wait for the card"
+                    : "Roughly what it is expected to occupy on the GPU"
+                }
+              >
+                {job.vramMb === 0 ? "off-GPU" : `~${(job.vramMb / 1024).toFixed(1)} GB`}
+              </span>
               <span className="shrink-0 text-xs text-[var(--text-secondary)]">
                 {running ? <Elapsed since={job.startedAt} /> : "waiting"}
               </span>
@@ -171,8 +182,10 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
         })}
       </ul>
       <p className="text-xs text-[var(--text-muted)]">
-        One job runs at a time, because Whisper and the LLM do not both fit on an 8&nbsp;GB card.
-        A run that is stopped does not go back in the queue — ask for it again when you want it.
+        How many run at once depends on what they need and what the card has —{" "}
+        <em>off-GPU</em> work (recognition sent to an endpoint, minutes written by a cloud model)
+        does not wait for it at all. Set the budget in <em>Settings → Transcription</em>. A run
+        that is stopped does not go back in the queue — ask for it again when you want it.
       </p>
     </div>
   );
