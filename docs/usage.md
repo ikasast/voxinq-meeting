@@ -50,7 +50,18 @@ recording starts immediately.
    because picking the wrong model is silent and costly.
 2. **Set up meeting** → creates the meeting, opens the recording screen and starts loading
    the transcription model. Recording does *not* start yet.
-3. Wait for **● Model ready** in the bar at the top (a cold load takes tens of seconds), then
+3. **Check the microphone** — the panel above the record button opens the mic, draws the level,
+   and says whether anything arrived. Worth the ten seconds: a meeting nobody recorded cannot
+   be recovered, and a muted headset, an input the laptop switched on its own, or another app
+   holding the microphone all look exactly like a working setup until the transcript comes back
+   empty.
+
+   The microphone it opens is **handed to the recording** — no second permission prompt, and no
+   chance of the recording opening a different input than the one you just tested. It closes
+   itself after a minute if nothing starts; checking again is free, and starting without a
+   check works exactly as it always did.
+
+4. Wait for **● Model ready** in the bar at the top (a cold load takes tens of seconds), then
    **Start recording** — the wide button at the bottom of the screen — and speak. Words appear
    about a second behind you and firm up into the final wording when you pause.
 
@@ -73,7 +84,7 @@ recording starts immediately.
    purpose: work that runs somewhere else — recognition sent to an endpoint, minutes written by
    a cloud model — is never in the way, and never asks.
 
-4. End with one of the three quiet buttons above it (all three end the meeting):
+5. End with one of the three quiet buttons above it (all three end the meeting):
    - **Generate minutes** — minutes are generated in the background.
    - **Diarize** — speaker diarization starts automatically on the meeting page
      (enrolled voices get their names); generate minutes after reviewing the speakers.
@@ -84,6 +95,8 @@ All three land on the meeting itself, where the minutes appear as they finish.
 Tips:
 - **Start and Stop are at the bottom**, where a thumb reaches them; the status, the input level
   and the recording source stay at the top, where they are read rather than pressed.
+- The tips under the mic check fold away once recording starts, and stay open if you open them
+  again.
 - On a phone the screen is kept on for you, because letting it sleep stops the microphone on
   some devices. That is also what empties the battery, so the screen can **rest**: black, with
   the running time still counting. **Rest screen** in the top bar does it now, and
@@ -130,9 +143,16 @@ minutes, the **previous meeting's minutes are given to the LLM as reference**, s
 like "continuing from last time" are interpreted correctly. *New with same settings* keeps
 the series. A series disappears automatically when its last meeting is removed.
 
-Click a **↻ series chip** anywhere to open the **series page**: a timeline of every
-meeting with the overview section of its minutes, plus **per-series defaults** — a minutes
-format and a transcription glossary that override the global Settings for this series only.
+**A series is not folded up in the list.** Each of its meetings is its own row, because four
+weekly meetings are four meetings and the ones worth scrolling for were the ones being hidden.
+The **↻ chip** on a card filters the list to that series instead — a count, the meetings, and
+*show all* to come back out. The calendar hides while a series is showing, since the series is
+already the answer to "which meetings".
+
+The chip in a meeting's own rail, and on the Archived page, still opens the **series page**: a
+timeline of every meeting with the overview section of its minutes, plus **per-series
+defaults** — a minutes format and a transcription glossary that override the global Settings
+for this series only.
 
 ## Participants
 
@@ -353,15 +373,41 @@ Translation runs on the CPU, so it does not compete with transcription for the G
 it on downloads a ~600MB model (NLLB-200 distilled) to the STT host on first use; that model
 is **CC-BY-NC — non-commercial use only**, which is why this is off by default.
 
-## Search, tags, filters
+## The list, and finding a meeting in it
+
+Under **Upcoming**, meetings are grouped by how long ago they happened — **This week**, **Over
+a week ago**, **Over a month ago** — so "was that recent?" is answered without reading dates.
+They are ordered by when the meeting happened rather than when its row was made, which is what
+puts a meeting booked last month and recorded yesterday under yesterday.
+
+**Archived** and **Trash** sit above the list, not below it. Reaching what you have put away
+should not mean scrolling past everything you have not.
+
+### The calendar
+
+A month sits above the list. Each day carries a dot per meeting, **three at most** — past that
+a row is a smear, and the exact number is one click away. Today is outlined; the day you pick
+is filled.
+
+- **Pick a day** and the list is that day. **Pick it again** to clear it — the same cell is
+  both directions, so a mis-click does not send you hunting for a way out.
+- **‹ ›** step through months; **Today** returns. The dots come from the month you are looking
+  at, not from the list below it, so an empty January really is an empty January.
+- **+ Add a meeting on this day** is always there, on every day you pick — a day that already
+  has three meetings is exactly when a fourth gets booked. It opens *New meeting* with **When**
+  filled in, so the meeting is booked rather than recorded now.
+- It hides during a search or a series filter. Both already answer "when" in their own terms.
+
+### Search and tags
 
 - Search matches titles, transcripts, and minutes; results show a snippet and where it matched.
 - Tag meetings and filter by tag.
+- Filters combine: a tag and a series, a series and a day, a search within a tag.
 
 ## Archive
 
 **Archive** hides a meeting from the list but keeps it in the DB — it still appears in search,
-and the **Archived** page (link under the list) shows all of them, grouped by series. Use it to
+and the **Archived** page (link above the list) shows all of them, grouped by series. Use it to
 declutter without deleting. Unarchive from the meeting page, the ⋯ menu on a list card, the
 Archived page, or a swipe (below).
 
@@ -372,9 +418,10 @@ On a touch device, swipe a row in the meeting list:
 - **Swipe right → Archive** (on the Archived page it unarchives instead)
 - **Swipe left → Trash** (asks for confirmation first)
 
-A **collapsed series stack acts on the whole series** — swiping it archives or trashes every
-meeting in that series at once. Expand the stack (`show N earlier`) to act on a single meeting.
-Vertical scrolling is unaffected, and mouse/desktop behaviour is unchanged.
+A swipe acts on **one meeting**. It used to be able to take a whole series at once, because a
+series was drawn as a single collapsed row; now that each meeting has its own row there is no
+row that means "all of these", and a gesture that archived four meetings would be too easy to
+make by accident. Vertical scrolling is unaffected, and mouse/desktop behaviour is unchanged.
 
 ## Trash
 

@@ -172,6 +172,24 @@ screen is still counting. Set it back to *Never* if it is not wanted.
 Fixed: pressing "back" to the recording page no longer restarts an ended meeting. If a WAV is
 missing, note that recordings auto-delete after 7 days unless protected.
 
+## The recording came back empty (or nearly)
+
+**Check the microphone before the next one.** The panel above the record button opens the mic
+and shows whether anything is arriving; it is the only way to find this out that does not cost
+a meeting. The usual causes all look identical from the outside:
+
+- a headset with its own mute switch, muted
+- an input the operating system switched on its own — docking, a lid closing, a call ending
+- another application holding the microphone exclusively
+- the wrong device selected, so the recording is of a room nobody is in
+
+If the check says sound is arriving and the transcript is still empty, the problem is further
+along: see "Transcript stays on Preparing" and "No text appears while recording" below.
+
+> The microphone opened by the check is handed to the recording, so what you tested is what
+> records. If you change the source or the mic mode afterwards, the check is discarded — the
+> constraints would no longer match — and running it again takes a few seconds.
+
 ## No text appears while recording
 
 **Does the status say "recording only"?** Then this was chosen when the recording started:

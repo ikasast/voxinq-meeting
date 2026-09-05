@@ -129,6 +129,46 @@ Restart recovery excludes recordings for the same reason. A recording is a brows
 straight to the STT service; the web app restarting does not interrupt it, so requeueing the
 hold would drop it mid-meeting and let something heavy start underneath.
 
+## The microphone is checked before the meeting, and the check keeps the microphone
+
+The most expensive failure this app has is a meeting nobody recorded. Everything else is
+recoverable — minutes can be regenerated, speakers reassigned, a transcript re-run from the
+audio — and that one is not. Until v3 the level meter only moved once recording had started,
+which is after the point where knowing is any use.
+
+Two things make the check worth trusting:
+
+**It asks for the microphone with the constraints the recording will use**, from one shared
+function. Echo cancellation and noise suppression are off in room mode and forced on for
+mic + PC audio, and silence *caused* by those settings is exactly the failure being looked
+for — so a check that ran with different ones would be a check of something else.
+
+**It hands its microphone to the recording rather than releasing it.** Some phones fail the
+second `getUserMedia` of a session, which would make the check break the thing it had just
+blessed. The recording takes ownership and stops the tracks at the end. Falling back to
+acquiring is not a failure path: it is what happens when nobody ran the check, which is most
+of the time.
+
+The sampling runs on a timer rather than `requestAnimationFrame`. rAF does not fire at all
+while a tab is hidden — measured at zero frames in a second — so a phone whose screen dimmed
+mid-check would freeze the bar and then report silence at the end. A check that answers wrongly
+is worse than having no check, and timers are throttled in the background rather than stopped.
+
+## A series is listed, not folded
+
+A recurring series used to be drawn as one stacked entry: newest meeting on top, the rest
+behind a disclosure. It made the list shorter and it made it wrong. Four weekly meetings are
+four meetings, and the ones folded away were the ones people scroll looking for — the older
+instalment with the decision in it.
+
+Every meeting is its own row now, and the series chip filters the list instead. That carries
+the same information the stack carried without taking the rows away to carry it, and it costs
+one click to get the grouped view back.
+
+The calendar hides while a series filter is on, for the same reason it hides during a search:
+both have already answered "which meetings", and a second way to narrow beside them only ever
+narrows towards nothing.
+
 ## Diarization runs after the meeting, not during it
 
 Real-time speaker diarization is expensive and, on this hardware, would compete with the
