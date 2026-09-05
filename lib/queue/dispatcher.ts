@@ -1,3 +1,4 @@
+import { budgetMb } from "./capacity";
 import { claimNext, finish, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
@@ -69,8 +70,11 @@ export async function tick(): Promise<void> {
   if (ticking) return;
   ticking = true;
   try {
-    const job = await claimNext();
+    const job = await claimNext(await budgetMb());
     if (!job) return;
+    // Keep going: what was just started may leave room for the next one — a remote
+    // recognition costs nothing here, and used to wait behind hardware it never touched.
+    setTimeout(() => void tick(), 50);
     inFlight.add(job.id);
     signals.set(job.id, new AbortController());
     void run(job).finally(() => {

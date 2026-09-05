@@ -67,6 +67,15 @@ export async function PATCH(req: NextRequest) {
   if (typeof body.restScreenSeconds === "number" && VALID_REST_SCREEN_SECONDS.includes(body.restScreenSeconds)) {
     patch.restScreenSeconds = body.restScreenSeconds;
   }
+  // 0 means "work it out from the card". Anything under 512 MB is a typo, not a budget, and
+  // writeSettings refuses it too — this is just the earlier of the two.
+  if (
+    typeof body.vramBudgetMb === "number" &&
+    Number.isFinite(body.vramBudgetMb) &&
+    (body.vramBudgetMb === 0 || body.vramBudgetMb >= 512)
+  ) {
+    patch.vramBudgetMb = Math.round(body.vramBudgetMb);
+  }
   // Update API keys only when a value is passed (empty string is ignored as "no change").
   if (typeof body.anthropicApiKey === "string" && cleanSetting(body.anthropicApiKey)) {
     patch.anthropicApiKey = cleanSetting(body.anthropicApiKey);

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { estimateVramMb } from "./capacity";
 import { type JobKind, type JobStatus, OPEN_STATUSES } from "./types";
 
 // The queue's own operations. Everything that decides *what runs next* is here, so there is
@@ -11,8 +12,21 @@ import { type JobKind, type JobStatus, OPEN_STATUSES } from "./types";
 // alternative is a bug that only appears under a second instance and looks like a job running
 // twice for no reason.
 
-/** How many jobs may run at once. Phase 3 replaces this with a VRAM budget. */
-export const MAX_CONCURRENT = 1;
+/**
+ * Take the next job that fits, or nothing.
+ *
+ * Two things are worth knowing about this rule, because both are choices:
+ *
+ * **A job that does not fit is stepped over, not waited for.** The filter is per row, so a
+ * re-transcription sent to Groq — which costs nothing here — starts while a local model holds
+ * the card, instead of queueing behind it for no reason. The cost is that strict order is not
+ * guaranteed: a stream of free work could keep an expensive job waiting. With a queue this
+ * short that is a reordering away, and the alternative is the old rule, which made every
+ * remote job wait for hardware it never touched.
+ *
+ * **A job bigger than the whole budget runs anyway, alone.** Otherwise a budget set too low —
+ * or an estimate that is wrong — is a queue that never moves and does not say why.
+ */
 
 export type ClaimedJob = {
   id: string;
@@ -22,19 +36,29 @@ export type ClaimedJob = {
   attempts: number;
 };
 
+/**
+ * Put work in the queue.
+ *
+ * The cost is worked out here rather than by each caller, because three routes queueing three
+ * kinds is three places to forget it — and a job priced at zero by accident is one that starts
+ * beside anything, which is the failure that looks like a hardware problem.
+ */
 export async function enqueue(input: {
   kind: JobKind;
   meetingId?: string | null;
   params?: object;
+  /** Only for tests, which price their own jobs to describe a queue. */
   vramMb?: number;
   position?: number;
 }): Promise<{ id: string }> {
+  const params = input.params ?? {};
+  const vramMb = input.vramMb ?? (await estimateVramMb(input.kind, params));
   const job = await prisma.job.create({
     data: {
       kind: input.kind,
       meetingId: input.meetingId ?? null,
-      params: JSON.stringify(input.params ?? {}),
-      vramMb: input.vramMb ?? 0,
+      params: JSON.stringify(params),
+      vramMb,
       position: input.position ?? 0,
     },
     select: { id: true },
@@ -48,13 +72,17 @@ export async function enqueue(input: {
  * Order is `position` then `createdAt`: with every position left at its default that is plain
  * FIFO, and reordering only has to write positions for the rows it moves.
  */
-export async function claimNext(max = MAX_CONCURRENT): Promise<ClaimedJob | null> {
+export async function claimNext(budget: number): Promise<ClaimedJob | null> {
   const rows = await prisma.$queryRaw<ClaimedJob[]>`
     UPDATE "jobs" SET status = 'running', "started_at" = now(), attempts = attempts + 1
     WHERE id = (
       SELECT j.id FROM "jobs" j
       WHERE j.status = 'queued'
-        AND (SELECT count(*) FROM "jobs" r WHERE r.status = 'running') < ${max}
+        AND (
+          j."vram_mb" + COALESCE((SELECT sum(r."vram_mb") FROM "jobs" r WHERE r.status = 'running'), 0)
+            <= ${budget}
+          OR NOT EXISTS (SELECT 1 FROM "jobs" r2 WHERE r2.status = 'running')
+        )
       ORDER BY j.position ASC, j."created_at" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1
@@ -62,6 +90,15 @@ export async function claimNext(max = MAX_CONCURRENT): Promise<ClaimedJob | null
     RETURNING id, kind, "meeting_id" AS "meetingId", params, attempts
   `;
   return rows[0] ?? null;
+}
+
+/** What the running jobs are holding, for the queue screen and for deciding what fits. */
+export async function runningVramMb(): Promise<number> {
+  const r = await prisma.job.aggregate({
+    where: { status: "running" },
+    _sum: { vramMb: true },
+  });
+  return r._sum.vramMb ?? 0;
 }
 
 export async function finish(
@@ -94,6 +131,7 @@ export async function openJobs() {
       status: true,
       meetingId: true,
       startedAt: true,
+      vramMb: true,
       meeting: { select: { title: true } },
     },
   });
