@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "../lib/prisma";
 import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "../lib/queue/queue";
+import { reorderQueue } from "../lib/queue/reorder";
 
 // The queue against a real PostgreSQL, because the things that can go wrong here are things
 // only a database does: two claims interleaving, an ordering that reads correctly and sorts
@@ -18,6 +19,11 @@ let reachable = false;
 beforeAll(async () => {
   if (!ENABLED) return;
   await prisma.$queryRaw`SELECT 1`;
+  // Start from an empty queue. `claimNext` takes whatever is waiting, so a row left over from
+  // anything else makes the capacity and ordering tests assert about the wrong queue — which is
+  // how these first failed, against a database that had been used for a screenshot. Emptying it
+  // is only safe because VOXINQ_QUEUE_DB_TESTS already says this database is disposable.
+  await prisma.job.deleteMany({});
   reachable = true;
 });
 
@@ -104,6 +110,47 @@ describe.skipIf(!ENABLED)("the queue", () => {
     // The reason matters: a job that silently starts over looks like a bug to whoever is
     // watching the progress bar go back to zero.
     expect(back.detail).toMatch(/restart/i);
+  });
+
+  it("reorders what is waiting, and leaves what is running alone", async () => {
+    const a = await job({ kind: "minutes" });
+    const b = await job({ kind: "diarize" });
+    const c = await job({ kind: "transcribe" });
+    // One of them is already going: it has no position any more, it is in progress.
+    await prisma.job.update({ where: { id: a }, data: { status: "running" } });
+
+    await reorderQueue([c, b]);
+    const after = await prisma.job.findMany({
+      where: { id: { in: [b, c] } },
+      orderBy: { position: "asc" },
+      select: { id: true },
+    });
+    expect(after.map((j) => j.id)).toEqual([c, b]);
+    expect((await prisma.job.findUniqueOrThrow({ where: { id: a } })).status).toBe("running");
+    await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
+  });
+
+  it("keeps a job the caller did not mention, at the back", async () => {
+    // The screen listing the queue and the drag being let go are not the same moment: a job can
+    // arrive in between. Dropping it because nobody named it would lose work silently.
+    const a = await job({ kind: "minutes" });
+    const b = await job({ kind: "diarize" });
+    const late = await job({ kind: "transcribe" });
+    await reorderQueue([b, a]);
+    const order = await prisma.job.findMany({
+      where: { id: { in: [a, b, late] } },
+      orderBy: { position: "asc" },
+      select: { id: true },
+    });
+    expect(order.map((j) => j.id)).toEqual([b, a, late]);
+    await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
+  });
+
+  it("ignores an id that is not waiting any more", async () => {
+    const a = await job({ kind: "minutes" });
+    await reorderQueue(["a-job-that-finished-while-you-dragged", a]);
+    expect((await prisma.job.findUniqueOrThrow({ where: { id: a } })).position).toBe(1);
+    await finish(a, "done");
   });
 
   it("knows when a meeting already has one, and when it no longer does", async () => {

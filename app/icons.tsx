@@ -147,3 +147,11 @@ export const HelpIcon = (p: SVGProps<SVGSVGElement>) => (
     <circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none" />
   </svg>
 );
+
+/** Stacked lines with one leading: a list of things waiting their turn. */
+export const QueueIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M4 6h10M4 12h16M4 18h13" />
+    <path d="M18 4l2 2-2 2" />
+  </Base>
+);
