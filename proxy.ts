@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { AUTH_COOKIE, expectedAuthToken } from "./lib/auth-token";
 import { SESSION_COOKIE, unpackSession } from "./lib/auth/cookie";
 import { hasUsersCached } from "./lib/auth/has-users";
-import { sessionIsLive } from "./lib/auth/session";
+import { signupIsOpen } from "./lib/auth/signup";
+import { sessionIsLive, tailnetIdentityIsKnown } from "./lib/auth/session";
 import { allowedFromOutside } from "./lib/external-writes";
 
 // Password auth + a read-only boundary for access from outside the private network.
@@ -30,8 +31,18 @@ export async function proxy(req: NextRequest) {
   // Tailscale serve injects an authenticated identity header within the tailnet -> trusted,
   // full access. A public reverse proxy MUST strip this header to prevent spoofing; Tailscale
   // Funnel manages it for you (Funnel requests carry no such header, so they are external).
-  if (req.headers.get("tailscale-user-login")) {
-    return NextResponse.next();
+  const tailnet = req.headers.get("tailscale-user-login");
+  if (tailnet) {
+    // With no accounts, the tailnet is trusted wholesale, exactly as before. With signups open
+    // it still is, because an identity nobody has seen is about to become an account — and
+    // blocking it here would stop that from ever happening.
+    //
+    // With signups closed, the tailnet is trusted to say *who*, and an identity that maps to
+    // nobody is a person without an account. This is the door that stays shut: they are sent to
+    // the login page, where a username and password still work.
+    if (!accounts || signupIsOpen() || (await tailnetIdentityIsKnown(tailnet))) {
+      return NextResponse.next();
+    }
   }
 
   const { pathname } = req.nextUrl;

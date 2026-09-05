@@ -1,3 +1,4 @@
+import { asSystem } from "@/lib/db/scope";
 import { prisma } from "@/lib/prisma";
 import { estimateVramMb } from "./capacity";
 import { type JobKind, type JobStatus, OPEN_STATUSES, RECORDING_KIND } from "./types";
@@ -121,6 +122,61 @@ export async function openJobFor(kind: JobKind, meetingId: string) {
 }
 
 /** What is running or waiting, for the busy indicator and (later) the queue screen. */
+/**
+ * Every open job on the machine, for the queue screen.
+ *
+ * Deliberately not scoped to the person looking. The queue is one GPU shared by everybody, and
+ * "why has my job not started" is unanswerable if the thing in front of it is invisible — the
+ * screen would show an empty list and a job that never moves.
+ *
+ * What crosses the line is only what is needed to answer that question: whose it is, and what
+ * kind of work. **Which meeting is not included for anybody else's rows** — the caller redacts
+ * before this reaches a browser, and the redaction is done here rather than in the component so
+ * that a title cannot arrive on the client and be styled away.
+ */
+export async function openJobsAcrossUsers(viewerId: string | null) {
+  const rows = await asSystem("the queue screen explains one shared GPU to everybody", () =>
+    prisma.job.findMany({
+      where: { status: { in: OPEN_STATUSES } },
+      orderBy: [{ status: "desc" }, { position: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        kind: true,
+        status: true,
+        meetingId: true,
+        startedAt: true,
+        vramMb: true,
+        meeting: {
+          select: {
+            title: true,
+            ownerId: true,
+            owner: { select: { username: true, name: true, image: true } },
+          },
+        },
+      },
+    }),
+  );
+
+  return rows.map((j) => {
+    const mine = viewerId !== null && j.meeting?.ownerId === viewerId;
+    const owner = j.meeting?.owner;
+    return {
+      id: j.id,
+      kind: j.kind,
+      status: j.status,
+      startedAt: j.startedAt,
+      vramMb: j.vramMb,
+      mine,
+      // Only your own rows carry a meeting. Somebody else's is a kind of work and a person.
+      meetingId: mine ? j.meetingId : null,
+      title: mine ? (j.meeting?.title ?? null) : null,
+      owner: owner
+        ? { username: owner.username, name: owner.name, hasImage: owner.image !== null }
+        : null,
+    };
+  });
+}
+
 export async function openJobs() {
   return prisma.job.findMany({
     where: { status: { in: OPEN_STATUSES } },

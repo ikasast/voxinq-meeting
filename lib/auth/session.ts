@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { adoptOrphanedMeetings } from "@/lib/auth/adopt";
+import { signupIsOpen } from "@/lib/auth/signup";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE, SESSION_TTL_MS, packSession, unpackSession } from "./cookie";
 
@@ -81,6 +82,10 @@ async function resolveTailnetUser(login: string) {
 
   try {
     const first = (await prisma.user.count()) === 0;
+    // The first account is exempt: a server with signups closed and nobody on it would have no
+    // administrator and no way to make one. After that the switch decides, and an identity the
+    // server has never seen is simply somebody without an account — the login page says so.
+    if (!first && !signupIsOpen()) return null;
     const made = await prisma.user.create({
       data: {
         username: await freeUsername(login.split("@")[0] || "user"),
@@ -140,6 +145,22 @@ export async function sessionIsLive(sessionId: string): Promise<boolean> {
     select: { expiresAt: true, user: { select: { disabledAt: true } } },
   });
   return Boolean(session && session.expiresAt > new Date() && !session.user.disabledAt);
+}
+
+/**
+ * Does this tailnet identity have an account here? Asked by the proxy.
+ *
+ * Before accounts existed the tailnet was trusted wholesale, and it still is — but "trusted"
+ * now means "is somebody", and with signups closed an identity the server has never seen is
+ * not. Without this they would reach an app with nothing in it and no explanation, which reads
+ * as the instance being broken rather than as them not having an account.
+ */
+export async function tailnetIdentityIsKnown(login: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { tailscaleLogin: login },
+    select: { disabledAt: true },
+  });
+  return Boolean(user && !user.disabledAt);
 }
 
 /** Start a session for this browser. Returns what to put in the cookie. */

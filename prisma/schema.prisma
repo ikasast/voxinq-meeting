@@ -28,6 +28,12 @@ model User {
   /// two accounts claiming one identity would make which of them you are a matter of luck.
   tailscaleLogin String? @unique @map("tailscale_login")
 
+  /// A face for the queue, mostly. Kept in the database rather than on disk so that a backup
+  /// is still one file and a restore does not come back with everybody anonymous. Resized
+  /// before it gets here, so this is tens of kilobytes and not a photograph.
+  image     Bytes?  @map("image")
+  imageType String? @map("image_type")
+
   isAdmin    Boolean   @default(false) @map("is_admin")
   /// Set to lock the account out without deleting what it owns.
   disabledAt DateTime? @map("disabled_at")

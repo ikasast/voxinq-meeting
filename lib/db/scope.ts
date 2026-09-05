@@ -9,6 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 // Four answers, and the last one is the point:
 //
 //   open    this instance has no accounts. It behaves as it always has.
+//   nobody  signed out. Owns nothing, and every read is narrowed to nothing.
 //   system  deliberately unscoped: the queue dispatcher, and looking up who you are.
 //   user    a request, resolved to a person. Everything is theirs or invisible.
 //   (none)  a query that is none of the above — refused, loudly.
@@ -19,6 +20,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 export type Scope =
   | { mode: "open" }
+  /** Signed out, or an identity with no account here. Owns nothing, so sees nothing. */
+  | { mode: "nobody" }
   | { mode: "system"; because: string }
   | { mode: "user"; userId: string };
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { JOB_LABEL, type JobKind, RECORDING_KIND, isJobKind } from "@/lib/queue/types";
+import { Avatar } from "../avatar";
 
 // What is running and what is waiting for it.
 //
@@ -14,10 +15,13 @@ export type QueueJob = {
   id: string;
   kind: string;
   status: string;
+  /** Null for somebody else's row: their work is a kind and a person, not a meeting. */
   meetingId: string | null;
   startedAt: string | null;
   vramMb: number;
-  meeting: { title: string } | null;
+  mine: boolean;
+  title: string | null;
+  owner: { username: string; name: string | null; hasImage: boolean } | null;
 };
 
 const POLL_MS = 3000;
@@ -42,7 +46,9 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
   }, [load]);
 
   const move = async (id: string, by: -1 | 1) => {
-    const queued = jobs.filter((j) => j.status === "queued").map((j) => j.id);
+    // Only your own: the reorder endpoint will refuse anybody else's, and offering to move a
+    // row that cannot move is worse than not offering.
+    const queued = jobs.filter((j) => j.status === "queued" && j.mine).map((j) => j.id);
     const at = queued.indexOf(id);
     const to = at + by;
     if (at < 0 || to < 0 || to >= queued.length) return;
@@ -96,7 +102,7 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
     );
   }
 
-  const queuedIds = jobs.filter((j) => j.status === "queued").map((j) => j.id);
+  const queuedIds = jobs.filter((j) => j.status === "queued" && j.mine).map((j) => j.id);
 
   return (
     <div className="space-y-2">
@@ -118,8 +124,19 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                   running ? "text-[var(--error)]" : "text-[var(--text-muted)]"
                 }`}
               >
-                {running ? "▶" : qAt + 1}
+                {/* Your own waiting rows are numbered; somebody else's is a dot, because the
+                    number would be a position in a list you are not in. */}
+                {running ? "▶" : qAt >= 0 ? qAt + 1 : "·"}
               </span>
+              {job.owner ? (
+                <Avatar
+                  username={job.owner.username}
+                  name={job.owner.name}
+                  hasImage={job.owner.hasImage}
+                  size={26}
+                  title={`${job.owner.name || job.owner.username}${job.mine ? " (you)" : ""}`}
+                />
+              ) : null}
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-[var(--text-strong)]">
                   {isJobKind(job.kind)
@@ -129,10 +146,16 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                       : job.kind}
                 </span>
                 <span className="block truncate text-xs text-[var(--text-muted)]">
-                  {job.meetingId ? (
+                  {job.mine && job.meetingId ? (
                     <Link href={`/${job.meetingId}`} className="hover:underline">
-                      {job.meeting?.title || "(untitled meeting)"}
+                      {job.title || "(untitled meeting)"}
                     </Link>
+                  ) : job.owner ? (
+                    // Whose, and nothing else. The point of the row is that you can see what is
+                    // in front of you — not what it is about.
+                    <span title="Somebody else's work. What it is about is not shown.">
+                      {job.owner.name || job.owner.username}
+                    </span>
                   ) : (
                     "—"
                   )}
@@ -152,12 +175,15 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                 {running ? <Elapsed since={job.startedAt} /> : "waiting"}
               </span>
               <div className="flex shrink-0 items-center gap-1">
+                {!job.mine && !isRecording ? (
+                  <span className="text-xs text-[var(--text-muted)]">not yours</span>
+                ) : null}
                 {isRecording ? (
                   // No Stop: it would hand the GPU to something else while people are still
                   // talking, and would not stop the recording.
                   <span className="text-xs text-[var(--text-muted)]">ends with the meeting</span>
                 ) : null}
-                {!running && !isRecording ? (
+                {!running && !isRecording && job.mine ? (
                   <>
                     <button
                       type="button"
@@ -179,7 +205,7 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                     </button>
                   </>
                 ) : null}
-                {!isRecording ? (
+                {!isRecording && job.mine ? (
                   <button
                     type="button"
                     onClick={() => void cancel(job)}
@@ -195,6 +221,12 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
           );
         })}
       </ul>
+      <p className="text-xs text-[var(--text-muted)]">
+        Everybody&rsquo;s work is listed, because the GPU is shared and a queue that hid the
+        thing in front of yours could not explain why yours is waiting. For anybody else&rsquo;s
+        row you see who it belongs to and what kind of work it is — <strong>not which meeting</strong>
+        — and only your own rows can be moved or stopped.
+      </p>
       <p className="text-xs text-[var(--text-muted)]">
         How many run at once depends on what they need and what the card has —{" "}
         <em>off-GPU</em> work (recognition sent to an endpoint, minutes written by a cloud model)

@@ -73,6 +73,13 @@ services:
       # Kept on a volume rather than bind-mounted: Docker turns a bind mount of a not-yet-
       # existing file into a directory, which breaks saving from the Settings UI.
       VOXINQ_SETTINGS_PATH: /data/settings.json
+      # Whether this server makes new accounts. `open` (the default) turns a tailnet identity
+      # nobody has seen into an account the first time it appears, which is what lets a
+      # household's phones work without anybody administering anything. `closed` means an
+      # administrator makes them, and an identity with no account is sent to the login page.
+      # Set here rather than in the app on purpose: somebody who can change settings should not
+      # be able to reopen the door. The first account is exempt either way.
+      VOXINQ_SIGNUP: ${VOXINQ_SIGNUP:-open}
       # Meeting dates on the list, the detail header, the print page and the exports are
       # formatted here, in the container. A container has no timezone unless it is given
       # one, so leaving this unset renders them in UTC while the browser renders the

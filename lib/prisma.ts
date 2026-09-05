@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { NOBODY, resolveScope } from "./db/owner";
+import { resolveScope } from "./db/owner";
 import { prismaRaw } from "./prisma-raw";
 
 // The database, with ownership already applied.
@@ -99,7 +99,22 @@ export const prisma = prismaRaw.$extends({
         if (UNOWNED.has(name)) return query(args);
 
         const scope = await resolveScope();
-        if (scope.mode !== "user") return query(args);
+        if (scope.mode === "open" || scope.mode === "system") return query(args);
+
+        // Signed out. Reads are narrowed to nothing by an empty `in`, which is a condition no
+        // row satisfies and — unlike a sentinel id that must never collide — contains nothing
+        // that has to be got right. Writes are refused below.
+        if (scope.mode === "nobody") {
+          if (FILTERED.has(operation) || BY_UNIQUE.has(operation)) {
+            const nothing = narrow(args as Args, { id: { in: [] } });
+            if (BY_UNIQUE.has(operation)) {
+              if (operation === "findUniqueOrThrow") throw notFound(name);
+              return null;
+            }
+            return query(nothing);
+          }
+          throw new Error("Cannot write anything while signed out.");
+        }
 
         const condition = conditionFor(name, scope.userId);
         if (!condition) {
@@ -119,7 +134,7 @@ export const prisma = prismaRaw.$extends({
         if (operation === "upsert") {
           const next = narrow(a, condition);
           if (OWNED.has(name) && next.create) {
-            next.create = { ...next.create, ownerId: requireSomebody(scope.userId) };
+            next.create = { ...next.create, ownerId: scope.userId };
           }
           return query(next);
         }
@@ -156,17 +171,8 @@ function notFound(model: string): Error & { code?: string } {
   return err;
 }
 
-function requireSomebody(userId: string): string {
-  if (userId === NOBODY) {
-    // Writing a row with no owner would leave something nobody can reach again. Refusing says
-    // so, where a successful write would not.
-    throw new Error("Cannot create anything while signed out.");
-  }
-  return userId;
-}
-
 function stampOwner(args: Args, userId: string, operation: string): Args {
-  const owner = requireSomebody(userId);
+  const owner = userId;
   if (operation === "createMany") {
     const rows = Array.isArray(args.data) ? args.data : [args.data ?? {}];
     return { ...args, data: rows.map((d) => ({ ...d, ownerId: owner })) };
