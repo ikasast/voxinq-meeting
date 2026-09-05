@@ -4,7 +4,8 @@
 
 Navigation is a rail down the left edge on a desktop-sized window, and the bar along the top on
 anything narrower. **Meetings** is the list, **New meeting** and **Record NOW** both start one —
-the second skips the setup screen — and **Help** opens this documentation.
+the second skips the setup screen — **Queue** shows the work waiting for the GPU, and **Help**
+opens this documentation.
 
 A meeting's own page puts the minutes and the transcript in the middle, and everything *about*
 the meeting in a column to its right: how far it has got, the agenda and tags, who was there,
@@ -59,6 +60,19 @@ recording starts immediately.
    pass at the end. The model is the same, though the weights are quantised differently for
    that runtime and the transcript is not identical to a CUDA one — see
    [what runs on what](setup.md#what-runs-on-what).
+   **If something else is using the GPU, you are asked rather than stopped.** Minutes,
+   diarization or a re-transcription already running are named, with two answers:
+
+   - **Interrupt and transcribe live** — what was running goes back to the *front* of the
+     [queue](#the-queue) with the reason recorded on it, and starts again when the meeting ends.
+   - **Record only** — leave it running. The audio is kept and transcribed after the meeting, so
+     nothing is lost; what you give up is reading along while you talk. A **recording only**
+     badge sits beside the status for the rest of the meeting.
+
+   Neither answer is the destructive one, which is why this is a question. It is also rare on
+   purpose: work that runs somewhere else — recognition sent to an endpoint, minutes written by
+   a cloud model — is never in the way, and never asks.
+
 4. End with one of the three quiet buttons above it (all three end the meeting):
    - **Generate minutes** — minutes are generated in the background.
    - **Diarize** — speaker diarization starts automatically on the meeting page
@@ -216,6 +230,33 @@ The **Regenerate** button opens a small panel to pick a **detail level**, a **pr
 talk up as a lecture rather than as a meeting, without changing your defaults. Formats are
 saved in *Settings → Minutes*; a series with its own format keeps using that unless one is
 chosen here. Past versions are kept; switch between them with the version selector.
+
+## The queue
+
+**Queue** in the navigation lists the work that needs the GPU, in the order it will get it:
+minutes, diarization and re-transcription. Each row says what it is, which meeting it belongs
+to, roughly how much video memory it expects to occupy, and — for the one running — how long it
+has been going.
+
+You do not have to wait for the card to be free before asking for something. Press the button;
+it joins the queue and runs in turn. **Closing the tab does not abandon it** — the work runs on
+the server, not in the browser.
+
+- **↑ / ↓** move a waiting job up or down. The running one has no position and cannot be moved.
+- **Stop** ends the running job; **Remove** takes a waiting one out. Neither goes back in the
+  queue — ask again when you want it.
+- Stopping a **re-transcription** removes it from the queue, but the recognition pass already
+  running on the transcription service finishes anyway (there is no way to stop one); its
+  result is discarded. Voxinq says so rather than letting it look instant.
+- **off-GPU** in a row means the work happens somewhere else — recognition sent to an endpoint,
+  minutes written by a cloud model. It costs no video memory here and never waits for the card,
+  so it can run beside anything.
+
+How many run at once depends on what they expect to need and what the card has, not on a count.
+See [`vramBudgetMb`](configuration.md#settingsjson) for the budget and how it is worked out.
+
+A live recording holds the card too, and appears in the queue while it lasts — which is what
+stops a five-gigabyte job starting underneath a meeting in progress.
 
 ## Play back the recording
 

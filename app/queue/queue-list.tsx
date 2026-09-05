@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { JOB_LABEL, type JobKind, isJobKind } from "@/lib/queue/types";
+import { JOB_LABEL, type JobKind, RECORDING_KIND, isJobKind } from "@/lib/queue/types";
 
 // What is running and what is waiting for it.
 //
@@ -104,6 +104,9 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
       <ul className="overflow-hidden rounded-lg border border-[var(--border)]">
         {jobs.map((job, i) => {
           const running = job.status === "running";
+          // A meeting in progress, holding the card. It is in this list so the reason nothing
+          // else is starting is visible, not so it can be operated on from here.
+          const isRecording = job.kind === RECORDING_KIND;
           const qAt = queuedIds.indexOf(job.id);
           return (
             <li
@@ -119,7 +122,11 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
               </span>
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-[var(--text-strong)]">
-                  {isJobKind(job.kind) ? JOB_LABEL[job.kind as JobKind] : job.kind}
+                  {isJobKind(job.kind)
+                    ? JOB_LABEL[job.kind as JobKind]
+                    : isRecording
+                      ? "Recording"
+                      : job.kind}
                 </span>
                 <span className="block truncate text-xs text-[var(--text-muted)]">
                   {job.meetingId ? (
@@ -145,7 +152,12 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                 {running ? <Elapsed since={job.startedAt} /> : "waiting"}
               </span>
               <div className="flex shrink-0 items-center gap-1">
-                {!running ? (
+                {isRecording ? (
+                  // No Stop: it would hand the GPU to something else while people are still
+                  // talking, and would not stop the recording.
+                  <span className="text-xs text-[var(--text-muted)]">ends with the meeting</span>
+                ) : null}
+                {!running && !isRecording ? (
                   <>
                     <button
                       type="button"
@@ -167,14 +179,16 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                     </button>
                   </>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => void cancel(job)}
-                  disabled={busyId !== null}
-                  className="btn-outline !px-2 !py-1 !text-xs text-[var(--error)]"
-                >
-                  {running ? "Stop" : "Remove"}
-                </button>
+                {!isRecording ? (
+                  <button
+                    type="button"
+                    onClick={() => void cancel(job)}
+                    disabled={busyId !== null}
+                    className="btn-outline !px-2 !py-1 !text-xs text-[var(--error)]"
+                  >
+                    {running ? "Stop" : "Remove"}
+                  </button>
+                ) : null}
               </div>
               {i < 0 ? null : null}
             </li>

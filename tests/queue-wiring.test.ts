@@ -52,3 +52,35 @@ describe("the busy indicator", () => {
     expect(src).not.toContain('summaryStatus: "processing"');
   });
 });
+
+describe("a recording in the queue is shown, not operated on", () => {
+  // It is listed so that "why is nothing starting?" has a visible answer. Stopping it there
+  // would not stop the recording — it would only hand the card to something else while people
+  // are still talking into the microphone.
+  const route = read("app/api/jobs/[id]/cancel/route.ts");
+  const list = read("app/queue/queue-list.tsx");
+
+  it("is refused by the cancel route", () => {
+    expect(route).toContain("RECORDING_KIND");
+    expect(route).toMatch(/job\.kind === RECORDING_KIND/);
+    expect(route).toContain("status: 409");
+  });
+
+  it("is checked before the status check, so a queued one cannot slip through", () => {
+    // A recording row is always `running`, but the order is what makes that an invariant of the
+    // route rather than of the data.
+    expect(route.indexOf("job.kind === RECORDING_KIND")).toBeLessThan(
+      route.indexOf('job.status !== "queued"'),
+    );
+  });
+
+  it("offers no Stop button for it", () => {
+    expect(list).toContain("const isRecording = job.kind === RECORDING_KIND");
+    expect(list).toContain("{!isRecording ? (");
+    expect(list).toContain("ends with the meeting");
+  });
+
+  it("names it rather than printing the raw kind", () => {
+    expect(list).toContain('? "Recording"');
+  });
+});

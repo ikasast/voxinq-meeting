@@ -59,19 +59,75 @@ it stops being true of all of it.
 ## The GPU is time-shared, not shared
 
 This is about a machine with **one CUDA card of about 8 GB**, which is what Voxinq was written
-on. A host with no GPU has nothing to arbitrate — the queue below still serialises the work,
-but it is CPU time being shared rather than VRAM.
+on. A host with no GPU has nothing to arbitrate — the queue still serialises the work, but it
+is CPU time being shared rather than VRAM.
 
 Whisper (~1–3 GB) and a 7B LLM (~4.7 GB) do not both stay resident on 8 GB. Rather than
 shrink both until each is mediocre, the app moves the GPU between them: **Whisper during the
 meeting, the LLM after it ends**. Ollama is told to unload (`keep_alive: 0`) when a meeting
-starts, and a UI lock prevents a second GPU task from starting while one runs.
-
-The consequence to know about: minutes generation, re-transcription, diarization and answering
-questions all queue behind each other. That is the price of not requiring a bigger card.
+starts.
 
 Translation is the exception — it runs on the **CPU** (NLLB-200 distilled via CTranslate2)
 precisely so it can happen *during* a meeting without competing for VRAM.
+
+## Arbitration is a measurement, not a count
+
+The rule used to be **one GPU task at a time**, enforced by a lock in the UI: a button went
+dead while anything else ran. It was right for the case it was written for and wrong
+everywhere else. A re-transcription sent to Groq uses no video memory at all; so do minutes
+written by Anthropic. Both waited behind local work for no reason other than the rule being a
+count rather than a measurement.
+
+Work is now priced when it is queued (`lib/queue/capacity.ts`) and admitted while the running
+total fits a budget: the card's total less headroom for the display, or a saved figure when
+someone has measured their own machine. An Ollama model is costed by asking Ollama what it
+holds, plus a fifth for the context it cannot see. Anything running on someone else's machine
+costs **zero** and never waits.
+
+The estimates decide what may *start together*, not what is allowed to exist: a job larger
+than the whole budget still runs, alone, because the alternative is a queue that silently
+never moves.
+
+Two consequences worth stating plainly:
+
+- **The queue is server-side.** Minutes, diarization and re-transcription are rows in a table
+  claimed with `FOR UPDATE SKIP LOCKED`, not work the browser drives. Closing the tab used to
+  abandon a run — the service finished and nothing applied the answer, which read as
+  diarization silently not happening. Now it does not.
+- **A stopped run does not requeue itself.** Whoever stopped it decides whether it happens
+  again. The one thing that cannot actually be stopped is a recognition pass already running
+  on the transcription service; that one finishes and its result is discarded, and the app
+  says so rather than letting it look instant.
+
+## A recording asks for the GPU rather than waiting for it
+
+Everything else in the queue can wait. A recording cannot: it starts when someone presses a
+button in a room where people have already begun talking, and "the card is busy" is not an
+answer you can give them. Under the old lock the record button simply went dead.
+
+So a recording asks. What is running is named, and there are two answers — interrupt it, or
+record without recognising as you go. Neither is destructive: the audio is kept either way,
+and what changes is whether text appears while you talk. An interrupted job goes back to the
+**front** of the queue with the reason recorded on it, because the person interrupting wants
+to record, not to abandon their minutes.
+
+The question is deliberately rare. Only work that actually occupies the card counts as being
+in the way, so a cloud model writing minutes produces no dialog at all. A confirmation that
+appears every time is one people learn to click through, and then it means nothing.
+
+A live recording takes a row in the same table — already `running`, holding what recognition
+needs — so admission control sees the card is spoken for without knowing anything special
+about recordings. The hard part is releasing it: the screen does so when the meeting ends, on
+unmount, and on `pagehide`, and none of those fire for a browser that is killed or a phone
+that discards the tab. A hold nobody releases is a queue that never moves again, so the
+dispatcher also asks the STT service which meetings still have a live connection and releases
+the rest. It releases only what it can confirm — an unreachable service means "I could not
+ask", not "nothing is recording" — and never a hold younger than 90 seconds, because the hold
+is taken before the websocket exists.
+
+Restart recovery excludes recordings for the same reason. A recording is a browser talking
+straight to the STT service; the web app restarting does not interrupt it, so requeueing the
+hold would drop it mid-meeting and let something heavy start underneath.
 
 ## Diarization runs after the meeting, not during it
 

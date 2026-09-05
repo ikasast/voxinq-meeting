@@ -174,7 +174,12 @@ missing, note that recordings auto-delete after 7 days unless protected.
 
 ## No text appears while recording
 
-Check the badge next to the record button. If it reads **● Transcribes when the meeting ends**,
+**Does the status say "recording only"?** Then this was chosen when the recording started:
+something else was using the GPU and the answer was to leave it alone. The audio is being kept
+and will be transcribed when you end the meeting — nothing is lost. Ending it and starting
+again is not necessary and would split the recording.
+
+Otherwise, check the badge next to the record button. If it reads **● Transcribes when the meeting ends**,
 this is the design rather than a fault: the machine has no GPU acceleration, recognition there
 is slower than speech, and trying to keep up would fall behind and never recover. The meeting
 is recorded and transcribed in one pass when you end it — the transcript
@@ -205,6 +210,29 @@ participant count, or assign speakers manually per line.
 measurably weaker at this on long meetings — that is the known trade for working at all on
 those machines. `pyannote` is the accurate one; if you have an NVIDIA GPU and see `sherpa`,
 pyannote did not install (check `HF_TOKEN` and the diarization venv).
+
+## The queue is not moving
+
+Open **Queue**. It says what is running and what is waiting; a job that has been going for
+hours has probably wedged and can be stopped from there.
+
+If nothing is running and nothing starts, something is holding the card that should not be. A
+**live recording holds it too**, and appears in the queue while the meeting lasts — that is
+deliberate, and it is released when the meeting ends, when you leave the recording screen, and
+when the tab is closed. A browser that is killed outright, or a phone that discards the tab,
+releases nothing, so the queue asks the transcription service every 30 seconds which meetings
+still have a live connection and takes the card back from the ones that do not. Holds younger
+than 90 seconds are never swept, because the hold is taken before the connection exists.
+
+That sweep needs the STT service. If it cannot be reached it releases nothing on purpose — "I
+could not ask" is not "nothing is recording" — so an STT service that is down long enough can
+leave a stale hold in place. Check `curl http://127.0.0.1:8000/health`, bring it back, and the
+hold clears within a minute.
+
+If a job is *waiting* while the card is plainly free, it may be larger than the budget. That
+is allowed — an oversized job runs on its own — but it will not start beside anything else.
+`vramBudgetMb` in **Settings → Transcription** is the figure; see
+[configuration](configuration.md#settingsjson).
 
 ## Out of VRAM
 

@@ -202,6 +202,11 @@ same machine's own browser.
   one machine.
 - On a single 8 GB NVIDIA card the GPU is **time-shared**: Whisper runs during the meeting, the
   LLM after it ends. With more VRAM, or none at all, there is nothing to take turns over.
+- Minutes, speaker separation and re-transcription are a **server-side queue**, so closing the
+  tab does not abandon them. How many run at once is worked out from what each expects to need
+  and what the card has — work sent to a cloud model or an endpoint costs nothing here and
+  never waits. **Recording never waits**: if something else holds the card it asks whether to
+  interrupt it or to record without live text, and the audio is kept either way.
 
 📖 Full detail, component by component: **[docs/architecture.md](docs/architecture.md)**.
 
