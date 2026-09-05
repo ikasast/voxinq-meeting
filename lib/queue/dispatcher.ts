@@ -1,7 +1,8 @@
 import { budgetMb } from "./capacity";
-import { dropIdleKeys } from "@/lib/crypto/key-cache";
+import { dropIdleKeys, hasKey } from "@/lib/crypto/key-cache";
 import { asSystem, asUser } from "@/lib/db/scope";
 import { prismaRaw } from "@/lib/prisma-raw";
+import { runEncryptExisting } from "./runners/encrypt";
 import { sweepStaleRecordings } from "./recording";
 import { claimNext, finish, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
@@ -106,10 +107,19 @@ export async function tick(): Promise<void> {
       signals.set(job.id, new AbortController());
       // Whose job it is, so its reads and writes are scoped like anything that person does.
       // A job with no owner is from before this instance had accounts and runs unscoped.
-      const owner = job.meetingId ? await ownerOf(job.meetingId) : null;
+      const owner = job.ownerId ?? (job.meetingId ? await ownerOf(job.meetingId) : null);
+
+      // Encrypted work needs its owner's key, and the key is only here while they are. Rather
+      // than fail — a meeting whose minutes error overnight because nobody was signed in is a
+      // bad way to find out — the job goes back and waits. It runs on their next sign-in.
+      if (owner && (await needsKey(owner)) && !hasKey(owner)) {
+        await waitForKey(job.id);
+        return;
+      }
+      const withOwner = { ...job, ownerId: owner ?? undefined };
       const running = owner
-        ? asUser(owner, () => run(job))
-        : asSystem("a job from before this instance had accounts", () => run(job));
+        ? asUser(owner, () => run(withOwner))
+        : asSystem("a job from before this instance had accounts", () => run(withOwner));
       void running.finally(() => {
         inFlight.delete(job.id);
         signals.delete(job.id);
@@ -131,7 +141,13 @@ async function ownerOf(meetingId: string): Promise<string | null> {
   return m?.ownerId ?? null;
 }
 
-async function run(job: { id: string; kind: string; meetingId: string | null; params: string }) {
+async function run(job: {
+  id: string;
+  kind: string;
+  meetingId: string | null;
+  params: string;
+  ownerId?: string;
+}) {
   try {
     switch (job.kind) {
       case "minutes": {
@@ -144,6 +160,11 @@ async function run(job: { id: string; kind: string; meetingId: string | null; pa
       }
       case "transcribe": {
         const r = await runTranscribe(job, signals.get(job.id)?.signal);
+        await finish(job.id, "done", r.note);
+        return;
+      }
+      case "encrypt": {
+        const r = await runEncryptExisting(job, signals.get(job.id)?.signal, job.ownerId);
         await finish(job.id, "done", r.note);
         return;
       }
@@ -174,10 +195,42 @@ async function run(job: { id: string; kind: string; meetingId: string | null; pa
 async function releaseIdleKeys(): Promise<void> {
   const open = await prismaRaw.job.findMany({
     where: { status: { in: ["queued", "running"] } },
-    select: { meeting: { select: { ownerId: true } } },
+    select: { ownerId: true, meeting: { select: { ownerId: true } } },
   });
   const busy = new Set<string>();
-  for (const j of open) if (j.meeting?.ownerId) busy.add(j.meeting.ownerId);
-  const dropped = dropIdleKeys(busy);
+  for (const j of open) {
+    // The job's own owner first: not every job has a meeting. Encrypting an account's older
+    // meetings belongs to a person and to no single one of them, and reading the owner off the
+    // meeting dropped that account's key the moment the work was queued — leaving the job to
+    // run with nothing to decrypt with.
+    const owner = j.ownerId ?? j.meeting?.ownerId;
+    if (owner) busy.add(owner);
+  }
+  const dropped = await dropIdleKeys(busy);
   if (dropped > 0) console.log(`[queue] released ${dropped} key(s) whose work is finished`);
+}
+
+/** Does this account have a key at all? An account with none has nothing to unlock. */
+async function needsKey(userId: string): Promise<boolean> {
+  const u = await prismaRaw.user.findUnique({ where: { id: userId }, select: { keySalt: true } });
+  return u?.keySalt !== null && u?.keySalt !== undefined;
+}
+
+/**
+ * Put a claimed job back, to be picked up when its owner signs in.
+ *
+ * Back at the front, not the end: it was next, and waiting for somebody to open a laptop is not
+ * a reason to lose its place. The reason is written on the row, because a job that sits still
+ * with no explanation looks like a queue that has broken.
+ */
+async function waitForKey(jobId: string): Promise<void> {
+  await prismaRaw.job.update({
+    where: { id: jobId },
+    data: {
+      status: "queued",
+      startedAt: null,
+      position: 0,
+      detail: "Waiting for you to sign in — this work needs your key to read the meeting.",
+    },
+  });
 }

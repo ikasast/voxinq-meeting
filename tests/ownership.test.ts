@@ -29,6 +29,16 @@ describe("the unscoped client", () => {
     "lib/db/owner.ts",
     "lib/auth/adopt.ts",
     "lib/queue/dispatcher.ts",
+    // Read by the scoped client itself, to find the key it decrypts with. Going through the
+    // scoped client here would ask for the key in order to fetch the key.
+    "lib/crypto/unlock.ts",
+    // Runs during sign-in, before there is a session to be scoped by — the scoped client would
+    // see nothing and report that there is nothing left to encrypt.
+    "lib/crypto/migrate.ts",
+    // The one place that must see ciphertext as ciphertext: it reads rows that are still in the
+    // clear and writes them back encrypted, and the scoped client would decrypt what it read and
+    // re-encrypt what it wrote.
+    "lib/queue/runners/encrypt.ts",
   ]);
 
   it("is imported only where it has to be", () => {
@@ -107,8 +117,16 @@ describe("work that runs outside a request", () => {
 
   it("runs each job as whoever owns it", () => {
     // Not as the system: a job's reads and writes should be scoped exactly like the person
-    // whose meeting it is doing them by hand.
-    expect(dispatcher).toContain("asUser(owner, () => run(job))");
+    // whose meeting it is doing them by hand — and, now, decrypted with their key.
+    expect(dispatcher).toContain("asUser(owner, () => run(withOwner))");
+  });
+
+  it("takes the owner from the job, not only from its meeting", () => {
+    // Not every job has a meeting. Encrypting an account's older meetings belongs to a person
+    // and to no single one of them, and reading the owner off the meeting dropped that
+    // account's key the moment the work was queued — leaving the job nothing to decrypt with.
+    expect(dispatcher).toContain("job.ownerId ?? (job.meetingId");
+    expect(dispatcher).toContain("j.ownerId ?? j.meeting?.ownerId");
   });
 });
 

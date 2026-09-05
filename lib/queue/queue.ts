@@ -33,6 +33,8 @@ export type ClaimedJob = {
   id: string;
   kind: string;
   meetingId: string | null;
+  /** Whose it is, so the dispatcher can run it as them without a join. */
+  ownerId: string | null;
   params: string;
   attempts: number;
 };
@@ -88,7 +90,7 @@ export async function claimNext(budget: number): Promise<ClaimedJob | null> {
       FOR UPDATE SKIP LOCKED
       LIMIT 1
     )
-    RETURNING id, kind, "meeting_id" AS "meetingId", params, attempts
+    RETURNING id, kind, "meeting_id" AS "meetingId", "owner_id" AS "ownerId", params, attempts
   `;
   return rows[0] ?? null;
 }
@@ -146,20 +148,16 @@ export async function openJobsAcrossUsers(viewerId: string | null) {
         meetingId: true,
         startedAt: true,
         vramMb: true,
-        meeting: {
-          select: {
-            title: true,
-            ownerId: true,
-            owner: { select: { username: true, name: true, image: true } },
-          },
-        },
+        ownerId: true,
+        owner: { select: { username: true, name: true, image: true } },
+        meeting: { select: { title: true } },
       },
     }),
   );
 
   return rows.map((j) => {
-    const mine = viewerId !== null && j.meeting?.ownerId === viewerId;
-    const owner = j.meeting?.owner;
+    const mine = viewerId !== null && j.ownerId === viewerId;
+    const owner = j.owner;
     return {
       id: j.id,
       kind: j.kind,

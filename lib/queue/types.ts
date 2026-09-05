@@ -13,7 +13,7 @@
 export const RECORDING_KIND = "recording";
 
 /** Every kind the dispatcher knows how to run. Anything else in the table is ignored. */
-export const JOB_KINDS = ["minutes", "transcribe", "diarize"] as const;
+export const JOB_KINDS = ["minutes", "transcribe", "diarize", "encrypt"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_STATUSES = ["queued", "running", "done", "error", "cancelled"] as const;
@@ -36,6 +36,7 @@ export const JOB_LABEL: Record<JobKind, string> = {
   minutes: "Minutes",
   transcribe: "Re-transcribe",
   diarize: "Diarize",
+  encrypt: "Encrypting your older meetings",
 };
 
 export function isJobKind(v: unknown): v is JobKind {

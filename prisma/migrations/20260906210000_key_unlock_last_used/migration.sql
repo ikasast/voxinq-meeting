@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "key_unlocks" ADD COLUMN     "last_used_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+

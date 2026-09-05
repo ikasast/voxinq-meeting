@@ -5,6 +5,7 @@ import { hasUsersCached } from "@/lib/auth/has-users";
 import { verifyPassword } from "@/lib/auth/password";
 import { pruneSessions, startSession } from "@/lib/auth/session";
 import { unlockWithPassword } from "@/lib/crypto/user-keys";
+import { enqueueEncryptionIfNeeded } from "@/lib/crypto/migrate";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -50,7 +51,13 @@ export async function POST(req: Request) {
   // Signing in is the one moment the password exists in this process, so it is the only moment
   // the key can be opened. Failing to open it is not a failed login — an account may simply have
   // no key yet — so nothing here depends on the result.
-  await unlockWithPassword(user.id, password);
+  const master = await unlockWithPassword(user.id, password);
+
+  // Everything recorded before this account had a key is still in the clear. Encrypting it is
+  // queued rather than done here: somebody with two years of meetings should not watch a login
+  // spinner while a hundred thousand rows are rewritten, and the queue already knows how to
+  // show it, survive a restart, and hold the key for exactly as long as the work lasts.
+  if (master) await enqueueEncryptionIfNeeded(user.id);
 
   await pruneSessions();
   const ua = req.headers.get("user-agent");

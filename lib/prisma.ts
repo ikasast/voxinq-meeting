@@ -1,4 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
+import { keyFor } from "./crypto/key-cache";
+import { LOCKED, decryptField, encryptField, isEncrypted } from "./crypto/field";
 import { resolveScope } from "./db/owner";
 import { prismaRaw } from "./prisma-raw";
 
@@ -26,6 +28,19 @@ import { prismaRaw } from "./prisma-raw";
 // a `_count` with its own `where` is not rewritten, so a count that must be per-person has to
 // say so itself. There is a test naming the ones that do.
 
+/**
+ * What is encrypted, and under what name.
+ *
+ * The two things a meeting actually contains. Titles, dates and tags stay in the clear on
+ * purpose: they are what the list, the calendar and the search bar are made of, and encrypting
+ * them would mean an app that cannot show you your own meetings without unlocking every one.
+ * That is the trade, and it is written down in the documentation rather than implied here.
+ */
+const ENCRYPTED: Record<string, { field: string; purpose: string }> = {
+  transcript: { field: "text", purpose: "transcript" },
+  meetingSummary: { field: "summaryText", purpose: "minutes" },
+};
+
 /** Rows that are not meeting content. Shared, or scoped by being about a person already. */
 const UNOWNED = new Set(["user", "session", "passwordReset"]);
 
@@ -35,10 +50,10 @@ const UNOWNED = new Set(["user", "session", "passwordReset"]);
  * Voiceprints are here rather than shared because a shared library of "who I can recognise" is
  * a list of who each person meets. The cost is that the same colleague is enrolled twice.
  */
-const OWNED = new Set(["meeting", "speakerProfile"]);
+const OWNED = new Set(["meeting", "speakerProfile", "job"]);
 
 /** Belongs to a person through the meeting it hangs off. */
-const VIA_MEETING = new Set(["transcript", "meetingSummary", "meetingParticipant", "job"]);
+const VIA_MEETING = new Set(["transcript", "meetingSummary", "meetingParticipant"]);
 
 /**
  * Labels on meetings rather than content of them. A person sees a tag or a series when they
@@ -67,9 +82,17 @@ const FILTERED = new Set([
   "groupBy",
   "updateMany",
   "deleteMany",
-  "update",
-  "delete",
 ]);
+
+/**
+ * Writes addressed by id, which need the condition beside the id rather than wrapped around it.
+ *
+ * `update` and `delete` take a *unique* where. Prisma does allow extra filters there — that is
+ * how a filtered update works — but not an `AND` around the whole thing, which is a validation
+ * error rather than a narrower query. It failed as a 500 in the middle of a queued job, which is
+ * the worst place to find out.
+ */
+const BY_ID_WRITE = new Set(["update", "delete"]);
 
 type Args = {
   where?: Record<string, unknown>;
@@ -127,12 +150,33 @@ export const prisma = prismaRaw.$extends({
         }
 
         const a = args as Args;
+        const secret = ENCRYPTED[name] ? await keyFor(scope.userId) : null;
+
+        // On the way out. Anything that looks like our ciphertext is decrypted wherever it
+        // appears — top level, nested in an include, inside an array — because a read can be
+        // shaped in more ways than a list of field names could keep up with.
+        const run = async (finalArgs: unknown) => {
+          const result = await query(finalArgs as typeof args);
+          return decryptDeep(result, await keyFor(scope.userId));
+        };
+
+        // On the way in. Without a key the value is stored as it arrives — which is right for
+        // an account that has none, and cannot happen for one that does: a job whose owner's key
+        // is not held does not run at all.
+        if (secret && (operation === "create" || operation === "createMany" || operation === "update")) {
+          encryptIncoming(a, ENCRYPTED[name], secret);
+        }
 
         if (operation === "create" || operation === "createMany") {
           return query(OWNED.has(name) ? stampOwner(a, scope.userId, operation) : a);
         }
+        if (BY_ID_WRITE.has(operation)) {
+          return run({ ...a, where: { ...(a.where ?? {}), ...condition } });
+        }
         if (operation === "upsert") {
-          const next = narrow(a, condition);
+          const next = { ...a, where: { ...(a.where ?? {}), ...condition } } as Args & {
+            create?: Record<string, unknown>;
+          };
           if (OWNED.has(name) && next.create) {
             next.create = { ...next.create, ownerId: scope.userId };
           }
@@ -142,10 +186,13 @@ export const prisma = prismaRaw.$extends({
           const table = (prismaRaw as unknown as Record<string, { findFirst: (a: unknown) => Promise<unknown> }>)[name];
           const found = await table.findFirst(narrow(a, condition));
           if (found === null && operation === "findUniqueOrThrow") throw notFound(name);
-          return found;
+          // Decrypted like every other read. Missing this meant a meeting opened by its id came
+          // back as ciphertext on the page, while the same rows fetched in a list came back
+          // readable — the sort of difference that looks like data corruption.
+          return decryptDeep(found, await keyFor(scope.userId));
         }
-        if (FILTERED.has(operation)) return query(narrow(a, condition));
-        return query(args);
+        if (FILTERED.has(operation)) return run(narrow(a, condition));
+        return run(args);
       },
     },
   },
@@ -182,3 +229,47 @@ function stampOwner(args: Args, userId: string, operation: string): Args {
 
 export { prismaRaw };
 export type { PrismaClient };
+
+/** Encrypt the field this model keeps its content in, wherever the write put it. */
+function encryptIncoming(
+  args: Args,
+  spec: { field: string; purpose: string },
+  master: Buffer,
+): void {
+  const one = (row: Record<string, unknown>) => {
+    const v = row[spec.field];
+    // Already encrypted means a re-save of something read back out; encrypting it twice would
+    // produce a value nothing can read.
+    if (typeof v === "string" && !isEncrypted(v)) {
+      row[spec.field] = encryptField(v, master, spec.purpose);
+    }
+  };
+  const data = args.data;
+  if (Array.isArray(data)) data.forEach((d) => one(d));
+  else if (data) one(data);
+}
+
+/**
+ * Decrypt every value that carries our prefix, anywhere in a result.
+ *
+ * By the prefix rather than by field name: a read can be shaped as a select, an include, a
+ * nested include inside an array, or a groupBy, and keeping a list of paths in step with all of
+ * that is the kind of thing that silently misses one. Nothing else in this database begins with
+ * `enc:v1.`, so matching on it cannot catch anything that is not ours.
+ */
+function decryptDeep(value: unknown, master: Buffer | null): unknown {
+  if (typeof value === "string") {
+    if (!isEncrypted(value)) return value;
+    if (!master) return LOCKED;
+    return decryptField(value, master) ?? LOCKED;
+  }
+  if (Array.isArray(value)) return value.map((v) => decryptDeep(v, master));
+  if (value && typeof value === "object" && value.constructor === Object) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = decryptDeep(v, master);
+    return out;
+  }
+  // Dates, Buffers, Decimals and the like are returned untouched — walking into them would
+  // rebuild them as plain objects and quietly change what callers receive.
+  return value;
+}
