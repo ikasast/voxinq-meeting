@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
 import { GearIcon, HelpIcon, MeetingsIcon, MicIcon, PlusCircleIcon, QueueIcon } from "./icons";
+import { useMyQueueCount } from "./queue-header-link";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.
 //
@@ -149,32 +149,15 @@ export function SideRail({
 }
 
 /**
- * Queue, with what is waiting on it.
+ * Queue, with how much of it is yours.
  *
  * Polled, because the number changes when work finishes rather than when anyone navigates —
  * and the whole point of the badge is to be right while you are looking at something else.
  */
 function QueueRailLink({ active }: { active: boolean }) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    let stop = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/jobs", { cache: "no-store" });
-        if (!res.ok || stop) return;
-        const d = (await res.json()) as { jobs: unknown[] };
-        setCount(d.jobs.length);
-      } catch {
-        // Not worth showing. The next poll is five seconds away.
-      }
-    };
-    void load();
-    const t = setInterval(() => void load(), 5000);
-    return () => {
-      stop = true;
-      clearInterval(t);
-    };
-  }, []);
+  // Your own, not the machine's. The queue lists everybody now, and a badge reading 3 when none
+  // of the three are yours is not a notification — it is a wrong answer to "is mine done?".
+  const count = useMyQueueCount();
 
   return (
     <RailLink href="/queue" label="Queue" active={active}>
