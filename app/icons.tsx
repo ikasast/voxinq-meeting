@@ -155,3 +155,18 @@ export const QueueIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M18 4l2 2-2 2" />
   </Base>
 );
+
+export const PersonIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+  </Base>
+);
+
+export const SignOutIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+    <path d="M10 17l-5-5 5-5" />
+    <path d="M5 12h11" />
+  </Base>
+);

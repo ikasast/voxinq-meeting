@@ -3,9 +3,11 @@ import localFont from "next/font/local";
 import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
-import { GearIcon, MicIcon } from "./icons";
+import { MicIcon } from "./icons";
 import { currentUser } from "@/lib/auth/session";
-import { LogoutButton } from "./logout-button";
+import { prisma } from "@/lib/prisma";
+import { AccountMenu } from "./account-menu";
+import { QueueHeaderLink } from "./queue-header-link";
 import { ThemeToggle } from "./theme-toggle";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
@@ -41,7 +43,19 @@ export const viewport = {
 
 // The top bar, now only on screens too narrow for the rail. It keeps the full logo because
 // there is room for it here and it is the only place the app names itself on a phone.
-function HeaderNav({ external }: { external: boolean }) {
+function HeaderNav({
+  external,
+  me,
+}: {
+  external: boolean;
+  me: {
+    username: string;
+    name: string | null;
+    hasImage: boolean;
+    isAdmin: boolean;
+    via: "session" | "tailnet";
+  } | null;
+}) {
   return (
     <header className="border-b border-[var(--border)] bg-[var(--header)] lg:hidden">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3">
@@ -64,9 +78,10 @@ function HeaderNav({ external }: { external: boolean }) {
           {/* External (read-only) access hides settings/record/new — only viewing + downloads. */}
           {external ? null : (
             <>
-              <Link href="/settings" className="btn-icon" title="Settings" aria-label="Settings">
-                <GearIcon />
-              </Link>
+              {/* The queue had no way in from a phone at all — the rail that carries it is
+                  desktop-only, so the only route was typing the address. Settings moved into
+                  the account menu to make room, which is also where it belongs. */}
+              <QueueHeaderLink />
               <Link
                 href="/quick-record"
                 className="btn-icon"
@@ -80,7 +95,15 @@ function HeaderNav({ external }: { external: boolean }) {
               </Link>
             </>
           )}
-          {process.env.APP_PASSWORD ? <LogoutButton /> : null}
+          {me ? (
+            <AccountMenu
+              username={me.username}
+              name={me.name}
+              hasImage={me.hasImage}
+              isAdmin={me.isAdmin}
+              via={me.via}
+            />
+          ) : null}
         </nav>
       </div>
     </header>
@@ -93,6 +116,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // It is also where a tailnet identity becomes an account: the header showing a name is the
   // first moment the app has ever needed to know which person is looking at it.
   const me = await currentUser();
+  // Whether there is a picture, without carrying its bytes into the HTML of every page.
+  const meWithImage = me
+    ? { ...me, hasImage: (await prisma.user.findUnique({
+        where: { id: me.id },
+        select: { imageType: true },
+      }))?.imageType != null }
+    : null;
   // The docs index, on the tag this instance is running. package.json only moves when a
   // release is cut, so the tag it names always exists -- pointing at main would instead
   // describe whatever has landed since, including things this build does not have.
@@ -125,26 +155,21 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="flex min-h-full flex-1">
             <SideRail external={external} docsUrl={docsUrl} version={appVersion} />
             <div className="flex min-w-0 flex-1 flex-col">
-              <HeaderNav external={external} />
+              <HeaderNav external={external} me={meWithImage} />
               {/* The rail carries navigation on wide screens, but not the controls that only
                   make sense per-device or per-session — those keep a home along the top. */}
               <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
                 {external ? <ThemeToggle /> : null}
                 <InstallApp />
-                {me ? (
-                  <Link
-                    href="/account"
-                    className="self-center text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
-                    title={
-                      me.via === "tailnet"
-                        ? "Identified by your tailnet login, so no password was needed"
-                        : "Signed in"
-                    }
-                  >
-                    {me.name || me.username}
-                  </Link>
+                {meWithImage ? (
+                  <AccountMenu
+                    username={meWithImage.username}
+                    name={meWithImage.name}
+                    hasImage={meWithImage.hasImage}
+                    isAdmin={meWithImage.isAdmin}
+                    via={meWithImage.via}
+                  />
                 ) : null}
-                {me || process.env.APP_PASSWORD ? <LogoutButton /> : null}
               </div>
               <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
             </div>
