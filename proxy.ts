@@ -73,8 +73,15 @@ export async function proxy(req: NextRequest) {
   }
 
   // Login gate for everything else. `/setup` is open for the same reason `/login` is: it is
-  // where the first account comes from, and it refuses on its own once one exists.
-  if (pathname === "/login" || pathname === "/setup" || pathname.startsWith("/api/auth/")) {
+  // where the first account comes from, and it refuses on its own once one exists. `/reset/…`
+  // is open because somebody who could sign in would not be holding a reset link — the link is
+  // the credential, and it checks itself.
+  if (
+    pathname === "/login" ||
+    pathname === "/setup" ||
+    pathname.startsWith("/reset/") ||
+    pathname.startsWith("/api/auth/")
+  ) {
     return NextResponse.next();
   }
   // Signature, expiry, and then the row. The row is the expensive part and it is not optional:

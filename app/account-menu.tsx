@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "./avatar";
-import { GearIcon, PersonIcon, SignOutIcon } from "./icons";
+import { GearIcon, PeopleIcon, PersonIcon, SignOutIcon } from "./icons";
 
 const MENU_W = 208; // w-52
 const GAP = 6;
@@ -122,6 +122,15 @@ export function AccountMenu({
                   <GearIcon className="h-4 w-4" />
                   Settings
                 </Link>
+                {/* The rail carries this on a desktop and does not exist on a phone, which
+                    would leave an administrator no way to reach it from the device they
+                    actually have with them. */}
+                {isAdmin ? (
+                  <Link href="/admin" className={item} role="menuitem" onClick={() => setOpen(false)}>
+                    <PeopleIcon className="h-4 w-4" />
+                    People
+                  </Link>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"

@@ -61,14 +61,18 @@ describe("the queue shows who, and not what", () => {
     expect(queue).toMatch(/asSystem\("the queue screen/);
   });
 
-  it("offers actions only on your own rows", () => {
-    expect(list).toContain("{!running && !isRecording && job.mine ? (");
-    expect(list).toContain("{!isRecording && job.mine ? (");
+  it("offers actions on your own rows, and on everybody's only to an administrator", () => {
+    // One GPU: somebody has to be able to clear it. Being able to stop a job is not being able
+    // to see what it was — the redaction above is what holds that line, and it does not care
+    // who is looking.
+    expect(list).toContain("{!running && !isRecording && (job.mine || isAdmin) ? (");
+    expect(list).toContain("{!isRecording && (job.mine || isAdmin) ? (");
   });
 
-  it("numbers only the rows you are queued in", () => {
-    // A position among everybody's jobs would be a number in a list the reader is not in.
-    expect(list).toContain('jobs.filter((j) => j.status === "queued" && j.mine)');
+  it("numbers only the rows the reader can actually move", () => {
+    // A position among rows you cannot reorder is a number in a list you are not in. For an
+    // administrator that list is everybody's, because that is the order they are changing.
+    expect(list).toContain('j.status === "queued" && (j.mine || isAdmin)');
   });
 });
 

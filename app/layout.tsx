@@ -153,7 +153,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <ConfirmProvider>
           <div className="flex min-h-full flex-1">
-            <SideRail external={external} docsUrl={docsUrl} version={appVersion} />
+            <SideRail
+              external={external}
+              docsUrl={docsUrl}
+              version={appVersion}
+              isAdmin={me?.isAdmin ?? false}
+            />
             <div className="flex min-w-0 flex-1 flex-col">
               <HeaderNav external={external} me={meWithImage} />
               {/* The rail carries navigation on wide screens, but not the controls that only

@@ -26,7 +26,14 @@ export type QueueJob = {
 
 const POLL_MS = 3000;
 
-export function QueueList({ initial }: { initial: QueueJob[] }) {
+export function QueueList({
+  initial,
+  isAdmin = false,
+}: {
+  initial: QueueJob[];
+  /** An administrator can move and stop anybody's row — still without seeing what it is about. */
+  isAdmin?: boolean;
+}) {
   const [jobs, setJobs] = useState(initial);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,9 +53,11 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
   }, [load]);
 
   const move = async (id: string, by: -1 | 1) => {
-    // Only your own: the reorder endpoint will refuse anybody else's, and offering to move a
-    // row that cannot move is worse than not offering.
-    const queued = jobs.filter((j) => j.status === "queued" && j.mine).map((j) => j.id);
+    // Your own, or everybody's if you can order everybody's. Offering to move a row that
+    // cannot move is worse than not offering it.
+    const queued = jobs
+      .filter((j) => j.status === "queued" && (j.mine || isAdmin))
+      .map((j) => j.id);
     const at = queued.indexOf(id);
     const to = at + by;
     if (at < 0 || to < 0 || to >= queued.length) return;
@@ -102,7 +111,9 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
     );
   }
 
-  const queuedIds = jobs.filter((j) => j.status === "queued" && j.mine).map((j) => j.id);
+  const queuedIds = jobs
+    .filter((j) => j.status === "queued" && (j.mine || isAdmin))
+    .map((j) => j.id);
 
   return (
     <div className="space-y-2">
@@ -175,7 +186,7 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                 {running ? <Elapsed since={job.startedAt} /> : "waiting"}
               </span>
               <div className="flex shrink-0 items-center gap-1">
-                {!job.mine && !isRecording ? (
+                {!job.mine && !isRecording && !isAdmin ? (
                   <span className="text-xs text-[var(--text-muted)]">not yours</span>
                 ) : null}
                 {isRecording ? (
@@ -183,7 +194,7 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                   // talking, and would not stop the recording.
                   <span className="text-xs text-[var(--text-muted)]">ends with the meeting</span>
                 ) : null}
-                {!running && !isRecording && job.mine ? (
+                {!running && !isRecording && (job.mine || isAdmin) ? (
                   <>
                     <button
                       type="button"
@@ -205,7 +216,7 @@ export function QueueList({ initial }: { initial: QueueJob[] }) {
                     </button>
                   </>
                 ) : null}
-                {!isRecording && job.mine ? (
+                {!isRecording && (job.mine || isAdmin) ? (
                   <button
                     type="button"
                     onClick={() => void cancel(job)}

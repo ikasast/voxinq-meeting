@@ -170,3 +170,12 @@ export const SignOutIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M5 12h11" />
   </Base>
 );
+
+export const PeopleIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="9" cy="8" r="3" />
+    <path d="M3 20a6 6 0 0 1 12 0" />
+    <path d="M16 5.5a3 3 0 0 1 0 5.6" />
+    <path d="M17.5 20a5.5 5.5 0 0 0-2.2-4.4" />
+  </Base>
+);

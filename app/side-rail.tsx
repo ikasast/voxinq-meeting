@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { GearIcon, HelpIcon, MeetingsIcon, MicIcon, PlusCircleIcon, QueueIcon } from "./icons";
+import {
+  GearIcon,
+  HelpIcon,
+  MeetingsIcon,
+  MicIcon,
+  PeopleIcon,
+  PlusCircleIcon,
+  QueueIcon,
+} from "./icons";
 import { useMyQueueCount } from "./queue-header-link";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.
@@ -94,9 +102,12 @@ export function SideRail({
   external,
   docsUrl,
   version,
+  isAdmin = false,
 }: {
   external: boolean;
   docsUrl: string;
+  /** Only an administrator is shown the way to the people screen. */
+  isAdmin?: boolean;
   version: string;
 }) {
   const pathname = usePathname();
@@ -129,6 +140,11 @@ export function SideRail({
             <MicIcon />
           </RailLink>
           <QueueRailLink active={pathname.startsWith("/queue")} />
+          {isAdmin ? (
+            <RailLink href="/admin" label="People" active={pathname.startsWith("/admin")}>
+              <PeopleIcon />
+            </RailLink>
+          ) : null}
           {/* Settings sits at the bottom, away from the things used every day. */}
           <div className="mt-auto flex w-full flex-col gap-1">
             <DocsLink href={docsUrl} />

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { currentUser } from "@/lib/auth/session";
+import { asSystem } from "@/lib/db/scope";
 import { prisma } from "@/lib/prisma";
 import { abortJob } from "@/lib/queue/dispatcher";
 import { finish } from "@/lib/queue/queue";
@@ -23,10 +25,16 @@ export const runtime = "nodejs";
 //               while people are still talking into it.
 export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const job = await prisma.job.findUnique({
-    where: { id },
-    select: { id: true, kind: true, status: true, meetingId: true },
-  });
+  // An administrator can stop anybody's job, because the queue is one GPU and somebody has to
+  // be able to clear it. They still cannot see what the job is about: this reads the row, not
+  // the meeting, and the screen that offers the button shows a kind and a person and no title.
+  const me = await currentUser();
+  const find = () =>
+    prisma.job.findUnique({
+      where: { id },
+      select: { id: true, kind: true, status: true, meetingId: true },
+    });
+  const job = me?.isAdmin ? await asSystem("an administrator clears the shared queue", find) : await find();
   if (!job) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (job.kind === RECORDING_KIND) {
     return NextResponse.json(
@@ -48,6 +56,10 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     if (job.kind === "minutes" && job.meetingId) abortGeneration(job.meetingId);
   }
 
-  await finish(job.id, "cancelled", "Stopped.");
+  await (me?.isAdmin
+    ? asSystem("an administrator clears the shared queue", () =>
+        finish(job.id, "cancelled", "Stopped by an administrator."),
+      )
+    : finish(job.id, "cancelled", "Stopped."));
   return NextResponse.json({ status: "cancelled", stopsImmediately: job.kind !== "transcribe" });
 }
