@@ -10,6 +10,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// A person using this instance.
+///
+/// Until the first one exists the app behaves exactly as it did before: one shared password,
+/// or none. Creating the first account is what switches identity on, so an existing install
+/// upgrades without being locked out of itself.
+model User {
+  id       String  @id @default(cuid())
+  username String  @unique
+  name     String?
+
+  /// scrypt, as `scrypt$N$r$p$salt$hash`. Null for an identity that only ever arrives with a
+  /// tailnet header and has no password to type.
+  passwordHash String? @map("password_hash")
+
+  /// The `Tailscale-User-Login` this person arrives as. Unique because it is an identity, and
+  /// two accounts claiming one identity would make which of them you are a matter of luck.
+  tailscaleLogin String? @unique @map("tailscale_login")
+
+  isAdmin    Boolean   @default(false) @map("is_admin")
+  /// Set to lock the account out without deleting what it owns.
+  disabledAt DateTime? @map("disabled_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+
+  sessions Session[]
+
+  @@map("users")
+}
+
+/// A logged-in browser.
+///
+/// Server-side rather than a self-contained token, so that deleting an account or a device
+/// ends its access now instead of whenever the token would have expired. The cookie carries a
+/// signature the proxy can check without a database; the row is what makes it revocable, and
+/// it is checked wherever data is actually read.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  /// For the "your sessions" list, so a device can be recognised before it is signed out.
+  userAgent String? @map("user_agent")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
 model Meeting {
   id                        String    @id @default(cuid())
   title                     String

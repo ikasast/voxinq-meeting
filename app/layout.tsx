@@ -4,6 +4,7 @@ import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
 import { GearIcon, MicIcon } from "./icons";
+import { currentUser } from "@/lib/auth/session";
 import { LogoutButton } from "./logout-button";
 import { ThemeToggle } from "./theme-toggle";
 import { InstallApp } from "./install-app";
@@ -88,6 +89,10 @@ function HeaderNav({ external }: { external: boolean }) {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const external = await isExternalRequest();
+  // Asked here because the layout renders on every page and has to say who you are anyway.
+  // It is also where a tailnet identity becomes an account: the header showing a name is the
+  // first moment the app has ever needed to know which person is looking at it.
+  const me = await currentUser();
   // The docs index, on the tag this instance is running. package.json only moves when a
   // release is cut, so the tag it names always exists -- pointing at main would instead
   // describe whatever has landed since, including things this build does not have.
@@ -126,7 +131,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
                 {external ? <ThemeToggle /> : null}
                 <InstallApp />
-                {process.env.APP_PASSWORD ? <LogoutButton /> : null}
+                {me ? (
+                  <Link
+                    href="/account"
+                    className="self-center text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                    title={
+                      me.via === "tailnet"
+                        ? "Identified by your tailnet login, so no password was needed"
+                        : "Signed in"
+                    }
+                  >
+                    {me.name || me.username}
+                  </Link>
+                ) : null}
+                {me || process.env.APP_PASSWORD ? <LogoutButton /> : null}
               </div>
               <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
             </div>

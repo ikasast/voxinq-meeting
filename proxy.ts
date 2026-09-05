@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_COOKIE, expectedAuthToken } from "./lib/auth-token";
+import { SESSION_COOKIE, unpackSession } from "./lib/auth/cookie";
+import { hasUsersCached } from "./lib/auth/has-users";
+import { sessionIsLive } from "./lib/auth/session";
 import { allowedFromOutside } from "./lib/external-writes";
 
 // Password auth + a read-only boundary for access from outside the private network.
@@ -18,8 +21,11 @@ const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const WRITER_PAGES = [/^\/quick-record$/, /^\/[^/]+\/recording$/];
 
 export async function proxy(req: NextRequest) {
-  const expected = await expectedAuthToken();
-  if (!expected) return NextResponse.next(); // auth disabled -> no restrictions
+  // Accounts change what this gate is for. Without them it is the shared password it has always
+  // been; with them it is "are you signed in", and APP_PASSWORD stops being a way in.
+  const accounts = await hasUsersCached();
+  const expected = accounts ? null : await expectedAuthToken();
+  if (!accounts && !expected) return NextResponse.next(); // auth disabled -> no restrictions
 
   // Tailscale serve injects an authenticated identity header within the tailnet -> trusted,
   // full access. A public reverse proxy MUST strip this header to prevent spoofing; Tailscale
@@ -55,12 +61,20 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  // Login gate for everything else.
-  if (pathname === "/login" || pathname.startsWith("/api/auth/")) {
+  // Login gate for everything else. `/setup` is open for the same reason `/login` is: it is
+  // where the first account comes from, and it refuses on its own once one exists.
+  if (pathname === "/login" || pathname === "/setup" || pathname.startsWith("/api/auth/")) {
     return NextResponse.next();
   }
-  const token = req.cookies.get(AUTH_COOKIE)?.value;
-  if (token === expected) return NextResponse.next();
+  // Signature, expiry, and then the row. The row is the expensive part and it is not optional:
+  // a signature proves this server issued the cookie and says nothing about whether the session
+  // still exists, so skipping it would make signing a lost device out a button that does
+  // nothing. Authorization still belongs where the data is — the Next.js proxy documentation is
+  // explicit that a moved route can silently lose proxy coverage — but revocation has to bite
+  // here, because until ownership lands there is nothing further in to catch it.
+  const sessionId = await unpackSession(req.cookies.get(SESSION_COOKIE)?.value);
+  if (sessionId && (await sessionIsLive(sessionId))) return NextResponse.next();
+  if (expected && req.cookies.get(AUTH_COOKIE)?.value === expected) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
