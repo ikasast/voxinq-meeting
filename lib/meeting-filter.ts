@@ -2,6 +2,7 @@
 // Extracted so meeting-list-pane and each page build the same conditions.
 
 import type { Prisma } from "@prisma/client";
+import { dayRange } from "./calendar-month";
 
 /** Build the Prisma where from search/tag (always excludes trash).
  * Archived meetings are hidden from the normal list but surface when a text query is present. */
@@ -9,6 +10,8 @@ export function buildMeetingWhere(opts: {
   query?: string;
   tag?: string;
   series?: string;
+  /** "2026-09-18" — one day, picked from the calendar. */
+  date?: string;
 }): Prisma.MeetingWhereInput {
   const and: Prisma.MeetingWhereInput[] = [{ deletedAt: null }];
   const query = opts.query?.trim();
@@ -32,6 +35,10 @@ export function buildMeetingWhere(opts: {
   // By name rather than id: `Series.name` is unique, it is what the chip shows, and it keeps
   // the URL readable in the same way `?tag=` already is.
   if (series) and.push({ series: { name: series } });
+  // A day the calendar could not have drawn filters nothing rather than everything: `dayRange`
+  // returns null for it, and silently showing the whole list would look like the click missed.
+  const range = opts.date ? dayRange(opts.date.trim()) : null;
+  if (range) and.push({ startedAt: { gte: range.start, lt: range.end } });
 
   return { AND: and };
 }
