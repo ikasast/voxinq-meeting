@@ -8,6 +8,7 @@ import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
 import { applyTranscript, transcribeRecording } from "@/lib/stt/transcribe-recording";
 import { useConfirmEx } from "../../confirm-dialog";
+import { PreflightCheck } from "./preflight-check";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
 type Contender = { id: string; kind: string; meetingId: string | null; title: string | null };
@@ -96,6 +97,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // Chosen for this meeting rather than decided by the hardware: something else was using the
   // card and the answer was to leave it alone. Recording happens; the text arrives at the end.
   const [recordOnly, setRecordOnly] = useState(false);
+  // Folded away when recording starts: they are advice about setting up, and once you are set
+  // up the transcript should have the room. Re-openable, and it stays open if you re-open it.
+  const [tipsOpen, setTipsOpen] = useState(true);
+  // The microphone the check left open, for `startMic` to take over rather than acquire again.
+  const preflightStreamRef = useRef<MediaStream | null>(null);
   // Transcription settings in effect for this recording (shown to the user). The LLM settings
   // are not part of recording, so they are not collected here.
   const [cfg, setCfg] = useState<{
@@ -499,8 +505,15 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         }
       }
 
+      setTipsOpen(false);
+      // Handed over, not borrowed: `startMic` stops these tracks when the meeting ends, so the
+      // ref must not still be pointing at them.
+      const checked = preflightStreamRef.current;
+      preflightStreamRef.current = null;
+
       handleRef.current = await startMic(handlers, {
         liveTranscript: live,
+        micStream: checked ?? undefined,
         model,
         meetingId,
         language: effectiveSttLanguage(model, meetingLangRef.current ?? sttLanguageRef.current),
@@ -952,7 +965,29 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         </div>
       ) : null}
 
-      <ul className="list-disc space-y-1 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] py-2 pl-7 pr-3 text-xs text-[var(--accent-sub)] marker:text-[var(--accent)]">
+      {/* Before the tips, because it is the one thing on this screen worth doing before
+          pressing record: a meeting nobody recorded cannot be recovered, and every other
+          failure here can. Hidden once recording has started, when it has nothing left to say,
+          and for PC-audio-only recordings, which have no microphone to check. */}
+      {!external && !ended && !active && source !== "display" ? (
+        <PreflightCheck
+          source={source}
+          micMode={cfg?.micMode}
+          onStream={(s) => {
+            preflightStreamRef.current = s;
+          }}
+        />
+      ) : null}
+
+      <details
+        open={tipsOpen}
+        onToggle={(e) => setTipsOpen(e.currentTarget.open)}
+        className="rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-2 text-xs text-[var(--accent-sub)]"
+      >
+        <summary className="cursor-pointer select-none marker:text-[var(--accent)]">
+          Before you start
+        </summary>
+        <ul className="mt-1 list-disc space-y-1 pl-4 marker:text-[var(--accent)]">
         <li>Pick the recording source from the menu above (mic / PC audio / both).</li>
         {displaySupported ? (
           <li>For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.</li>
@@ -968,7 +1003,8 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           On phones, <strong>keep the screen on</strong> while recording (sleep is auto-suppressed, but on
           some devices turning the screen off stops mic capture).
         </li>
-      </ul>
+        </ul>
+      </details>
 
       {/* What this recording will actually use — the choices made when the meeting was set up.
           The minutes LLM is deliberately not shown: it plays no part in recording, and seeing
