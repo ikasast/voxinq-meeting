@@ -53,7 +53,12 @@ const UNOWNED = new Set(["user", "session", "passwordReset"]);
 const OWNED = new Set(["meeting", "speakerProfile", "job"]);
 
 /** Belongs to a person through the meeting it hangs off. */
-const VIA_MEETING = new Set(["transcript", "meetingSummary", "meetingParticipant"]);
+const VIA_MEETING = new Set([
+  "transcript",
+  "meetingSummary",
+  "meetingParticipant",
+  "meetingGram",
+]);
 
 /**
  * Labels on meetings rather than content of them. A person sees a tag or a series when they

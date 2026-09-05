@@ -1,5 +1,6 @@
 import { encryptField, isEncrypted } from "@/lib/crypto/field";
 import { keyFor } from "@/lib/crypto/key-cache";
+import { reindexMeeting } from "@/lib/crypto/index-meeting";
 import { prismaRaw } from "@/lib/prisma-raw";
 
 // Encrypting what was already there.
@@ -71,23 +72,44 @@ export async function runEncryptExisting(
     minutes += rows.length;
   }
 
+  // The index is built from the same walk. It has to be: an account whose meetings were
+  // encrypted but never indexed is one whose search silently stops finding anything it used to.
+  let indexed = 0;
+  const meetings = await prismaRaw.meeting.findMany({
+    where: { ownerId },
+    select: { id: true },
+  });
+  for (const m of meetings) {
+    if (signal?.aborted) break;
+    await reindexMeeting(m.id, ownerId);
+    indexed++;
+  }
+
   return {
     note:
-      transcripts + minutes === 0
+      transcripts + minutes + indexed === 0
         ? undefined
-        : `Encrypted ${transcripts} utterance(s) and ${minutes} set(s) of minutes.`,
+        : `Encrypted ${transcripts} utterance(s) and ${minutes} set(s) of minutes, and indexed ${indexed} meeting(s) for search.`,
   };
 }
 
-/** Is there anything left in the clear for this person? Asked at sign-in. */
-export async function hasPlaintext(ownerId: string): Promise<boolean> {
-  const [t, m] = await Promise.all([
+/**
+ * Is there work to do for this person? Asked at sign-in.
+ *
+ * Two reasons, not one. Something still in the clear is the obvious case. The other is a meeting
+ * with no search index — which is what every account looked like the moment indexing was added,
+ * because their meetings were already encrypted and so nothing would have queued a job for them.
+ * Their search would simply have stopped finding anything, with nothing to say why.
+ */
+export async function needsEncryptionPass(ownerId: string): Promise<boolean> {
+  const [plainText, plainMinutes, unindexed] = await Promise.all([
     prismaRaw.transcript.count({
       where: { meeting: { ownerId }, NOT: { text: { startsWith: "enc:v1." } } },
     }),
     prismaRaw.meetingSummary.count({
       where: { meeting: { ownerId }, NOT: { summaryText: { startsWith: "enc:v1." } } },
     }),
+    prismaRaw.meeting.count({ where: { ownerId, grams: { none: {} } } }),
   ]);
-  return t + m > 0;
+  return plainText + plainMinutes + unindexed > 0;
 }

@@ -39,6 +39,11 @@ describe("the unscoped client", () => {
     // clear and writes them back encrypted, and the scoped client would decrypt what it read and
     // re-encrypt what it wrote.
     "lib/queue/runners/encrypt.ts",
+    // Builds the search index for a meeting it is *told* the owner of, from a queued job or from
+    // a write. Going through the scoped client would make it depend on the ambient scope
+    // happening to match that owner, which is exactly the assumption this design removes.
+    "lib/crypto/index-meeting.ts",
+    "lib/crypto/reindex-hook.ts",
   ]);
 
   it("is imported only where it has to be", () => {

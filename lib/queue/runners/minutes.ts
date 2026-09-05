@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { requestSummary } from "@/lib/llm";
 import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { resolveTemplate } from "@/lib/minutes-templates";
@@ -109,6 +110,8 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
       data: { meetingId, summaryText, provider: effProvider, model: effModel },
     });
     await prisma.meeting.update({ where: { id: meetingId }, data: { summaryStatus: "done" } });
+    // Minutes are searched too, so the index has to include them.
+    await reindexAfterWrite(meetingId);
     return { aborted: false as const };
   } catch (e) {
     const aborted = ac.signal.aborted || (e instanceof Error && e.name === "AbortError");
