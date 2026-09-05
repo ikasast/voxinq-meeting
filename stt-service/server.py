@@ -421,6 +421,11 @@ class StreamState:
     language: str | None = None  # None=auto-detect
     initial_prompt: str | None = None  # glossary (recognition bias)
     translate: bool = False  # translate non-Japanese utterances into Japanese (CPU)
+    # Whether to recognise *during* this meeting. Defaults to what the host can do, and the
+    # client may turn it off for one session: a recording started while something else holds
+    # the card can either take the card or leave it, and leaving it means recording only. The
+    # audio is kept either way, so nothing is lost — it is recognised afterwards instead.
+    live: bool = LIVE_TRANSCRIPTION
     seq: int = 0  # per-connection utterance number, used to attach translations to finals
     buffer: np.ndarray = None  # type: ignore[assignment]
     silence_samples: int = 0
@@ -1650,7 +1655,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
         # On a host that transcribes after the meeting there is nothing to do here at all: the
         # audio has already been kept, and the whole file is recognised once at the end.
         if (
-            LIVE_TRANSCRIPTION
+            state.live
             and audio.size >= min_seg
             and voiced_ms(audio, frame) >= VAD_MIN_SPEECH_MS
         ):
@@ -1720,6 +1725,10 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         state.model_name, (str(ip).strip() or None) if ip else None
                     )
                     state.translate = bool(payload.get("translate"))
+                    # Only ever narrows: a host that cannot keep up does not start doing so
+                    # because a client asked.
+                    if payload.get("liveTranscript") is False:
+                        state.live = False
                     # Resuming a meeting, or reconnecting after a drop, appends to the existing
                     # WAV. Start this session's clock at the end of that audio so every timestamp
                     # is an offset into the finished recording rather than into this session —
@@ -1729,11 +1738,12 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         state.elapsed_samples = prior
                         state.seg_start_sample = prior
                     started = True
-                    if not LIVE_TRANSCRIPTION:
-                        # Recording only. No model is loaded at all: this host would transcribe
-                        # slower than people speak, so the work is done once at the end from the
-                        # finished file instead. Loading it here would cost memory and a wait
-                        # for something that will not be used.
+                    if not state.live:
+                        # Recording only. No model is loaded at all — either this host would
+                        # transcribe slower than people speak, or the client asked to leave the
+                        # card to whatever is already using it. Either way the work is done once
+                        # at the end from the finished file, and loading a model here would cost
+                        # memory and a wait for something that will not be used.
                         await ws.send_text(
                             json.dumps({"type": "status", "status": "open", "live": False})
                         )

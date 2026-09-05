@@ -87,6 +87,8 @@ export async function startMic(
     micMode?: string;
     source?: string; // "mic"(既定) | "display"(PC音声) | "both"(両方をミックス)
     translate?: boolean; // translate non-Japanese utterances into Japanese (CPU-side)
+    /** False records without recognising, leaving the GPU to whatever already has it. */
+    liveTranscript?: boolean;
   },
 ): Promise<SttHandle> {
   const log = (...args: unknown[]) => console.log("[stt]", ...args);
@@ -186,6 +188,10 @@ export async function startMic(
     language: opts?.language,
     initialPrompt: opts?.initialPrompt,
     translate: opts?.translate ?? false,
+    // Absent means "whatever the host can do". False is a deliberate choice for this session:
+    // recording started beside something that is already using the card, leaving it alone. The
+    // audio is kept regardless and recognised at the end.
+    liveTranscript: opts?.liveTranscript,
   });
 
   let ws: WebSocket | null = null;

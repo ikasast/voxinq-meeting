@@ -1,7 +1,15 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "../lib/prisma";
 import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "../lib/queue/queue";
 import { reorderQueue } from "../lib/queue/reorder";
+import {
+  gpuContenders,
+  preemptForRecording,
+  releaseRecording,
+  reserveForRecording,
+  sweepStaleRecordings,
+} from "../lib/queue/recording";
+import { RECORDING_KIND } from "../lib/queue/types";
 
 // The queue against a real PostgreSQL, because the things that can go wrong here are things
 // only a database does: two claims interleaving, an ordering that reads correctly and sorts
@@ -204,6 +212,228 @@ describe.skipIf(!ENABLED)("the queue", () => {
       expect(await openJobFor("minutes", meeting.id)).toBeNull();
     } finally {
       await prisma.meeting.delete({ where: { id: meeting.id } });
+    }
+  });
+});
+
+describe.skipIf(!ENABLED)("a recording's claim on the card", () => {
+  async function meeting(title: string) {
+    return (
+      await prisma.meeting.create({ data: { title, startedAt: new Date() }, select: { id: true } })
+    ).id;
+  }
+
+  it("counts only what is actually on the GPU as being in the way", async () => {
+    const m = await meeting("recording test");
+    try {
+      const heavy = await job({ kind: "minutes", meetingId: m, vramMb: SLOT });
+      const elsewhere = await job({ kind: "transcribe", meetingId: m, vramMb: 0 });
+      await prisma.job.updateMany({
+        where: { id: { in: [heavy, elsewhere] } },
+        data: { status: "running" },
+      });
+      // The off-GPU one is running too, and is no reason to ask anybody anything: it is a cloud
+      // model's memory being used, not this card's. Asking about it would teach people to click
+      // through the question, which is how the answer stops meaning anything.
+      expect((await gpuContenders()).map((c) => c.id)).toEqual([heavy]);
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m } });
+      await prisma.meeting.delete({ where: { id: m } });
+    }
+  });
+
+  it("puts what it interrupted back at the front, and says why", async () => {
+    const m = await meeting("recording test");
+    try {
+      const heavy = await job({ kind: "minutes", meetingId: m, vramMb: SLOT });
+      await prisma.job.update({ where: { id: heavy }, data: { status: "running" } });
+
+      expect(await preemptForRecording()).toBe(1);
+
+      const back = await prisma.job.findUniqueOrThrow({ where: { id: heavy } });
+      // Requeued, not thrown away: whoever pressed record wants to record, not to lose the
+      // minutes they asked for ten minutes ago.
+      expect(back.status).toBe("queued");
+      expect(back.startedAt).toBeNull();
+      expect(back.position).toBe(0);
+      expect(back.detail).toContain("Interrupted so a recording could start");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m } });
+      await prisma.meeting.delete({ where: { id: m } });
+    }
+  });
+
+  it("survives this process restarting, because the recording does", async () => {
+    const m = await prisma.meeting.create({
+      data: { title: "recording through a redeploy", startedAt: new Date() },
+      select: { id: true },
+    });
+    try {
+      const held = await reserveForRecording(m.id, "large-v3-turbo");
+      made.push(held.id);
+      const other = await job({ kind: "minutes", meetingId: m.id, vramMb: SLOT });
+      await prisma.job.update({ where: { id: other }, data: { status: "running" } });
+
+      await recoverInterrupted();
+
+      // A recording is a browser talking straight to the STT service; restarting the web app
+      // does not interrupt it, so the card really is still in use. Requeueing the hold would
+      // drop it mid-meeting and let something heavy start underneath.
+      expect((await prisma.job.findUniqueOrThrow({ where: { id: held.id } })).status).toBe(
+        "running",
+      );
+      // Everything that this process was actually running does go back in the queue.
+      expect((await prisma.job.findUniqueOrThrow({ where: { id: other } })).status).toBe("queued");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m.id } });
+      await prisma.meeting.delete({ where: { id: m.id } });
+    }
+  });
+
+  it("holds the card until the meeting ends, then gives it back", async () => {
+    const rec = await meeting("the one being recorded");
+    const other = await meeting("the one that was waiting");
+    try {
+      const waiting = await job({ kind: "minutes", meetingId: other, vramMb: TWO_SLOTS });
+      const held = await reserveForRecording(rec, "large-v3-turbo");
+      made.push(held.id);
+      // Pressing record twice is one recording, not two claims on the same card.
+      expect((await reserveForRecording(rec, "large-v3-turbo")).id).toBe(held.id);
+
+      // Room for the waiting job on its own, and one megabyte short of room for it beside the
+      // recording. Derived from what the reservation actually took rather than a number written
+      // here, so the test keeps testing admission when the model table changes.
+      const cost = (await prisma.job.findUniqueOrThrow({ where: { id: held.id } })).vramMb;
+      expect(cost).toBeGreaterThan(0);
+      const budget = TWO_SLOTS + cost - 1;
+      expect(await claimNext(budget)).toBeNull();
+      expect((await prisma.job.findUniqueOrThrow({ where: { id: waiting } })).status).toBe("queued");
+
+      expect(await releaseRecording(rec)).toBe(1);
+      expect((await claimNext(budget))?.id).toBe(waiting);
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: { in: [rec, other] } } });
+      await prisma.meeting.deleteMany({ where: { id: { in: [rec, other] } } });
+    }
+  });
+});
+
+describe.skipIf(!ENABLED)("a hold left behind by a browser that went away", () => {
+  // The reservation is released by the screen that took it — on ending, on unmount, on
+  // `pagehide`. None of those fire for a browser that is killed, a phone that discards the tab,
+  // or a laptop closed on the way out of the room. What is left is a card that looks occupied
+  // forever, so the sweep asks the STT service which meetings actually have a live connection.
+  let server: import("node:http").Server;
+  let port = 0;
+  let answer: Record<string, string | null> = {};
+  let asked = 0;
+
+  beforeAll(async () => {
+    if (!ENABLED) return;
+    const http = await import("node:http");
+    server = http.createServer((req, res) => {
+      asked += 1;
+      // Drain the body. A response sent while the request is still being written is a reset on
+      // Windows, which is how this pattern failed the first time it was used here.
+      req.on("data", () => {});
+      req.on("end", () => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(answer));
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    port = (server.address() as import("node:net").AddressInfo).port;
+  });
+
+  afterAll(() => server?.close());
+
+  async function heldSince(meetingId: string, ms: number) {
+    const j = await prisma.job.create({
+      data: {
+        kind: RECORDING_KIND,
+        meetingId,
+        status: "running",
+        vramMb: 1500,
+        startedAt: new Date(Date.now() - ms),
+      },
+      select: { id: true },
+    });
+    made.push(j.id);
+    return j.id;
+  }
+  const status = async (id: string) =>
+    (await prisma.job.findUniqueOrThrow({ where: { id } })).status;
+
+  it("leaves a recording that is still connected alone", async () => {
+    const m = await prisma.meeting.create({
+      data: { title: "still going", startedAt: new Date() },
+      select: { id: true },
+    });
+    try {
+      const id = await heldSince(m.id, 10 * 60_000);
+      answer = { [m.id]: "recording" };
+      process.env.STT_INTERNAL_URL = `http://127.0.0.1:${port}`;
+      expect(await sweepStaleRecordings()).toBe(0);
+      expect(await status(id)).toBe("running");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m.id } });
+      await prisma.meeting.delete({ where: { id: m.id } });
+    }
+  });
+
+  it("leaves one that only just started alone, connection or not", async () => {
+    const m = await prisma.meeting.create({
+      data: { title: "just pressed record", startedAt: new Date() },
+      select: { id: true },
+    });
+    try {
+      // The hold is taken before the websocket exists. Sweeping inside that window would take
+      // the card away from a recording that is still opening its connection.
+      const id = await heldSince(m.id, 1000);
+      answer = {};
+      const before = asked;
+      process.env.STT_INTERNAL_URL = `http://127.0.0.1:${port}`;
+      expect(await sweepStaleRecordings()).toBe(0);
+      expect(asked).toBe(before); // not even asked about
+      expect(await status(id)).toBe("running");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m.id } });
+      await prisma.meeting.delete({ where: { id: m.id } });
+    }
+  });
+
+  it("takes the card back when nothing is recording that meeting any more", async () => {
+    const m = await prisma.meeting.create({
+      data: { title: "the tab was closed", startedAt: new Date() },
+      select: { id: true },
+    });
+    try {
+      const id = await heldSince(m.id, 10 * 60_000);
+      answer = { [m.id]: null };
+      process.env.STT_INTERNAL_URL = `http://127.0.0.1:${port}`;
+      expect(await sweepStaleRecordings()).toBe(1);
+      expect(await status(id)).toBe("done");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m.id } });
+      await prisma.meeting.delete({ where: { id: m.id } });
+    }
+  });
+
+  it("releases nothing when the service cannot be reached", async () => {
+    const m = await prisma.meeting.create({
+      data: { title: "cannot tell", startedAt: new Date() },
+      select: { id: true },
+    });
+    try {
+      const id = await heldSince(m.id, 10 * 60_000);
+      // "I could not ask" is not "nothing is recording". Guessing here would take the card away
+      // from a live meeting every time the STT service restarted.
+      process.env.STT_INTERNAL_URL = "http://127.0.0.1:59997";
+      expect(await sweepStaleRecordings()).toBe(0);
+      expect(await status(id)).toBe("running");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m.id } });
+      await prisma.meeting.delete({ where: { id: m.id } });
     }
   });
 });

@@ -8,7 +8,9 @@ import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
 import { applyTranscript, transcribeRecording } from "@/lib/stt/transcribe-recording";
 import { useConfirmEx } from "../../confirm-dialog";
-import { useGpuBusy } from "../../use-gpu-busy";
+
+/** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
+type Contender = { id: string; kind: string; meetingId: string | null; title: string | null };
 
 type TranscriptEntry = {
   id: string;
@@ -56,7 +58,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const { id: meetingId } = use(params);
   const router = useRouter();
   const confirm = useConfirmEx();
-  const gpu = useGpuBusy();
 
   const [title, setTitle] = useState<string>("");
   const [startedAt, setStartedAt] = useState<Date | null>(null);
@@ -92,6 +93,9 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // because recognition here is slower than speech (see lib/stt/preload.ts).
   const [deferred, setDeferred] = useState<boolean | null>(null);
   const [deferredStatus, setDeferredStatus] = useState<string | null>(null);
+  // Chosen for this meeting rather than decided by the hardware: something else was using the
+  // card and the answer was to leave it alone. Recording happens; the text arrives at the end.
+  const [recordOnly, setRecordOnly] = useState(false);
   // Transcription settings in effect for this recording (shown to the user). The LLM settings
   // are not part of recording, so they are not collected here.
   const [cfg, setCfg] = useState<{
@@ -421,11 +425,82 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // Ready = the model this meeting will use is the one resident on the STT service.
   const modelReady = Boolean(loadedModel) && loadedModel === activeModel;
 
+  /**
+   * Ask the queue for the GPU.
+   *
+   * Called twice when something is in the way: once to find out what, once with the answer.
+   * `interrupt: false` reserves nothing and stops nothing — it is the question.
+   */
+  const claimCard = useCallback(
+    async (id: string, model: string | undefined, interrupt: boolean) => {
+      try {
+        const res = await fetch("/api/queue/recording", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ meetingId: id, model, interrupt }),
+        });
+        if (!res.ok) return { contenders: [] as Contender[] };
+        return (await res.json()) as { contenders: Contender[] };
+      } catch {
+        // The queue being unreachable must not stop a meeting from being recorded. Worst case
+        // two things share the card and both are slow, which is better than not recording.
+        return { contenders: [] as Contender[] };
+      }
+    },
+    [],
+  );
+
+  /** Hand the GPU back. Safe to call when nothing was ever reserved. */
+  const release = useCallback(() => {
+    void fetch(`/api/queue/recording?meetingId=${encodeURIComponent(meetingId)}`, {
+      method: "DELETE",
+      keepalive: true,
+    }).catch(() => {});
+  }, [meetingId]);
+
   const startRecording = useCallback(async () => {
     if (handleRef.current || endedRef.current) return; // never (re)start an ended meeting
     try {
       const model = activeModel;
+
+      // Ask the queue for the card. On a host that does not recognise as it goes there is
+      // nothing to ask for — the recording uses no GPU at all — so the question never appears.
+      let live = deferred !== true;
+      if (live) {
+        const claim = await claimCard(meetingId, model, false);
+        if (claim.contenders.length > 0) {
+          const label = (c: Contender) =>
+            c.kind === "minutes" ? "Minutes" : c.kind === "diarize" ? "Diarize" : "Re-transcribe";
+          const what = claim.contenders
+            .map((c) => `${label(c)}${c.title ? ` — ${c.title}` : ""}`)
+            .join(", ");
+          // Both answers are reasonable, so neither is the destructive one: recording happens
+          // either way, and what changes is whether you can read along while it does.
+          // `confirm` resolves to { ok, checked } — the object is always truthy, so the
+          // answer has to be read out of it.
+          const { ok: takeIt } = await confirm({
+            title: "Something else is using the GPU",
+            // Plain text: the dialog does not render markdown, and asterisks in a sentence
+            // read as a mistake rather than as emphasis.
+            message: `${what} is running.
+
+Interrupting it transcribes this meeting as you speak. What was running goes back to the front of the queue and starts again once the meeting ends.
+
+Recording only leaves it alone. The audio is kept and transcribed after the meeting — nothing is lost, but no text appears while you talk.`,
+            confirmLabel: "Interrupt and transcribe live",
+            cancelLabel: "Record only",
+          });
+          if (takeIt) {
+            await claimCard(meetingId, model, true);
+          } else {
+            live = false;
+            setRecordOnly(true);
+          }
+        }
+      }
+
       handleRef.current = await startMic(handlers, {
+        liveTranscript: live,
         model,
         meetingId,
         language: effectiveSttLanguage(model, meetingLangRef.current ?? sttLanguageRef.current),
@@ -441,7 +516,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       showToast(`Cannot start the microphone: ${(e as Error).message}`);
       setStatus("error");
     }
-  }, [handlers, meetingId, showToast, activeModel]);
+  }, [handlers, meetingId, showToast, activeModel, confirm, deferred, claimCard]);
 
   const stopRecording = useCallback(async () => {
     const h = handleRef.current;
@@ -705,16 +780,27 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     return () => {
       void handleRef.current?.stop();
+      release();
     };
-  }, []);
+  }, [meetingId, release]);
+
+  // Leaving the page by closing the tab or typing an address does not unmount anything, so the
+  // effect above never runs — `pagehide` is the one that fires for both, and `keepalive` is what
+  // lets the request outlive the document. The queue sweep still backstops a browser that dies
+  // without either.
+  useEffect(() => {
+    window.addEventListener("pagehide", release);
+    return () => window.removeEventListener("pagehide", release);
+  }, [release]);
 
   const elapsedSec = startedAt
     ? Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000))
     : 0;
 
-  // Block starting a recording if the meeting already ended, or while another GPU task runs
-  // (minutes generation, or an STT job elsewhere). Stopping the current recording stays allowed.
-  const startBlocked = ended || (gpu.busy && !active);
+  // Block starting a recording if the meeting already ended. Stopping stays allowed.
+  // Recording does not wait for the GPU any more — it asks for it, and the person decides.
+  // `ended` is the only thing left that makes starting impossible rather than inconvenient.
+  const startBlocked = ended;
 
   // Displayed language prefers this meeting's setting (meetingLang), else the settings default.
   const effectiveLang = meetingLang ?? cfg?.sttLanguage;
@@ -782,6 +868,14 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           <div className="flex items-center gap-2 text-sm">
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusDot(status)}`} />
             <span className="text-[var(--text-secondary)]">{statusLabel(status)}</span>
+            {recordOnly ? (
+              <span
+                className="text-xs text-[var(--warning)]"
+                title="You chose to leave the GPU to what was already using it. The audio is being kept and will be transcribed when the meeting ends."
+              >
+                recording only
+              </span>
+            ) : null}
             {active ? (
               <div
                 className={`h-1.5 w-16 overflow-hidden rounded-full bg-[var(--elevated)] ${
@@ -1025,9 +1119,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
               ? "Recording is not available from an external network"
               : ended
                 ? "This meeting has ended"
-                : startBlocked
-                  ? `Busy: ${gpu.label ?? "another GPU task is running"}. Please wait.`
-                  : undefined
+                : undefined
           }
           // Full width where the thumb is the input, capped and centred where a mouse is: the
           // same button spanning a desktop window is a metre of saturated red for a click that
