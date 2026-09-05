@@ -1,5 +1,6 @@
 import { antiAliasStages } from "@/lib/audio/lowpass";
 import { diarizerLabelToKey, SELF_KEY } from "@/lib/speakers";
+import { micConstraints, streamIsLive } from "./mic-constraints";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
 // Assumes in-person meetings and single-phone recording, handling a single mic input.
@@ -89,13 +90,18 @@ export async function startMic(
     translate?: boolean; // translate non-Japanese utterances into Japanese (CPU-side)
     /** False records without recognising, leaving the GPU to whatever already has it. */
     liveTranscript?: boolean;
+    /**
+     * A microphone already open — from the pre-flight check.
+     *
+     * Handed over rather than re-acquired: some phones fail the second `getUserMedia` of a
+     * session, and "the check worked, the recording did not" is the worst possible outcome for
+     * a check. Recording owns it from here and stops it at the end.
+     */
+    micStream?: MediaStream;
   },
 ): Promise<SttHandle> {
   const log = (...args: unknown[]) => console.log("[stt]", ...args);
 
-  // room: to better pick up distant voices in a meeting room, turn off echo/noise
-  //       suppression and raise auto-gain. standard: the default for near/call use.
-  const room = opts?.micMode === "room";
   const source = opts?.source ?? "mic";
   const streams: MediaStream[] = [];
   try {
@@ -116,19 +122,14 @@ export async function startMic(
       streams.push(disp);
     }
     if (source === "mic" || source === "both") {
-      // In both (mic + PC audio), the mic picks up PC audio from the speakers and
-      // double-captures (echo). The browser AEC can cancel it by referencing the system
-      // playback, so force AEC/NS ON for both even in room mode.
-      const useAec = source === "both" ? true : !room;
+      // The check's microphone, if it is still open. Falling back to acquiring is not a failure
+      // — it is what happens when nobody ran the check, which is most of the time.
       streams.push(
-        await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            echoCancellation: useAec,
-            noiseSuppression: useAec,
-            autoGainControl: true,
-          },
-        }),
+        streamIsLive(opts?.micStream)
+          ? (opts!.micStream as MediaStream)
+          : await navigator.mediaDevices.getUserMedia({
+              audio: micConstraints(source, opts?.micMode),
+            }),
       );
     }
   } catch (e) {
