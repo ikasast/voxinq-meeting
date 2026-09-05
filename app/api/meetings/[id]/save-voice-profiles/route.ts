@@ -55,9 +55,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
     // Re-enrolling adds to the profile instead of replacing it: the stored voiceprint is the
     // average of every recording the person has been enrolled from.
-    const existing = await prisma.speakerProfile.findUnique({
+    const existing = await prisma.speakerProfile.findFirst({
       where: { name },
-      select: { embedding: true, sampleCount: true, embeddingModel: true },
+      select: { id: true, embedding: true, sampleCount: true, embeddingModel: true },
     });
     const merged = mergeEmbedding(
       existing ? parseEmbedding(existing.embedding) : null,
@@ -66,21 +66,23 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       existing?.embeddingModel,
       clusterModel,
     );
-    await prisma.speakerProfile.upsert({
-      where: { name },
-      update: {
-        embedding: JSON.stringify(merged.embedding),
-        sampleCount: merged.sampleCount,
-        embeddingModel: clusterModel,
-        sourceMeetingId: id,
-      },
-      create: {
-        name,
-        embedding: JSON.stringify(embedding),
-        embeddingModel: clusterModel,
-        sourceMeetingId: id,
-      },
-    });
+    // Not an upsert: `name` is unique per person now, and naming the owner here is exactly
+    // what the scoped client exists to avoid. `existing` was already looked up above.
+    const fields = { embeddingModel: clusterModel, sourceMeetingId: id };
+    if (existing) {
+      await prisma.speakerProfile.update({
+        where: { id: existing.id },
+        data: {
+          ...fields,
+          embedding: JSON.stringify(merged.embedding),
+          sampleCount: merged.sampleCount,
+        },
+      });
+    } else {
+      await prisma.speakerProfile.create({
+        data: { ...fields, name, embedding: JSON.stringify(embedding) },
+      });
+    }
     saved.push(name);
   }
 

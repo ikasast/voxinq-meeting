@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
   // Falls back to pyannote when the caller does not say — an older client, and pyannote is
   // what every release before the backends split used.
   const model = parseEmbeddingModelId(body?.embeddingModel) ?? LEGACY_EMBEDDING_MODEL;
-  const existing = await prisma.speakerProfile.findUnique({
+  const existing = await prisma.speakerProfile.findFirst({
     where: { name },
-    select: { embedding: true, sampleCount: true, embeddingModel: true },
+    select: { id: true, embedding: true, sampleCount: true, embeddingModel: true },
   });
   const merged = mergeEmbedding(
     existing ? parseEmbedding(existing.embedding) : null,
@@ -65,31 +65,35 @@ export async function POST(req: NextRequest) {
     existing?.embeddingModel,
     model,
   );
-  await prisma.speakerProfile.upsert({
-    where: { name },
-    update: {
-      embedding: JSON.stringify(merged.embedding),
-      sampleCount: merged.sampleCount,
-      embeddingModel: model,
-      sourceMeetingId: null,
-    },
-    create: {
-      name,
-      embedding: JSON.stringify(embedding),
-      embeddingModel: model,
-      sourceMeetingId: null,
-    },
-  });
+  // Not an upsert: `name` is unique per person now, and naming the owner here is exactly what
+  // the scoped client exists to avoid. `existing` was already looked up above.
+  const fields = {
+    embeddingModel: model,
+    sourceMeetingId: null,
+  };
+  if (existing) {
+    await prisma.speakerProfile.update({
+      where: { id: existing.id },
+      data: {
+        ...fields,
+        embedding: JSON.stringify(merged.embedding),
+        sampleCount: merged.sampleCount,
+      },
+    });
+  } else {
+    await prisma.speakerProfile.create({
+      data: { ...fields, name, embedding: JSON.stringify(embedding) },
+    });
+  }
   return NextResponse.json({ ok: true, name, sampleCount: merged.sampleCount });
 }
 
 export async function DELETE(req: NextRequest) {
   const name = new URL(req.url).searchParams.get("name")?.trim();
   if (!name) return apiError("name is required", 400);
-  try {
-    await prisma.speakerProfile.delete({ where: { name } });
-  } catch {
-    return apiError("not found", 404);
-  }
+  // deleteMany rather than delete: the name identifies a row only within one person's library,
+  // and the scoped client is what confines it to theirs.
+  const { count } = await prisma.speakerProfile.deleteMany({ where: { name } });
+  if (count === 0) return apiError("not found", 404);
   return NextResponse.json({ ok: true });
 }

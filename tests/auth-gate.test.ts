@@ -41,7 +41,8 @@ describe("identity from the tailnet", () => {
     // Browsing from a phone before visiting /setup would otherwise create a non-admin, and
     // /setup then refuses because accounts exist: a server with no administrator and no way to
     // make one.
-    expect(session).toContain("isAdmin: (await prisma.user.count()) === 0");
+    expect(session).toContain("const first = (await prisma.user.count()) === 0;");
+    expect(session).toContain("isAdmin: first,");
   });
 
   it("survives two tabs arriving at once", () => {

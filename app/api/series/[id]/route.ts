@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
+import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -13,10 +14,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       name: true,
       summaryFormat: true,
       sttGlossary: true,
-      _count: { select: { meetings: { where: { deletedAt: null } } } },
+      // Named explicitly: a `where` nested inside a `_count` is not rewritten by the scoped
+      // client, so without this the number counts everybody's meetings in the series.
+      _count: { select: { meetings: { where: { deletedAt: null, ...(await onlyMine()) } } } },
     },
   });
   return series ? NextResponse.json(series) : apiError("not found", 404);
+}
+
+/** `{ ownerId }` when this instance has accounts, `{}` when it does not. */
+async function onlyMine(): Promise<{ ownerId?: string }> {
+  const me = await currentUser();
+  return me ? { ownerId: me.id } : {};
 }
 
 // Update a series: rename, and per-series defaults (minutes format / STT glossary).

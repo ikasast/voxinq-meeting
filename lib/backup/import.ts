@@ -12,8 +12,7 @@
 //   - Voice profiles by name, likewise — an imported embedding must not silently replace a
 //     profile someone enrolled here.
 
-import type { PrismaClient } from "@prisma/client";
-import { prisma } from "../prisma";
+import { prisma, type PrismaTransaction } from "../prisma";
 import { writeSettings, type AppSettings } from "../settings";
 import { sttInternalUrl } from "../stt/internal";
 import type { BundleDb, BundleMeeting } from "./manifest";
@@ -229,7 +228,7 @@ export async function runImport(input: ImportInput): Promise<ImportResult> {
       // One transaction per meeting rather than one for everything: a single bad row then
       // costs one meeting instead of the whole import, and because re-importing skips ids
       // that already landed, a partial import can simply be run again.
-      await prisma.$transaction(async (tx: Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0]) => {
+      await prisma.$transaction(async (tx: PrismaTransaction) => {
         await tx.meeting.create({
           data: {
             id: m.id,

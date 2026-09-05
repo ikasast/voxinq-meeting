@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { adoptOrphanedMeetings } from "@/lib/auth/adopt";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE, SESSION_TTL_MS, packSession, unpackSession } from "./cookie";
 
@@ -79,15 +80,20 @@ async function resolveTailnetUser(login: string) {
   if (found) return found;
 
   try {
-    return await prisma.user.create({
+    const first = (await prisma.user.count()) === 0;
+    const made = await prisma.user.create({
       data: {
         username: await freeUsername(login.split("@")[0] || "user"),
         name: login,
         tailscaleLogin: login,
-        isAdmin: (await prisma.user.count()) === 0,
+        isAdmin: first,
       },
       select: { id: true, username: true, name: true, isAdmin: true, disabledAt: true },
     });
+    // The first account arrives this way whenever somebody opens the app from their phone
+    // before visiting /setup, so the adoption has to happen on this path too.
+    if (first) await adoptOrphanedMeetings(made.id);
+    return made;
   } catch {
     // Two tabs arriving at once race here, and the loser's unique-constraint failure is not an
     // error — the account it wanted now exists.
