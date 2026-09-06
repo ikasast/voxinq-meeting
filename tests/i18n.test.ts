@@ -36,6 +36,13 @@ describe("finding the strings", () => {
     ]);
   });
 
+  it("reads a sentence written with single quotes", () => {
+    // Which is how a string containing a double quote has to be written, and this app has two:
+    // the transcript placeholder quotes the button it names. They were invisible to the first
+    // scanner, so they were neither reported as missing nor ever translated.
+    expect(keysIn(`t('Press "Start recording" below.')`)).toEqual(['Press "Start recording" below.']);
+  });
+
   it("does not mistake an example in a comment for a call", () => {
     // This module's own documentation says `t("Start recording")`, and a scanner that cannot
     // tell the two apart puts phantom rows in the table.

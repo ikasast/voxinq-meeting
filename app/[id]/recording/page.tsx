@@ -9,6 +9,7 @@ import { sttHealth } from "@/lib/stt/preload";
 import { applyTranscript, transcribeRecording } from "@/lib/stt/transcribe-recording";
 import { useConfirmEx } from "../../confirm-dialog";
 import { PreflightCheck } from "./preflight-check";
+import { useT } from "@/app/locale-provider";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
 type Contender = { id: string; kind: string; meetingId: string | null; title: string | null };
@@ -31,10 +32,13 @@ function formatElapsed(seconds: number) {
   return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+// Returns the key rather than the words, so the caller — which has the locale — translates it.
+// A module-level function has no hook to reach the language with, and threading one in would
+// make five callers pass a translator to something whose whole job is a switch.
 function statusLabel(status: RecognizerStatus | "idle") {
   switch (status) {
     case "connecting":
-      return "Preparing"; // model loading. audio is being captured and transcribed together once ready
+      return "Preparing"; // model loading. audio is captured and transcribed together once ready
     case "open":
       return "Listening";
     case "reconnecting":
@@ -46,6 +50,22 @@ function statusLabel(status: RecognizerStatus | "idle") {
     default:
       return "Stopped";
   }
+}
+
+/** The five strings statusLabel can return, spelled out so the table's test can see them. */
+export function statusText(
+  t: (k: string) => string,
+  status: RecognizerStatus | "idle",
+): string {
+  const key = statusLabel(status);
+  const table: Record<string, string> = {
+    Preparing: t("Preparing"),
+    Listening: t("Listening"),
+    Reconnecting: t("Reconnecting"),
+    Error: t("Error"),
+    Stopped: t("Stopped"),
+  };
+  return table[key] ?? key;
 }
 
 function statusDot(status: RecognizerStatus | "idle") {
@@ -114,6 +134,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // Whether this meeting has already ended. A back-navigation can land here again, so this
   // guards against restarting the recording / meeting timer on a finished meeting.
   const [ended, setEnded] = useState(false);
+  const t = useT();
   const endedRef = useRef(false);
 
   // Per-recording temporary settings passed from the new-meeting screen (not saved to the settings file).
@@ -476,7 +497,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         const claim = await claimCard(meetingId, model, false);
         if (claim.contenders.length > 0) {
           const label = (c: Contender) =>
-            c.kind === "minutes" ? "Minutes" : c.kind === "diarize" ? "Diarize" : "Re-transcribe";
+            c.kind === "minutes" ? t("Minutes") : c.kind === "diarize" ? t("Diarize") : t("Re-transcribe");
           const what = claim.contenders
             .map((c) => `${label(c)}${c.title ? ` — ${c.title}` : ""}`)
             .join(", ");
@@ -485,7 +506,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           // `confirm` resolves to { ok, checked } — the object is always truthy, so the
           // answer has to be read out of it.
           const { ok: takeIt } = await confirm({
-            title: "Something else is using the GPU",
+            title: t("Something else is using the GPU"),
             // Plain text: the dialog does not render markdown, and asterisks in a sentence
             // read as a mistake rather than as emphasis.
             message: `${what} is running.
@@ -493,8 +514,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
 Interrupting it transcribes this meeting as you speak. What was running goes back to the front of the queue and starts again once the meeting ends.
 
 Recording only leaves it alone. The audio is kept and transcribed after the meeting — nothing is lost, but no text appears while you talk.`,
-            confirmLabel: "Interrupt and transcribe live",
-            cancelLabel: "Record only",
+            confirmLabel: t("Interrupt and transcribe live"),
+            cancelLabel: t("Record only"),
           });
           if (takeIt) {
             await claimCard(meetingId, model, true);
@@ -605,7 +626,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         translate: Boolean(settings?.sttTranslate),
         onProgress: setDeferredStatus,
       });
-      setDeferredStatus("Saving the transcript…");
+      setDeferredStatus(t("Saving the transcript…"));
       await applyTranscript(meetingId, utterances, usedModel);
       setDeferredStatus(null);
     } catch (e) {
@@ -622,7 +643,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       title: title || "Meeting",
       message:
         "Start generating minutes and end the meeting. Generation runs in the background; check the result on the meeting page when it finishes.",
-      confirmLabel: "Generate minutes",
+      confirmLabel: t("Generate minutes"),
       checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
     });
     if (!ok) return;
@@ -664,7 +685,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       title: title || "Meeting",
       message:
         "End the meeting and start speaker diarization. Speakers are assigned automatically on the meeting page (enrolled voices get their names); generate minutes afterwards.",
-      confirmLabel: "Diarize",
+      confirmLabel: t("Diarize"),
       checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
     });
     if (!ok) return;
@@ -818,10 +839,10 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
   // Displayed language prefers this meeting's setting (meetingLang), else the settings default.
   const effectiveLang = meetingLang ?? cfg?.sttLanguage;
   const langLabel =
-    effectiveLang === "ja" ? "Japanese" : effectiveLang === "en" ? "English" : "Auto-detect";
-  const micLabel = cfg?.micMode === "room" ? "Room" : "Standard";
+    effectiveLang === "ja" ? t("Japanese") : effectiveLang === "en" ? t("English") : t("Auto-detect");
+  const micLabel = cfg?.micMode === "room" ? t("Room") : t("Standard");
   const sourceLabel =
-    source === "display" ? "PC audio" : source === "both" ? "Mic + PC audio" : "Microphone";
+    source === "display" ? t("PC audio") : source === "both" ? t("Mic + PC audio") : t("Microphone");
 
   return (
     <div className="space-y-4">
@@ -833,7 +854,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         <button
           type="button"
           onClick={() => setResting(false)}
-          aria-label="Screen resting. Recording continues. Activate to show the recording screen."
+          aria-label={t("Screen resting. Recording continues. Activate to show the recording screen.")}
           // Sized explicitly, not just `inset-0`: as a <button> it came out 16px short of the
           // viewport, and the sticky bar at the bottom of the page showed through the gap.
           // dvh rather than vh so a phone's collapsing address bar cannot open one either.
@@ -843,7 +864,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           <span className="font-mono text-sm tabular-nums text-white/40">
             {formatElapsed(elapsedSec)}
           </span>
-          <span className="text-xs text-white/25">Recording — touch to show</span>
+          <span className="text-xs text-white/25">{t("Recording — touch to show")}</span>
         </button>
       ) : null}
 
@@ -873,14 +894,14 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
                     : "The model is still loading. You can start; audio is buffered and transcribed once it is ready."
                 }
               >
-                {modelReady ? "● Model ready" : "◌ Loading model…"}
+                {modelReady ? t("● Model ready") : t("◌ Loading model…")}
               </span>
             )
           ) : null}
 
           <div className="flex items-center gap-2 text-sm">
             <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusDot(status)}`} />
-            <span className="text-[var(--text-secondary)]">{statusLabel(status)}</span>
+            <span className="text-[var(--text-secondary)]">{statusText(t, status)}</span>
             {recordOnly ? (
               <span
                 className="text-xs text-[var(--warning)]"
@@ -896,8 +917,8 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
                 }`}
                 title={
                   clipping
-                    ? "The input is clipping — turn the source down; recognition cannot recover a clipped word"
-                    : "Input audio level (movement means sound is arriving)"
+                    ? t("The input is clipping — turn the source down; recognition cannot recover a clipped word")
+                    : t("Input audio level (movement means sound is arriving)")
                 }
               >
                 <div
@@ -933,12 +954,12 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           <select
             value={source}
             onChange={(e) => void changeSource(e.target.value as "mic" | "display" | "both")}
-            title="Recording source (PC audio captures online-meeting sound). Changeable while recording."
+            title={t("Recording source (PC audio captures online-meeting sound). Changeable while recording.")}
             className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-2 py-1 text-xs text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
           >
-            <option value="mic">Microphone</option>
+            <option value="mic">{t("Microphone")}</option>
             {displaySupported ? <option value="display">PC audio</option> : null}
-            {displaySupported ? <option value="both">Mic + PC audio</option> : null}
+            {displaySupported ? <option value="both">{t("Mic + PC audio")}</option> : null}
           </select>
 
           {/* No link to the meeting page here: navigating away unmounts this page and drops
@@ -951,9 +972,9 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
 
       {ended ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-          <span>This meeting has already ended. Recording cannot be restarted.</span>
+          <span>{t("This meeting has already ended. Recording cannot be restarted.")}</span>
           <Link href={`/${meetingId}`} className="btn-outline shrink-0">
-            View minutes
+            {t("View minutes")}
           </Link>
         </div>
       ) : null}
@@ -985,23 +1006,24 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         className="rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-2 text-xs text-[var(--accent-sub)]"
       >
         <summary className="cursor-pointer select-none marker:text-[var(--accent)]">
-          Before you start
+          {t("Before you start")}
         </summary>
         <ul className="mt-1 list-disc space-y-1 pl-4 marker:text-[var(--accent)]">
-        <li>Pick the recording source from the menu above (mic / PC audio / both).</li>
+        <li>{t("Pick the recording source from the menu above (mic / PC audio / both).")}</li>
         {displaySupported ? (
-          <li>For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.</li>
+          <li>{t("For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.")}</li>
         ) : null}
         {displaySupported ? (
           <li>
-            <strong>Headphones are recommended for “both”</strong>. With speakers, the mic picks up PC
-            audio and it may be recorded twice.
+            <strong>{t("Headphones are recommended for “both”")}</strong>
+            {t(". With speakers, the mic picks up PC audio and it may be recorded twice.")}
           </li>
         ) : null}
-        <li>Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.</li>
+        <li>{t("Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.")}</li>
         <li>
-          On phones, <strong>keep the screen on</strong> while recording (sleep is auto-suppressed, but on
-          some devices turning the screen off stops mic capture).
+          {t("On phones, ")}
+          <strong>{t("keep the screen on")}</strong>
+          {t(" while recording (sleep is auto-suppressed, but on some devices turning the screen off stops mic capture).")}
         </li>
         </ul>
       </details>
@@ -1011,33 +1033,33 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           it here suggested the transcription settings were something else. */}
       {cfg ? (
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-[var(--text-muted)]">
-          <p className="text-[var(--text-secondary)]">Settings for this recording</p>
+          <p className="text-[var(--text-secondary)]">{t("Settings for this recording")}</p>
           <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
             <div className="col-span-2 sm:col-span-1">
-              Model:{" "}
+              {t("Model:")}{" "}
               <span className="text-[var(--text-secondary)]">{activeModel ?? "-"}</span>{" "}
               {deferred ? (
-                <span className="text-[var(--text-muted)]" title="Loaded and run once the meeting ends">
-                  · at meeting end
+                <span className="text-[var(--text-muted)]" title={t("Loaded and run once the meeting ends")}>
+                  {t("· at meeting end")}
                 </span>
               ) : modelReady ? (
-                <span className="text-[var(--success)]" title="Loaded on the GPU — transcription starts immediately">
-                  ● ready
+                <span className="text-[var(--success)]" title={t("Loaded on the GPU — transcription starts immediately")}>
+                  {t("● ready")}
                 </span>
               ) : (
-                <span className="text-[var(--warning)]" title="Still loading; audio is buffered and transcribed once it is ready">
-                  ◌ loading…
+                <span className="text-[var(--warning)]" title={t("Still loading; audio is buffered and transcribed once it is ready")}>
+                  {t("◌ loading…")}
                 </span>
               )}
             </div>
             <div>
-              Language: <span className="text-[var(--text-secondary)]">{langLabel}</span>
+              {t("Language:")} <span className="text-[var(--text-secondary)]">{langLabel}</span>
             </div>
             <div>
-              Mic mode: <span className="text-[var(--text-secondary)]">{micLabel}</span>
+              {t("Mic mode:")} <span className="text-[var(--text-secondary)]">{micLabel}</span>
             </div>
             <div>
-              Source: <span className="text-[var(--text-secondary)]">{sourceLabel}</span>
+              {t("Source:")} <span className="text-[var(--text-secondary)]">{sourceLabel}</span>
             </div>
           </div>
         </div>
@@ -1045,7 +1067,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
 
       {lastError ? (
         <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_srgb,var(--error)_40%,transparent)] bg-[color-mix(in_srgb,var(--error)_12%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
-          <span className="font-medium">Error:</span>
+          <span className="font-medium">{t("Error:")}</span>
           <span className="flex-1 break-all">{lastError}</span>
           <button
             type="button"
@@ -1059,9 +1081,9 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
 
       <section className="card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-2">
-          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">Transcript</h2>
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">{t("Transcript")}</h2>
           {/* Diarization is a post-meeting step, so do not show speakers during recording */}
-          <span className="text-xs text-[var(--text-muted)]">Speakers can be distinguished after the meeting</span>
+          <span className="text-xs text-[var(--text-muted)]">{t("Speakers can be distinguished after the meeting")}</span>
         </div>
         <div ref={transcriptScrollRef} className="h-[60vh] space-y-2 overflow-y-auto px-4 py-3">
             {transcripts.map((t) => (
@@ -1097,10 +1119,10 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
                 {deferred
                   ? active
                     ? "Recording. This machine has no GPU acceleration, so speech is recognized once — when you end the meeting — rather than as you speak. The transcript appears then, at full quality."
-                    : 'Press "Start recording" below. Text appears when the meeting ends, not during it.'
+                    : t('Press "Start recording" below. Text appears when the meeting ends, not during it.')
                   : status === "connecting"
                     ? "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes."
-                    : 'Press "Start recording" below to begin transcription.'}
+                    : t('Press "Start recording" below to begin transcription.')}
               </div>
             ) : null}
           </div>
@@ -1124,18 +1146,18 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             onClick={generateSummaryAndEnd}
             disabled={busy !== "none" || transcripts.length === 0}
             className="btn-outline !px-3 !py-1.5 !text-xs"
-            title="End the meeting and start generating minutes in the background"
+            title={t("End the meeting and start generating minutes in the background")}
           >
-            {busy === "summary" ? "Starting…" : "Generate minutes"}
+            {busy === "summary" ? t("Starting…") : t("Generate minutes")}
           </button>
           <button
             type="button"
             onClick={diarizeAndEnd}
             disabled={busy !== "none" || transcripts.length === 0}
             className="btn-outline !px-3 !py-1.5 !text-xs"
-            title="End the meeting and assign speakers automatically; generate minutes after reviewing them"
+            title={t("End the meeting and assign speakers automatically; generate minutes after reviewing them")}
           >
-            Diarize
+            {t("Diarize")}
           </button>
           <button
             type="button"
@@ -1143,7 +1165,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             disabled={busy !== "none"}
             className="btn-outline !px-3 !py-1.5 !text-xs"
           >
-            End only
+            {t("End only")}
           </button>
         </div>
         <button
@@ -1152,9 +1174,9 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           disabled={(external && !active) || startBlocked}
           title={
             external
-              ? "Recording is not available from an external network"
+              ? t("Recording is not available from an external network")
               : ended
-                ? "This meeting has ended"
+                ? t("This meeting has ended")
                 : undefined
           }
           // Full width where the thumb is the input, capped and centred where a mouse is: the
@@ -1169,7 +1191,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
               active ? "rounded-[3px] bg-white" : "rounded-full bg-[var(--accent-contrast)]"
             }`}
           />
-          {active ? "Stop recording" : "Start recording"}
+          {active ? t("Stop recording") : t("Start recording")}
         </button>
       </div>
 
