@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-// With accounts, a username and a password. Without any, the single shared password this app
+// With accounts, an email address and a password. Without any, the single shared password this app
 // asked for before v3.1 — the same field, so an install that has not signed anybody up yet sees
 // no change at all.
 export function LoginForm({ accounts }: { accounts: boolean }) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -19,7 +19,7 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(accounts ? { username, password } : { password }),
+        body: JSON.stringify(accounts ? { email, password } : { password }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
@@ -41,17 +41,19 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
       <form onSubmit={onSubmit} className="card space-y-4 p-6">
         {accounts ? (
           <div>
-            <label htmlFor="username" className="label">
-              Username
+            <label htmlFor="email" className="label">
+              Email
             </label>
             <input
-              id="username"
-              name="username"
-              autoComplete="username"
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
               autoCapitalize="none"
               autoCorrect="off"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={busy}
               className="input mt-1"
               required

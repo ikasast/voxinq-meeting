@@ -746,6 +746,50 @@ loads a module into several separate registries in one process — four differen
 pid, when each load was stamped — each with its own globals, so the map the login route wrote to
 was never the map the dispatcher read.
 
+## Signing in is by email address, and the address is not a channel
+
+The username was the identifier first, and it was the wrong one: the server picks it. A tailnet
+identity becomes `sam`, or `sam2` if `sam` was taken, and asking somebody to remember which is
+asking them to remember a detail of an algorithm. The email address is the one identifier a
+person already knows about themselves and cannot be assigned a variant of.
+
+**Nothing is ever sent to it.** No mail is sent, no address is verified, and no SMTP setting
+exists. The requirement that this app run with nothing outside it is checkable precisely because
+`app/` and `lib/` fetch no external URL at runtime, and a mailer would be the first. So the
+address is a name, not a channel — which is also why a typo is recoverable rather than fatal:
+the administrator's reset link is a link, handed over, and it still works.
+
+The upgrade cost nothing because the two identifiers already overlapped: a tailnet login *is* an
+address, so the migration backfills from it and everybody who could sign in the day before still
+can.
+
+## OAuth was considered, and it is encryption that stops it
+
+Signing in with Google, or with a self-hosted Keycloak, would fit an app with accounts — and this
+one already has the address the OIDC `email` claim would match against. What it does not fit is
+the encryption.
+
+An account's key is wrapped by a key derived from its password. The server never holds the
+password, which is the whole reason a stolen database reads nothing. **With OAuth the app never
+sees a password, so there is no secret to wrap the key with.** This is not hypothetical: it is
+already the state of an account that only ever arrives through the tailnet, which has no password
+and therefore no key and is not encrypted.
+
+The three ways out are each worse than the problem. A separate encryption passphrase puts back
+the typing that single sign-on removed. Deriving from an identity token makes the key rotate when
+the token does, and makes the identity provider the real key holder. Wrapping with a server-side
+secret means the server — and anybody who takes it — can read everybody's minutes, which is the
+one property being paid for.
+
+There is also less to gain here than it looks. Inside the tailnet the app already has single
+sign-on: `Tailscale-User-Login` is an identity an identity provider authenticated. OAuth would
+only replace the password used from outside, and would make signing in depend on reaching a
+provider — on a machine that is meant to work with nothing outside it.
+
+If it is ever added it belongs behind an explicit setting, defaulting off, and the account it
+signs in stays unencrypted until it has a password. That is a decision about what such an account
+is worth, not an implementation detail to be discovered later.
+
 ## The recovery code is the only way back, and nobody else has one
 
 An account's key is wrapped twice: by the password, and by a recovery code shown once and never

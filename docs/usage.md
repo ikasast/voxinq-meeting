@@ -466,13 +466,22 @@ stops being a way in.
 
 From then on there are two ways to be somebody:
 
-- **A username and password** — what you type from outside the tailnet.
+- **Your email address and a password** — what you type from outside the tailnet.
 - **Your tailnet login** — inside the tailnet you are already identified, so you are not asked
   again. An identity nobody has seen becomes an account the first time it appears.
 
-An account made that way has no password, which means it cannot be used from anywhere else. Set
-one under **your name → Account**, and while you are there give yourself a display name and a
-picture — they are what other people see beside your work in the queue.
+The two meet: a tailnet login *is* an email address, so an account made that way already has one
+and can sign in from outside the moment it has a password. Set one under **your name →
+Account**, and while you are there give yourself a display name and a picture — they are what
+other people see beside your work in the queue.
+
+**Nothing is ever sent to that address.** This server has no way to send mail and does not want
+one; the address is how you say which account is yours, not a channel. That is also why a typo in
+it is not a disaster — an administrator's reset link still works, and the Account screen can fix
+it.
+
+Accounts also keep a short **username** — `sam`, or `sam2` if `sam` was taken. You never type it:
+it is the handle your picture is served under and the name shown if you set no display name.
 
 ### What is yours
 

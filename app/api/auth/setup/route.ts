@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { adoptOrphanedMeetings } from "@/lib/auth/adopt";
+import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email";
 import { forgetUserCount, hasUsersCached } from "@/lib/auth/has-users";
 import { hashPassword } from "@/lib/auth/password";
 import { startSession } from "@/lib/auth/session";
@@ -32,16 +33,24 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as {
     username?: unknown;
+    email?: unknown;
     password?: unknown;
     name?: unknown;
   } | null;
   const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
+  const email = typeof body?.email === "string" ? normaliseEmail(body.email) : "";
   const password = typeof body?.password === "string" ? body.password : "";
   const name = typeof body?.name === "string" ? body.name.trim() : "";
 
   if (!USERNAME.test(username)) {
     return NextResponse.json(
       { error: "Usernames are 2–32 characters: letters, numbers, dot, dash, underscore." },
+      { status: 400 },
+    );
+  }
+  if (!looksLikeEmail(email)) {
+    return NextResponse.json(
+      { error: "Enter the email address you want to sign in with." },
       { status: 400 },
     );
   }
@@ -56,6 +65,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         username,
+        email,
         name: name || null,
         passwordHash: await hashPassword(password),
         isAdmin: true,

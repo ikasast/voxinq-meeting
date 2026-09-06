@@ -14,14 +14,17 @@ const SIZE = 256;
 
 export function ProfileForm({
   username,
+  email: initialEmail,
   name: initialName,
   hasImage: initialHasImage,
 }: {
   username: string;
+  email: string | null;
   name: string | null;
   hasImage: boolean;
 }) {
   const [name, setName] = useState(initialName ?? "");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [hasImage, setHasImage] = useState(initialHasImage);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<Blob | null>(null);
@@ -50,6 +53,7 @@ export function ProfileForm({
     try {
       const body = new FormData();
       body.set("name", name);
+      body.set("email", email);
       if (file) body.set("image", new File([file], "avatar.png", { type: "image/png" }));
       const res = await fetch("/api/auth/profile", { method: "POST", body });
       const d = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -129,6 +133,28 @@ export function ProfileForm({
         Shown as a circle, so anything outside the middle square is trimmed. It is resized to{" "}
         {SIZE}px here before it is sent — the original never leaves this device.
       </p>
+
+      <div>
+        <label htmlFor="email" className="label">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          placeholder="you@example.com"
+          disabled={busy}
+          className="input mt-1"
+          required
+        />
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          What you type to sign in from outside the tailnet. Nothing is ever sent to it.
+        </p>
+      </div>
 
       <div>
         <label htmlFor="displayName" className="label">

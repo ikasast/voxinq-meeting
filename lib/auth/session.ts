@@ -89,6 +89,9 @@ async function resolveTailnetUser(login: string) {
     const made = await prisma.user.create({
       data: {
         username: await freeUsername(login.split("@")[0] || "user"),
+        // The tailnet login *is* an address, so this account can sign in from outside the
+        // tailnet the moment it has a password, without anybody having to fill a form in.
+        email: login.includes("@") ? login.toLowerCase() : null,
         name: login,
         tailscaleLogin: login,
         isAdmin: first,

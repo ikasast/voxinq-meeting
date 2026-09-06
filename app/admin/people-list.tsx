@@ -14,6 +14,7 @@ import { useConfirm } from "../confirm-dialog";
 type Person = {
   id: string;
   username: string;
+  email: string | null;
   name: string | null;
   isAdmin: boolean;
   disabled: boolean;
@@ -160,8 +161,8 @@ export function PeopleList({ meId }: { meId: string }) {
                 ) : null}
               </p>
               <p className="truncate text-xs text-[var(--text-muted)]">
-                {p.username}
-                {p.tailscaleLogin ? ` · ${p.tailscaleLogin}` : ""}
+                {p.email ?? p.username}
+                {p.tailscaleLogin && p.tailscaleLogin !== p.email ? ` · ${p.tailscaleLogin}` : ""}
                 {p.hasPassword ? "" : " · no password yet"}
                 {` · ${p.meetings} meeting${p.meetings === 1 ? "" : "s"}`}
               </p>
@@ -222,6 +223,7 @@ export function PeopleList({ meId }: { meId: string }) {
 
 function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [tailscaleLogin, setTailscaleLogin] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -236,7 +238,7 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, name, tailscaleLogin, isAdmin }),
+        body: JSON.stringify({ username, email, name, tailscaleLogin, isAdmin }),
       });
       const d = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
@@ -262,6 +264,24 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
           className="input mt-1"
           required
         />
+      </div>
+      <div>
+        <label htmlFor="e" className="label">
+          Email
+        </label>
+        <input
+          id="e"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoCapitalize="none"
+          placeholder="them@example.com"
+          className="input mt-1"
+          required
+        />
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          What they type to sign in. Nothing is sent to it — hand them the link below instead.
+        </p>
       </div>
       <div>
         <label htmlFor="n" className="label">
@@ -291,7 +311,7 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
       </label>
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
       <div className="flex gap-2">
-        <button type="submit" disabled={busy || !username} className="btn-ink">
+        <button type="submit" disabled={busy || !username || !email} className="btn-ink">
           {busy ? "Adding…" : "Add"}
         </button>
         <button type="button" onClick={onCancel} disabled={busy} className="btn-outline">
