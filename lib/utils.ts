@@ -35,9 +35,17 @@ export function formatTime(value: Date | string | null | undefined): string {
   return `${z2(d.getHours())}:${z2(d.getMinutes())}:${z2(d.getSeconds())}`;
 }
 
-/** Default meeting title: compact start datetime, "20260711 16:00". */
-export function defaultMeetingTitle(now: Date = new Date()): string {
-  return `${now.getFullYear()}${z2(now.getMonth() + 1)}${z2(now.getDate())} ${z2(now.getHours())}:${z2(now.getMinutes())}`;
+/**
+ * "2026-09-18" as that day where the reader is standing, or undefined.
+ *
+ * Parsed as local wall-clock rather than through `new Date("2026-09-18")`, which reads a bare
+ * date as UTC — and would title a meeting booked for the 18th as the 17th for anybody west of
+ * Greenwich, or the 19th for anybody far enough east.
+ */
+export function dayFromKey(key: string | null | undefined): Date | undefined {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return undefined;
+  const d = new Date(`${key}T00:00`);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /** Format elapsed seconds as "m:ss" / "h:mm:ss" (for in-recording transcript timestamps). */

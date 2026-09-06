@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { defaultMeetingTitle } from "@/lib/utils";
+import { defaultMeetingTitle } from "@/lib/meeting-title";
+import { dayFromKey } from "@/lib/utils";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
 import {
@@ -40,23 +41,29 @@ type Phase = null | "creating" | "transcribing" | "summarizing";
 export default function NewMeetingForm({
   external = false,
   date,
+  titleFormat,
 }: {
   external?: boolean;
   /** "2026-09-18" from the calendar. Books the meeting on that day rather than recording now. */
   date?: string;
+  /** Which shape the default title takes — this reader's setting, resolved on the server. */
+  titleFormat?: string;
 }) {
   const router = useRouter();
   const gpu = useGpuBusy();
-  const [title, setTitle] = useState(() => defaultMeetingTitle());
+  // The day this meeting is for, which is not always today. Arriving from the calendar's
+  // "+ Add a meeting on this day" and being handed today's date as the title is the click
+  // appearing to have been ignored — the whole point of that link was to say which day.
+  const bookedDay = dayFromKey(date);
+  const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
+  const [title, setTitle] = useState(dayTitle);
   const [description, setDescription] = useState("");
   const [series, setSeries] = useState("");
   // Empty means "record it now", which is how every meeting was made until this existed.
   // A day picked in the calendar fills it in: arriving here from "+ Add a meeting on this day"
   // and finding the date blank would make the click look like it did nothing. The hour is a
   // starting point, not a guess to be defended — it is the first thing anybody changes.
-  const [scheduledAt, setScheduledAt] = useState(() =>
-    /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? `${date}T09:00` : "",
-  );
+  const [scheduledAt, setScheduledAt] = useState(() => (bookedDay ? `${date}T09:00` : ""));
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,7 +193,7 @@ export default function NewMeetingForm({
     // as a booked meeting, which is what this is.
     if (external) {
       try {
-        const meeting = await createMeeting(defaultMeetingTitle());
+        const meeting = await createMeeting(dayTitle);
         router.push(`/${meeting.id}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not create the meeting");
@@ -203,7 +210,7 @@ export default function NewMeetingForm({
       void preloadSttIfIdle(model, translateRef.current);
     }
     try {
-      const meeting = await createMeeting(defaultMeetingTitle());
+      const meeting = await createMeeting(dayTitle);
       if (scheduledAt) {
         // Straight to the meeting, not the recording screen: it has not happened yet, and the
         // point of booking it was to fill in the agenda and participants calmly beforehand.

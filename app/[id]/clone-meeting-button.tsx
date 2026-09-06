@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { defaultMeetingTitle } from "@/lib/utils";
 import { PlusCircleIcon } from "../icons";
 
 // Create a new meeting inheriting the purpose/tags/series and go straight to recording (for recurring meetings).
@@ -25,7 +24,6 @@ export function CloneMeetingButton({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: defaultMeetingTitle(),
           description: description ?? "",
           tags,
           series: series ?? "",

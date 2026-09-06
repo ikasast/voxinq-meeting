@@ -8,6 +8,7 @@ import path from "path";
 import type { Prisma } from "@prisma/client";
 import { resolveScope } from "./db/owner";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
+import { DEFAULT_TITLE_FORMAT } from "./meeting-title";
 import { prisma } from "./prisma";
 import { onlyUserKeys } from "./settings-scope";
 import {
@@ -71,6 +72,10 @@ export type AppSettings = {
   minutesTemplates: MinutesTemplate[];
   /** Which template new minutes use when nothing else is chosen. Empty = the built-in. */
   defaultMinutesTemplateId: string;
+  // What a meeting is called before anybody names it: an id from TITLE_FORMATS. Chosen from
+  // samples rather than typed — the compact form this app started with is a Japanese habit,
+  // and a title is read by whoever opens the list months later, wherever they are.
+  meetingTitleFormat: string;
   summaryLanguage: string; // minutes output language "ja" | "en" | "zh" (generated in this language regardless of speech)
   summaryDetail: string; // minutes verbosity "brief" | "standard" | "detailed" (controls output length + guidance)
   /**
@@ -126,6 +131,7 @@ function defaults(): AppSettings {
     llmBackground: "",
     minutesTemplates: [],
     defaultMinutesTemplateId: "",
+    meetingTitleFormat: DEFAULT_TITLE_FORMAT,
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
     vramBudgetMb: 0,
