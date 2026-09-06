@@ -46,9 +46,11 @@ describe("the row for this machine", () => {
     // <option> list higher up the file, so the search starts from the table itself.
     const tbody = table.indexOf("<tbody>");
     const body = table.slice(tbody, table.indexOf("{profiles.map(", tbody));
-    expect(body).toContain("On this machine");
-    expect(body).toMatch(/>\s*Edit\s*</);
-    expect(body, "the machine cannot be removed from the machine").not.toMatch(/>\s*Remove\s*</);
+    // Through t() since the screen was translated, so these follow the sentences there rather
+    // than pinning the literals they used to be.
+    expect(body).toContain('t("On this machine")');
+    expect(body).toMatch(/\{t\("Edit"\)\}/);
+    expect(body, "the machine cannot be removed from the machine").not.toMatch(/\{t\("Remove"\)\}/);
   });
 
   it("cannot be mistaken for a saved endpoint", () => {

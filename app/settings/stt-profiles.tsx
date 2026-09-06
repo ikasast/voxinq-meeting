@@ -9,6 +9,7 @@ import {
   newProfileId,
 } from "@/lib/stt/profiles";
 import { profileDestination } from "@/lib/stt/destination";
+import { useT } from "@/app/locale-provider";
 
 // Saved recognition endpoints: a list you scan, not a stack of forms you scroll.
 //
@@ -62,6 +63,7 @@ export function SttProfiles({
   onDefaultChange: (id: string) => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
+  const t = useT();
   const draft = profiles.find((p) => p.id === editing) ?? null;
 
   const update = (id: string, patch: Partial<DraftProfile>) =>
@@ -93,7 +95,7 @@ export function SttProfiles({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label htmlFor="sttDefaultProfileId" className={labelClass}>
-            Recognise speech
+            {t("Recognise speech")}
           </label>
           <select
             id="sttDefaultProfileId"
@@ -102,7 +104,7 @@ export function SttProfiles({
             disabled={disabled}
             className={inputClass}
           >
-            <option value="">On this machine (default)</option>
+            <option value="">{t("On this machine (default)")}</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name || "Unnamed"}
@@ -110,8 +112,7 @@ export function SttProfiles({
             ))}
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            What new work uses. Any of these — and this machine — can still be picked for a
-            single run from <em>Re-transcribe</em>.
+            {t("What new work uses. Any of these — and this machine — can still be picked for a single run from Re-transcribe.")}
           </p>
         </div>
         <AddMenu disabled={disabled} onPick={add} />
@@ -123,9 +124,9 @@ export function SttProfiles({
         <table className="w-full min-w-[26rem] text-sm">
           <thead>
             <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-              <th className="whitespace-nowrap px-3 py-2 font-medium">Name</th>
-              <th className="whitespace-nowrap px-3 py-2 font-medium">Model</th>
-              <th className="whitespace-nowrap px-3 py-2 font-medium">Key</th>
+              <th className="whitespace-nowrap px-3 py-2 font-medium">{t("Name")}</th>
+              <th className="whitespace-nowrap px-3 py-2 font-medium">{t("Model")}</th>
+              <th className="whitespace-nowrap px-3 py-2 font-medium">{t("Key")}</th>
               <th className="px-3 py-2" />
             </tr>
           </thead>
@@ -134,19 +135,19 @@ export function SttProfiles({
               <td className="w-full min-w-[9rem] max-w-0 px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-medium text-[var(--text-strong)]">
-                    On this machine
+                    {t("On this machine")}
                   </span>
                   {defaultId === "" ? <DefaultBadge /> : null}
                 </div>
                 <span className="block truncate text-xs text-[var(--text-muted)]">
-                  built in
+                  {t("built in")}
                 </span>
               </td>
               <td className="px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
                 {localModel || "—"}
               </td>
               <td className="whitespace-nowrap px-3 py-2 text-xs text-[var(--text-muted)]">
-                not needed
+                {t("not needed")}
               </td>
               {/* No Remove. Everything else in this table you added; this one is the app. */}
               <td className="px-3 py-2">
@@ -157,7 +158,7 @@ export function SttProfiles({
                     disabled={disabled}
                     className="btn-outline px-2 py-1 text-xs"
                   >
-                    Edit
+                    {t("Edit")}
                   </button>
                 </div>
               </td>
@@ -204,7 +205,7 @@ export function SttProfiles({
                         disabled={disabled}
                         className="btn-outline px-2 py-1 text-xs"
                       >
-                        Edit
+                        {t("Edit")}
                       </button>
                       <button
                         type="button"
@@ -213,7 +214,7 @@ export function SttProfiles({
                         className="btn-outline px-2 py-1 text-xs text-[var(--error)]"
                         aria-label={`Remove ${p.name || "endpoint"}`}
                       >
-                        Remove
+                        {t("Remove")}
                       </button>
                     </div>
                   </td>
@@ -225,7 +226,7 @@ export function SttProfiles({
       </div>
 
       {editing === LOCAL_ID ? (
-        <EditorPanel title="On this machine" onClose={() => setEditing(null)}>
+        <EditorPanel title={t("On this machine")} onClose={() => setEditing(null)}>
           {localEditor}
         </EditorPanel>
       ) : draft ? (
@@ -249,6 +250,7 @@ function EditorPanel({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     // In normal flow rather than fixed: a fixed panel inside a long settings form ends up
     // covering the Save button on a phone. Closing this does not save — the form's own button
@@ -257,7 +259,7 @@ function EditorPanel({
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-[var(--text-strong)]">{title}</h3>
         <button type="button" onClick={onClose} className="btn-outline px-2 py-1 text-xs">
-          Close
+          {t("Close")}
         </button>
       </div>
       {children}
@@ -267,9 +269,10 @@ function EditorPanel({
 
 /** "this is the one new work uses". */
 function DefaultBadge() {
+  const t = useT();
   return (
     <span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-sub)]">
-      default
+      {t("default")}
     </span>
   );
 }
@@ -282,6 +285,7 @@ function AddMenu({
   disabled: boolean;
   onPick: (preset: (typeof PROFILE_PRESETS)[number]) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -292,7 +296,7 @@ function AddMenu({
         className="btn-ink px-3 py-2 text-sm"
         aria-expanded={open}
       >
-        + Add endpoint
+        {t("+ Add endpoint")}
       </button>
       {open ? (
         <>
@@ -338,13 +342,14 @@ function EndpointEditor({
   onChange: (patch: Partial<DraftProfile>) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const host = profileDestination(profile);
   return (
     <EditorPanel title={profile.name || "Endpoint"} onClose={onClose}>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={labelClass} htmlFor={`name-${profile.id}`}>
-            Name
+            {t("Name")}
           </label>
           <input
             id={`name-${profile.id}`}
@@ -356,7 +361,7 @@ function EndpointEditor({
         </div>
         <div>
           <label className={labelClass} htmlFor={`kind-${profile.id}`}>
-            API
+            {t("API")}
           </label>
           <select
             id={`kind-${profile.id}`}
@@ -371,24 +376,22 @@ function EndpointEditor({
             }}
             className={inputClass}
           >
-            <option value="openai">OpenAI-compatible — /v1/audio/transcriptions</option>
-            <option value="gemini">Google Gemini — the Interactions API</option>
+            <option value="openai">{t("OpenAI-compatible — /v1/audio/transcriptions")}</option>
+            <option value="gemini">{t("Google Gemini — the Interactions API")}</option>
           </select>
           {/* Asked because picking the "My own server" preset and then finding Google Gemini
               in this list reads like a mistake. It is not: this is the request format, and
               the address is the field below. The two are set separately because they vary
               separately -- a gateway on your own network can speak either one. */}
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            The request format, not the company. Whisper servers and most hosted providers
-            speak the first one; the second is for Google&apos;s own endpoint, or a gateway
-            that imitates it.
+            {t("The request format, not the company. Whisper servers and most hosted providers speak the first one; the second is for Google’s own endpoint, or a gateway that imitates it.")}
           </p>
         </div>
       </div>
 
       <div className="mt-3">
         <label className={labelClass} htmlFor={`url-${profile.id}`}>
-          Base URL
+          {t("Base URL")}
         </label>
         <input
           id={`url-${profile.id}`}
@@ -412,7 +415,7 @@ function EndpointEditor({
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div>
           <label className={labelClass} htmlFor={`model-${profile.id}`}>
-            Model
+            {t("Model")}
           </label>
           <input
             id={`model-${profile.id}`}
@@ -431,7 +434,7 @@ function EndpointEditor({
         </div>
         <div>
           <label className={labelClass} htmlFor={`key-${profile.id}`}>
-            API key
+            {t("API key")}
           </label>
           <input
             id={`key-${profile.id}`}
@@ -443,7 +446,7 @@ function EndpointEditor({
             className={inputClass}
           />
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Kept on the server, never sent to the browser. Blank leaves the saved one alone.
+            {t("Kept on the server, never sent to the browser. Blank leaves the saved one alone.")}
           </p>
           {profile.hasApiKey ? (
             <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
@@ -453,7 +456,7 @@ function EndpointEditor({
                 onChange={(e) => onChange({ clearApiKey: e.target.checked, apiKey: "" })}
                 className="accent-[var(--error)]"
               />
-              Delete the saved key
+              {t("Delete the saved key")}
             </label>
           ) : null}
         </div>

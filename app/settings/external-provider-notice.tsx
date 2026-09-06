@@ -1,4 +1,7 @@
+"use client";
+
 import { llmDestination } from "@/lib/llm/destination";
+import { useT } from "@/app/locale-provider";
 
 // What choosing a cloud provider actually does, said before it is chosen rather than after.
 //
@@ -19,6 +22,7 @@ export function ExternalProviderNotice({
 }: {
   settings: { llmProvider: string; ollamaBaseUrl?: string; openaiBaseUrl?: string };
 }) {
+  const t = useT();
   const dest = llmDestination(settings);
   if (!dest.external) return null;
 
@@ -36,10 +40,9 @@ export function ExternalProviderNotice({
           written or regenerated, and each time you ask a question about a series.
         </li>
         <li>
-          Their terms decide how long it is kept and whether it trains anything. Voxinq cannot
-          change that.
+          {t("Their terms decide how long it is kept and whether it trains anything. Voxinq cannot change that.")}
         </li>
-        <li>You are billed by them, per token. Long meetings cost more than short ones.</li>
+        <li>{t("You are billed by them, per token. Long meetings cost more than short ones.")}</li>
       </ul>
       {/* Was "audio never leaves this machine either way — transcription is always local",
           which stopped being true when recognition endpoints arrived: a reassurance that is
@@ -49,7 +52,7 @@ export function ExternalProviderNotice({
           to look for the other answer. */}
       <p className="mt-1.5 text-xs text-[var(--text-muted)]">
         This setting sends <strong>text</strong>, never the recording. Where the audio itself
-        goes is decided separately, under <em>Transcription</em>.
+        goes is decided separately, under <em>{t("Transcription")}</em>.
       </p>
     </div>
   );

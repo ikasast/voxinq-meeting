@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
 import { TrashIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 type Profile = {
   name: string;
@@ -63,6 +64,7 @@ function pcmToWav(chunks: ArrayBuffer[]): Blob {
 // meeting is diarized.
 export function VoiceProfiles() {
   const [profiles, setProfiles] = useState<Profile[] | null>(null);
+  const t = useT();
   const [name, setName] = useState("Me");
   const [phase, setPhase] = useState<"idle" | "recording" | "extracting">("idle");
   const [seconds, setSeconds] = useState(0);
@@ -208,21 +210,19 @@ export function VoiceProfiles() {
   return (
     <section className="card space-y-4 p-6">
       <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
-        Voice profiles (speaker auto-naming)
+        {t("Voice profiles (speaker auto-naming)")}
       </h2>
       <p className="text-xs text-[var(--text-muted)]">
-        Enroll a voice once and diarization will label that speaker by name automatically in
-        every future meeting. You can also enroll people from a diarized meeting (name the
-        speaker there, then “Save voice profiles”).
+        {t("Enroll a voice once and diarization will label that speaker by name automatically in every future meeting. You can also enroll people from a diarized meeting (name the speaker there, then “Save voice profiles”).")}
       </p>
 
       {/* Enrolled profiles */}
       <div>
-        <p className="label">Enrolled</p>
+        <p className="label">{t("Enrolled")}</p>
         {profiles === null ? (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">Loading…</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("Loading…")}</p>
         ) : profiles.length === 0 ? (
-          <p className="mt-1 text-xs text-[var(--text-muted)]">No profiles yet.</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("No profiles yet.")}</p>
         ) : (
           <>
           {profiles.some((p) => p.stale) ? (
@@ -255,7 +255,7 @@ export function VoiceProfiles() {
                 {p.name}
                 {p.stale ? (
                   <span className="text-[10px] font-medium text-[var(--warning)]">
-                    re-record
+                    {t("re-record")}
                   </span>
                 ) : null}
                 {/* Enrollments accumulate, so show how much voice a profile is built from. */}
@@ -281,7 +281,7 @@ export function VoiceProfiles() {
       <div className="space-y-3 rounded-md border border-[var(--border)] p-4">
         <div>
           <label htmlFor="vp-name" className="label">
-            Name for this voice
+            {t("Name for this voice")}
           </label>
           <input
             id="vp-name"
@@ -305,7 +305,7 @@ export function VoiceProfiles() {
             disabled={!name.trim()}
             className="btn-ink"
           >
-            Start recording
+            {t("Start recording")}
           </button>
         ) : phase === "recording" ? (
           <div className="flex flex-wrap items-center gap-3">
@@ -327,16 +327,16 @@ export function VoiceProfiles() {
               className="btn-ink"
               title={seconds < MIN_SECONDS ? `Record at least ${MIN_SECONDS}s` : undefined}
             >
-              Done — save voiceprint
+              {t("Done — save voiceprint")}
             </button>
             <button type="button" onClick={cancel} className="btn-outline">
-              Cancel
+              {t("Cancel")}
             </button>
           </div>
         ) : (
           <p className="flex items-center gap-2 text-sm text-[var(--accent-sub)]">
             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--border-strong)] border-t-[var(--accent)]" />
-            Extracting the voiceprint (GPU)… this takes a little while.
+            {t("Extracting the voiceprint (GPU)… this takes a little while.")}
           </p>
         )}
         {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}

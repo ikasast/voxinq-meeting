@@ -384,4 +384,171 @@ export const ja: Record<string, string> = {
     "アカウントは無効化するもので、削除しません。アカウントは会議を保持しているので、削除は「消す」か「その場にいなかった人に渡す」のどちらかにしかなりません。",
   "Fill this in and they are signed in automatically from inside the tailnet, with no password at all. Leave it empty and give them a reset link instead.":
     "ここを埋めると tailnet の内側では自動でログインし、パスワードは不要になります。空欄のままなら、代わりにリセットリンクを渡してください。",
+
+  // ---- Settings ----
+  "(models, glossary, API keys — off by default so a restore does not disturb this machine’s configuration)":
+    "（モデル・用語集・API キー。既定ではオフです。復元でこの機械の設定が乱れないようにするためです）",
+  "The Tailscale command line wasn’t reachable from the server, so publishing can’t be toggled here. You can still manage it manually on the host:":
+    "サーバーから Tailscale のコマンドに到達できなかったため、ここからは切り替えられません。ホスト側で手動なら操作できます:",
+  "The request format, not the company. Whisper servers and most hosted providers speak the first one; the second is for Google’s own endpoint, or a gateway that imitates it.":
+    "会社ではなくリクエスト形式の話です。Whisper サーバーと多くの事業者は前者を話します。後者は Google 自身のエンドポイント、またはそれを模したゲートウェイ向けです。",
+  Speakers: "話者",
+  LLM: "LLM",
+  "Remote access": "外部公開",
+  Data: "データ",
+  "Defaults for everyone": "全員の既定値",
+  System: "システムに合わせる",
+  Light: "ライト",
+  Dark: "ダーク",
+  "Brief (key points, shorter)": "簡潔（要点のみ・短め）",
+  "Detailed (fuller for longer meetings)": "詳細（長い会議ほど厚く）",
+  "Japanese (日本語)": "日本語",
+  "Chinese (中文)": "中国語（中文）",
+  "Auto-detect (keep the spoken language)": "自動判定（話された言語のまま）",
+  "Japanese (fixed)": "日本語に固定",
+  "English (fixed)": "英語に固定",
+  "Ollama (default)": "Ollama（既定）",
+  "Never — keep the screen on": "休ませない — 画面を点けたまま",
+  "After 30 seconds": "30秒後",
+  "After 1 minute": "1分後",
+  "After 5 minutes": "5分後",
+  "After 10 minutes": "10分後",
+  "+ Add endpoint": "＋ エンドポイントを追加",
+  "the endpoint’s model": "そのエンドポイントのモデル",
+  "What new work uses. Any of these — and this machine — can still be picked for a single run from Re-transcribe.":
+    "これから行う処理が使うものです。ここに挙がったもの（この機器も含めて）は、「文字起こしをやり直す」から 1 回だけ選ぶこともできます。",
+  "This model is used for live recognition on this machine. The after-the-meeting pass and Re-transcribe use {model} at {host} instead — these names belong to different services and are not interchangeable.":
+    "このモデルは、この機器で会議中に認識するときに使われます。会議終了後の一括処理と「文字起こしをやり直す」は、{host} の {model} を使います — これらは別のサービスの名前で、互いに置き換えられません。",
+  "Megabytes of video memory the queue may commit at once. Leave it empty to work it out from the card. Jobs that run somewhere else — recognition sent to an endpoint, minutes written by a cloud model — cost nothing here and never wait for it.":
+    "順番待ちの処理が一度に確保してよい VRAM の量（MB）です。空欄なら、カードの容量から自動で決めます。他所で走る処理 — エンドポイントに送る認識や、クラウドのモデルが書く議事録 — はここを消費せず、待つこともありません。",
+  Transcription: "文字起こし",
+  "Transcription (Whisper)": "文字起こし（Whisper）",
+  "Minutes (language, background, format)": "議事録（言語・背景・書式）",
+  "Minutes generation (LLM)": "議事録の生成（LLM）",
+  Appearance: "表示",
+  "Remote access (public URL)": "外部公開（公開 URL）",
+  "Backup & restore": "バックアップと復元",
+  "Voice profiles (speaker auto-naming)": "声紋（話者の自動命名）",
+  "Saved.": "保存しました。",
+  Back: "戻る",
+  Close: "閉じる",
+  Name: "名前",
+  Model: "モデル",
+  Key: "キー",
+  Format: "書式",
+  Export: "書き出し",
+  Restore: "復元",
+  Password: "パスワード",
+  "Password again": "パスワード（確認）",
+  "at least 8 characters": "8文字以上",
+  Unnamed: "名称未設定",
+  default: "既定",
+  Your: "自分の",
+
+  "Set for the whole machine — there is one card and one transcription service, so this is an administrator’s to change.":
+    "この設定は機械全体のものです — カードも文字起こしサービスも 1 つしかないので、変更できるのは管理者だけです。",
+  "These are what a new account starts with, and what anybody who has never changed a setting is using right now. Changing one here reaches all of them at once — and leaves alone anybody who has made their own choice.":
+    "新しいアカウントが最初に使う値であり、いま設定を一度も変えていない人が使っている値でもあります。ここを変えるとその全員に一度に届き、自分で選んだ人はそのままです。",
+
+  "This is a Japanese-only model — meetings in other languages will not transcribe.":
+    "これは日本語専用モデルです — 他の言語の会議は文字起こしできません。",
+  "GPU budget for queued work": "順番待ちの処理に使う VRAM の上限",
+  "Auto — from the card, less room for the display":
+    "自動 — カードの容量から、表示用を差し引いて決めます",
+  "This is a scheduling figure, not a limit on any one job: something larger than the whole budget still runs, on its own. Raise it to let two things run together on a bigger card; lower it if something else on this machine needs the memory.":
+    "これは並行実行を決めるための数字で、1 つの処理の上限ではありません。上限より大きい処理も、単独でなら実行されます。大きいカードで 2 つ同時に走らせたいなら上げ、他の用途にメモリが要るなら下げてください。",
+  "“Auto-detect” transcribes in the spoken language (minutes language is set separately below).":
+    "「自動判定」は話された言語のまま文字起こしします（議事録の言語は下で別に設定します）。",
+  "Terms / proper nouns (recognition bias)": "用語・固有名詞（認識のヒント）",
+  "Adding jargon, names, and product names improves accuracy. Keep it short (~150 chars).":
+    "専門用語・人名・製品名を入れると精度が上がります。短めに（150文字程度まで）。",
+  "Placing the device in the center of the table helps.":
+    "端末をテーブルの中央に置くと拾いやすくなります。",
+  "Translate non-Japanese speech into Japanese": "日本語以外の発言に日本語訳を付ける",
+  "CC-BY-NC — non-commercial use only": "CC-BY-NC — 非商用に限ります",
+
+  "Minutes language": "議事録の言語",
+  "Minutes are generated in this language regardless of the spoken language.":
+    "話された言語にかかわらず、議事録はこの言語で生成されます。",
+  "Minutes detail": "議事録の詳しさ",
+  "How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.":
+    "どこまで詳しく書くか。「詳細」は会議が長いほど分量が増えます（少し時間がかかります）。長い会議は自動で分割して要約するので、後半が落ちることはありません。",
+  "Business / research background": "業務・研究の背景",
+  "Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.":
+    "会議ごとの目的とは別に、常に渡される背景情報です。半ページ〜1ページ程度を目安に（長すぎると精度が落ちます）。用語の解釈にだけ使われ、議事録には転記されません。",
+  "Minutes format": "議事録の書式",
+  "No saved formats. Minutes use the built-in one: an overview, then the discussion by topic, then decisions and action items.":
+    "保存された書式はありません。議事録は組み込みの書式を使います — 概要、話題ごとの議論、決定事項とアクションアイテムの順です。",
+  "Starts with": "書き出し",
+  "The heading structure the model is asked to follow. Its first heading is also used to start the model off, so keep one at the top.":
+    "モデルに従わせる見出し構成です。最初の見出しは書き出しにも使われるので、先頭には見出しを置いてください。",
+
+  Ollama: "Ollama",
+  "Base URL": "ベース URL",
+  "API key": "API キー",
+  "API key (leave empty for local servers)": "API キー（ローカルのサーバーなら空欄で構いません）",
+  "Delete the saved key": "保存されたキーを削除",
+  "OpenAI-compatible (vLLM / LM Studio / OpenAI)": "OpenAI 互換（vLLM / LM Studio / OpenAI）",
+  "Their terms decide how long it is kept and whether it trains anything. Voxinq cannot change that.":
+    "保存期間や学習に使われるかは、送り先の規約が決めます。Voxinq からは変えられません。",
+  "You are billed by them, per token. Long meetings cost more than short ones.":
+    "料金はトークン単位で送り先から請求されます。長い会議ほど高くなります。",
+
+  Theme: "テーマ",
+  "Applied instantly and saved per device (browser). No need to press “Save”.":
+    "すぐ反映され、端末（ブラウザ）ごとに保存されます。「保存」を押す必要はありません。",
+  "Follow my browser": "ブラウザに合わせる",
+  "Minutes — an English screen writing Japanese minutes is a combination people want.":
+    "議事録の設定にあります — 画面は英語で議事録は日本語、という組み合わせは実際に使われます。",
+  "Default meeting name": "会議の既定の名前",
+  "What a meeting is called until somebody names it. The day it is for — a meeting booked from the calendar is named for that day, not for today.":
+    "誰かが名前を付けるまでの会議名です。その会議の日付が入ります — カレンダーから予約した会議は、今日ではなくその日の名前になります。",
+  "Rest the screen while recording": "録音中に画面を休ませる",
+  "After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.":
+    "この時間だけ操作がないと、録音画面が真っ暗になります。触れば戻り、同じ時間でまた休みます。録音には影響しません — マイクも送信も画面ロックも動いたままです。",
+  "You cannot watch the live transcript while it rests": "休止中は文字起こしを見られません",
+
+  "Publishing is managed from your private network. Open Settings on a device connected to your Tailscale tailnet (or the host itself) to turn public access on or off.":
+    "公開の切り替えは、プライベートネットワークの中から行います。Tailscale の tailnet に接続した端末（またはホスト自身）で設定を開いてください。",
+  "Only the web app (port 443) is published — the transcription service stays private.":
+    "公開されるのは Web アプリ（443番）だけで、文字起こしサービスは非公開のままです。",
+  APP_PASSWORD: "APP_PASSWORD",
+  "Tailnet devices (this one, your phone) always keep full access, public or not.":
+    "tailnet 内の端末（この端末やスマホ）は、公開の有無にかかわらず常に全機能を使えます。",
+
+  "(much larger; without them a restored meeting cannot be played, re-transcribed or diarized)":
+    "（かなり大きくなります。含めないと、復元した会議は再生・文字起こしのやり直し・話者分離ができません）",
+  "Adds the meetings from a backup that are not already here. Existing meetings, series, tags and voice profiles are left untouched, so this is safe to run against a live install — and running the same file twice changes nothing the second time.":
+    "バックアップの中で、ここにまだ無い会議を追加します。既存の会議・シリーズ・タグ・声紋には手を触れないので、動いている環境に対して実行しても安全です。同じファイルを 2 回流しても、2 回目は何も変わりません。",
+  "Restore complete": "復元が完了しました",
+  "Settings replaced.": "設定を置き換えました。",
+
+  "Recognise speech": "音声を認識する",
+  "On this machine (default)": "この機器で（既定）",
+  "built in": "組み込み",
+  "not needed": "不要",
+  API: "API",
+  "OpenAI-compatible — /v1/audio/transcriptions": "OpenAI 互換 — /v1/audio/transcriptions",
+  "Google Gemini — the Interactions API": "Google Gemini — Interactions API",
+  "Kept on the server, never sent to the browser. Blank leaves the saved one alone.":
+    "サーバー側に保管され、ブラウザには渡りません。空欄なら保存済みのものをそのまま使います。",
+  "Every voice in the room, including anything said that nobody meant to write down.":
+    "その場のすべての声が送られます。書き残すつもりのなかった発言も含みます。",
+  "You are billed for the length of the audio — roughly $0.25–0.40 an hour at current rates, so a weekly hour-long meeting is a few dollars a year.":
+    "料金は音声の長さで請求されます — 現在の相場でおよそ 1 時間あたり $0.25〜0.40 なので、週 1 時間の会議なら年に数ドルです。",
+  "No live transcript.": "会議中の文字起こしはできません。",
+  "These endpoints cap the upload, so long meetings are split at a silent moment and sent in pieces. Timestamps are stitched back together.":
+    "これらのエンドポイントには送信量の上限があるため、長い会議は無音のところで分割して送ります。タイムスタンプは後でつなぎ直します。",
+  "The saved file, the voiceprints and speaker separation all stay here — a copy of the audio is sent for recognition, and nothing else moves.":
+    "保存された音声ファイル・声紋・話者分離はすべてここに留まります — 認識のために音声の複製が送られるだけで、他は何も動きません。",
+
+  "Enroll a voice once and diarization will label that speaker by name automatically in every future meeting. You can also enroll people from a diarized meeting (name the speaker there, then “Save voice profiles”).":
+    "声を一度登録しておくと、以後の会議では話者分離がその人を自動で名前付けします。話者分離済みの会議から登録することもできます（そこで話者に名前を付けてから「声紋を登録」）。",
+  Enrolled: "登録済み",
+  "No profiles yet.": "まだ声紋がありません。",
+  "re-record": "録り直す",
+  "Name for this voice": "この声の名前",
+  "Done — save voiceprint": "完了 — 声紋を保存",
+  "Extracting the voiceprint (GPU)… this takes a little while.":
+    "声紋を抽出しています（GPU）… 少し時間がかかります。",
 };

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useConfirm } from "../confirm-dialog";
+import { useT } from "@/app/locale-provider";
 
 // Backup and restore of everything the reader can see, as one encrypted file.
 //
@@ -33,10 +34,11 @@ type ImportResult = {
 };
 
 function Wrap({ children }: { children: React.ReactNode }) {
+  const t = useT();
   return (
     <section className="card space-y-6 p-6">
       <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
-        Backup &amp; restore
+        {t("Backup & restore")}
       </h2>
       {children}
     </section>
@@ -47,6 +49,7 @@ export function DataBackup() {
   const confirm = useConfirm();
 
   const [exportPassword, setExportPassword] = useState("");
+  const t = useT();
   const [exportConfirm, setExportConfirm] = useState("");
   const [includeRecordings, setIncludeRecordings] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -184,9 +187,9 @@ export function DataBackup() {
 
       {/* --- Export ------------------------------------------------------------------ */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--text-strong)]">Export</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-strong)]">{t("Export")}</h3>
         <p className="text-xs text-[var(--text-muted)]">
-          <strong>Your</strong> meetings, transcripts, minutes, series, tags and voice profiles, plus
+          <strong>{t("Your")}</strong> meetings, transcripts, minutes, series, tags and voice profiles, plus
           your settings, in one file. On a server several people share this is yours alone — nobody
           can export what they cannot read, so everyone takes their own. The file is encrypted with
           the password below — <strong>without it the backup cannot be opened</strong>, and there is
@@ -195,19 +198,19 @@ export function DataBackup() {
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="label">Password</span>
+            <span className="label">{t("Password")}</span>
             <input
               type="password"
               className="input mt-1"
               value={exportPassword}
               onChange={(e) => setExportPassword(e.target.value)}
-              placeholder="at least 8 characters"
+              placeholder={t("at least 8 characters")}
               autoComplete="new-password"
               disabled={busy}
             />
           </label>
           <label className="block">
-            <span className="label">Password again</span>
+            <span className="label">{t("Password again")}</span>
             <input
               type="password"
               className="input mt-1"
@@ -229,8 +232,7 @@ export function DataBackup() {
           <span>
             Include the audio recordings
             <span className="ml-1 text-xs text-[var(--text-muted)]">
-              (much larger; without them a restored meeting cannot be played, re-transcribed or
-              diarized)
+              {t("(much larger; without them a restored meeting cannot be played, re-transcribed or diarized)")}
             </span>
           </span>
         </label>
@@ -244,11 +246,9 @@ export function DataBackup() {
 
       {/* --- Import ------------------------------------------------------------------ */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-[var(--text-strong)]">Restore</h3>
+        <h3 className="text-sm font-semibold text-[var(--text-strong)]">{t("Restore")}</h3>
         <p className="text-xs text-[var(--text-muted)]">
-          Adds the meetings from a backup that are not already here. Existing meetings, series,
-          tags and voice profiles are left untouched, so this is safe to run against a live
-          install — and running the same file twice changes nothing the second time.
+          {t("Adds the meetings from a backup that are not already here. Existing meetings, series, tags and voice profiles are left untouched, so this is safe to run against a live install — and running the same file twice changes nothing the second time.")}
         </p>
 
         <input
@@ -260,7 +260,7 @@ export function DataBackup() {
         />
 
         <label className="block sm:max-w-xs">
-          <span className="label">Password</span>
+          <span className="label">{t("Password")}</span>
           <input
             type="password"
             className="input mt-1"
@@ -281,8 +281,7 @@ export function DataBackup() {
           <span>
             Also replace my settings
             <span className="ml-1 text-xs text-[var(--text-muted)]">
-              (models, glossary, API keys — off by default so a restore does not disturb this
-              machine&apos;s configuration)
+              {t("(models, glossary, API keys — off by default so a restore does not disturb this machine’s configuration)")}
             </span>
           </span>
         </label>
@@ -296,7 +295,7 @@ export function DataBackup() {
 
       {result ? (
         <div className="space-y-1 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-4 text-sm">
-          <p className="font-semibold text-[var(--text-strong)]">Restore complete</p>
+          <p className="font-semibold text-[var(--text-strong)]">{t("Restore complete")}</p>
           <p>
             {result.meetingsImported} meetings added, {result.meetingsSkipped} already here
             {result.meetingsFailed.length > 0 ? `, ${result.meetingsFailed.length} failed` : ""}.
@@ -311,7 +310,7 @@ export function DataBackup() {
             present
             {result.recordingsFailed > 0 ? `, ${result.recordingsFailed} could not be written` : ""}.
           </p>
-          {result.settingsRestored ? <p className="text-[var(--text-muted)]">Settings replaced.</p> : null}
+          {result.settingsRestored ? <p className="text-[var(--text-muted)]">{t("Settings replaced.")}</p> : null}
           {result.meetingsFailed.length > 0 ? (
             <ul className="mt-2 list-inside list-disc text-xs text-red-400">
               {result.meetingsFailed.slice(0, 5).map((f) => (
