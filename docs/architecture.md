@@ -106,7 +106,10 @@ no password has no key and is not encrypted.
 **Open keys live in a row** (`KeyUnlock`), wrapped with `VOXINQ_KEY_SECRET`, not in memory: Next.js
 loads a module into several registries in one process, each with its own globals, so the map the
 login route writes is not the map the dispatcher reads. The row is deleted once its owner has no
-work queued and has not used it for fifteen minutes.
+work queued, is not signed in anywhere, and has not used it for fifteen minutes. The session
+condition is not decoration: a tailnet visit creates no session row and types no password, so
+without it a key opened once was dropped a quarter of an hour later and an entire archive read as
+`🔒 encrypted` with nothing on screen to say why.
 
 **Encrypted columns** are `Transcript.text` and `MeetingSummary.summaryText`, stored as
 `enc:v1.<purpose>.<iv>.<ct>.<tag>`. The prefix lets encrypted and plaintext rows share a column,

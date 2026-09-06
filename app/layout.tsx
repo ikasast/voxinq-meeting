@@ -4,10 +4,12 @@ import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
 import { currentUser } from "@/lib/auth/session";
+import { hasKey } from "@/lib/crypto/key-cache";
 import { prisma } from "@/lib/prisma";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { BottomBar } from "./bottom-bar";
+import { LockedBanner } from "./locked-banner";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
 import { SideRail } from "./side-rail";
@@ -114,6 +116,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         select: { imageType: true },
       }))?.imageType != null }
     : null;
+  // Has a key, and it is shut. Both halves matter: an account with no key at all is not locked,
+  // it is unencrypted, and telling that person to unlock something would be a sentence about a
+  // thing they do not have.
+  const locked = me
+    ? Boolean(
+        (await prisma.user.findUnique({ where: { id: me.id }, select: { keySalt: true } }))
+          ?.keySalt,
+      ) && !(await hasKey(me.id))
+    : false;
   // The docs index, on the tag this instance is running. package.json only moves when a
   // release is cut, so the tag it names always exists -- pointing at main would instead
   // describe whatever has landed since, including things this build does not have.
@@ -152,6 +163,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             />
             <div className="flex min-w-0 flex-1 flex-col">
               <HeaderNav external={external} me={meWithImage} />
+              {/* Above everything, because until it is dealt with nothing below it can be read. */}
+              {locked ? <LockedBanner /> : null}
               {/* The rail carries navigation on wide screens, but not the controls that only
                   make sense per-device or per-session — those keep a home along the top. */}
               <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
