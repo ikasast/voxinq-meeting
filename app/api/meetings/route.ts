@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
+import { defaultMeetingTitle } from "@/lib/meeting-title";
 import { prisma } from "@/lib/prisma";
+import { readSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -17,8 +19,13 @@ export async function GET() {
 
 const STT_LANGS = ["auto", "ja", "en"];
 
-// Create a meeting. title is required; description/tags/series/sttLanguage are optional.
-// tags/series are accepted so "new with same settings" can carry over the metadata.
+// Create a meeting. Everything is optional, including the title: a meeting with no name is
+// named after the day it is for, in the shape this reader chose.
+//
+// Named here rather than in each caller because there are three, only one of which shows the
+// name before creating it — and the two that do not would each have to fetch the settings to
+// find out what shape to use. tags/series are accepted so "new with same settings" can carry
+// over the metadata.
 export async function POST(req: NextRequest) {
   const body = await readJson<{
     title?: unknown;
@@ -30,9 +37,8 @@ export async function POST(req: NextRequest) {
     scheduledAt?: unknown;
   }>(req);
 
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
-  if (!title) return apiError("title is required", 400);
-  if (title.length > TITLE_MAX) return apiError(`title must be ${TITLE_MAX} chars or fewer`, 400);
+  const typed = typeof body?.title === "string" ? body.title.trim() : "";
+  if (typed.length > TITLE_MAX) return apiError(`title must be ${TITLE_MAX} chars or fewer`, 400);
 
   const description =
     typeof body?.description === "string" ? body.description.trim() || null : null;
@@ -68,6 +74,11 @@ export async function POST(req: NextRequest) {
     if (Number.isNaN(d.getTime())) return apiError("scheduledAt is not a date", 400);
     scheduledAt = d;
   }
+
+  // The day it is *for*, so a meeting booked for next Tuesday is named next Tuesday rather than
+  // today. Settings are read only when there is nothing to read them for.
+  const title =
+    typed || defaultMeetingTitle(scheduledAt ?? new Date(), (await readSettings()).meetingTitleFormat);
 
   const created = await prisma.meeting.create({
     data: {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { TITLE_FORMATS } from "@/lib/meeting-title";
 import { HouseDefaults } from "./house-defaults";
 import { MachineNote } from "./machine-note";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
@@ -45,6 +46,7 @@ type PublicSettings = {
   defaultMinutesTemplateId: string;
   hasAnthropicApiKey: boolean;
   hasOpenaiApiKey: boolean;
+  meetingTitleFormat: string;
   summaryLanguage: string;
   summaryDetail: string;
   restScreenSeconds: number;
@@ -707,6 +709,32 @@ export default function SettingsPage() {
               Applied instantly and saved per device (browser). No need to press “Save”.
               “System” follows your OS and changes with it. Read-only visitors get the same
               choice from the icon in the header.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="meetingTitleFormat" className={labelClass}>
+              Default meeting name
+            </label>
+            <select
+              id="meetingTitleFormat"
+              value={settings.meetingTitleFormat}
+              onChange={(e) => update("meetingTitleFormat", e.target.value)}
+              disabled={saving}
+              className={inputClass}
+            >
+              {/* The samples are the labels. Which of `20260711` and `Jul 11, 2026` reads as a
+                  date is a question about where somebody lives, and the way to answer it is to
+                  look at both rather than to decode `yyyyMMdd`. */}
+              {TITLE_FORMATS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.sample}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              What a meeting is called until somebody names it. The day it is for — a meeting
+              booked from the calendar is named for that day, not for today.
             </p>
           </div>
 

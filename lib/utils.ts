@@ -36,22 +36,6 @@ export function formatTime(value: Date | string | null | undefined): string {
 }
 
 /**
- * Default meeting title: the day, "20260711".
- *
- * The day rather than the minute. A title is what somebody reads in a list months later, and
- * "20260711 16:00" spends half its width on a figure the row already shows beside it — the list
- * carries the time, the duration and the utterance count on its own line. Two meetings on one
- * day now start with the same title, which is the honest state of affairs: neither of them has
- * been named yet, and the one that matters gets named.
- *
- * Takes the day it is for, which is not always today — a meeting booked from the calendar is
- * titled for the day it was booked on.
- */
-export function defaultMeetingTitle(day: Date = new Date()): string {
-  return `${day.getFullYear()}${z2(day.getMonth() + 1)}${z2(day.getDate())}`;
-}
-
-/**
  * "2026-09-18" as that day where the reader is standing, or undefined.
  *
  * Parsed as local wall-clock rather than through `new Date("2026-09-18")`, which reads a bare

@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { dayFromKey, defaultMeetingTitle } from "../lib/utils";
+import { DEFAULT_TITLE_FORMAT, TITLE_FORMATS, defaultMeetingTitle, isTitleFormat } from "../lib/meeting-title";
+import { dayFromKey } from "../lib/utils";
 
 // A default title is what somebody reads in a list months later, and it is the one piece of a
 // meeting the app writes on their behalf. Both properties here were wrong before: it carried a
@@ -60,7 +61,7 @@ describe("the New meeting screen", () => {
     // The calendar's "+ Add a meeting on this day" arrives here as ?date=. Filling the date in
     // and then titling the meeting *today* is the click looking as though it was ignored.
     expect(form).toContain("const bookedDay = dayFromKey(date);");
-    expect(form).toContain("const dayTitle = defaultMeetingTitle(bookedDay);");
+    expect(form).toContain("const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);");
     expect(form).toContain("useState(dayTitle)");
   });
 
@@ -69,5 +70,62 @@ describe("the New meeting screen", () => {
     // too, or clearing the box silently moves the meeting's name to today.
     expect(form).toContain("createMeeting(dayTitle)");
     expect(form).not.toContain("createMeeting(defaultMeetingTitle())");
+  });
+
+  it("is handed the shape by the server, not left to fetch it", () => {
+    // The field shows the name before the meeting exists, so it has to be right on the first
+    // paint. Fetching the setting in the browser would show the compact default and then swap
+    // it under somebody already typing.
+    expect(readFileSync(join(__dirname, "..", "app/new/page.tsx"), "utf8")).toContain(
+      "titleFormat={meetingTitleFormat}",
+    );
+  });
+});
+
+describe("the callers that never show a title", () => {
+  it("let the server name the meeting", () => {
+    // Three callers, only one of which shows the name first. The other two would each have to
+    // fetch the settings to learn the shape, and would each be a place for the two to drift.
+    for (const p of ["app/quick-record/page.tsx", "app/[id]/clone-meeting-button.tsx"]) {
+      expect(readFileSync(join(__dirname, "..", p), "utf8"), p).not.toContain("defaultMeetingTitle");
+    }
+    const route = readFileSync(join(__dirname, "..", "app/api/meetings/route.ts"), "utf8");
+    expect(route).toContain("typed || defaultMeetingTitle(scheduledAt ?? new Date()");
+  });
+});
+
+describe("the shapes on offer", () => {
+  const day = new Date(2026, 6, 11);
+
+  it("each produce their own sample", () => {
+    // The settings screen shows `sample` as the label and stores `id`. If the two ever disagree
+    // somebody picks one shape and gets another, and the screen is the last place that would
+    // show it.
+    for (const f of TITLE_FORMATS) {
+      expect(defaultMeetingTitle(day, f.id), f.id).toBe(f.sample);
+    }
+  });
+
+  it("cover the ways a date is written", () => {
+    expect(TITLE_FORMATS.map((f) => f.sample)).toEqual([
+      "20260711",
+      "2026-07-11",
+      "Jul 11, 2026",
+      "11 Jul 2026",
+      "2026年7月11日",
+    ]);
+  });
+
+  it("start where this app started, so nobody's titles move under them", () => {
+    expect(DEFAULT_TITLE_FORMAT).toBe("compact");
+    expect(defaultMeetingTitle(day)).toBe("20260711");
+  });
+
+  it("fall back rather than throw on a shape that is not one", () => {
+    // settings.json is hand-editable, and a typo there should cost a default rather than every
+    // screen that names a meeting.
+    expect(defaultMeetingTitle(day, "yyyy/MM/dd")).toBe("20260711");
+    expect(isTitleFormat("yyyy/MM/dd")).toBe(false);
+    expect(isTitleFormat("ja")).toBe(true);
   });
 });

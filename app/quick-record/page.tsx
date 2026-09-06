@@ -4,10 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { preloadStt, sttWarmupFromSettings } from "@/lib/stt/preload";
-import { defaultMeetingTitle } from "@/lib/utils";
 
 // Landing point for the home-screen shortcut "new recording".
-// Creates a meeting with the default title (the day) and jumps straight to the recording
+// Creates a meeting the server names after the day, and jumps straight to the recording
 // page (one-tap recording). Like the New meeting screen, it first checks whether minutes
 // are generating — recording needs that GPU — and offers to interrupt them before creating
 // the meeting (so cancelling leaves no empty meeting behind).
@@ -29,7 +28,8 @@ export default function QuickRecordPage() {
       const res = await fetch("/api/meetings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: defaultMeetingTitle(), description: "" }),
+        // No title: the server names it after today, in the shape this reader chose.
+        body: JSON.stringify({ description: "" }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const m = (await res.json()) as { id: string };

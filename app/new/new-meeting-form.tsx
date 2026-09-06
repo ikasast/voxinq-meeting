@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { dayFromKey, defaultMeetingTitle } from "@/lib/utils";
+import { defaultMeetingTitle } from "@/lib/meeting-title";
+import { dayFromKey } from "@/lib/utils";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
 import {
@@ -40,10 +41,13 @@ type Phase = null | "creating" | "transcribing" | "summarizing";
 export default function NewMeetingForm({
   external = false,
   date,
+  titleFormat,
 }: {
   external?: boolean;
   /** "2026-09-18" from the calendar. Books the meeting on that day rather than recording now. */
   date?: string;
+  /** Which shape the default title takes — this reader's setting, resolved on the server. */
+  titleFormat?: string;
 }) {
   const router = useRouter();
   const gpu = useGpuBusy();
@@ -51,7 +55,7 @@ export default function NewMeetingForm({
   // "+ Add a meeting on this day" and being handed today's date as the title is the click
   // appearing to have been ignored — the whole point of that link was to say which day.
   const bookedDay = dayFromKey(date);
-  const dayTitle = defaultMeetingTitle(bookedDay);
+  const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
   const [title, setTitle] = useState(dayTitle);
   const [description, setDescription] = useState("");
   const [series, setSeries] = useState("");

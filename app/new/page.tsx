@@ -1,4 +1,5 @@
 import { isExternalRequest } from "@/lib/is-tailnet";
+import { readSettings } from "@/lib/settings";
 import NewMeetingForm from "./new-meeting-form";
 
 // A server shell so the form knows where the request came from. Everything else on this screen
@@ -13,5 +14,9 @@ export default async function NewMeetingPage({
 }) {
   const external = await isExternalRequest();
   const { date } = await searchParams;
-  return <NewMeetingForm external={external} date={date} />;
+  // Read here rather than in the form: the field shows the name before the meeting exists, so
+  // the shape has to be right on the first paint. Fetching it in the browser would show the
+  // compact default and then swap it under somebody already typing.
+  const { meetingTitleFormat } = await readSettings();
+  return <NewMeetingForm external={external} date={date} titleFormat={meetingTitleFormat} />;
 }
