@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useT } from "@/app/locale-provider";
 
 export type Participant = { name: string; speaking: boolean };
 
@@ -28,6 +29,7 @@ export function ParticipantsCard({
   readOnly?: boolean;
 }) {
   const [people, setPeople] = useState<Participant[]>(initial);
+  const t = useT();
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export function ParticipantsCard({
           throw new Error(d?.error ?? `Could not save (HTTP ${res.status})`);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not save");
+        setError(e instanceof Error ? e.message : t("Could not save"));
       } finally {
         setSaving(false);
       }
@@ -89,13 +91,13 @@ export function ParticipantsCard({
   return (
     <section className="card p-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-[var(--text-strong)]">Participants</h2>
-        {saving ? <span className="text-xs text-[var(--text-muted)]">Saving…</span> : null}
+        <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Participants")}</h2>
+        {saving ? <span className="text-xs text-[var(--text-muted)]">{t("Saving…")}</span> : null}
       </div>
 
       {people.length === 0 ? (
         <p className="text-xs text-[var(--text-muted)]">
-          {readOnly ? "Nobody recorded." : "Add who was there. Ticked names are the ones expected to speak."}
+          {readOnly ? t("Nobody recorded.") : t("Add who was there. Ticked names are the ones expected to speak.")}
         </p>
       ) : (
         <ul className="flex flex-col gap-1">
@@ -110,7 +112,7 @@ export function ParticipantsCard({
                     prev.map((q) => (q.name === p.name ? { ...q, speaking: !q.speaking } : q)),
                   )
                 }
-                title={p.speaking ? "Expected to speak" : "Attended, but did not speak"}
+                title={p.speaking ? t("Expected to speak") : t("Attended, but did not speak")}
                 aria-label={`${p.name} spoke`}
                 className="accent-[var(--accent)]"
               />
@@ -126,7 +128,7 @@ export function ParticipantsCard({
                   type="button"
                   onClick={() => setPeople((prev) => prev.filter((q) => q.name !== p.name))}
                   className="text-xs text-[var(--text-muted)] hover:text-[var(--error)]"
-                  title="Remove"
+                  title={t("Remove")}
                   aria-label={`Remove ${p.name}`}
                 >
                   ✕
@@ -147,7 +149,7 @@ export function ParticipantsCard({
                   type="button"
                   onClick={() => add(n)}
                   className="rounded-full border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
-                  title={`Add ${n} to this meeting`}
+                  title={t("Add {name} to this meeting", { name: n })}
                 >
                   + {n}
                 </button>
@@ -175,7 +177,7 @@ export function ParticipantsCard({
                   add();
                 }
               }}
-              placeholder="Add a name"
+              placeholder={t("Add a name")}
               className="input min-w-0 flex-1 !py-1 text-sm"
             />
             <datalist id={listId}>
@@ -184,7 +186,7 @@ export function ParticipantsCard({
               ))}
             </datalist>
             <button type="button" onClick={() => add()} className="btn-outline !px-2 !py-1 text-xs">
-              Add
+              {t("Add")}
             </button>
           </div>
         </>
@@ -192,8 +194,11 @@ export function ParticipantsCard({
 
       {people.length > 0 ? (
         <p className="mt-2 text-xs text-[var(--text-muted)]">
-          {speakers} of {people.length} expected to speak — diarization is told to look for{" "}
-          {speakers || "as many as it finds"}.
+          {t("{speakers} of {total} expected to speak — diarization is told to look for {n}.", {
+            speakers,
+            total: people.length,
+            n: speakers || t("as many as it finds"),
+          })}
         </p>
       ) : null}
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DownloadIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 // Downloading the minutes, in whichever format they have to arrive in.
 //
@@ -22,6 +23,7 @@ export function MinutesDownloadButton({
   filename: string;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const box = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -59,8 +61,8 @@ export function MinutesDownloadButton({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="btn-icon"
-        title="Download minutes"
-        aria-label="Download minutes"
+        title={t("Download minutes")}
+        aria-label={t("Download minutes")}
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -94,7 +96,7 @@ export function MinutesDownloadButton({
             target="_blank"
             rel="noreferrer"
             onClick={() => setOpen(false)}
-            title="Opens a print view — choose “Save as PDF” as the destination"
+            title={t("Opens a print view — choose “Save as PDF” as the destination")}
             className="block w-full rounded px-2.5 py-1.5 text-left text-sm hover:bg-[var(--surface-hover)]"
           >
             PDF (print)

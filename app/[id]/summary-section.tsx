@@ -10,9 +10,13 @@ import { useGpuBusy } from "../use-gpu-busy";
 import { CopySummaryButton } from "./copy-summary-button";
 import { MinutesDownloadButton } from "./minutes-download-button";
 import { ShareButton } from "./share-button";
+import { useT } from "@/app/locale-provider";
 
 export type SummaryVersion = { id: string; text: string; createdAt: string };
 
+// The labels are the keys, translated where they are rendered. A module-level constant has no
+// hook to reach the language with, and the same spelling-out the meeting list's bands needed:
+// a key that only exists at run time is one the table's test cannot see.
 const DETAILS: { id: string; label: string }[] = [
   { id: "brief", label: "Brief (shorter)" },
   { id: "standard", label: "Standard" },
@@ -26,6 +30,19 @@ const PROVIDERS: { id: string; label: string }[] = [
   { id: "anthropic", label: "Anthropic" },
   { id: "openai", label: "OpenAI-compatible" },
 ];
+
+/** The six option labels, spelled out so the table's test can find them. */
+function optionLabel(t: (k: string) => string, label: string): string {
+  const table: Record<string, string> = {
+    "Brief (shorter)": t("Brief (shorter)"),
+    Standard: t("Standard"),
+    "Detailed (fuller)": t("Detailed (fuller)"),
+    "Ollama (local)": t("Ollama (local)"),
+    Anthropic: t("Anthropic"),
+    "OpenAI-compatible": t("OpenAI-compatible"),
+  };
+  return table[label] ?? label;
+}
 
 // Display / edit / regenerate the minutes, plus version history.
 // summaries is newest-first. Shows the not-generated state when empty.
@@ -49,6 +66,7 @@ export function SummarySection({
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(summaries[0]?.id ?? "");
+  const t = useT();
   const current = useMemo(
     () => summaries.find((s) => s.id === selectedId) ?? summaries[0],
     [summaries, selectedId],
@@ -152,7 +170,7 @@ export function SummarySection({
       setEditing(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("Failed to save"));
     } finally {
       setPending(false);
     }
@@ -178,7 +196,7 @@ export function SummarySection({
       setShowOptions(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Regeneration failed");
+      setError(e instanceof Error ? e.message : t("Regeneration failed"));
     } finally {
       setGenBusy(false);
     }
@@ -203,11 +221,11 @@ export function SummarySection({
 
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">Minutes</h2>
+      <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">{t("Minutes")}</h2>
       {current && !editing ? (
         <div className="flex flex-wrap items-center gap-2">
           {!readOnly ? (
-            <button type="button" onClick={startEdit} className="btn-icon" title="Edit" aria-label="Edit">
+            <button type="button" onClick={startEdit} className="btn-icon" title={t("Edit")} aria-label={t("Edit")}>
               <PencilIcon />
             </button>
           ) : null}
@@ -233,9 +251,9 @@ export function SummarySection({
                 title={
                   waitingOn
                     ? `${waitingOn} — this will wait its turn in the queue.`
-                    : "Regenerate the minutes (choose detail & provider)"
+                    : t("Regenerate the minutes (choose detail & provider)")
                 }
-                aria-label="Regenerate"
+                aria-label={t("Regenerate")}
                 aria-expanded={showOptions}
               >
                 <RefreshIcon className={genBusy ? "h-4 w-4 shrink-0 animate-spin" : "h-4 w-4 shrink-0"} />
@@ -251,7 +269,7 @@ export function SummarySection({
   if (!current) {
     return (
       <>
-        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">Minutes</h2>
+        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">{t("Minutes")}</h2>
         {processing ? (
           <div className="mt-4 space-y-2">
             <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
@@ -272,11 +290,11 @@ export function SummarySection({
           </>
         ) : (
           <>
-            <p className="mt-4 text-sm text-[var(--text-muted)]">No minutes generated yet.</p>
+            <p className="mt-4 text-sm text-[var(--text-muted)]">{t("No minutes generated yet.")}</p>
             {canGenerate && !readOnly ? (
-              <GenButton onClick={() => regenerate()} busy={genBusy} label="Generate minutes" />
+              <GenButton onClick={() => regenerate()} busy={genBusy} label={t("Generate minutes")} />
             ) : readOnly ? null : (
-              <p className="mt-2 text-xs text-[var(--text-muted)]">No transcript, so minutes cannot be generated.</p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{t("No transcript, so minutes cannot be generated.")}</p>
             )}
           </>
         )}
@@ -305,8 +323,8 @@ export function SummarySection({
               {/* Empty means "whatever the settings and this series say", which is what the
                   button did before this existed. "default" asks for the built-in explicitly,
                   which is otherwise unreachable once a series has its own format. */}
-              <option value="">Same as settings</option>
-              <option value="default">Built-in default</option>
+              <option value="">{t("Same as settings")}</option>
+              <option value="default">{t("Built-in default")}</option>
               {optTemplates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -328,14 +346,14 @@ export function SummarySection({
               >
                 {DETAILS.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.label}
+                    {optionLabel(t, d.label)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label htmlFor="regen-provider" className="label">
-                Provider
+                {t("Provider")}
               </label>
               <select
                 id="regen-provider"
@@ -345,13 +363,13 @@ export function SummarySection({
               >
                 {PROVIDERS.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.label}
+                    {optionLabel(t, p.label)}
                   </option>
                 ))}
               </select>
               {optModels[optProvider] ? (
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Model: {optModels[optProvider]} (from Settings)
+                  {t("Model: {model} (from Settings)", { model: optModels[optProvider] })}
                 </p>
               ) : null}
             </div>
@@ -362,7 +380,7 @@ export function SummarySection({
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowOptions(false)} className="btn-outline">
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="button"
@@ -376,7 +394,7 @@ export function SummarySection({
                 disabled={genBusy || processing}
                 className="btn-ink"
               >
-                {genBusy ? "Starting…" : "Regenerate"}
+                {genBusy ? t("Starting…") : t("Regenerate")}
               </button>
             </div>
           </div>
@@ -386,7 +404,7 @@ export function SummarySection({
       {processing ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">
           <Spinner />
-          <span className="mr-auto">Generating new minutes. A new version will be added below when done…</span>
+          <span className="mr-auto">{t("Generating new minutes. A new version will be added below when done…")}</span>
           {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
         </div>
       ) : summaryStatus === "error" ? (
@@ -399,7 +417,7 @@ export function SummarySection({
       {/* Version history (when there are 2 or more) */}
       {summaries.length > 1 && !editing ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-          <span>Version:</span>
+          <span>{t("Version:")}</span>
           <select
             value={current.id}
             onChange={(e) => setSelectedId(e.target.value)}
@@ -412,7 +430,7 @@ export function SummarySection({
               </option>
             ))}
           </select>
-          {!isLatest ? <span className="text-[var(--warning)]">Viewing an older version</span> : null}
+          {!isLatest ? <span className="text-[var(--warning)]">{t("Viewing an older version")}</span> : null}
         </div>
       ) : null}
 
@@ -430,10 +448,10 @@ export function SummarySection({
           />
           <div className="flex justify-end gap-2">
             <button type="button" onClick={cancel} disabled={pending} className="btn-outline">
-              Cancel
+              {t("Cancel")}
             </button>
             <button type="button" onClick={save} disabled={pending} className="btn-ink">
-              {pending ? "Saving…" : "Save"}
+              {pending ? t("Saving…") : "Save"}
             </button>
           </div>
         </div>
@@ -453,10 +471,11 @@ function Spinner() {
 }
 
 function GenButton({ onClick, busy, label }: { onClick: () => void; busy: boolean; label: string }) {
+  const t = useT();
   return (
     <div className="mt-4">
       <button type="button" onClick={onClick} disabled={busy} className="btn-ink">
-        {busy ? "Starting…" : label}
+        {busy ? t("Starting…") : label}
       </button>
     </div>
   );
@@ -465,16 +484,17 @@ function GenButton({ onClick, busy, label }: { onClick: () => void; busy: boolea
 // Force-stop the running minutes generation. Shown in place of the regenerate button while
 // a generation is in flight.
 function StopButton({ onClick, busy }: { onClick: () => void; busy: boolean }) {
+  const t = useT();
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={busy}
-      title="Stop the running minutes generation"
+      title={t("Stop the running minutes generation")}
       className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-3 py-1.5 text-sm font-medium text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
     >
       <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
-      {busy ? "Stopping…" : "Stop"}
+      {busy ? t("Stopping…") : t("Stop")}
     </button>
   );
 }

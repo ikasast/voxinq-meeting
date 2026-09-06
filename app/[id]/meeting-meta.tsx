@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useT } from "@/app/locale-provider";
 
 // Section to edit the meeting's contents/purpose (description), tags, and series afterward.
 // description feeds the minutes-generation prompt; tags are used for list display/filtering.
@@ -24,6 +25,7 @@ export function MeetingMeta({
 }) {
   const router = useRouter();
   const [savedDesc, setSavedDesc] = useState(description ?? "");
+  const t = useT();
   const [savedTags, setSavedTags] = useState(tags);
   const [savedSeries, setSavedSeries] = useState(series ?? "");
   const [draftDesc, setDraftDesc] = useState(description ?? "");
@@ -108,7 +110,7 @@ export function MeetingMeta({
       setEditing(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("Failed to save"));
     } finally {
       setPending(false);
     }
@@ -119,10 +121,10 @@ export function MeetingMeta({
   return (
     <section className="card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-[var(--text-strong)]">Purpose &amp; agenda</h2>
+        <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Purpose & agenda")}</h2>
         {!editing && !readOnly ? (
           <button type="button" onClick={() => setEditing(true)} className="btn-outline">
-            Edit
+            {t("Edit")}
           </button>
         ) : null}
       </div>
@@ -132,7 +134,7 @@ export function MeetingMeta({
           <textarea
             value={draftDesc}
             onChange={(e) => setDraftDesc(e.target.value)}
-            placeholder="Purpose, agenda, and background of the meeting. Improves minutes quality."
+            placeholder={t("Purpose, agenda, and background of the meeting. Improves minutes quality.")}
             rows={4}
             autoFocus
             disabled={pending}
@@ -140,7 +142,7 @@ export function MeetingMeta({
           />
 
           <div>
-            <p className="label">Tags</p>
+            <p className="label">{t("Tags")}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {draftTags.map((t) => (
                 <span
@@ -168,7 +170,7 @@ export function MeetingMeta({
                     addTag(tagInput);
                   }
                 }}
-                placeholder="Type a tag and press Enter"
+                placeholder={t("Type a tag and press Enter")}
                 maxLength={30}
                 disabled={pending}
                 className="w-44 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-2 py-1 text-xs text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none"
@@ -176,7 +178,7 @@ export function MeetingMeta({
             </div>
             {unusedSuggestions.length > 0 ? (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] text-[var(--text-muted)]">Existing:</span>
+                <span className="text-[10px] text-[var(--text-muted)]">{t("Existing:")}</span>
                 {unusedSuggestions.map((s) => (
                   <button
                     key={s}
@@ -201,7 +203,7 @@ export function MeetingMeta({
               list="series-options"
               value={draftSeries}
               onChange={(e) => setDraftSeries(e.target.value)}
-              placeholder="e.g. Weekly sync (empty = none)"
+              placeholder={t("e.g. Weekly sync (empty = none)")}
               maxLength={60}
               disabled={pending}
               className="input mt-1"
@@ -220,10 +222,10 @@ export function MeetingMeta({
           {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={cancel} disabled={pending} className="btn-outline">
-              Cancel
+              {t("Cancel")}
             </button>
             <button type="button" onClick={save} disabled={pending} className="btn-ink">
-              {pending ? "Saving…" : "Save"}
+              {pending ? t("Saving…") : "Save"}
             </button>
           </div>
         </div>
@@ -234,7 +236,7 @@ export function MeetingMeta({
               {savedDesc}
             </p>
           ) : (
-            <p className="mt-2 text-sm text-[var(--text-muted)]">Not set</p>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{t("Not set")}</p>
           )}
           {savedTags.length > 0 || savedSeries ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -242,7 +244,7 @@ export function MeetingMeta({
                 seriesId && savedSeries === (series ?? "") ? (
                   <Link
                     href={`/series/${seriesId}`}
-                    title="Open the series page (timeline & defaults)"
+                    title={t("Open the series page (timeline & defaults)")}
                     className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)] hover:underline"
                   >
                     ↻ {savedSeries}

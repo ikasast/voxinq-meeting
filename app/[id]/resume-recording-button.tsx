@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
+import { useT } from "@/app/locale-provider";
 
 // "Resume recording" for an ended meeting — shown only when the recording (WAV) is still kept.
 // Resuming appends a new session to the existing recording (STT appends the WAV and offsets
@@ -11,6 +12,7 @@ import { sttHttpBase } from "@/lib/stt/client";
 // it (the recording auto-deletes after the retention period unless protected).
 export function ResumeRecordingButton({ meetingId }: { meetingId: string }) {
   const [exists, setExists] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -32,9 +34,9 @@ export function ResumeRecordingButton({ meetingId }: { meetingId: string }) {
     <Link
       href={`/${meetingId}/recording?autostart=1&resume=1`}
       className="btn-ink"
-      title="Continue recording — appends to the existing recording and transcript"
+      title={t("Continue recording — appends to the existing recording and transcript")}
     >
-      Resume recording
+      {t("Resume recording")}
     </Link>
   );
 }

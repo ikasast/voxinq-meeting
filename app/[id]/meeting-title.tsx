@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/app/locale-provider";
 
 // Title display with inline editing. Pencil button -> input field,
 // Enter/Save issues a PATCH, Esc/Cancel discards.
@@ -16,6 +17,7 @@ export function MeetingTitle({
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const t = useT();
   const [value, setValue] = useState(title);
   const [saved, setSaved] = useState(title);
   const [pending, setPending] = useState(false);
@@ -50,7 +52,7 @@ export function MeetingTitle({
       setEditing(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("Failed to save"));
     } finally {
       setPending(false);
     }
@@ -64,8 +66,8 @@ export function MeetingTitle({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            aria-label="Edit meeting title"
-            title="Edit meeting title"
+            aria-label={t("Edit meeting title")}
+            title={t("Edit meeting title")}
             className="rounded p-1 text-base text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
           >
             ✎
@@ -93,10 +95,10 @@ export function MeetingTitle({
           className="input w-full text-xl font-semibold sm:w-auto sm:flex-1"
         />
         <button type="button" onClick={save} disabled={pending} className="btn-ink shrink-0">
-          {pending ? "Saving…" : "Save"}
+          {pending ? t("Saving…") : "Save"}
         </button>
         <button type="button" onClick={cancel} disabled={pending} className="btn-outline shrink-0">
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
       {error ? <p className="mt-1 text-sm text-[var(--error)]">{error}</p> : null}

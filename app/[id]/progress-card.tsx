@@ -1,4 +1,5 @@
 import { formatDurationMs } from "@/lib/utils";
+import { serverT } from "@/lib/i18n/server";
 
 // Where this meeting has got to.
 //
@@ -30,7 +31,7 @@ function Mark({ state }: { state: Step["state"] }) {
   return <span className="text-[var(--text-muted)]">○</span>;
 }
 
-export function ProgressCard({
+export async function ProgressCard({
   ended,
   recordedMs,
   transcriptCount,
@@ -51,24 +52,32 @@ export function ProgressCard({
   summaryCount: number;
   summaryStatus: string | null;
 }) {
+  const t = await serverT();
   const steps: Step[] = [
+
     {
-      label: "Recorded",
+      label: t("Recorded"),
       state: ended || transcriptCount > 0 ? "done" : "not-run",
       detail: recordedMs ? (formatDurationMs(recordedMs) ?? undefined) : undefined,
     },
     {
-      label: "Transcribed",
+      label: t("Transcribed"),
       state: transcriptCount > 0 ? "done" : "not-run",
-      detail: transcriptCount > 0 ? `${transcriptCount} utterances` : undefined,
+      detail:
+        transcriptCount > 0
+          ? t(transcriptCount === 1 ? "1 utterance" : "{n} utterances", { n: transcriptCount })
+          : undefined,
     },
     {
-      label: "Speakers separated",
+      label: t("Speakers separated"),
       state: separated ? "done" : "not-run",
-      detail: separated && speakerCount > 0 ? `${speakerCount} speakers` : undefined,
+      detail:
+        separated && speakerCount > 0
+          ? t(speakerCount === 1 ? "1 speaker" : "{n} speakers", { n: speakerCount })
+          : undefined,
     },
     {
-      label: summaryStatus === "processing" ? "Writing minutes…" : "Minutes",
+      label: summaryStatus === "processing" ? t("Writing minutes…") : t("Minutes"),
       state:
         summaryStatus === "processing" ? "running" : summaryCount > 0 ? "done" : "not-run",
       detail:
@@ -78,7 +87,7 @@ export function ProgressCard({
 
   return (
     <section className="card p-4">
-      <h2 className="mb-2 text-sm font-semibold text-[var(--text-strong)]">Progress</h2>
+      <h2 className="mb-2 text-sm font-semibold text-[var(--text-strong)]">{t("Progress")}</h2>
       <ul className="flex flex-col gap-1.5 text-xs">
         {steps.map((s) => (
           <li key={s.label} className="flex items-baseline gap-2">
@@ -93,7 +102,7 @@ export function ProgressCard({
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-        Separating speakers and writing minutes are optional, and can be run in either order.
+        {t("Separating speakers and writing minutes are optional, and can be run in either order.")}
       </p>
     </section>
   );

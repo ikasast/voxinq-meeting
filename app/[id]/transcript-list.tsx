@@ -23,6 +23,7 @@ import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-
 import { ShareButton } from "./share-button";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
+import { useT } from "@/app/locale-provider";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -54,6 +55,8 @@ function remainingDays(expiresAt: string): number {
   return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 86400000));
 }
 
+// The label is the key. Module-level, so it is translated where the list is rendered — the
+// same shape the meeting list's bands and the minutes panel's option lists needed.
 const RETRANS_MODELS = [{ value: "", label: "Same as settings" }, ...WHISPER_MODELS];
 
 // Post-meeting transcript. Supports recording playback, auto diarization, speaker renaming, and re-transcription.
@@ -88,6 +91,7 @@ export function TranscriptList({
   // External (read-only) access can view/play/share but not diarize, re-transcribe or reassign.
   readOnly?: boolean;
 }) {
+  const t = useT();
   const [transcripts, setTranscripts] = useState<Item[]>(initialTranscripts);
   const [speakerLabels, setSpeakerLabels] = useState<SpeakerLabels>(
     parseSpeakerLabels(initialSpeakerLabels),
@@ -119,7 +123,7 @@ export function TranscriptList({
   const [retransing, setRetransing] = useState(false);
   const [retransStatus, setRetransStatus] = useState<string | null>(null);
   const [retransWarn, setRetransWarn] = useState<string | null>(null);
-  // Re-transcription changes things this component does not own: "Transcribed with" on the
+  // Re-transcription changes things this component does not own: t("Transcribed with") on the
   // meeting is rendered on the server, so replacing the transcript here left it showing the
   // model from before -- correct in the database, stale on screen until a reload.
   const listRouter = useRouter();
@@ -457,10 +461,10 @@ export function TranscriptList({
   const deleteTranscript = useCallback(
     async (transcriptId: string) => {
       const ok = await confirm({
-        title: "Delete this utterance?",
+        title: t("Delete this utterance?"),
         message:
           "It is removed from the transcript and will no longer be used when generating minutes. The audio itself is kept.",
-        confirmLabel: "Delete",
+        confirmLabel: t("Delete"),
         danger: true,
       });
       if (!ok) return;
@@ -523,7 +527,7 @@ export function TranscriptList({
       for (;;) {
         if (stopped?.()) return null;
         const res = await fetch(`/api/jobs/${jobId}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("The job could not be found.");
+        if (!res.ok) throw new Error(t("The job could not be found."));
         const job = (await res.json()) as {
           status: string;
           detail?: string | null;
@@ -533,7 +537,7 @@ export function TranscriptList({
           report(
             job.ahead
               ? `Waiting — ${job.ahead} job(s) ahead of it.`
-              : "Waiting for the GPU to be free…",
+              : t("Waiting for the GPU to be free…"),
           );
         } else if (job.status === "running") {
           report("Working… (you can leave this page; it finishes on the server)");
@@ -558,20 +562,20 @@ export function TranscriptList({
 
   const retranscribe = useCallback(async () => {
     const ok = await confirm({
-      title: "Re-transcribe from the recording",
+      title: t("Re-transcribe from the recording"),
       message:
         "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward." +
         (uploadTo
           ? `\n\nThe recording will be uploaded to ${uploadTo}, which recognises it and bills you for the length of the audio.`
           : ""),
-      confirmLabel: "Re-transcribe",
+      confirmLabel: t("Re-transcribe"),
       danger: true,
     });
     if (!ok) return;
     setError(null);
     setRetransWarn(null);
     setRetransing(true);
-    setRetransStatus("Adding to the queue…");
+    setRetransStatus(t("Adding to the queue…"));
     try {
       const settings = (await fetch("/api/settings")
         .then((r) => (r.ok ? r.json() : null))
@@ -609,9 +613,9 @@ export function TranscriptList({
 
       const job = await awaitJob(jobId, setRetransStatus);
       if (!job) return;
-      if (job.status === "error") throw new Error(job.detail ?? "Re-transcription failed");
+      if (job.status === "error") throw new Error(job.detail ?? t("Re-transcription failed"));
       if (job.status === "cancelled") {
-        setRetransStatus("Cancelled.");
+        setRetransStatus(t("Cancelled."));
         return;
       }
 
@@ -643,7 +647,7 @@ export function TranscriptList({
     setDiarWarn(null);
     setDiarizing(true);
     stopDiarRef.current = false;
-    setDiarStatus("Adding to the queue…");
+    setDiarStatus(t("Adding to the queue…"));
     try {
       // The box wins when it has a number in it. Otherwise the count comes from the participant
       // list, read now rather than held in state: it is edited elsewhere on this page, and a
@@ -665,7 +669,7 @@ export function TranscriptList({
 
       const job = await awaitJob(jobId, setDiarStatus, () => stopDiarRef.current);
       if (!job) {
-        setDiarStatus("Stopped.");
+        setDiarStatus(t("Stopped."));
         return;
       }
       if (job.status === "error") {
@@ -675,10 +679,10 @@ export function TranscriptList({
           setDiarStatus(null);
           return;
         }
-        throw new Error(job.detail ?? "Diarization failed");
+        throw new Error(job.detail ?? t("Diarization failed"));
       }
       if (job.status === "cancelled") {
-        setDiarStatus("Stopped.");
+        setDiarStatus(t("Stopped."));
         return;
       }
 
@@ -686,7 +690,7 @@ export function TranscriptList({
       // The runner reports what it found — one speaker where several were expected has causes
       // the person can act on.
       setDiarWarn(job.detail ?? null);
-      setDiarStatus(job.detail ? null : "Done. Rename the speakers below if you like.");
+      setDiarStatus(job.detail ? null : t("Done. Rename the speakers below if you like."));
     } catch (e) {
       setError(`Diarization failed: ${(e as Error).message}`);
       setDiarStatus(null);
@@ -842,8 +846,8 @@ export function TranscriptList({
             className="ml-2 inline-flex items-center gap-1.5 align-middle text-xs font-medium text-[var(--text-muted)]"
             title={
               liveOffline
-                ? "Cannot reach the server — retrying"
-                : "This meeting is being recorded; new utterances appear as they are transcribed"
+                ? t("Cannot reach the server — retrying")
+                : t("This meeting is being recorded; new utterances appear as they are transcribed")
             }
           >
             <span
@@ -851,7 +855,7 @@ export function TranscriptList({
                 liveOffline ? "bg-[var(--text-muted)]" : "animate-pulse bg-red-500"
               }`}
             />
-            {liveOffline ? "Reconnecting…" : "Live"}
+            {liveOffline ? t("Reconnecting…") : "Live"}
           </span>
         ) : null}
       </summary>
@@ -888,7 +892,7 @@ export function TranscriptList({
               disabled={recBusy}
               className="rounded-md border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
             >
-              {recBusy ? "Updating…" : recInfo.protected ? "Unprotect" : "Protect"}
+              {recBusy ? t("Updating…") : recInfo.protected ? t("Unprotect") : t("Protect")}
             </button>
           </div>
         </div>
@@ -903,7 +907,7 @@ export function TranscriptList({
             <ShareButton
               text={transcriptText}
               title={`${meetingTitle} transcript`}
-              label="Share transcript"
+              label={t("Share transcript")}
               filename={`${meetingTitle}-transcript.txt`}
             />
           ) : (
@@ -927,7 +931,7 @@ export function TranscriptList({
               {transcripts.length > 0 && (recInfo?.exists || diarizing) ? (
                 <>
                   <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
-                    title="How many voices to look for. Left empty, the participant list decides."
+                    title={t("How many voices to look for. Left empty, the participant list decides.")}
                   >
                     Speakers
                     <input
@@ -949,7 +953,7 @@ export function TranscriptList({
                       className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-5 py-2.5 text-sm font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
                     >
                       <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
-                      {stoppingDiar ? "Stopping…" : "Stop"}
+                      {stoppingDiar ? t("Stopping…") : "Stop"}
                     </button>
                   ) : (
                     <button
@@ -972,7 +976,7 @@ export function TranscriptList({
                   className="btn-outline"
                   title="Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line"
                 >
-                  {suggesting ? "Checking…" : "Suggest fixes"}
+                  {suggesting ? t("Checking…") : t("Suggest fixes")}
                 </button>
               ) : null}
             </div>
@@ -1020,7 +1024,7 @@ export function TranscriptList({
               disabled={profileBusy || busy}
               className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
             >
-              {profileBusy ? "Saving…" : "Save voice profiles"}
+              {profileBusy ? t("Saving…") : t("Save voice profiles")}
             </button>
             <span className="text-xs text-[var(--text-muted)]">
               Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
@@ -1030,7 +1034,7 @@ export function TranscriptList({
           {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
           {profiles.length > 0 ? (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-[var(--text-muted)]">Enrolled:</span>
+              <span className="text-[10px] text-[var(--text-muted)]">{t("Enrolled:")}</span>
               {profiles.map((p) => (
                 <span
                   key={p.name}
@@ -1041,7 +1045,7 @@ export function TranscriptList({
                     type="button"
                     onClick={() => void deleteProfile(p.name)}
                     aria-label={`Delete voice profile ${p.name}`}
-                    title="Delete this voice profile"
+                    title={t("Delete this voice profile")}
                     className="text-[var(--text-muted)] hover:text-[var(--error)]"
                   >
                     ×
@@ -1057,14 +1061,14 @@ export function TranscriptList({
           no positions, so the recording's utterance boundaries stay valid. */}
       {transcripts.length > 0 && !readOnly ? (
         <Disclosure
-          title="Find & replace"
-          hint="Fix a term that was misheard the same way throughout"
+          title={t("Find & replace")}
+          hint={t("Fix a term that was misheard the same way throughout")}
           open={replaceOpen}
           onToggle={() => setReplaceOpen((v) => !v)}
         >
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
-              <span className="label">Find</span>
+              <span className="label">{t("Find")}</span>
               <input
                 className="input mt-1"
                 value={findText}
@@ -1077,7 +1081,7 @@ export function TranscriptList({
               />
             </label>
             <label className="block">
-              <span className="label">Replace with</span>
+              <span className="label">{t("Replace with")}</span>
               <input
                 className="input mt-1"
                 value={replaceText}
@@ -1101,7 +1105,7 @@ export function TranscriptList({
               }}
               disabled={replaceBusy}
             />
-            <span>Match case</span>
+            <span>{t("Match case")}</span>
           </label>
 
           <div className="mt-2.5 flex flex-wrap gap-2">
@@ -1111,7 +1115,7 @@ export function TranscriptList({
               onClick={() => void previewReplace()}
               disabled={replaceBusy || !findText}
             >
-              {replaceBusy ? "Checking…" : "Preview"}
+              {replaceBusy ? t("Checking…") : t("Preview")}
             </button>
             {replacePreview && replacePreview.changeCount > 0 ? (
               <button
@@ -1129,7 +1133,7 @@ export function TranscriptList({
           {replacePreview ? (
             <div className="mt-2.5 text-xs">
               {replacePreview.totalMatches === 0 ? (
-                <p className="text-[var(--text-muted)]">No matches.</p>
+                <p className="text-[var(--text-muted)]">{t("No matches.")}</p>
               ) : (
                 <>
                   <p className="text-[var(--text-secondary)]">
@@ -1172,8 +1176,8 @@ export function TranscriptList({
           replaces the whole transcript. Collapsed by default. */}
       {recInfo?.exists && !readOnly ? (
         <Disclosure
-          title="Re-transcribe"
-          hint="Recognise the recording again and replace the transcript"
+          title={t("Re-transcribe")}
+          hint={t("Recognise the recording again and replace the transcript")}
           open={retransOpen}
           onToggle={() => setRetransOpen((v) => !v)}
         >
@@ -1201,10 +1205,13 @@ export function TranscriptList({
               >
                 <option value="">
                   {defaultProfileId
-                    ? `Same as settings (${sttProfiles.find((p) => p.id === defaultProfileId)?.name ?? "endpoint"})`
-                    : "Same as settings (this machine)"}
+                    ? t("Same as settings ({endpoint})", {
+                        endpoint:
+                          sttProfiles.find((p) => p.id === defaultProfileId)?.name ?? t("endpoint"),
+                      })
+                    : t("Same as settings (this machine)")}
                 </option>
-                <optgroup label="On this machine">
+                <optgroup label={t("On this machine")}>
                   {WHISPER_MODELS.map((m) => (
                     <option key={m.value} value={`local:${m.value}`}>
                       {m.label}
@@ -1212,7 +1219,7 @@ export function TranscriptList({
                   ))}
                 </optgroup>
                 {sttProfiles.length > 0 ? (
-                  <optgroup label="Saved endpoints">
+                  <optgroup label={t("Saved endpoints")}>
                     {sttProfiles.map((p) => (
                       <option key={p.id} value={`profile:${p.id}`}>
                         {p.name}
@@ -1229,10 +1236,10 @@ export function TranscriptList({
               disabled={busy}
               className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
             >
-              {retransing ? "Recognizing…" : "Re-transcribe"}
+              {retransing ? t("Recognizing…") : t("Re-transcribe")}
             </button>
             <span className="text-xs text-[var(--text-muted)]">
-              Re-recognizes the whole recording and replaces the transcript.
+              {t("Re-recognizes the whole recording and replaces the transcript.")}
             </span>
           </div>
           {retransStatus ? (
@@ -1285,7 +1292,7 @@ export function TranscriptList({
       ) : null}
 
       {transcripts.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--text-muted)]">No transcript.</p>
+        <p className="mt-4 text-sm text-[var(--text-muted)]">{t("No transcript.")}</p>
       ) : (
         <ul className="mt-4 space-y-2">
           {transcripts.map((t, i) => (
@@ -1352,6 +1359,7 @@ function TranscriptRow({
   onDismissSuggestion: () => void;
   readOnly: boolean;
 }) {
+  const t = useT();
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
   // enough that retyping one line beats re-transcribing the whole meeting.
   const [editing, setEditing] = useState(false);
@@ -1413,8 +1421,8 @@ function TranscriptRow({
             <button
               type="button"
               onClick={startEdit}
-              title="Edit this utterance"
-              aria-label="Edit this utterance"
+              title={t("Edit this utterance")}
+              aria-label={t("Edit this utterance")}
               className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
             >
               <PencilIcon className="h-3.5 w-3.5" />
@@ -1422,8 +1430,8 @@ function TranscriptRow({
             <button
               type="button"
               onClick={onDelete}
-              title="Delete this utterance (it will no longer feed minutes generation)"
-              aria-label="Delete this utterance"
+              title={t("Delete this utterance (it will no longer feed minutes generation)")}
+              aria-label={t("Delete this utterance")}
               className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--error)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
             >
               <TrashIcon className="h-3.5 w-3.5" />
@@ -1468,7 +1476,7 @@ function TranscriptRow({
               disabled={saving || !draft.trim()}
               className="rounded-md bg-[var(--accent-solid)] px-2.5 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("Saving…") : "Save"}
             </button>
           </div>
         </div>
@@ -1479,7 +1487,7 @@ function TranscriptRow({
           would replace. Applying it is an ordinary edit; nothing changes until then. */}
       {suggestion && !editing && !readOnly ? (
         <div className="mt-1.5 rounded border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-2 py-1.5">
-          <p className="text-[11px] font-medium text-[var(--accent-sub)]">Suggested fix</p>
+          <p className="text-[11px] font-medium text-[var(--accent-sub)]">{t("Suggested fix")}</p>
           <p className="mt-0.5 text-xs whitespace-pre-wrap text-[var(--foreground)]">
             {suggestion.after}
           </p>
@@ -1533,6 +1541,7 @@ function Disclosure({
   onToggle: () => void;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--elevated)]">
       <button

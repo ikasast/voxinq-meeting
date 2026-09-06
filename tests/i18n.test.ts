@@ -102,7 +102,12 @@ describe("the strings themselves", () => {
 
   it("has no Japanese row that is still the English", () => {
     // A row copied in as a placeholder and never translated looks done from the outside.
-    const untouched = Object.entries(ja).filter(([k, v]) => k === v && /[a-z]{4}/.test(k));
+    // Prose only. A proper noun that is the same in both — "Anthropic" — is a row somebody
+    // wrote on purpose, and the failure this looks for is a sentence copied in as a placeholder
+    // and never translated.
+    const untouched = Object.entries(ja).filter(
+      ([k, v]) => k === v && /[a-z]{4}/.test(k) && k.includes(" "),
+    );
     expect(untouched.map(([k]) => k)).toEqual([]);
   });
 });

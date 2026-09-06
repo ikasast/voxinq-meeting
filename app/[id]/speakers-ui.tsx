@@ -8,6 +8,7 @@ import {
   speakerColor,
   speakerName,
 } from "@/lib/speakers";
+import { useT } from "@/app/locale-provider";
 
 const NEW_SPEAKER_VALUE = "__new__";
 
@@ -45,6 +46,7 @@ export function SpeakerReassignSelect({
   labels: SpeakerLabels;
   onChange: (nextKey: string) => void;
 }) {
+  const t = useT();
   // Always include the current value as an option even if it is missing from the known list (for legacy data).
   const options = collectSpeakerKeys([...speakerKeys, value], labels);
 
@@ -56,7 +58,7 @@ export function SpeakerReassignSelect({
     <select
       value={value}
       onChange={(e) => handle(e.target.value)}
-      title="Change the speaker of this utterance"
+      title={t("Change the speaker of this utterance")}
       className="rounded border border-[var(--border-strong)] bg-[var(--elevated)] px-1 py-0.5 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
     >
       {options.map((key) => (

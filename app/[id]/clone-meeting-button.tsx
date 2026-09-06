@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PlusCircleIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 // Create a new meeting inheriting the purpose/tags/series and go straight to recording (for recurring meetings).
 export function CloneMeetingButton({
@@ -16,6 +17,7 @@ export function CloneMeetingButton({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   const clone = async () => {
     setBusy(true);
@@ -43,7 +45,7 @@ export function CloneMeetingButton({
       onClick={clone}
       disabled={busy}
       title="New with same settings — start a new meeting inheriting this one's purpose, tags, and series"
-      aria-label="New with same settings"
+      aria-label={t("New with same settings")}
       className="btn-icon"
     >
       <PlusCircleIcon className={busy ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />

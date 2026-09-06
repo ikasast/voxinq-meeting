@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DownloadIcon, ShareIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 // Share button: Web Share on mobile, clipboard copy where unsupported.
 // If filename is passed, also shows a button to save as a text file.
@@ -17,6 +18,7 @@ export function ShareButton({
   filename?: string;
 }) {
   const [done, setDone] = useState<string | null>(null);
+  const t = useT();
 
   const share = async () => {
     setDone(null);
@@ -34,7 +36,7 @@ export function ShareButton({
       setDone("Copied");
       setTimeout(() => setDone(null), 2500);
     } catch {
-      setDone("Copy failed");
+      setDone(t("Copy failed"));
     }
   };
 
@@ -60,8 +62,8 @@ export function ShareButton({
           type="button"
           onClick={download}
           className="btn-icon"
-          title="Save to file"
-          aria-label="Save to file"
+          title={t("Save to file")}
+          aria-label={t("Save to file")}
         >
           <DownloadIcon />
         </button>

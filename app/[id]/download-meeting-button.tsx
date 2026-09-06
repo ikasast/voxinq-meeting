@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
 import { DownloadIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 type PartId = "minutes" | "transcript" | "meta" | "recording";
 
@@ -21,6 +22,7 @@ export function DownloadMeetingButton({
   hasTranscript: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasRecording, setHasRecording] = useState<boolean | null>(null);
@@ -82,24 +84,24 @@ export function DownloadMeetingButton({
       }
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Download failed");
+      setError(e instanceof Error ? e.message : t("Download failed"));
     } finally {
       setBusy(false);
     }
   };
 
   const rows: { id: PartId; label: string; available: boolean; note?: string }[] = [
-    { id: "minutes", label: "Minutes (.md)", available: hasMinutes },
-    { id: "transcript", label: "Transcript (.txt)", available: hasTranscript },
+    { id: "minutes", label: t("Minutes (.md)"), available: hasMinutes },
+    { id: "transcript", label: t("Transcript (.txt)"), available: hasTranscript },
     {
       id: "meta",
-      label: "Meeting info (.md)",
+      label: t("Meeting info (.md)"),
       available: true,
       note: "title, purpose & agenda, speakers, LLM/transcription settings",
     },
     {
       id: "recording",
-      label: "Recording (.wav)",
+      label: t("Recording (.wav)"),
       available: Boolean(hasRecording),
       note:
         hasRecording === null
@@ -117,8 +119,8 @@ export function DownloadMeetingButton({
         type="button"
         onClick={toggleOpen}
         className="btn-icon"
-        title="Download meeting (minutes / transcript / info / recording)"
-        aria-label="Download meeting"
+        title={t("Download meeting (minutes / transcript / info / recording)")}
+        aria-label={t("Download meeting")}
         aria-expanded={open}
       >
         <DownloadIcon />
@@ -135,7 +137,7 @@ export function DownloadMeetingButton({
           {/* Phones: centered fixed sheet (an anchored dropdown can hang off-screen when
               the button sits near the viewport edge). ≥sm: regular anchored dropdown. */}
           <div className="fixed inset-x-4 top-1/2 z-20 -translate-y-1/2 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] p-3 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:w-72 sm:translate-y-0">
-            <p className="mb-2 text-xs font-medium text-[var(--text-secondary)]">Download</p>
+            <p className="mb-2 text-xs font-medium text-[var(--text-secondary)]">{t("Download")}</p>
             <div className="space-y-1.5">
               {rows.map((r) => (
                 <label
@@ -174,7 +176,7 @@ export function DownloadMeetingButton({
                 disabled={busy || !anySelected}
                 className="btn-ink !px-3 !py-1 text-xs"
               >
-                {busy ? "Preparing…" : "Download"}
+                {busy ? t("Preparing…") : "Download"}
               </button>
             </div>
           </div>
