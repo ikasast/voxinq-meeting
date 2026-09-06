@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { adoptOrphanedMeetings } from "@/lib/auth/adopt";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email";
@@ -25,10 +26,7 @@ const MIN_PASSWORD = 8;
 
 export async function POST(req: Request) {
   if (await hasUsersCached()) {
-    return NextResponse.json(
-      { error: "This server already has an account. Sign in, or ask an administrator." },
-      { status: 409 },
-    );
+    return apiError("This server already has an account. Sign in, or ask an administrator.", 409);
   }
 
   const body = (await req.json().catch(() => null)) as {
@@ -43,22 +41,16 @@ export async function POST(req: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
 
   if (!USERNAME.test(username)) {
-    return NextResponse.json(
-      { error: "Usernames are 2–32 characters: letters, numbers, dot, dash, underscore." },
-      { status: 400 },
+    return apiError(
+      "Usernames are 2–32 characters: letters, numbers, dot, dash, underscore.",
+      400,
     );
   }
   if (!looksLikeEmail(email)) {
-    return NextResponse.json(
-      { error: "Enter the email address you want to sign in with." },
-      { status: 400 },
-    );
+    return apiError("Enter the email address you want to sign in with.", 400);
   }
   if (password.length < MIN_PASSWORD) {
-    return NextResponse.json(
-      { error: `Use at least ${MIN_PASSWORD} characters.` },
-      { status: 400 },
-    );
+    return apiError("Use at least {n} characters.", 400, { vars: { n: MIN_PASSWORD } });
   }
 
   try {
@@ -94,6 +86,6 @@ export async function POST(req: Request) {
     // Two people at the setup screen at once: one of them wins, and the other is now looking at
     // a server that has an account.
     forgetUserCount();
-    return NextResponse.json({ error: "That username is taken." }, { status: 409 });
+    return apiError("That username is taken.", 409);
   }
 }

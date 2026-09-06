@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { currentUser } from "@/lib/auth/session";
 import { normalizeTemplates } from "@/lib/minutes-templates";
 import {
@@ -39,10 +40,7 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const me = await currentUser();
   if (me && !me.isAdmin) {
-    return NextResponse.json(
-      { error: "Only an administrator sets the defaults everybody starts from." },
-      { status: 403 },
-    );
+    return apiError("Only an administrator sets the defaults everybody starts from.", 403);
   }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;

@@ -93,8 +93,8 @@ describe("resetting a password", () => {
   it("refuses to silently abandon a key", () => {
     // Somebody who has mislaid the code for a minute should meet a refusal, not a fresh key and
     // a year of unreadable meetings.
-    expect(route).toContain("needsRecoveryCode: true");
-    expect(route).toContain("status: 409");
+    expect(route).toContain("extra: { needsRecoveryCode: true }");
+    expect(route).toMatch(/^\s+409,$/m);
   });
 
   it("keeps everything when the code is given", () => {

@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { allKeys, keysIn } from "../lib/i18n/keys";
+import { allKeys, keysIn, serverMessageKeys } from "../lib/i18n/keys";
 import { preferredFromHeader, resolveLocale, translate } from "../lib/i18n";
 import { ja } from "../lib/i18n/ja";
 
@@ -126,6 +126,59 @@ describe("the strings themselves", () => {
       ([k, v]) => k === v && /[a-z]{4}/.test(k) && k.includes(" "),
     );
     expect(untouched.map(([k]) => k)).toEqual([]);
+  });
+});
+
+describe("what the server says back", () => {
+  // The routes write their errors as English sentences at the call site, and `apiError` is the
+  // one place that translates them. A route answering with `NextResponse.json({ error })`
+  // instead skips that, silently, in English, on a Japanese screen. Thirty of them did — the
+  // translation was in the table the whole time and nobody would ever have seen it.
+
+  const routeSources = (): [string, string][] => {
+    const out: [string, string][] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith(".ts")) out.push([rel, readFileSync(join(root, rel), "utf8")]);
+      }
+    };
+    walk("app/api");
+    out.push(["proxy.ts", readFileSync(join(root, "proxy.ts"), "utf8")]);
+    return out;
+  };
+
+  it("sends every message a person reads through a translating call", () => {
+    const messages = serverMessageKeys(root);
+    const stragglers: string[] = [];
+    for (const [rel, src] of routeSources()) {
+      for (const message of messages) {
+        const literal = JSON.stringify(message);
+        for (let at = src.indexOf(literal); at !== -1; at = src.indexOf(literal, at + 1)) {
+          // Whichever call opened last is the one this literal is an argument to.
+          const before = src.slice(0, at);
+          const translating = Math.max(
+            before.lastIndexOf("apiError("),
+            before.lastIndexOf("translate("),
+          );
+          if (translating < before.lastIndexOf("NextResponse.json(")) {
+            stragglers.push(`${rel}: ${message}`);
+          }
+        }
+      }
+    }
+    expect(stragglers).toEqual([]);
+  });
+
+  it("has no message in the list that nothing sends any more", () => {
+    // The same rot as an unused row in the table, one layer down: this list is what the table
+    // is checked against, so a stale entry here keeps a stale translation alive there.
+    const sources = routeSources().map(([, src]) => src);
+    const orphans = serverMessageKeys(root).filter(
+      (m) => !sources.some((src) => src.includes(JSON.stringify(m))),
+    );
+    expect(orphans).toEqual([]);
   });
 });
 

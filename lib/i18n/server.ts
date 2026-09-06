@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
-import { type Locale, resolveLocale, translate } from "@/lib/i18n";
-import { readSettings } from "@/lib/settings";
+import { type Locale, translate } from "@/lib/i18n";
+import { localeFor } from "@/lib/i18n/locale";
 
 // The locale for a server component, and the `t` that goes with it.
 //
@@ -9,8 +9,7 @@ import { readSettings } from "@/lib/settings";
 // account and no setting, and the header is all there is.
 
 export async function currentLocale(): Promise<Locale> {
-  const [{ uiLanguage }, h] = await Promise.all([readSettings(), headers()]);
-  return resolveLocale(uiLanguage, h.get("accept-language"));
+  return localeFor((await headers()).get("accept-language"));
 }
 
 /** `const t = await serverT()`, then `t("Meetings")`. */

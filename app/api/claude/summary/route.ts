@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { tick } from "@/lib/queue/dispatcher";
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (transcripts.length === 0) {
-    return NextResponse.json({ error: "No utterances recorded" }, { status: 400 });
+    return apiError("No utterances recorded", 400);
   }
 
   // Marked before the job starts, deliberately: from here on something is under way for this

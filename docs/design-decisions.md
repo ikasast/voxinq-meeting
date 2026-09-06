@@ -840,6 +840,41 @@ The trade is that Japanese rendering varies a little between devices. Bundling t
 face is a one-line change in `layout.tsx` for anyone who would rather have it identical
 everywhere.
 
+## The translation key is the English sentence
+
+The screens are written in English and stay that way in the source: `t("Start recording")`, not
+`t("record.start")`. The Japanese lives in one table, `lib/i18n/ja.ts`, whose left column is the
+English sentence. Three things follow, and they are the whole reason for the shape.
+
+A component still reads as prose, so nobody has to hold a key vocabulary in their head to see
+what a screen says. A missing row degrades to English, which is legible, rather than to
+`record.start`, which is not. And the table is a list of sentences facing sentences, which
+anyone who reads both languages can check without opening the app.
+
+What it costs is that editing the English breaks the mapping silently — so `tests/i18n.test.ts`
+scans `app/` and `lib/` for every `t()` call and fails on a key with no row, **and** on a row no
+key uses any more. The second direction is the one that rots quietly.
+
+No library and no ICU. Plurals are chosen at the call site —
+`t(n === 1 ? "1 utterance" : "{n} utterances", { n })` — because English agrees and Japanese does
+not, so the choice belongs where the sentence is written rather than in a rule engine. Dates and
+durations are formatted by hand for the same kind of reason: the server renders the page and the
+browser hydrates it, and two ICU builds that disagree by one character make React throw the page
+away.
+
+**The server's errors go through one function.** `apiError` translates, so a route goes on
+writing its message as an English sentence where it refuses. The routes that answered with
+`NextResponse.json({ error })` directly were moved onto it, and a test keeps them there — that
+was thirty messages sitting translated in the table that nobody would ever have seen.
+`lib/i18n/server-messages.ts` is the list of the ones a person is meant to read, and it draws a
+line: "That is not your password." gets a row; `"meetingId is required"` does not. The second
+appears only when the client is broken, it is what somebody pastes into a bug report or greps
+the source for, and a Japanese version would make both harder while helping nobody.
+
+**Which language**: the person's own `uiLanguage` setting, then `Accept-Language`. The header is
+not politeness — somebody reading a shared read-only link has no account and no setting, and it
+is the only thing there is to go on.
+
 ## Docker was removed, brought back to distribute, and then adopted
 
 The Docker files were deleted once because the primary host ran natively (Task Scheduler,

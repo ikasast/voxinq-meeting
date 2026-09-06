@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { requireAdmin } from "@/lib/auth/admin";
 import { RESET_TTL_MS, issueReset } from "@/lib/auth/reset";
 import { prisma } from "@/lib/prisma";
@@ -21,10 +22,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (!target) return NextResponse.json({ error: "no such account" }, { status: 404 });
   if (target.disabledAt) {
-    return NextResponse.json(
-      { error: "That account is disabled. Enable it first." },
-      { status: 400 },
-    );
+    return apiError("That account is disabled. Enable it first.", 400);
   }
 
   const token = await issueReset(target.id, guard.me.id);

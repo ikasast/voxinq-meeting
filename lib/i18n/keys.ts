@@ -128,11 +128,25 @@ export function sourceFiles(root: string, dir: string, out: string[] = []): stri
   return out;
 }
 
-/** Every key the app uses, across app/ and lib/, in the order they were first seen. */
+/**
+ * Every key the app uses, across app/ and lib/, in the order they were first seen.
+ *
+ * Plus the server messages, which are keys without being `t()` calls: they live at their call
+ * sites in forty routes and are translated inside `apiError`, so this is where the table's test
+ * gets to see them.
+ */
 export function allKeys(root: string): string[] {
   const seen = new Set<string>();
   for (const f of [...sourceFiles(root, "app"), ...sourceFiles(root, "lib")]) {
     for (const k of keysIn(readFileSync(join(root, f), "utf8"))) seen.add(k);
   }
+  for (const k of serverMessageKeys(root)) seen.add(k);
   return [...seen];
+}
+
+/** The quoted strings in `SERVER_MESSAGES`, read as text so this file needs no build step. */
+export function serverMessageKeys(root: string): string[] {
+  const src = readFileSync(join(root, "lib/i18n/server-messages.ts"), "utf8");
+  const body = src.slice(src.indexOf("SERVER_MESSAGES = ["), src.indexOf("] as const"));
+  return [...body.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\(.)/g, "$1"));
 }

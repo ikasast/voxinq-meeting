@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { AUTH_COOKIE, expectedAuthToken } from "@/lib/auth-token";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { normaliseEmail } from "@/lib/auth/email";
@@ -22,14 +23,14 @@ export async function POST(req: Request) {
     password?: unknown;
   } | null;
   const password = typeof body?.password === "string" ? body.password : null;
-  if (!password) return NextResponse.json({ error: "Wrong password" }, { status: 401 });
+  if (!password) return apiError("Wrong password", 401);
 
   if (!(await hasUsersCached())) {
     const shared = process.env.APP_PASSWORD;
     if (!shared) {
-      return NextResponse.json({ error: "Auth is disabled (APP_PASSWORD not set)" }, { status: 400 });
+      return apiError("Auth is disabled (APP_PASSWORD not set)", 400);
     }
-    if (password !== shared) return NextResponse.json({ error: "Wrong password" }, { status: 401 });
+    if (password !== shared) return apiError("Wrong password", 401);
     const res = NextResponse.json({ ok: true });
     res.cookies.set(AUTH_COOKIE, (await expectedAuthToken())!, cookieOptions());
     return res;
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
   // One message for every way of being wrong. Saying "no such account" turns the login form into
   // a way to ask who is on this server.
   if (!user || user.disabledAt || !(await verifyPassword(password, user.passwordHash))) {
-    return NextResponse.json({ error: "Wrong email or password" }, { status: 401 });
+    return apiError("Wrong email or password", 401);
   }
 
   // Signing in is the one moment the password exists in this process, so it is the only moment

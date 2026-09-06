@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email";
 import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -40,10 +41,7 @@ export async function POST(req: Request) {
   if (form.has("email")) {
     const email = normaliseEmail(String(form.get("email") ?? ""));
     if (!looksLikeEmail(email)) {
-      return NextResponse.json(
-        { error: "Enter the email address you want to sign in with." },
-        { status: 400 },
-      );
+      return apiError("Enter the email address you want to sign in with.", 400);
     }
     data.email = email;
   }
@@ -51,7 +49,7 @@ export async function POST(req: Request) {
   if (form.has("name")) {
     const name = String(form.get("name") ?? "").trim();
     if (name.length > 60) {
-      return NextResponse.json({ error: "Display names are up to 60 characters." }, { status: 400 });
+      return apiError("Display names are up to 60 characters.", 400);
     }
     data.name = name || null;
   }
@@ -63,13 +61,10 @@ export async function POST(req: Request) {
     const file = form.get("image");
     if (file instanceof File && file.size > 0) {
       if (!TYPES.has(file.type)) {
-        return NextResponse.json({ error: "Use a PNG, JPEG or WebP image." }, { status: 400 });
+        return apiError("Use a PNG, JPEG or WebP image.", 400);
       }
       if (file.size > MAX_BYTES) {
-        return NextResponse.json(
-          { error: "That picture is too large even after resizing. Try a smaller one." },
-          { status: 400 },
-        );
+        return apiError("That picture is too large even after resizing. Try a smaller one.", 400);
       }
       data.image = new Uint8Array(await file.arrayBuffer());
       data.imageType = file.type;
@@ -83,7 +78,7 @@ export async function POST(req: Request) {
   } catch {
     // The only unique thing here. Saying which account holds it would answer a question nobody
     // signed in as this person is entitled to ask.
-    return NextResponse.json({ error: "That email address is already in use." }, { status: 409 });
+    return apiError("That email address is already in use.", 409);
   }
   return NextResponse.json({ ok: true, changed: true });
 }
