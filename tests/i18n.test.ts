@@ -77,10 +77,15 @@ describe("the strings themselves", () => {
   });
 
   it("fills in the values", () => {
-    // Both sides: an untranslated key interpolates too, which is what keeps a half-translated
-    // screen legible rather than littered with braces.
     expect(translate("en", "{n} utterances", { n: 3 })).toBe("3 utterances");
-    expect(translate("ja", "{n} utterances", { n: 3 })).toBe("3 utterances");
+    expect(translate("ja", "{n} utterances", { n: 3 })).toBe("発言 3件");
+  });
+
+  it("fills them in for a key with no translation too", () => {
+    // Which is what keeps a half-translated screen legible rather than littered with braces.
+    expect(translate("ja", "{n} of these are not translated", { n: 2 })).toBe(
+      "2 of these are not translated",
+    );
   });
 
   it("leaves a placeholder alone when nothing was passed for it", () => {
@@ -92,5 +97,25 @@ describe("the strings themselves", () => {
     // A row copied in as a placeholder and never translated looks done from the outside.
     const untouched = Object.entries(ja).filter(([k, v]) => k === v && /[a-z]{4}/.test(k));
     expect(untouched.map(([k]) => k)).toEqual([]);
+  });
+});
+
+describe("the plural shape", () => {
+  it("is found by the scanner", () => {
+    // English agrees and Japanese does not, so the choice is made at the call site and both
+    // forms are keys. A scanner that only understood a literal first argument reported both as
+    // missing while they sat in the table — which reads as a broken translation when nothing is.
+    expect(keysIn('t(n === 1 ? "1 utterance" : "{n} utterances", { n })')).toEqual([
+      "1 utterance",
+      "{n} utterances",
+    ]);
+  });
+
+  it("still finds a plain call beside one", () => {
+    expect(keysIn('t("Queue"); t(n === 1 ? "1 day" : "{n} days", { n })')).toEqual([
+      "Queue",
+      "1 day",
+      "{n} days",
+    ]);
   });
 });

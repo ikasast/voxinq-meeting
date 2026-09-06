@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useConfirm } from "./confirm-dialog";
+import { useT } from "./locale-provider";
 import { ArchiveIcon, DotsIcon, TrashIcon } from "./icons";
 
 const MENU_W = 176; // matches w-44
@@ -19,6 +20,7 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
   const router = useRouter();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -67,9 +69,9 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
   const trash = async () => {
     setOpen(false);
     const ok = await confirm({
-      title: "Move to Trash?",
-      message: "The meeting can be restored from Trash for 30 days.",
-      confirmLabel: "Move to Trash",
+      title: t("Move to Trash?"),
+      message: t("The meeting can be restored from Trash for 30 days."),
+      confirmLabel: t("Move to Trash"),
       danger: true,
     });
     if (!ok) return;
@@ -98,8 +100,8 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
         }}
         disabled={busy}
         className="rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
-        title="Meeting actions"
-        aria-label="Meeting actions"
+        title={t("Meeting actions")}
+        aria-label={t("Meeting actions")}
         aria-expanded={open}
       >
         <DotsIcon className="h-4 w-4" />
@@ -126,7 +128,7 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
               >
                 <button type="button" onClick={() => void toggleArchive()} disabled={busy} className={itemClass}>
                   <ArchiveIcon className="h-3.5 w-3.5" />
-                  {archived ? "Unarchive" : "Archive"}
+                  {archived ? t("Unarchive") : t("Archive")}
                 </button>
                 <button type="button" onClick={() => void trash()} disabled={busy} className={`${itemClass} !text-[var(--error)]`}>
                   <TrashIcon className="h-3.5 w-3.5" />

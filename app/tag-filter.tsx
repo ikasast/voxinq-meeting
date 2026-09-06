@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useT } from "./locale-provider";
 
 export type TagChip = { name: string; count: number; href: string; active: boolean };
 
@@ -11,6 +12,7 @@ const VISIBLE = 6;
 // few (plus any active one) are shown; the rest sit behind a "+N more" toggle.
 export function TagFilter({ tags }: { tags: TagChip[] }) {
   const [expanded, setExpanded] = useState(false);
+  const t = useT();
 
   if (tags.length === 0) return null;
 
@@ -18,25 +20,25 @@ export function TagFilter({ tags }: { tags: TagChip[] }) {
   let visible = tags;
   if (!expanded && tags.length > VISIBLE + 1) {
     const head = tags.slice(0, VISIBLE);
-    const active = tags.find((t) => t.active);
+    const active = tags.find((tag) => tag.active);
     visible = active && !head.includes(active) ? [...head, active] : head;
   }
   const hiddenCount = tags.length - visible.length;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs">
-      <span className="text-[var(--text-muted)]">Tags:</span>
-      {visible.map((t) => (
+      <span className="text-[var(--text-muted)]">{t("Tags:")}</span>
+      {visible.map((tag) => (
         <Link
-          key={t.name}
-          href={t.href}
+          key={tag.name}
+          href={tag.href}
           className={`rounded-full border px-2.5 py-0.5 ${
-            t.active
+            tag.active
               ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-[var(--accent-sub)]"
               : "border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
           }`}
         >
-          {t.name} ({t.count}){t.active ? " ×" : ""}
+          {tag.name} ({tag.count}){tag.active ? " ×" : ""}
         </Link>
       ))}
       {hiddenCount > 0 ? (
@@ -45,7 +47,7 @@ export function TagFilter({ tags }: { tags: TagChip[] }) {
           onClick={() => setExpanded(true)}
           className="rounded-full border border-dashed border-[var(--border-strong)] px-2.5 py-0.5 text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
         >
-          +{hiddenCount} more
+          {t("+{n} more", { n: hiddenCount })}
         </button>
       ) : null}
       {expanded && tags.length > VISIBLE + 1 ? (
@@ -54,7 +56,7 @@ export function TagFilter({ tags }: { tags: TagChip[] }) {
           onClick={() => setExpanded(false)}
           className="rounded-full px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--foreground)]"
         >
-          less
+          {t("less")}
         </button>
       ) : null}
     </div>

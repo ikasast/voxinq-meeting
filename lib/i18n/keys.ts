@@ -18,6 +18,17 @@ import { join } from "node:path";
 const CALL = /(?<![\w.$])t\(\s*"((?:[^"\\]|\\.)*)"/g;
 
 /**
+ * `t(n === 1 ? "one" : "many", …)`, which is how this app writes a plural.
+ *
+ * English agrees and Japanese does not, so the choice is made at the call site and both forms
+ * are keys. A scanner that only understood a literal first argument would report both of them
+ * as missing from the table while they sat in it, which is the failure that reads as "the
+ * translation is broken" when nothing is.
+ */
+const TERNARY =
+  /(?<![\w.$])t\([^"'\n]*\?\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+
+/**
  * Comments go first.
  *
  * The examples in this module's own documentation are `t("Start recording")`, and a scanner
@@ -29,7 +40,12 @@ function withoutComments(src: string): string {
 }
 
 export function keysIn(source: string): string[] {
-  return [...withoutComments(source).matchAll(CALL)].map((m) => m[1].replace(/\\"/g, String.fromCharCode(34)));
+  const clean = withoutComments(source);
+  const unescape = (v: string) => v.replace(/\\"/g, String.fromCharCode(34));
+  return [
+    ...[...clean.matchAll(CALL)].map((m) => unescape(m[1])),
+    ...[...clean.matchAll(TERNARY)].flatMap((m) => [unescape(m[1]), unescape(m[2])]),
+  ];
 }
 
 export function sourceFiles(root: string, dir: string, out: string[] = []): string[] {
