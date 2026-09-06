@@ -7,7 +7,7 @@
 
 [English README](README.md) ｜ このページは日本語話者向けに、導入から日常運用までを順番に説明します。
 
-![机の上のノートPCと小さなデスクトップ。デスクトップから出た音の線が、隣に積まれた紙束になる。机のまわりは暗く閉じていて、何も外に出ていかない](docs/illustrations/hero.png)
+![録音・文字起こし・話者分離・議事録・質問・シリーズの6工程と各工程の例、その下に NVIDIA GPU / Apple Silicon / CPU のみの機器がそれぞれ何をするかの帯、さらに暗号化・複数人での共有・検索・自前運用の4項目](docs/screenshots/workflow.png)
 
 ---
 
@@ -1291,10 +1291,6 @@ Ollama の両方をコンテナで立て、`voxinq` ランチャーは PostgreSQ
 - **誰のものかはデータベースクライアントが決める** — 画面や API ごとに「これは自分のか」を
   確かめるのではなく、**すべての問い合わせが持ち主で絞られてから発行**されます。書き忘れという
   失敗の形が無くなり、暗号化と復号も同じ場所に置けます（→ [複数人で使う](#複数人で使うアカウント)）
-
-同じことを工程として並べ、各工程で機器ごとに何が起きるかを添えた図です。
-
-![録音・文字起こし・話者分離・議事録・質問・シリーズの6工程と、NVIDIA GPU / Apple Silicon / CPU のみの機器がそれぞれ各工程で何をするかの表](docs/screenshots/workflow.png)
 
 使用している主な技術: Next.js 16 / React 19 / Prisma / PostgreSQL / FastAPI /
 faster-whisper・whisper.cpp / pyannote.audio・sherpa-onnx / Ollama

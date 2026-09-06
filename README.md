@@ -6,7 +6,7 @@
 
 [**日本語の解説はこちら →**](README.ja.md)
 
-![A desk with a laptop and a small computer. A line of sound comes out of the computer and settles into a stack of pages beside it. The room around the desk is dark and closed — nothing leaves it](docs/illustrations/hero.png)
+![Six steps — record, transcribe, separate speakers, write minutes, ask, series — with an example under each, over a band showing what an NVIDIA GPU, Apple silicon and a CPU-only machine each do, and a strip on encryption, several people sharing one machine, search, and self-hosting](docs/screenshots/workflow.png)
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![React](https://img.shields.io/badge/React-19-149eca)
@@ -290,10 +290,6 @@ same machine's own browser.
   and what the card has — work sent to a cloud model or an endpoint costs nothing here and
   never waits. **Recording never waits**: if something else holds the card it asks whether to
   interrupt it or to record without live text, and the audio is kept either way.
-
-The same thing as a pipeline, with what each kind of hardware does at each step:
-
-![Six steps — record, transcribe, separate speakers, write minutes, ask, series — over a table of what an NVIDIA GPU, Apple silicon and a CPU-only machine each do at each step](docs/screenshots/workflow.png)
 
 📖 Full detail, component by component: **[docs/architecture.md](docs/architecture.md)**.
 

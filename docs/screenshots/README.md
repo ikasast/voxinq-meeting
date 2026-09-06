@@ -12,9 +12,9 @@ app is for, these say what it looks like.
 | `recording.png` | Recording screen: model state, live transcript, and the recording control at the bottom. | `shoot-screenshots.mjs` |
 | `minutes.png` | Meeting detail: minutes in the middle, and the column beside them — progress, agenda, participants, what it was recorded with. | `shoot-screenshots.mjs` |
 | `settings.png` | Settings → Transcription: the endpoint list (this machine, plus any saved), language, glossary, mic mode. | `shoot-screenshots.mjs` |
-| `workflow.png` | The six-step pipeline (record → transcribe → speakers → minutes → ask → series) over a table of what each kind of hardware does. In the README's Architecture section; it was the hero until the illustrations arrived, and it stays because the hardware table is not anywhere else. | by hand |
+| `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series), a band of what each kind of hardware does, and a strip on encryption, accounts, search and self-hosting. **Says more than any drawing can**, which is why it is the hero and not one. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
-| `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). | by hand |
+| `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
 
 ## Retaking the UI shots
 
@@ -55,9 +55,19 @@ a frame fitted to each page instead of a band of empty background, and one share
 
 ## Doing it by hand
 
-`workflow.png` and `social-preview.png` are illustrations rather than screenshots, so no
-script produces them. Guidelines: ~1200–1600 px wide and demo/sample content — **no
-confidential content or real names**.
+`workflow.png` and `social-preview.png` are drawn rather than photographed, so no script
+produces them. Guidelines: ~1600 px wide and demo/sample content — **no confidential content or
+real names**.
+
+`workflow.png` is generated from a written brief and then corrected by hand, because the text is
+the point of it: a generator that renders "Voxinq" as "Voxing" has produced a wrong picture
+however good it looks. Read every string before committing one. It also carries claims that go
+stale — it said *"Audio never leaves, by construction"* for a year after saved endpoints made
+that untrue — so treat it as documentation, and check it when the documentation changes.
+
+Both are compressed the same way as the illustrations next door: `sharp`, palette PNG, long edge
+1600 (1280 for the card). That took `workflow.png` from 4.1MB to 477KB with the smallest type
+still crisp — checked by cropping the bottom strip and looking at it.
 
 `demo.gif` is scripted but only as a slideshow of four still pages. A real screen recording
 (ScreenToGif, ~20–30 s, <10 MB) shows the app actually working and is worth doing by hand

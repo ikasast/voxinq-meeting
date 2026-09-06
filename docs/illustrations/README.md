@@ -5,7 +5,7 @@ what the app is *for*; the screenshots say what it looks like. Both are in the m
 
 | Filename | What it shows | Where |
 | --- | --- | --- |
-| `hero.png` | A desk, a line of sound leaving the computer and settling into pages, and a room with no way out of it. | README top |
+| `hero.png` | A desk, a line of sound leaving the computer and settling into pages, and a room with no way out of it. | Source of `../screenshots/social-preview.png`; it is not in the README, where the banner says more |
 | `record.png` | Three devices and an audio file all arriving at one machine, and a waveform becoming lines of text. | Record, and it becomes words |
 | `minutes.png` | A loose stack going into a box and one squared-up page coming out, with a question looping back in. | Minutes, written for you |
 | `speakers.png` | One dense waveform combed apart into three tracks, one of them recognised. | Who said what |
