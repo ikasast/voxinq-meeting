@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "./avatar";
 import { GearIcon, PeopleIcon, PersonIcon, SignOutIcon } from "./icons";
+import { useT } from "./locale-provider";
 
 const MENU_W = 208; // w-52
 const GAP = 6;
@@ -33,6 +34,7 @@ export function AccountMenu({
   via: "session" | "tailnet";
 }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -108,7 +110,7 @@ export function AccountMenu({
                       {name || username}
                     </p>
                     <p className="truncate text-xs text-[var(--text-muted)]">
-                      {isAdmin ? "Administrator" : username}
+                      {isAdmin ? t("Administrator") : username}
                       {via === "tailnet" ? " · via tailnet" : ""}
                     </p>
                   </div>
@@ -116,11 +118,11 @@ export function AccountMenu({
 
                 <Link href="/account" className={item} role="menuitem" onClick={() => setOpen(false)}>
                   <PersonIcon className="h-4 w-4" />
-                  Account
+                  {t("Account")}
                 </Link>
                 <Link href="/settings" className={item} role="menuitem" onClick={() => setOpen(false)}>
                   <GearIcon className="h-4 w-4" />
-                  Settings
+                  {t("Settings")}
                 </Link>
                 {/* The rail carries this on a desktop and does not exist on a phone, which
                     would leave an administrator no way to reach it from the device they
@@ -128,7 +130,7 @@ export function AccountMenu({
                 {isAdmin ? (
                   <Link href="/admin" className={item} role="menuitem" onClick={() => setOpen(false)}>
                     <PeopleIcon className="h-4 w-4" />
-                    People
+                    {t("People")}
                   </Link>
                 ) : null}
                 <button
@@ -138,7 +140,7 @@ export function AccountMenu({
                   className={`${item} border-t border-[var(--border)]`}
                 >
                   <SignOutIcon className="h-4 w-4" />
-                  Log out
+                  {t("Log out")}
                 </button>
               </div>
             </>,

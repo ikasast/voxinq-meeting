@@ -56,7 +56,8 @@ export const USER_KEYS = [
   "minutesTemplates",
   "defaultMinutesTemplateId",
   // Two people in two countries read dates differently, and neither answer costs the other
-  // anything.
+  // anything. The same goes for which language they read the screens in.
+  "uiLanguage",
   "meetingTitleFormat",
   "summaryLanguage",
   "summaryDetail",

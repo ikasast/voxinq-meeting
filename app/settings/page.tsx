@@ -46,6 +46,7 @@ type PublicSettings = {
   defaultMinutesTemplateId: string;
   hasAnthropicApiKey: boolean;
   hasOpenaiApiKey: boolean;
+  uiLanguage: string;
   meetingTitleFormat: string;
   summaryLanguage: string;
   summaryDetail: string;
@@ -709,6 +710,27 @@ export default function SettingsPage() {
               Applied instantly and saved per device (browser). No need to press “Save”.
               “System” follows your OS and changes with it. Read-only visitors get the same
               choice from the icon in the header.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="uiLanguage" className={labelClass}>
+              Language
+            </label>
+            <select
+              id="uiLanguage"
+              value={settings.uiLanguage}
+              onChange={(e) => update("uiLanguage", e.target.value)}
+              disabled={saving}
+              className={inputClass}
+            >
+              <option value="auto">Follow my browser</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+            </select>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              The screens. What language the minutes are written in is a separate setting, under
+              Minutes — an English screen writing Japanese minutes is a combination people want.
             </p>
           </div>
 

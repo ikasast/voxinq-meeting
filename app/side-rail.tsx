@@ -13,6 +13,7 @@ import {
   QueueIcon,
 } from "./icons";
 import { useMyQueueCount } from "./queue-header-link";
+import { useT } from "./locale-provider";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.
 //
@@ -73,17 +74,18 @@ function RailLink({
 // Pinned to the version this instance is running rather than to main, so nobody reads about a
 // feature they do not have yet.
 function DocsLink({ href }: { href: string }) {
+  const t = useT();
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      title="Documentation (opens on GitHub)"
-      aria-label="Documentation"
+      title={t("Documentation (opens on GitHub)")}
+      aria-label={t("Documentation")}
       className="flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
     >
       <HelpIcon />
-      <span className="text-center leading-tight">Help</span>
+      <span className="text-center leading-tight">{t("Help")}</span>
     </a>
   );
 }
@@ -111,37 +113,38 @@ export function SideRail({
   version: string;
 }) {
   const pathname = usePathname();
+  const t = useT();
   // A meeting's own page belongs to the list it came from, so the list stays lit while reading
   // one — otherwise the rail goes blank the moment you open anything.
   const onMeetings = !pathname.startsWith("/settings") && !pathname.startsWith("/new");
 
   return (
     <nav
-      aria-label="Main"
+      aria-label={t("Main")}
       className="sticky top-0 hidden h-dvh w-[76px] shrink-0 flex-col items-center gap-1 border-r border-[var(--border)] bg-[var(--header)] px-2 py-3 lg:flex"
     >
-      <Link href="/" aria-label="Voxinq Meeting home" className="mb-2 shrink-0">
+      <Link href="/" aria-label={t("Voxinq Meeting home")} className="mb-2 shrink-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-mark.svg" alt="" aria-hidden className="logo-dark h-9 w-9" />
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-mark-light.svg" alt="" aria-hidden className="logo-light h-9 w-9" />
       </Link>
 
-      <RailLink href="/" label="Meetings" active={onMeetings}>
+      <RailLink href="/" label={t("Meetings")} active={onMeetings}>
         <MeetingsIcon />
       </RailLink>
 
       {!external ? (
         <>
-          <RailLink href="/new" label="New meeting" active={pathname.startsWith("/new")} primary>
+          <RailLink href="/new" label={t("New meeting")} active={pathname.startsWith("/new")} primary>
             <PlusCircleIcon />
           </RailLink>
-          <RailLink href="/quick-record" label="Record NOW" active={pathname.startsWith("/quick-record")}>
+          <RailLink href="/quick-record" label={t("Record NOW")} active={pathname.startsWith("/quick-record")}>
             <MicIcon />
           </RailLink>
           <QueueRailLink active={pathname.startsWith("/queue")} />
           {isAdmin ? (
-            <RailLink href="/admin" label="People" active={pathname.startsWith("/admin")}>
+            <RailLink href="/admin" label={t("People")} active={pathname.startsWith("/admin")}>
               <PeopleIcon />
             </RailLink>
           ) : null}
@@ -149,7 +152,7 @@ export function SideRail({
           <div className="mt-auto flex w-full flex-col gap-1">
             <DocsLink href={docsUrl} />
             <Version value={version} />
-            <RailLink href="/settings" label="Settings" active={pathname.startsWith("/settings")}>
+            <RailLink href="/settings" label={t("Settings")} active={pathname.startsWith("/settings")}>
               <GearIcon />
             </RailLink>
           </div>
@@ -174,9 +177,10 @@ function QueueRailLink({ active }: { active: boolean }) {
   // Your own, not the machine's. The queue lists everybody now, and a badge reading 3 when none
   // of the three are yours is not a notification — it is a wrong answer to "is mine done?".
   const count = useMyQueueCount();
+  const t = useT();
 
   return (
-    <RailLink href="/queue" label="Queue" active={active}>
+    <RailLink href="/queue" label={t("Queue")} active={active}>
       <span className="relative">
         <QueueIcon />
         {count > 0 ? (

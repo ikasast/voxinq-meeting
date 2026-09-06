@@ -53,6 +53,7 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "openaiModel",
   "llmBackground",
   "defaultMinutesTemplateId",
+  "uiLanguage",
   "meetingTitleFormat",
   "summaryLanguage",
   "summaryDetail",

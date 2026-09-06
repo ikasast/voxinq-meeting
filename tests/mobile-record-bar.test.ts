@@ -65,6 +65,8 @@ describe("the top bar, once the bar below exists", () => {
   it("spends the room on saying what New makes", () => {
     // "+ New" never said new *what*, and it was abbreviated for space that the two departing
     // icons have now freed. Measured at 375px: "New meeting" fits without wrapping.
-    expect(layout).toMatch(/>\s*New meeting\s*<\/Link>/);
+    // Through t() since the shell was translated, so this follows the sentence there rather
+    // than pinning the literal it used to be.
+    expect(layout).toMatch(/>\s*\{t\("New meeting"\)\}\s*<\/Link>/);
   });
 });
