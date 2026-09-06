@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -35,6 +35,19 @@ describe("the proxy", () => {
     expect(proxy).toContain('pathname === "/setup"');
     // And the reset link, which is the credential of somebody who cannot sign in.
     expect(proxy).toContain('pathname.startsWith("/reset/")');
+  });
+
+  it("serves every logo the login page asks for", () => {
+    // Only `logo.svg` was exempt, and there are four — full and mark, each light and dark. The
+    // other three were redirected to /login, so the img on the login page rendered as a broken
+    // image. Nothing is gated inside the tailnet, so it showed only from outside: the one place
+    // where somebody is seeing this app for the first time.
+    const matcher = /"\/\(\(\?!(.*?)\)\.\*\)"/.exec(proxy)?.[1] ?? "";
+    const exempt = new RegExp(`^(?:${matcher})`);
+    for (const f of readdirSync(join(root, "public"))) {
+      if (!f.endsWith(".svg")) continue;
+      expect(exempt.test(f), `${f} is gated behind the login page`).toBe(true);
+    }
   });
 });
 

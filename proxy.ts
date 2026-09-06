@@ -106,11 +106,18 @@ export async function proxy(req: NextRequest) {
 export const config = {
   // Serve static assets/icons/manifest even before auth (needed to render the login page).
   //
+  // `logo[^/]*\.svg` rather than the four names: there are four logo files — full and mark,
+  // each in a light and a dark variant — and only `logo.svg` was listed, so the other three
+  // were redirected to /login and the `<img>` on the login page rendered as a broken image.
+  // Inside the tailnet nothing is gated, so it only showed from outside, which is where the
+  // app makes its first impression. A pattern rather than a list, because the list is what
+  // went out of date.
+  //
   // sw.js is in that list for a harder reason than convenience: a service worker script that
   // answers with a redirect cannot register at all, so gating it does not protect anything —
   // it silently removes the browser's offer to install the app. The file is static, holds no
   // data and caches nothing (see public/sw.js).
   matcher: [
-    "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|sw.js|logo.svg|worklets/).*)",
+    "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|sw.js|logo[^/]*\.svg|worklets/).*)",
   ],
 };
