@@ -198,7 +198,8 @@ describe("the defaults everybody starts from", () => {
   });
 
   it("is offered only to somebody who can change them for everybody", () => {
-    expect(pageSrc2).toContain('t.id !== "defaults" || settings.isAdmin');
+    // The tab list binds `tab_`, not `t`: `t` is the translator on this screen now.
+    expect(pageSrc2).toContain('tab_.id !== "defaults" || settings.isAdmin');
   });
 
   it("refuses everybody else, and ignores hardware", () => {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import { type MinutesTemplate, newTemplateId } from "@/lib/minutes-templates";
+import { useT } from "@/app/locale-provider";
 
 // Saved minutes formats.
 //
@@ -29,11 +30,12 @@ export function MinutesTemplates({
   onChange: (next: MinutesTemplate[]) => void;
   onDefaultChange: (id: string) => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState<string | null>(null);
-  const draft = templates.find((t) => t.id === editing) ?? null;
+  const draft = templates.find((tpl) => tpl.id === editing) ?? null;
 
   const update = (id: string, patch: Partial<MinutesTemplate>) =>
-    onChange(templates.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    onChange(templates.map((tpl) => (tpl.id === id ? { ...tpl, ...patch } : tpl)));
 
   const add = () => {
     const created: MinutesTemplate = {
@@ -46,7 +48,7 @@ export function MinutesTemplates({
   };
 
   const remove = (id: string) => {
-    onChange(templates.filter((t) => t.id !== id));
+    onChange(templates.filter((tpl) => tpl.id !== id));
     if (defaultId === id) onDefaultChange("");
     if (editing === id) setEditing(null);
   };
@@ -56,7 +58,7 @@ export function MinutesTemplates({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label htmlFor="defaultMinutesTemplateId" className={labelClass}>
-            Minutes format
+            {t("Minutes format")}
           </label>
           <select
             id="defaultMinutesTemplateId"
@@ -65,16 +67,16 @@ export function MinutesTemplates({
             disabled={disabled}
             className={inputClass}
           >
-            <option value="">Built-in default</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name || "Unnamed"}
+            <option value="">{t("Built-in default")}</option>
+            {templates.map((tpl) => (
+              <option key={tpl.id} value={tpl.id}>
+                {tpl.name || t("Unnamed")}
               </option>
             ))}
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
             What new minutes use. Any of these can still be picked for a single run from{" "}
-            <em>Regenerate</em>. A series with its own format keeps using that.
+            <em>{t("Regenerate")}</em>. A series with its own format keeps using that.
           </p>
         </div>
         <button
@@ -89,53 +91,52 @@ export function MinutesTemplates({
 
       {templates.length === 0 ? (
         <p className="rounded-md border border-dashed border-[var(--border)] p-4 text-xs text-[var(--text-muted)]">
-          No saved formats. Minutes use the built-in one: an overview, then the discussion by
-          topic, then decisions and action items.
+          {t("No saved formats. Minutes use the built-in one: an overview, then the discussion by topic, then decisions and action items.")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-[var(--border)]">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Starts with</th>
+                <th className="px-3 py-2 font-medium">{t("Name")}</th>
+                <th className="px-3 py-2 font-medium">{t("Starts with")}</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {templates.map((t) => (
-                <tr key={t.id} className="border-b border-[var(--border)] last:border-b-0">
+              {templates.map((tpl) => (
+                <tr key={tpl.id} className="border-b border-[var(--border)] last:border-b-0">
                   <td className="px-3 py-2">
                     <span className="font-medium text-[var(--text-strong)]">
-                      {t.name || "Unnamed"}
+                      {tpl.name || "Unnamed"}
                     </span>
-                    {t.id === defaultId ? (
+                    {tpl.id === defaultId ? (
                       <span className="ml-2 rounded-full bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-sub)]">
-                        default
+                        {t("default")}
                       </span>
                     ) : null}
                   </td>
                   <td className="max-w-0 truncate px-3 py-2 text-xs text-[var(--text-secondary)]">
-                    {t.body.split("\n").find((l) => l.trim()) ?? ""}
+                    {tpl.body.split("\n").find((l) => l.trim()) ?? ""}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
-                        onClick={() => setEditing(t.id)}
+                        onClick={() => setEditing(tpl.id)}
                         disabled={disabled}
                         className="btn-outline px-2 py-1 text-xs"
                       >
-                        Edit
+                        {t("Edit")}
                       </button>
                       <button
                         type="button"
-                        onClick={() => remove(t.id)}
+                        onClick={() => remove(tpl.id)}
                         disabled={disabled}
                         className="btn-outline px-2 py-1 text-xs text-[var(--error)]"
-                        aria-label={`Remove ${t.name || "format"}`}
+                        aria-label={`Remove ${tpl.name || "format"}`}
                       >
-                        Remove
+                        {t("Remove")}
                       </button>
                     </div>
                   </td>
@@ -157,12 +158,12 @@ export function MinutesTemplates({
               onClick={() => setEditing(null)}
               className="btn-outline px-2 py-1 text-xs"
             >
-              Close
+              {t("Close")}
             </button>
           </div>
           <div>
             <label className={labelClass} htmlFor={`tname-${draft.id}`}>
-              Name
+              {t("Name")}
             </label>
             <input
               id={`tname-${draft.id}`}
@@ -174,7 +175,7 @@ export function MinutesTemplates({
           </div>
           <div className="mt-3">
             <label className={labelClass} htmlFor={`tbody-${draft.id}`}>
-              Format
+              {t("Format")}
             </label>
             <textarea
               id={`tbody-${draft.id}`}
@@ -184,8 +185,7 @@ export function MinutesTemplates({
               className={`${inputClass} font-mono text-xs`}
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              The heading structure the model is asked to follow. Its first heading is also used
-              to start the model off, so keep one at the top.
+              {t("The heading structure the model is asked to follow. Its first heading is also used to start the model off, so keep one at the top.")}
             </p>
           </div>
         </div>

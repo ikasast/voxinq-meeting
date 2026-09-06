@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/app/locale-provider";
 
 // Publish / unpublish the app to the internet via Tailscale Funnel, from within
 // the app itself (only usable on a tailnet-connected device). Outside viewers
@@ -17,10 +18,11 @@ type FunnelInfo = {
 // Shared card shell. Declared at module scope (not inside the component) so it
 // keeps a stable identity across renders.
 function Wrap({ children }: { children: React.ReactNode }) {
+  const t = useT();
   return (
     <section className="card space-y-4 p-6">
       <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
-        Remote access (public URL)
+        {t("Remote access (public URL)")}
       </h2>
       {children}
     </section>
@@ -29,6 +31,7 @@ function Wrap({ children }: { children: React.ReactNode }) {
 
 export function RemoteAccess() {
   const [info, setInfo] = useState<FunnelInfo | null>(null);
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -84,7 +87,7 @@ export function RemoteAccess() {
   if (!info) {
     return (
       <Wrap>
-        <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+        <p className="text-sm text-[var(--text-muted)]">{t("Loading…")}</p>
       </Wrap>
     );
   }
@@ -94,8 +97,7 @@ export function RemoteAccess() {
     return (
       <Wrap>
         <p className="text-sm text-[var(--text-secondary)]">
-          Publishing is managed from your private network. Open Settings on a device connected to
-          your Tailscale tailnet (or the host itself) to turn public access on or off.
+          {t("Publishing is managed from your private network. Open Settings on a device connected to your Tailscale tailnet (or the host itself) to turn public access on or off.")}
         </p>
       </Wrap>
     );
@@ -106,8 +108,7 @@ export function RemoteAccess() {
     return (
       <Wrap>
         <p className="text-sm text-[var(--text-secondary)]">
-          The Tailscale command line wasn&apos;t reachable from the server, so publishing can&apos;t
-          be toggled here. You can still manage it manually on the host:
+          {t("The Tailscale command line wasn’t reachable from the server, so publishing can’t be toggled here. You can still manage it manually on the host:")}
         </p>
         <pre className="overflow-x-auto rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3 font-mono text-xs">
           {"tailscale funnel --bg --https=443 localhost:3000   # publish\ntailscale funnel --https=443 off                  # unpublish"}
@@ -157,12 +158,12 @@ export function RemoteAccess() {
       ) : null}
 
       <ul className="list-disc space-y-1 pl-5 text-xs text-[var(--text-muted)]">
-        <li>Only the web app (port 443) is published — the transcription service stays private.</li>
+        <li>{t("Only the web app (port 443) is published — the transcription service stays private.")}</li>
         <li>
           From outside, access is <strong>read-only</strong>: viewing and downloading only, protected
-          by your <code>APP_PASSWORD</code>. Recording and editing remain tailnet-only.
+          by your <code>{t("APP_PASSWORD")}</code>. Recording and editing remain tailnet-only.
         </li>
-        <li>Tailnet devices (this one, your phone) always keep full access, public or not.</li>
+        <li>{t("Tailnet devices (this one, your phone) always keep full access, public or not.")}</li>
       </ul>
 
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}

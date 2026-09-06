@@ -24,6 +24,7 @@ import { SttProfiles, type DraftProfile } from "./stt-profiles";
 import { MinutesTemplates } from "./minutes-templates";
 import type { MinutesTemplate } from "@/lib/minutes-templates";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
+import { useT } from "@/app/locale-provider";
 
 type PublicSettings = {
   /** Whether the reader may change the settings that describe the machine. */
@@ -118,8 +119,49 @@ function fieldsetClass(active: boolean) {
   }`;
 }
 
+/**
+ * The labels on this screen's option lists, spelled out so the table's test can find them.
+ *
+ * They live in module-level constants, which have no hook to reach the language with — the same
+ * shape as the meeting list's bands and the minutes panel's providers.
+ */
+function settingLabel(t: (k: string) => string, label: string): string {
+  const table: Record<string, string> = {
+    Transcription: t("Transcription"),
+    Speakers: t("Speakers"),
+    Minutes: t("Minutes"),
+    LLM: t("LLM"),
+    "Remote access": t("Remote access"),
+    Data: t("Data"),
+    Appearance: t("Appearance"),
+    "Defaults for everyone": t("Defaults for everyone"),
+    System: t("System"),
+    Light: t("Light"),
+    Dark: t("Dark"),
+    "Brief (key points, shorter)": t("Brief (key points, shorter)"),
+    Standard: t("Standard"),
+    "Detailed (fuller for longer meetings)": t("Detailed (fuller for longer meetings)"),
+    "Japanese (日本語)": t("Japanese (日本語)"),
+    English: t("English"),
+    "Chinese (中文)": t("Chinese (中文)"),
+    "Auto-detect (keep the spoken language)": t("Auto-detect (keep the spoken language)"),
+    "Japanese (fixed)": t("Japanese (fixed)"),
+    "English (fixed)": t("English (fixed)"),
+    "Standard (close talk / calls)": t("Standard (close talk / calls)"),
+    "Room (pick up distant voices)": t("Room (pick up distant voices)"),
+    "Ollama (default)": t("Ollama (default)"),
+    "Never — keep the screen on": t("Never — keep the screen on"),
+    "After 30 seconds": t("After 30 seconds"),
+    "After 1 minute": t("After 1 minute"),
+    "After 5 minutes": t("After 5 minutes"),
+    "After 10 minutes": t("After 10 minutes"),
+  };
+  return table[label] ?? label;
+}
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
+  const t = useT();
   // Edited as a whole, because a key typed into one entry must survive editing another.
   const [draftProfiles, setDraftProfiles] = useState<DraftProfile[]>([]);
   const [draftTemplates, setDraftTemplates] = useState<MinutesTemplate[]>([]);
@@ -216,11 +258,11 @@ export default function SettingsPage() {
   if (!settings) {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Settings")}</h1>
         {error ? (
           <p className="text-sm text-[var(--error)]">{error}</p>
         ) : (
-          <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+          <p className="text-sm text-[var(--text-muted)]">{t("Loading…")}</p>
         )}
       </div>
     );
@@ -228,25 +270,25 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">Settings</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Settings")}</h1>
 
       <form onSubmit={onSubmit} className="space-y-6">
         {/* Category tabs */}
         <div className="flex flex-wrap gap-1 border-b border-[var(--border)]">
           {/* The defaults tab is not the reader's own settings, so it is only offered to
               somebody who can change them for everybody. */}
-          {TABS.filter((t) => t.id !== "defaults" || settings.isAdmin).map((t) => (
+          {TABS.filter((tab_) => tab_.id !== "defaults" || settings.isAdmin).map((tab_) => (
             <button
-              key={t.id}
+              key={tab_.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tab_.id)}
               className={`-mb-px rounded-t-md px-4 py-2 text-sm font-medium ${
-                tab === t.id
+                tab === tab_.id
                   ? "border-b-2 border-[var(--accent)] text-[var(--text-strong)]"
                   : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
               }`}
             >
-              {t.label}
+              {settingLabel(t, tab_.label)}
             </button>
           ))}
         </div>
@@ -254,7 +296,7 @@ export default function SettingsPage() {
         {/* Transcription */}
         {tab === "stt" ? (
         <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Transcription (Whisper)</h2>
+          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Transcription (Whisper)")}</h2>
 
           <SttProfiles
             profiles={draftProfiles}
@@ -265,7 +307,7 @@ export default function SettingsPage() {
             localEditor={
               <>
                 <label htmlFor="whisperModel" className={labelClass}>
-                  Model
+                  {t("Model")}
                 </label>
                 <select
                   id="whisperModel"
@@ -300,15 +342,18 @@ export default function SettingsPage() {
                     and one that is doing its job. */}
                 {sttDest ? (
                   <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                    This model is used for <strong>live recognition on this machine</strong>. The
-                    after-the-meeting pass and <em>Re-transcribe</em> use{" "}
-                    <strong>{defaultProfile?.model || "the endpoint's model"}</strong> at {sttDest}{" "}
-                    instead — these names belong to different services and are not interchangeable.
+                    {t(
+                      "This model is used for live recognition on this machine. The after-the-meeting pass and Re-transcribe use {model} at {host} instead — these names belong to different services and are not interchangeable.",
+                      {
+                        model: defaultProfile?.model || t("the endpoint’s model"),
+                        host: sttDest,
+                      },
+                    )}
                   </p>
                 ) : null}
                 {isJapaneseOnlyModel(settings.whisperModel) ? (
                   <p className="mt-1 text-xs text-[var(--warning)]">
-                    This is a Japanese-only model — meetings in other languages will not transcribe.
+                    {t("This is a Japanese-only model — meetings in other languages will not transcribe.")}
                     It becomes the default for every new meeting; you can still pick another model
                     per meeting on the New meeting screen.
                   </p>
@@ -321,7 +366,7 @@ export default function SettingsPage() {
 
           <div>
             <label htmlFor="vramBudgetMb" className={labelClass}>
-              GPU budget for queued work
+              {t("GPU budget for queued work")}
             </label>
             <input
               id="vramBudgetMb"
@@ -331,26 +376,21 @@ export default function SettingsPage() {
               value={settings.vramBudgetMb || ""}
               onChange={(e) => update("vramBudgetMb", Math.max(0, Number(e.target.value) || 0))}
               disabled={saving || !settings.isAdmin}
-              placeholder="Auto — from the card, less room for the display"
+              placeholder={t("Auto — from the card, less room for the display")}
               className={`${inputClass} max-w-sm`}
             />
             <MachineNote isAdmin={settings.isAdmin} />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Megabytes of video memory the <em>queue</em> may commit at once. Leave it empty to
-              work it out from the card. Jobs that run somewhere else — recognition sent to an
-              endpoint, minutes written by a cloud model — cost nothing here and never wait for
-              it.
+              {t("Megabytes of video memory the queue may commit at once. Leave it empty to work it out from the card. Jobs that run somewhere else — recognition sent to an endpoint, minutes written by a cloud model — cost nothing here and never wait for it.")}
             </p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              This is a scheduling figure, not a limit on any one job: something larger than the
-              whole budget still runs, on its own. Raise it to let two things run together on a
-              bigger card; lower it if something else on this machine needs the memory.
+              {t("This is a scheduling figure, not a limit on any one job: something larger than the whole budget still runs, on its own. Raise it to let two things run together on a bigger card; lower it if something else on this machine needs the memory.")}
             </p>
           </div>
 
           <div>
             <label htmlFor="sttLanguage" className={labelClass}>
-              Transcription language
+              {t("Transcription language")}
             </label>
             <select
               id="sttLanguage"
@@ -361,18 +401,18 @@ export default function SettingsPage() {
             >
               {STT_LANGUAGES.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.label}
+                  {settingLabel(t, l.label)}
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              “Auto-detect” transcribes in the spoken language (minutes language is set separately below).
+              {t("“Auto-detect” transcribes in the spoken language (minutes language is set separately below).")}
             </p>
           </div>
 
           <div>
             <label htmlFor="sttGlossary" className={labelClass}>
-              Terms / proper nouns (recognition bias)
+              {t("Terms / proper nouns (recognition bias)")}
             </label>
             <textarea
               id="sttGlossary"
@@ -384,13 +424,13 @@ export default function SettingsPage() {
               className="input mt-1 resize-y"
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Adding jargon, names, and product names improves accuracy. Keep it short (~150 chars).
+              {t("Adding jargon, names, and product names improves accuracy. Keep it short (~150 chars).")}
             </p>
           </div>
 
           <div>
             <label htmlFor="micMode" className={labelClass}>
-              Microphone mode
+              {t("Microphone mode")}
             </label>
             <select
               id="micMode"
@@ -401,13 +441,13 @@ export default function SettingsPage() {
             >
               {MIC_MODES.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.label}
+                  {settingLabel(t, m.label)}
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               “Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.
-              Placing the device in the center of the table helps.
+              {t("Placing the device in the center of the table helps.")}
             </p>
           </div>
 
@@ -420,14 +460,14 @@ export default function SettingsPage() {
                 disabled={saving}
                 className="h-4 w-4 accent-[var(--accent)]"
               />
-              Translate non-Japanese speech into Japanese
+              {t("Translate non-Japanese speech into Japanese")}
             </label>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               Shows a Japanese translation under each non-Japanese utterance, during the meeting and
               on the transcript. Japanese speech is left alone, and minutes are still generated from
               the original words. Translation runs on the CPU, so it does not compete with
               transcription for the GPU. Turning this on downloads a ~600MB translation model
-              (NLLB-200 distilled, <strong>CC-BY-NC — non-commercial use only</strong>) to the STT
+              (NLLB-200 distilled, <strong>{t("CC-BY-NC — non-commercial use only")}</strong>) to the STT
               host on first use.
             </p>
           </div>
@@ -440,10 +480,10 @@ export default function SettingsPage() {
         {/* Minutes (business background / format) */}
         {tab === "minutes" ? (
         <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Minutes (language, background, format)</h2>
+          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Minutes (language, background, format)")}</h2>
           <div>
             <label htmlFor="summaryLanguage" className={labelClass}>
-              Minutes language
+              {t("Minutes language")}
             </label>
             <select
               id="summaryLanguage"
@@ -454,17 +494,17 @@ export default function SettingsPage() {
             >
               {SUMMARY_LANGUAGES.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.label}
+                  {settingLabel(t, l.label)}
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Minutes are generated in this language regardless of the spoken language.
+              {t("Minutes are generated in this language regardless of the spoken language.")}
             </p>
           </div>
           <div>
             <label htmlFor="summaryDetail" className={labelClass}>
-              Minutes detail
+              {t("Minutes detail")}
             </label>
             <select
               id="summaryDetail"
@@ -475,17 +515,17 @@ export default function SettingsPage() {
             >
               {SUMMARY_DETAILS.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.label}
+                  {settingLabel(t, d.label)}
                 </option>
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.
+              {t("How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.")}
             </p>
           </div>
           <div>
             <label htmlFor="llmBackground" className={labelClass}>
-              Business / research background
+              {t("Business / research background")}
             </label>
             <textarea
               id="llmBackground"
@@ -497,7 +537,7 @@ export default function SettingsPage() {
               className="input mt-1 resize-y"
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.
+              {t("Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.")}
             </p>
           </div>
 
@@ -514,10 +554,10 @@ export default function SettingsPage() {
         {/* LLM */}
         {tab === "llm" ? (
         <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Minutes generation (LLM)</h2>
+          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Minutes generation (LLM)")}</h2>
           <div>
             <label htmlFor="llmProvider" className={labelClass}>
-              Provider
+              {t("Provider")}
             </label>
             <select
               id="llmProvider"
@@ -528,7 +568,7 @@ export default function SettingsPage() {
             >
               {LLM_PROVIDERS.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.label}
+                  {settingLabel(t, p.label)}
                 </option>
               ))}
             </select>
@@ -538,10 +578,10 @@ export default function SettingsPage() {
 
           {/* Ollama fieldset */}
           <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "ollama")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">Ollama</legend>
+            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("Ollama")}</legend>
             <div>
               <label htmlFor="ollamaBaseUrl" className={labelClass}>
-                Base URL
+                {t("Base URL")}
               </label>
               <input
                 id="ollamaBaseUrl"
@@ -554,7 +594,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <label htmlFor="ollamaModel" className={labelClass}>
-                Model
+                {t("Model")}
               </label>
               <input
                 id="ollamaModel"
@@ -569,10 +609,10 @@ export default function SettingsPage() {
 
           {/* Anthropic */}
           <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "anthropic")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">Anthropic</legend>
+            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("Anthropic")}</legend>
             <div>
               <label htmlFor="anthropicModel" className={labelClass}>
-                Model
+                {t("Model")}
               </label>
               <input
                 id="anthropicModel"
@@ -585,7 +625,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <label htmlFor="anthropicApiKey" className={labelClass}>
-                API key
+                {t("API key")}
               </label>
               <input
                 id="anthropicApiKey"
@@ -607,7 +647,7 @@ export default function SettingsPage() {
                     onChange={(e) => setClearAnthropicApiKey(e.target.checked)}
                     className="accent-[var(--error)]"
                   />
-                  Delete the saved key
+                  {t("Delete the saved key")}
                 </label>
               ) : null}
             </div>
@@ -615,10 +655,10 @@ export default function SettingsPage() {
 
           {/* OpenAI */}
           <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "openai")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">OpenAI-compatible (vLLM / LM Studio / OpenAI)</legend>
+            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("OpenAI-compatible (vLLM / LM Studio / OpenAI)")}</legend>
             <div>
               <label htmlFor="openaiBaseUrl" className={labelClass}>
-                Base URL
+                {t("Base URL")}
               </label>
               <input
                 id="openaiBaseUrl"
@@ -631,7 +671,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <label htmlFor="openaiModel" className={labelClass}>
-                Model
+                {t("Model")}
               </label>
               <input
                 id="openaiModel"
@@ -644,7 +684,7 @@ export default function SettingsPage() {
             </div>
             <div>
               <label htmlFor="openaiApiKey" className={labelClass}>
-                API key (leave empty for local servers)
+                {t("API key (leave empty for local servers)")}
               </label>
               <input
                 id="openaiApiKey"
@@ -666,7 +706,7 @@ export default function SettingsPage() {
                     onChange={(e) => setClearOpenaiApiKey(e.target.checked)}
                     className="accent-[var(--error)]"
                   />
-                  Delete the saved key
+                  {t("Delete the saved key")}
                 </label>
               ) : null}
             </div>
@@ -684,30 +724,30 @@ export default function SettingsPage() {
 
         {tab === "appearance" ? (
         <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">Appearance</h2>
+          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Appearance")}</h2>
           <div>
-            <p className="label">Theme</p>
+            <p className="label">{t("Theme")}</p>
             <div className="mt-2 grid max-w-sm grid-cols-3 gap-2">
-              {THEMES.map((t) => (
+              {THEMES.map((th) => (
                 <button
-                  key={t.id}
+                  key={th.id}
                   type="button"
-                  onClick={() => applyTheme(t.id)}
+                  onClick={() => applyTheme(th.id)}
                   className={`rounded-md border px-3 py-2 text-sm ${
-                    theme === t.id
+                    theme === th.id
                       ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent-sub)]"
                       : "border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
                   }`}
                 >
-                  {t.label}
-                  {t.id === "system" ? (
+                  {settingLabel(t, th.label)}
+                  {th.id === "system" ? (
                     <span className="block text-[11px] opacity-70">default</span>
                   ) : null}
                 </button>
               ))}
             </div>
             <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Applied instantly and saved per device (browser). No need to press “Save”.
+              {t("Applied instantly and saved per device (browser). No need to press “Save”.")}
               “System” follows your OS and changes with it. Read-only visitors get the same
               choice from the icon in the header.
             </p>
@@ -715,7 +755,7 @@ export default function SettingsPage() {
 
           <div>
             <label htmlFor="uiLanguage" className={labelClass}>
-              Language
+              {t("Language")}
             </label>
             <select
               id="uiLanguage"
@@ -724,19 +764,19 @@ export default function SettingsPage() {
               disabled={saving}
               className={inputClass}
             >
-              <option value="auto">Follow my browser</option>
-              <option value="en">English</option>
+              <option value="auto">{t("Follow my browser")}</option>
+              <option value="en">{t("English")}</option>
               <option value="ja">日本語</option>
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               The screens. What language the minutes are written in is a separate setting, under
-              Minutes — an English screen writing Japanese minutes is a combination people want.
+              {t("Minutes — an English screen writing Japanese minutes is a combination people want.")}
             </p>
           </div>
 
           <div>
             <label htmlFor="meetingTitleFormat" className={labelClass}>
-              Default meeting name
+              {t("Default meeting name")}
             </label>
             <select
               id="meetingTitleFormat"
@@ -755,14 +795,13 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              What a meeting is called until somebody names it. The day it is for — a meeting
-              booked from the calendar is named for that day, not for today.
+              {t("What a meeting is called until somebody names it. The day it is for — a meeting booked from the calendar is named for that day, not for today.")}
             </p>
           </div>
 
           <div>
             <label htmlFor="restScreenSeconds" className={labelClass}>
-              Rest the screen while recording
+              {t("Rest the screen while recording")}
             </label>
             <select
               id="restScreenSeconds"
@@ -778,13 +817,11 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              After this long without a touch, the recording screen goes black. Tapping brings
-              it back, and it rests again after the same wait. Recording is not affected — the
-              microphone, the upload and the screen lock all keep going.
+              {t("After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.")}
             </p>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               On a phone with an OLED screen this is most of the battery: black pixels do not
-              light up. <strong>You cannot watch the live transcript while it rests</strong>,
+              light up. <strong>{t("You cannot watch the live transcript while it rests")}</strong>,
               which is the trade — worth it for a long meeting recorded from a pocket, not for
               one you are reading along with.
             </p>
@@ -793,11 +830,11 @@ export default function SettingsPage() {
         ) : null}
 
         {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-        {saved ? <p className="text-sm text-[var(--success)]">Saved.</p> : null}
+        {saved ? <p className="text-sm text-[var(--success)]">{t("Saved.")}</p> : null}
 
         <div className="flex items-center justify-end gap-2">
           <Link href="/" className="btn-outline">
-            Back
+            {t("Back")}
           </Link>
           <button type="submit" disabled={saving} className="btn-ink">
             {saving ? "Saving…" : "Save"}

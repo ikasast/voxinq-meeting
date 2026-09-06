@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/app/locale-provider";
 
 // What everybody starts from.
 //
@@ -93,6 +94,7 @@ const FIELDS: {
 
 export function HouseDefaults() {
   const [values, setValues] = useState<Defaults | null>(null);
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export function HouseDefaults() {
   };
 
   if (error && !values) return <p className="text-sm text-[var(--error)]">{error}</p>;
-  if (!values) return <p className="text-sm text-[var(--text-muted)]">Loading…</p>;
+  if (!values) return <p className="text-sm text-[var(--text-muted)]">{t("Loading…")}</p>;
 
   const label = "block text-xs font-medium text-[var(--text-secondary)]";
   const input =
@@ -145,9 +147,7 @@ export function HouseDefaults() {
   return (
     <div className="space-y-4">
       <p className="rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-3 py-2 text-xs text-[var(--accent-sub)]">
-        These are what a new account starts with, and what anybody who has never changed a
-        setting is using right now. Changing one here reaches all of them at once — and leaves
-        alone anybody who has made their own choice.
+        {t("These are what a new account starts with, and what anybody who has never changed a setting is using right now. Changing one here reaches all of them at once — and leaves alone anybody who has made their own choice.")}
       </p>
 
       {FIELDS.map((f) => (
