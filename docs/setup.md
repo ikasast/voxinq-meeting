@@ -244,7 +244,7 @@ want the feature they belong to.
 | `VOXINQ_KEY_SECRET` | With accounts | A second long random string. It wraps the keys that are open while somebody is using the app, so a stolen database or a backup on its own reads nothing. **Keep it out of the backup** |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.2.1`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.3.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -698,25 +698,30 @@ Two branches, with different jobs:
   redeploy scripts, and they are legacy — but a reader downloading a compose file from it is
   not.
 
-**"Stable" is not a separate thing to maintain.** The stable 2.x release is the newest full
+**"Stable" is not a separate thing to maintain.** The stable release is the newest full
 release: the one GitHub marks *Latest*, the one the `latest` image tag resolves to, and the one
-`release` points at — three names for the same commit. **As of v3.2.1 that is v3.2.1.** There is
-no `stable` tag and no long-lived 2.x maintenance branch, because a second pointer is a second
-thing to forget, and this branch has already been forgotten twice.
+`release` points at — three names for the same commit. There is no `stable` tag and no
+long-lived maintenance branch, because a second pointer is a second thing to forget, and this
+branch has already been forgotten twice.
+
+**Today those three do not agree, deliberately.** *Latest* and `latest` are still `v2.3.2`,
+because nothing in the 3.x line has been released yet; `release` was moved to `v3.0.0` so that a
+3.x app's own documentation links resolve against 3.x files. They line up again on the release
+that ships 3.x — and moving `release` is part of cutting it.
 
 > This was got wrong twice: the branch sat on `v2.3.0` through two releases while the docs
 > handed people files from it. Nothing broke, because those three files happened not to change
 > in between — which is the kind of near miss that gets written off rather than fixed. If it is
 > behind, fast-forward it.
 
-**`v3.0.0`, `v3.1.0` and `v3.2.0` are tags, not releases.** `v3.0.0` marks where 3.0 ended — the
+**`v3.0.0` through `v3.2.1` are tags, not releases.** `v3.0.0` marks where 3.0 ended — the
 queue, the rebuilt list, the microphone check — and no image carries it at all, so
-`VOXINQ_VERSION=v3.0.0` has nothing to pull. `v3.1.0` and `v3.2.0` *do* have images, built by hand
-from **Actions → publish-images** so one instance could run each of them before anybody else did;
-no release was published from either, so neither moved `latest`.
+`VOXINQ_VERSION=v3.0.0` has nothing to pull. `v3.1.0`, `v3.2.0` and `v3.2.1` *do* have images,
+built by hand from **Actions → publish-images** so one instance could run each of them before
+anybody else did; no release was published from any of them, so none moved `latest`.
 
 That is a tag doing its own job: naming a point in the history, and giving the app's documentation
-links something to resolve against. 3.0 through 3.2 reach everybody else together, as v3.2.1.
+links something to resolve against. 3.0 through 3.3 reach everybody else together, as v3.3.0.
 
 The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
 `VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
