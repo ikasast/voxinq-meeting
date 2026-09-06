@@ -18,13 +18,17 @@ import { unwrapKey, wrapKey } from "./keys";
 // disk. What it still buys: a stolen database, a dump or a backup is not a set of open keys, and
 // nothing is readable for accounts with no work in the queue.
 //
-// **The window is use, not the session.** The row is written when a key is opened and deleted
-// once its owner has no work left *and* has not used it for a while. The queue was not enough on
-// its own: somebody reading their own meetings needs the key as much as a job does, and dropping
-// it the moment the queue emptied showed them their own transcripts as locked. Found by reading
-// a page.
+// **The window is the session.** The row is written when a key is opened and deleted once its
+// owner has no work left, is not signed in anywhere, and has not used it for a while.
+//
+// It was idleness alone, and that was wrong in a way only running it showed. Inside a tailnet
+// nobody types a password — the identity header *is* the sign-in — so nothing ever opened the
+// key, and fifteen minutes after the last time anything did, an entire archive read as
+// `🔒 encrypted` with nothing on screen to say why. The lifetime has to be something the person
+// can see and control, and "signed in" is that; signing out is what locks it again, and now
+// means it.
 
-/** How long a key stays open with nothing using it. Short, because that is the whole point. */
+/** How long a key stays open with nobody signed in, nothing queued, and nothing using it. */
 const IDLE_MS = 15 * 60 * 1000;
 
 /** How often "still in use" is written down. Reads are frequent; this is not. */
@@ -95,13 +99,25 @@ export async function clearUnlock(userId: string): Promise<void> {
  * on a timer that could be missed.
  */
 export async function clearIdleUnlocks(busy: Set<string>): Promise<number> {
+  // Anybody with a session that has not expired. Their key stays open because they are, by the
+  // only definition the server has, still here — and because the alternative is what shipped:
+  // a tailnet user, who never types a password, watching their own meetings turn into padlocks
+  // fifteen minutes after anything last touched the key.
+  const signedIn = await prismaRaw.session.findMany({
+    where: { expiresAt: { gt: new Date() } },
+    select: { userId: true },
+    distinct: ["userId"],
+  });
+  const spare = new Set([...busy, ...signedIn.map((s) => s.userId)]);
+
   const { count } = await prismaRaw.keyUnlock.deleteMany({
     where: {
-      // Not while there is work for them, and not while they are using it. Either alone would
-      // be wrong: the queue alone locks somebody out of the page they are reading, and idleness
-      // alone would drop a key in the middle of an hour-long transcription.
+      // Three conditions, and each covers a case the others miss: the queue, because a job
+      // outlives the browser that asked for it; the session, because a person reading their own
+      // meetings needs the key as much as a job does; and idleness, for the key left open by a
+      // session that has since expired.
       lastUsedAt: { lt: new Date(Date.now() - IDLE_MS) },
-      ...(busy.size > 0 ? { userId: { notIn: [...busy] } } : {}),
+      ...(spare.size > 0 ? { userId: { notIn: [...spare] } } : {}),
     },
   });
   return count;

@@ -234,9 +234,13 @@ pyannote did not install (check `HF_TOKEN` and the diarization venv).
 The content is there and this browser cannot read it. Two causes, and they are told apart by
 whose meeting it is.
 
-**It is yours.** Your key is not open. Sign in again — signing in is what opens it. A key is
-forgotten once you have no work in the queue and have been away for fifteen minutes, so this is
-the ordinary state of an account nobody is using; loading the page after signing in fixes it.
+**It is yours.** Your key is not open — and the app should be saying so at the top of the page,
+with a box to type your password into. Doing that opens the key and reloads. If the padlocks are
+there and the banner is not, the account has no key at all, which means it is not encrypted and
+the padlocks came from somewhere else.
+
+A key is forgotten once nobody is signed in, nothing is queued, and it has not been used for
+fifteen minutes — so this is the ordinary state of an account nobody is using.
 
 **It is yours and signing in does not fix it.** The meeting was encrypted under a key that no
 longer exists — which happens when a password was reset with *"I do not have my recovery code"*.

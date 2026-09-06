@@ -532,10 +532,18 @@ A stolen disk, a database dump, a backup file, and an administrator reading rows
 
 ### What it does not
 
-Somebody who controls the running server. Your key is open while you are using the app and while
-you have work in the queue — minutes are written after the meeting, often after you have closed
-the browser, and that work needs to be able to read the meeting. It is forgotten once you have
-nothing running and have been away for fifteen minutes.
+Somebody who controls the running server. Your key is open while you are signed in and while you
+have work in the queue — minutes are written after the meeting, often after you have closed the
+browser, and that work needs to be able to read the meeting.
+
+**Signing out closes it**, immediately, and that is the control: on a machine you are leaving,
+signing out is what makes your meetings unreadable again rather than merely hidden. A key with
+nobody signed in and nothing queued is forgotten after fifteen minutes.
+
+Inside the tailnet you are identified without typing anything, and an identity header carries no
+secret — so the first time you open a locked archive there, the app says **Your meetings are
+locked** and asks for your password once. That is the moment the key is handed over; it is not
+asking who you are, which it already knows.
 
 Set `VOXINQ_KEY_SECRET` so that a stolen database on its own is not enough; see
 [configuration](configuration.md#env).
