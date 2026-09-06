@@ -102,7 +102,7 @@ async function removeDemo() {
   await prisma.meeting.deleteMany({ where: { id: { in: Object.values(IDS) } } });
 }
 
-async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags }) {
+async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people }) {
   await prisma.meeting.create({
     data: {
       id,
@@ -116,6 +116,11 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
       summaryStatus: minutes ? "done" : null,
       tags: tags?.length
         ? { connectOrCreate: tags.map((name) => ({ where: { name }, create: { name } })) }
+        : undefined,
+      // Everyone here speaks, which is the ordinary case. Somebody who attends and says
+      // nothing is `speaking: false`, and the seed has no reason to show that.
+      participants: people?.length
+        ? { create: people.map((name, position) => ({ name, position, speaking: true })) }
         : undefined,
       transcripts: {
         create: lines.map(([speakerType, text], i) => ({
@@ -158,6 +163,7 @@ async function main() {
     lines: SYNC_LINES,
     minutes: SYNC_MINUTES,
     tags: ["Product", "Weekly"],
+    people: ["Alex Rivera", "Sam Chen", "Jordan Lee"],
   });
 
   // 2) In-progress meeting (no endedAt) with a partial transcript — for recording.png.
@@ -173,6 +179,7 @@ async function main() {
     lines: LIVE_LINES,
     minutes: null,
     tags: ["Standup"],
+    people: ["Alex Rivera", "Sam Chen", "Jordan Lee"],
   });
 
   // 3-4) A couple of short ended meetings so the list looks realistic.
@@ -192,6 +199,7 @@ async function main() {
     ],
     minutes: DESIGN_MINUTES,
     tags: ["Design"],
+    people: ["Alex Rivera", "Sam Chen"],
   });
 
   const rStart = new Date(now - 7 * day);
@@ -210,6 +218,7 @@ async function main() {
     ],
     minutes: RESEARCH_MINUTES,
     tags: ["Research"],
+    people: ["Alex Rivera", "Jordan Lee"],
   });
 
   console.log("Seeded demo meetings:");

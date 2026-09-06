@@ -8,13 +8,18 @@ app is for, these say what it looks like.
 
 | Filename | What it shows | Retaken by |
 | --- | --- | --- |
-| `dashboard.png` | Home: the rail, the meeting list with Upcoming, tags and status chips. | `shoot-screenshots.mjs` |
+| `dashboard.png` | Home: the rail, the month calendar, and the meeting list grouped by when — tags and status chips on each. | `shoot-screenshots.mjs` |
 | `recording.png` | Recording screen: model state, live transcript, and the recording control at the bottom. | `shoot-screenshots.mjs` |
-| `minutes.png` | Meeting detail: minutes in the middle, and the column beside them — progress, agenda, participants, what it was recorded with. | `shoot-screenshots.mjs` |
+| `minutes.png` | Meeting detail: minutes in the middle, and the column beside them — progress, agenda, who was there, what it was recorded with. | `shoot-screenshots.mjs` |
 | `settings.png` | Settings → Transcription: the endpoint list (this machine, plus any saved), language, glossary, mic mode. | `shoot-screenshots.mjs` |
 | `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series), a band of what each kind of hardware does, and a strip on encryption, accounts, search and self-hosting. **Says more than any drawing can**, which is why it is the hero and not one. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
+
+The shots are English. The interface is also Japanese, and which one it speaks follows the
+setting and then the browser — so a Japanese set would come from the same script against a
+context with a Japanese `Accept-Language`. There is no such set yet; README.ja.md carries only
+`workflow.png`.
 
 ## Retaking the UI shots
 
@@ -36,8 +41,11 @@ node scripts/seed-demo.mjs
 # 2. the app, on a port nothing else wants, with auth off and its own settings file
 export VOXINQ_SETTINGS_PATH=/tmp/shots-settings.json   # not the real settings.json
 export NEXT_PUBLIC_STT_WS_URL="ws://127.0.0.1:58000/ws"
-export STT_INTERNAL_URL="http://127.0.0.1:58000"       # a stub, not the real service
+export STT_URL="http://127.0.0.1:58000"                # a stub, not the real service
+export STT_INTERNAL_URL="http://127.0.0.1:58000"
 export APP_PASSWORD="" NETWORK_MODE=lan
+export TZ="Asia/Tokyo"                                 # a container has none; without it the
+                                                       # dates in the shots are UTC
 npm run build && npx next start -p 3100
 
 # 3. the photographs
@@ -49,9 +57,18 @@ docker rm -f voxinq-shots-db     # when you are done
 ```
 
 The script fixes the things that are easy to get wrong by hand: light theme (it is stored per
-device in `localStorage`, not in settings), a 1600px frame so the three-column layout is the one photographed (below 1536 the right-hand column stacks), a 2× device pixel ratio so the images stay sharp,
-a frame fitted to each page instead of a band of empty background, and one shared height for
-`recording.png` and `minutes.png` because the README puts them side by side.
+device in `localStorage`, not in settings), a 1600px frame so the three-column layout is the one
+photographed (below 1536 the right-hand column stacks), a 2× device pixel ratio so the images stay
+sharp, a frame fitted to each page instead of a band of empty background, and one shared height
+for `recording.png` and `minutes.png` because the README puts them side by side.
+
+`shoot-demo-gif.mjs` shoots at the same 1600 and scales to 1100. It used to shoot at 1280, which
+is under that 1536 threshold, so the last frame — the one the slideshow travels towards — showed
+a stack of detail cards and no minutes.
+
+The STT service the recipe stubs is asked for its health, and the recording screen shows the
+answer. Report a configuration that exists (which model, which backend, whether live
+transcription is available) rather than letting a bare stub photograph its own fallback.
 
 ## Doing it by hand
 
