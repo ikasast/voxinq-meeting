@@ -42,7 +42,12 @@ describe("reaching the queue from a phone", () => {
   it("has a way in that is not the address bar", () => {
     // The rail that carries the queue is desktop-only, so on a phone there was no link to it
     // anywhere — on the screen that answers "has my minutes finished yet".
-    expect(layout).toContain("<QueueHeaderLink />");
+    //
+    // It was an icon in the top bar; it is a labelled slot on the bottom bar now, which is the
+    // same promise kept somewhere a thumb reaches. What this test holds is the promise, so it
+    // has to name wherever the link currently lives.
+    expect(read("app/bottom-bar.tsx")).toContain('href="/queue"');
+    expect(layout).toContain("<BottomBar external={external} />");
   });
 
   it("counts your own work, not the machine's", () => {
