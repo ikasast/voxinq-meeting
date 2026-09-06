@@ -551,4 +551,64 @@ export const ja: Record<string, string> = {
   "Done — save voiceprint": "完了 — 声紋を保存",
   "Extracting the voiceprint (GPU)… this takes a little while.":
     "声紋を抽出しています（GPU）… 少し時間がかかります。",
+
+  // ---- What the server says back ----
+  // Only the messages a person is meant to read; see lib/i18n/server-messages.ts for the line.
+  "Wrong password": "パスワードが違います",
+  "Wrong email or password": "メールアドレスかパスワードが違います",
+  "That is not your password.": "パスワードが違います。",
+  "That is not your current password.": "現在のパスワードが違います。",
+  "Enter your password.": "パスワードを入力してください。",
+  "Use at least {n} characters.": "{n} 文字以上にしてください。",
+  "Enter the email address you want to sign in with.":
+    "ログインに使うメールアドレスを入力してください。",
+  "An email address is how they will sign in. Enter theirs.":
+    "本人がログインに使うのはメールアドレスです。その人のアドレスを入力してください。",
+  "That email address is already in use.": "そのメールアドレスは既に使われています。",
+  "That username is taken.": "そのユーザー名は既に使われています。",
+  "That username, email, or tailnet login is already taken.":
+    "そのユーザー名・メールアドレス・tailnet のログインのいずれかが既に使われています。",
+  "Usernames are 2–32 characters: letters, numbers, dot, dash, underscore.":
+    "ユーザー名は 2〜32 文字です。英数字・ドット・ハイフン・アンダースコアが使えます。",
+  "Display names are up to 60 characters.": "表示名は 60 文字までです。",
+  "Use a PNG, JPEG or WebP image.": "PNG・JPEG・WebP の画像を使ってください。",
+  "That picture is too large even after resizing. Try a smaller one.":
+    "縮小してもまだ大きすぎます。もっと小さい画像でお試しください。",
+  "This server already has an account. Sign in, or ask an administrator.":
+    "このサーバーには既にアカウントがあります。ログインするか、管理者に依頼してください。",
+  "Auth is disabled (APP_PASSWORD not set)": "認証は無効です（APP_PASSWORD が未設定）",
+
+  "That link has expired or has already been used. Ask for another.":
+    "このリンクは期限切れか、既に使用済みです。もう一度発行してもらってください。",
+  "That recovery code does not match this account.":
+    "その復旧コードは、このアカウントのものではありません。",
+  "This account has encrypted meetings. Enter your recovery code to keep them, or confirm that you are starting again without them.":
+    "このアカウントには暗号化された会議があります。復旧コードを入力すれば残せます。入力しない場合は、それらを諦めてやり直すことを確認してください。",
+
+  "That account is disabled. Enable it first.":
+    "そのアカウントは無効になっています。先に有効化してください。",
+  "That is the only administrator. Make somebody else one first.":
+    "管理者はその 1 人だけです。先に他の誰かを管理者にしてください。",
+  "You cannot disable your own account.": "自分自身のアカウントは無効化できません。",
+  "Only an administrator sets the defaults everybody starts from.":
+    "全員の既定値を設定できるのは管理者だけです。",
+
+  "Speakers are already being separated for this meeting.":
+    "この会議は既に話者分離を実行中です。",
+  "This meeting is already being re-transcribed.": "この会議は既に文字起こしをやり直しています。",
+  "This meeting has no transcript yet.": "この会議にはまだ発言がありません。",
+  "No utterances recorded": "発言が記録されていません",
+  "Stored embeddings are corrupted. Re-run Diarize.":
+    "保存された声の特徴量が壊れています。話者分離をやり直してください。",
+
+  "This server is read-only from outside your private network.":
+    "プライベートネットワークの外からは、このサーバーは閲覧専用です。",
+  "backups are only available from inside your private network":
+    "バックアップはプライベートネットワークの中からのみ利用できます",
+  "Remote access can only be changed from your local network.":
+    "外部公開の切り替えは、ローカルネットワークの中からのみ行えます。",
+
+  "no minutes to export yet": "書き出せる議事録がまだありません",
+  "nothing to export (no minutes/transcript yet)":
+    "書き出せるものがありません（議事録も発言もまだありません）",
 };

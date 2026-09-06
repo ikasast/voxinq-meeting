@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { currentUser, startSession } from "@/lib/auth/session";
 import { enqueueEncryptionIfNeeded } from "@/lib/crypto/migrate";
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as { password?: unknown } | null;
   const password = typeof body?.password === "string" ? body.password : "";
-  if (!password) return NextResponse.json({ error: "Enter your password." }, { status: 400 });
+  if (!password) return apiError("Enter your password.", 400);
 
   const master = await unlockWithPassword(me.id, password);
   if (!master) {
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
     // second cannot happen from the screen that calls this — it only appears when there *is* a
     // key — and spelling out which it was would say something about the account to whoever is
     // guessing.
-    return NextResponse.json({ error: "That is not your password." }, { status: 403 });
+    return apiError("That is not your password.", 403);
   }
 
   // Anything recorded before this account had a key, or left behind by an interrupted pass. The

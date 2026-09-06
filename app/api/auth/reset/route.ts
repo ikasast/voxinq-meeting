@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
 import { hashPassword } from "@/lib/auth/password";
 import { consumeReset } from "@/lib/auth/reset";
@@ -29,15 +30,12 @@ export async function POST(req: Request) {
   // mislaid the code for a minute should hit a refusal rather than a fresh key.
   const startOver = body?.startOver === true;
   if (password.length < MIN_PASSWORD) {
-    return NextResponse.json({ error: `Use at least ${MIN_PASSWORD} characters.` }, { status: 400 });
+    return apiError("Use at least {n} characters.", 400, { vars: { n: MIN_PASSWORD } });
   }
 
   const spent = await consumeReset(token);
   if (!spent) {
-    return NextResponse.json(
-      { error: "That link has expired or has already been used. Ask for another." },
-      { status: 400 },
-    );
+    return apiError("That link has expired or has already been used. Ask for another.", 400);
   }
 
   // The key first, because what happens to it decides what this reset even means.
@@ -50,10 +48,7 @@ export async function POST(req: Request) {
     if (recoveryCode) {
       const master = await unlockWithRecoveryCode(spent.userId, recoveryCode);
       if (!master) {
-        return NextResponse.json(
-          { error: "That recovery code does not match this account." },
-          { status: 400 },
-        );
+        return apiError("That recovery code does not match this account.", 400);
       }
       await rewrapForNewPassword(spent.userId, master, password);
     } else if (startOver) {
@@ -61,14 +56,11 @@ export async function POST(req: Request) {
       // caller has already had to say so.
       ({ recoveryCode: recovered } = await resetKey(spent.userId, password));
     } else {
-      return NextResponse.json(
-        {
-          error:
-            "This account has encrypted meetings. Enter your recovery code to keep them, or" +
-            " confirm that you are starting again without them.",
-          needsRecoveryCode: true,
-        },
-        { status: 409 },
+      return apiError(
+        // One line, not two joined: the key has to match the list character for character.
+        "This account has encrypted meetings. Enter your recovery code to keep them, or confirm that you are starting again without them.",
+        409,
+        { extra: { needsRecoveryCode: true } },
       );
     }
   } else {

@@ -78,7 +78,7 @@ describe("signing in", () => {
   it("does not say which half was wrong", () => {
     // "No such account" turns the login form into a way to ask who is on this server — and now
     // that the identifier is an address, into a way to ask whether a particular person is.
-    expect(login).toContain('{ error: "Wrong email or password" }');
+    expect(login).toContain('apiError("Wrong email or password", 401)');
     expect(login).not.toMatch(/error: "No such (user|account)"|error: "Unknown (username|email)"/);
   });
 
@@ -91,13 +91,15 @@ describe("signing in", () => {
 
   it("closes setup for good once an account exists", () => {
     expect(setup).toContain("if (await hasUsersCached())");
-    expect(setup).toContain("status: 409");
+    expect(setup).toContain(
+      'apiError("This server already has an account. Sign in, or ask an administrator.", 409)',
+    );
   });
 
   it("requires the current password to change one that exists", () => {
     // A borrowed unlocked browser should cost a session, not the account.
     expect(password).toContain("if (existing.passwordHash) {");
-    expect(password).toContain("status: 403");
+    expect(password).toContain('apiError("That is not your current password.", 403)');
   });
 
   it("lets an account with no password set its first one", () => {

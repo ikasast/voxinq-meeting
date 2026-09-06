@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { isLastAdmin, requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/prisma";
 
@@ -32,26 +33,17 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (body.disabled && target.id === guard.me.id) {
       // Not a rule about permissions — a rule about locking yourself out of the room you are
       // standing in.
-      return NextResponse.json(
-        { error: "You cannot disable your own account." },
-        { status: 400 },
-      );
+      return apiError("You cannot disable your own account.", 400);
     }
     if (body.disabled && target.isAdmin && (await isLastAdmin(target.id))) {
-      return NextResponse.json(
-        { error: "That is the only administrator. Make somebody else one first." },
-        { status: 400 },
-      );
+      return apiError("That is the only administrator. Make somebody else one first.", 400);
     }
     data.disabledAt = body.disabled ? new Date() : null;
   }
 
   if (typeof body.isAdmin === "boolean") {
     if (!body.isAdmin && (await isLastAdmin(target.id))) {
-      return NextResponse.json(
-        { error: "That is the only administrator. Make somebody else one first." },
-        { status: 400 },
-      );
+      return apiError("That is the only administrator. Make somebody else one first.", 400);
     }
     data.isAdmin = body.isAdmin;
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
@@ -22,10 +23,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   const already = await openJobFor("transcribe", id);
   if (already) {
-    return NextResponse.json(
-      { error: "This meeting is already being re-transcribed.", jobId: already.id },
-      { status: 409 },
-    );
+    return apiError("This meeting is already being re-transcribed.", 409, {
+      extra: { jobId: already.id },
+    });
   }
 
   const params = {

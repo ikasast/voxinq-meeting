@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { currentUser } from "@/lib/auth/session";
 import { rewrapForNewPassword, setUpKey, unlockWithPassword } from "@/lib/crypto/user-keys";
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   } | null;
   const password = typeof body?.password === "string" ? body.password : "";
   if (password.length < MIN_PASSWORD) {
-    return NextResponse.json({ error: `Use at least ${MIN_PASSWORD} characters.` }, { status: 400 });
+    return apiError("Use at least {n} characters.", 400, { vars: { n: MIN_PASSWORD } });
   }
 
   const existing = await prisma.user.findUniqueOrThrow({
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
   if (existing.passwordHash) {
     const current = typeof body?.current === "string" ? body.current : "";
     if (!(await verifyPassword(current, existing.passwordHash))) {
-      return NextResponse.json({ error: "That is not your current password." }, { status: 403 });
+      return apiError("That is not your current password.", 403);
     }
   }
 

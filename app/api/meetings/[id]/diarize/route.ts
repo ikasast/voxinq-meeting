@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
@@ -15,15 +16,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const count = await prisma.transcript.count({ where: { meetingId: id } });
   if (count === 0) {
     // Speakers are attached to utterances, so there is nothing to attach them to.
-    return NextResponse.json({ error: "This meeting has no transcript yet." }, { status: 400 });
+    return apiError("This meeting has no transcript yet.", 400);
   }
 
   const already = await openJobFor("diarize", id);
   if (already) {
-    return NextResponse.json(
-      { error: "Speakers are already being separated for this meeting.", jobId: already.id },
-      { status: 409 },
-    );
+    return apiError("Speakers are already being separated for this meeting.", 409, {
+      extra: { jobId: already.id },
+    });
   }
 
   const n = Number(body.numSpeakers);

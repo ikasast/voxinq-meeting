@@ -59,8 +59,11 @@ export async function proxy(req: NextRequest) {
       !pathname.startsWith("/api/auth/") && // login/logout must still work
       !allowedFromOutside(req.method, pathname)
     ) {
+      const { localeFor } = await import("./lib/i18n/locale");
+      const { translate } = await import("./lib/i18n");
+      const locale = await localeFor(req.headers.get("accept-language"));
       return NextResponse.json(
-        { error: "This server is read-only from outside your private network." },
+        { error: translate(locale, "This server is read-only from outside your private network.") },
         { status: 403 },
       );
     }
