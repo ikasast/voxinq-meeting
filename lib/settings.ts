@@ -8,6 +8,7 @@ import path from "path";
 import type { Prisma } from "@prisma/client";
 import { resolveScope } from "./db/owner";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
+import { UI_LANGUAGES } from "./i18n";
 import { DEFAULT_TITLE_FORMAT } from "./meeting-title";
 import { prisma } from "./prisma";
 import { onlyUserKeys } from "./settings-scope";
@@ -72,6 +73,10 @@ export type AppSettings = {
   minutesTemplates: MinutesTemplate[];
   /** Which template new minutes use when nothing else is chosen. Empty = the built-in. */
   defaultMinutesTemplateId: string;
+  // Which language the screens are in. "auto" follows the browser, which is what a first visit
+  // should do. Separate from summaryLanguage on purpose: an English screen writing Japanese
+  // minutes is a combination somebody actually wants.
+  uiLanguage: string;
   // What a meeting is called before anybody names it: an id from TITLE_FORMATS. Chosen from
   // samples rather than typed — the compact form this app started with is a Japanese habit,
   // and a title is read by whoever opens the list months later, wherever they are.
@@ -131,6 +136,7 @@ function defaults(): AppSettings {
     llmBackground: "",
     minutesTemplates: [],
     defaultMinutesTemplateId: "",
+    uiLanguage: "auto",
     meetingTitleFormat: DEFAULT_TITLE_FORMAT,
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
@@ -239,6 +245,9 @@ export async function readMachineSettings(): Promise<AppSettings> {
     if (!VALID_SUMMARY_DETAILS.includes(merged.summaryDetail))
       merged.summaryDetail = base.summaryDetail;
     if (!VALID_MIC_MODES.includes(merged.micMode)) merged.micMode = base.micMode;
+    if (!UI_LANGUAGES.includes(merged.uiLanguage as (typeof UI_LANGUAGES)[number])) {
+      merged.uiLanguage = base.uiLanguage;
+    }
     if (typeof merged.sttTranslate !== "boolean") merged.sttTranslate = base.sttTranslate;
     // Nonsense is worse than the estimate it overrides: a budget of 12 MB is a queue that
     // never moves, and a negative one is a typo.

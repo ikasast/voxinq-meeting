@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MeetingsIcon, MicIcon, QueueIcon } from "./icons";
 import { useMyQueueCount } from "./queue-header-link";
+import { useT } from "./locale-provider";
 
 // Recording, within reach of a thumb.
 //
@@ -66,6 +67,7 @@ function Slot({
 export function BottomBar({ external }: { external: boolean }) {
   const pathname = usePathname() ?? "/";
   const mine = useMyQueueCount();
+  const t = useT();
   // Recording is refused server-side from outside the tailnet, so an external visitor gets no
   // button for it. A control that is only ever going to 403 is worse than its absence.
   if (external || HIDDEN.some((re) => re.test(pathname))) return null;
@@ -78,12 +80,12 @@ export function BottomBar({ external }: { external: boolean }) {
           the room it needs are the same component. */}
       <div className="h-[76px] lg:hidden" aria-hidden />
       <nav
-        aria-label="Record"
+        aria-label={t("Record")}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] backdrop-blur lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         <div className="mx-auto flex max-w-md items-end justify-around px-4 pb-1 pt-1.5">
-          <Slot href="/" label="Meetings" active={onMeetings}>
+          <Slot href="/" label={t("Meetings")} active={onMeetings}>
             <MeetingsIcon className="h-[22px] w-[22px]" />
           </Slot>
 
@@ -91,16 +93,16 @@ export function BottomBar({ external }: { external: boolean }) {
               navigation; this is the app doing its job. */}
           <Link
             href="/quick-record"
-            aria-label="Record now"
+            aria-label={t("Record now")}
             className="-mt-7 flex flex-col items-center gap-1"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-[var(--background)] bg-[var(--accent-solid)] text-[var(--accent-contrast)] shadow-lg">
               <MicIcon className="h-7 w-7" />
             </span>
-            <span className="text-[11px] font-medium text-[var(--text-secondary)]">Record now</span>
+            <span className="text-[11px] font-medium text-[var(--text-secondary)]">{t("Record now")}</span>
           </Link>
 
-          <Slot href="/queue" label="Queue" active={pathname === "/queue"} badge={mine}>
+          <Slot href="/queue" label={t("Queue")} active={pathname === "/queue"} badge={mine}>
             <QueueIcon className="h-[22px] w-[22px]" />
           </Slot>
         </div>

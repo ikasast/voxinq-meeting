@@ -4,11 +4,13 @@ import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
 import { currentUser } from "@/lib/auth/session";
+import { currentLocale, serverT } from "@/lib/i18n/server";
 import { hasKey } from "@/lib/crypto/key-cache";
 import { prisma } from "@/lib/prisma";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { BottomBar } from "./bottom-bar";
+import { LocaleProvider } from "./locale-provider";
 import { LockedBanner } from "./locked-banner";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
@@ -35,7 +37,11 @@ const fontInter = localFont({
 export const metadata: Metadata = {
   title: "Voxinq Meeting",
   description: "Self-hosted meeting minutes system",
-  appleWebApp: { capable: true, title: "Voxinq Meeting", statusBarStyle: "black-translucent" },
+  appleWebApp: {
+    capable: true,
+    title: "Voxinq Meeting",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport = {
@@ -47,7 +53,9 @@ export const viewport = {
 function HeaderNav({
   external,
   me,
+  t,
 }: {
+  t: (key: string) => string;
   external: boolean;
   me: {
     username: string;
@@ -60,12 +68,24 @@ function HeaderNav({
   return (
     <header className="border-b border-[var(--border)] bg-[var(--header)] lg:hidden">
       <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3">
-        <Link href="/" aria-label="Voxinq Meeting home" className="flex items-center">
+        <Link
+          href="/"
+          aria-label="Voxinq Meeting home"
+          className="flex items-center"
+        >
           {/* Show the logo per theme (.logo-dark/.logo-light in globals.css) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.svg" alt="Voxinq Meeting" className="logo-dark h-9 w-auto" />
+          <img
+            src="/logo.svg"
+            alt="Voxinq Meeting"
+            className="logo-dark h-9 w-auto"
+          />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-light.svg" alt="Voxinq Meeting" className="logo-light h-9 w-auto" />
+          <img
+            src="/logo-light.svg"
+            alt="Voxinq Meeting"
+            className="logo-light h-9 w-auto"
+          />
         </Link>
         <nav className="flex items-center gap-2">
           {/* External visitors cannot open Settings, so the theme control comes to them.
@@ -84,7 +104,7 @@ function HeaderNav({
                   starting one — and it can afford to say so: with two icons gone there is room
                   for the word, and "+ New" alone never said new *what*. */}
               <Link href="/new" className="btn-ink whitespace-nowrap">
-                New meeting
+                {t("New meeting")}
               </Link>
             </>
           )}
@@ -103,7 +123,11 @@ function HeaderNav({
   );
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const external = await isExternalRequest();
   // Asked here because the layout renders on every page and has to say who you are anyway.
   // It is also where a tailnet identity becomes an account: the header showing a name is the
@@ -111,26 +135,42 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const me = await currentUser();
   // Whether there is a picture, without carrying its bytes into the HTML of every page.
   const meWithImage = me
-    ? { ...me, hasImage: (await prisma.user.findUnique({
-        where: { id: me.id },
-        select: { imageType: true },
-      }))?.imageType != null }
+    ? {
+        ...me,
+        hasImage:
+          (
+            await prisma.user.findUnique({
+              where: { id: me.id },
+              select: { imageType: true },
+            })
+          )?.imageType != null,
+      }
     : null;
   // Has a key, and it is shut. Both halves matter: an account with no key at all is not locked,
   // it is unencrypted, and telling that person to unlock something would be a sentence about a
   // thing they do not have.
   const locked = me
     ? Boolean(
-        (await prisma.user.findUnique({ where: { id: me.id }, select: { keySalt: true } }))
-          ?.keySalt,
+        (
+          await prisma.user.findUnique({
+            where: { id: me.id },
+            select: { keySalt: true },
+          })
+        )?.keySalt,
       ) && !(await hasKey(me.id))
     : false;
   // The docs index, on the tag this instance is running. package.json only moves when a
   // release is cut, so the tag it names always exists -- pointing at main would instead
   // describe whatever has landed since, including things this build does not have.
   const docsUrl = `https://github.com/ikasast/voxinq-meeting/blob/v${appVersion}/docs/README.md`;
+  // Resolved here, once, and handed down. Fetching it in the browser would paint English and
+  // then swap under somebody already reading.
+  const locale = await currentLocale();
+  const t = await serverT();
   return (
-    <html lang="ja" className={`${fontInter.variable} h-full antialiased`}>
+    // `lang` was hard-coded to "ja" while every screen was in English, which is a lie told to
+    // screen readers and to the browser's own translation offer.
+    <html lang={locale} className={`${fontInter.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col bg-[var(--background)] text-[var(--foreground)]">
         {/* Where the browser should reach the STT service, read from the environment at
             request time. The build-time NEXT_PUBLIC_ value still applies when this is unset,
@@ -153,40 +193,44 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             __html: `try{var t=localStorage.getItem("voxinq.theme");if(t!=="light"&&t!=="dark")t="system";if(t==="light"||(t==="system"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.dataset.theme="light"}catch(e){}`,
           }}
         />
-        <ConfirmProvider>
-          <div className="flex min-h-full flex-1">
-            <SideRail
-              external={external}
-              docsUrl={docsUrl}
-              version={appVersion}
-              isAdmin={me?.isAdmin ?? false}
-            />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <HeaderNav external={external} me={meWithImage} />
-              {/* Above everything, because until it is dealt with nothing below it can be read. */}
-              {locked ? <LockedBanner /> : null}
-              {/* The rail carries navigation on wide screens, but not the controls that only
+        <LocaleProvider locale={locale}>
+          <ConfirmProvider>
+            <div className="flex min-h-full flex-1">
+              <SideRail
+                external={external}
+                docsUrl={docsUrl}
+                version={appVersion}
+                isAdmin={me?.isAdmin ?? false}
+              />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <HeaderNav external={external} me={meWithImage} t={t} />
+                {/* Above everything, because until it is dealt with nothing below it can be read. */}
+                {locked ? <LockedBanner /> : null}
+                {/* The rail carries navigation on wide screens, but not the controls that only
                   make sense per-device or per-session — those keep a home along the top. */}
-              <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
-                {external ? <ThemeToggle /> : null}
-                <InstallApp />
-                {meWithImage ? (
-                  <AccountMenu
-                    username={meWithImage.username}
-                    name={meWithImage.name}
-                    hasImage={meWithImage.hasImage}
-                    isAdmin={meWithImage.isAdmin}
-                    via={meWithImage.via}
-                  />
-                ) : null}
-              </div>
-              <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
-              {/* Narrow layouts only; the rail is this on a desktop. It renders its own spacer,
+                <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
+                  {external ? <ThemeToggle /> : null}
+                  <InstallApp />
+                  {meWithImage ? (
+                    <AccountMenu
+                      username={meWithImage.username}
+                      name={meWithImage.name}
+                      hasImage={meWithImage.hasImage}
+                      isAdmin={meWithImage.isAdmin}
+                      via={meWithImage.via}
+                    />
+                  ) : null}
+                </div>
+                <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">
+                  {children}
+                </main>
+                {/* Narrow layouts only; the rail is this on a desktop. It renders its own spacer,
                   so nothing ends up underneath it. */}
-              <BottomBar external={external} />
+                <BottomBar external={external} />
+              </div>
             </div>
-          </div>
-        </ConfirmProvider>
+          </ConfirmProvider>
+        </LocaleProvider>
       </body>
     </html>
   );
