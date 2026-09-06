@@ -154,7 +154,10 @@ the household are different acts.
   its distilled decoder cannot take a prompt and returns nothing when one is set. These terms
   are also what **Suggest fixes** looks for after a meeting, which is how a glossary reaches
   kotoba-whisper transcripts at all — see [Usage](usage.md#suggest-fixes-glossary-terms-the-recognizer-missed).
-- `micMode` — `standard` / `room` (room picks up distant voices)
+- `micMode` — `standard` / `room`. Room turns the browser's echo cancellation and noise
+  suppression off **and raises the captured level four-fold**. Both halves matter: the first keeps
+  a speakerphone's far end from being cancelled away, the second is what lifts a voice from across
+  a table above the level below which the service hears silence (`VAD_ENERGY_THRESH`).
 - `vramBudgetMb` — megabytes of video memory the [queue](usage.md#the-queue) may commit at
   once. `0` (the default) works it out: the card's total less 1 GB for the display, or 4 GB
   where there is no NVIDIA card and CPU contention serialises the work anyway. Raise it to let

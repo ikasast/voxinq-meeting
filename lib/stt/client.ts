@@ -1,6 +1,6 @@
 import { antiAliasStages } from "@/lib/audio/lowpass";
 import { diarizerLabelToKey, SELF_KEY } from "@/lib/speakers";
-import { micConstraints, streamIsLive } from "./mic-constraints";
+import { ROOM_GAIN, isRoomMode, micConstraints, streamIsLive } from "./mic-constraints";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
 // Assumes in-person meetings and single-phone recording, handling a single mic input.
@@ -170,11 +170,15 @@ export async function startMic(
   limiter.release.value = 0.15;
   limiter.connect(node);
 
+  // Room mode is louder here rather than in the constraints, because a constraint cannot ask
+  // for "louder" — only for the browser's automatic gain, which on a phone is tuned for a
+  // handset held to the ear and works against far-field capture rather than for it.
+  const room = isRoomMode(opts?.micMode);
   const srcNodes = streams.map((s) => ctx.createMediaStreamSource(s));
   srcNodes.forEach((sn) => {
     const gain = ctx.createGain();
     // Two sources summing need room; one on its own does not have to be quieter than it was.
-    gain.gain.value = streams.length > 1 ? 0.7 : 1;
+    gain.gain.value = (streams.length > 1 ? 0.7 : 1) * (room ? ROOM_GAIN : 1);
     sn.connect(gain);
     gain.connect(limiter);
   });

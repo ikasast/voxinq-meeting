@@ -196,6 +196,11 @@ is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
 - **Record a meeting:** New meeting → *Set up meeting* → *Start recording* (the wide button at the bottom, where a thumb reaches it) → speak → *Generate minutes*. Minutes generate in the background while you land on the meeting.
 - **Summarize an existing file:** drag a recording onto the New meeting screen → it transcribes, then summarizes.
 - **Ask about past meetings:** open a series (↻ chip) → *Ask about these minutes* → “前回までのTODOを教えて”.
+- **Record a room, not a handset:** Settings → **Mic mode → Room**. It turns the browser's
+  processing off *and* raises the level, which is what makes a voice from across a table loud
+  enough to be recognised — a phone's automatic gain is tuned for a handset held to the ear.
+  Press **Check the microphone** first: it shows the loudest level it heard against the level
+  speech needs, so "it cannot hear me from over there" becomes a number.
 - **Improve speaker labels:** open a meeting → *Diarize* above the transcript → rename speakers; regenerate minutes.
 - **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, 🗑 to remove it. Minutes are then built from the right words.
 - **Fix the same mishearing everywhere:** *Find & replace*, below the speaker names — preview the matches, then replace across the transcript in one go.

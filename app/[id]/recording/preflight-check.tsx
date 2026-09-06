@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { micConstraints } from "@/lib/stt/mic-constraints";
+import { HEARD_RMS, ROOM_GAIN, isRoomMode, micConstraints } from "@/lib/stt/mic-constraints";
 
 // Is the microphone actually hearing anything?
 //
@@ -18,8 +18,12 @@ import { micConstraints } from "@/lib/stt/mic-constraints";
 /** Long enough to say a sentence and watch the bar; short enough not to sit on the mic. */
 const AUTO_STOP_MS = 60_000;
 
-/** RMS above this, at any point, means sound is arriving. Below it, the room is silent. */
-const HEARD = 0.02;
+/**
+ * RMS above this, at any point, means sound is arriving. Below it, the room is silent.
+ *
+ * The service's own threshold, imported rather than written down again here — see HEARD_RMS.
+ */
+const HEARD = HEARD_RMS;
 
 /**
  * How often the level is sampled, matching the recording meter's own rate.
@@ -106,7 +110,13 @@ export function PreflightCheck({
       ctxRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
-      ctx.createMediaStreamSource(stream).connect(analyser);
+      // Through the same gain the recording will apply. Measuring before it would answer a
+      // question nobody asked — room mode exists precisely because the raw level is too low,
+      // so a check that ignored the gain would call a working room silent.
+      const boost = ctx.createGain();
+      boost.gain.value = isRoomMode(micMode) ? ROOM_GAIN : 1;
+      ctx.createMediaStreamSource(stream).connect(boost);
+      boost.connect(analyser);
       const buf = new Float32Array(analyser.fftSize);
 
       let loudest = 0;
@@ -193,7 +203,13 @@ export function PreflightCheck({
           <p className="mt-1.5 text-xs text-[var(--text-muted)]">
             {peak >= HEARD
               ? "Sound is arriving. The microphone stays open, and the recording will use it."
-              : "Nothing heard yet."}
+              : "Nothing heard yet."}{" "}
+            {/* The figure, not just the bar. "It does not hear me from across the room" is a
+                report nobody can act on; "loudest 0.004, needs 0.012" says how far off it is,
+                and whether moving closer or changing mode is what would fix it. */}
+            <span className="tabular-nums">
+              loudest {peak.toFixed(3)} · needs {HEARD}
+            </span>
           </p>
         </>
       ) : null}
@@ -207,9 +223,12 @@ export function PreflightCheck({
 
       {state === "silent" ? (
         <p className="mt-2 text-xs text-[var(--warning)]">
-          Nothing came through. Check that the right input is selected and not muted — a headset
-          with its own mute switch, or another app holding the microphone, both look like this.
-          Recording now would produce an empty transcript.
+          Nothing loud enough came through — the loudest moment was{" "}
+          <span className="tabular-nums">{peak.toFixed(3)}</span>, and{" "}
+          <span className="tabular-nums">{HEARD}</span> is where speech starts being recognised.
+          Check that the right input is selected and not muted — a headset with its own mute
+          switch, or another app holding the microphone, both look like this.
+          {!isRoomMode(micMode) ? " Speaking from across a room needs Mic mode: Room." : ""}
         </p>
       ) : null}
 
