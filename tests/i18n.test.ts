@@ -43,6 +43,23 @@ describe("finding the strings", () => {
     expect(keysIn(`t('Press "Start recording" below.')`)).toEqual(['Press "Start recording" below.']);
   });
 
+  it("does not mistake a slash-star inside a string for a comment", () => {
+    // `accept="audio/*,video/*"` on the New meeting screen. A regex over slash-star to star-slash
+    // treated that as a comment that never began and swallowed two and a half thousand characters
+    // of real JSX, four `t()` calls among them — which the table then reported as rows for strings
+    // nothing shows, one step from somebody deleting four good translations.
+    const src = [`const a = "audio/*,video/*";`, `t("Title");`, `const b = "*/";`].join("\n");
+    expect(keysIn(src)).toEqual(["Title"]);
+  });
+
+  it("does not mistake a quote inside a regex for a string", () => {
+    // This module's own pattern contains one. Reading it as a string lost track of where the
+    // scanner was, so the doc comment after it stopped being recognised as a comment and the
+    // example inside it became two keys.
+    const src = [String.raw`const re = /a'b/g;`, `/** t("one") */`, `t("Queue");`].join("\n");
+    expect(keysIn(src)).toEqual(["Queue"]);
+  });
+
   it("does not mistake an example in a comment for a call", () => {
     // This module's own documentation says `t("Start recording")`, and a scanner that cannot
     // tell the two apart puts phantom rows in the table.
