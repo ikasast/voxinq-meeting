@@ -17,7 +17,13 @@ export default async function AccountPage() {
       // `imageType` stands in for "has a picture": it is set exactly when the bytes are, and
       // selecting the bytes here would carry a picture inside the HTML of a page that only
       // needs to know there is one. It is served from its own route instead.
-      select: { passwordHash: true, tailscaleLogin: true, createdAt: true, imageType: true },
+      select: {
+        passwordHash: true,
+        email: true,
+        tailscaleLogin: true,
+        createdAt: true,
+        imageType: true,
+      },
     }),
     prisma.session.count({ where: { userId: me.id, expiresAt: { gt: new Date() } } }),
   ]);
@@ -47,7 +53,12 @@ export default async function AccountPage() {
         ) : null}
         </div>
       </div>
-      <ProfileForm username={me.username} name={me.name} hasImage={row.imageType !== null} />
+      <ProfileForm
+        username={me.username}
+        email={row.email}
+        name={me.name}
+        hasImage={row.imageType !== null}
+      />
       <AccountForm hasPassword={Boolean(row.passwordHash)} />
     </div>
   );

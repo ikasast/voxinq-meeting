@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email";
 import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -28,9 +29,24 @@ export async function POST(req: Request) {
   // Prisma types Bytes as `Uint8Array<ArrayBuffer>` — the concrete buffer, not `ArrayBufferLike`.
   const data: {
     name?: string | null;
+    email?: string;
     image?: Uint8Array<ArrayBuffer> | null;
     imageType?: string | null;
   } = {};
+
+  // Where an account that predates addresses gets one, and where a typo is fixed. Not removable:
+  // it is how this account signs in, and an account with a password and no address is one that
+  // can only be reached from inside the tailnet.
+  if (form.has("email")) {
+    const email = normaliseEmail(String(form.get("email") ?? ""));
+    if (!looksLikeEmail(email)) {
+      return NextResponse.json(
+        { error: "Enter the email address you want to sign in with." },
+        { status: 400 },
+      );
+    }
+    data.email = email;
+  }
 
   if (form.has("name")) {
     const name = String(form.get("name") ?? "").trim();
@@ -62,6 +78,12 @@ export async function POST(req: Request) {
 
   if (Object.keys(data).length === 0) return NextResponse.json({ ok: true, changed: false });
 
-  await prisma.user.update({ where: { id: me.id }, data });
+  try {
+    await prisma.user.update({ where: { id: me.id }, data });
+  } catch {
+    // The only unique thing here. Saying which account holds it would answer a question nobody
+    // signed in as this person is entitled to ask.
+    return NextResponse.json({ error: "That email address is already in use." }, { status: 409 });
+  }
   return NextResponse.json({ ok: true, changed: true });
 }

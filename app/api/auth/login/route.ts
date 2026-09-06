@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AUTH_COOKIE, expectedAuthToken } from "@/lib/auth-token";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth/cookie";
+import { normaliseEmail } from "@/lib/auth/email";
 import { hasUsersCached } from "@/lib/auth/has-users";
 import { verifyPassword } from "@/lib/auth/password";
 import { pruneSessions, startSession } from "@/lib/auth/session";
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
-    username?: unknown;
+    email?: unknown;
     password?: unknown;
   } | null;
   const password = typeof body?.password === "string" ? body.password : null;
@@ -34,18 +35,21 @@ export async function POST(req: Request) {
     return res;
   }
 
-  const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
-  const user = username
+  // The address, because it is the one identifier somebody already knows about themselves. The
+  // username is still there — it is the short handle the avatar URL is built from — but nobody
+  // should have to remember which of `sam`, `sam2` or `sasaki.tkfm` the server picked for them.
+  const email = typeof body?.email === "string" ? normaliseEmail(body.email) : "";
+  const user = email
     ? await prisma.user.findUnique({
-        where: { username },
+        where: { email },
         select: { id: true, passwordHash: true, disabledAt: true },
       })
     : null;
 
-  // One message for every way of being wrong. Saying "no such user" turns the login form into
-  // a way to ask who has an account here.
+  // One message for every way of being wrong. Saying "no such account" turns the login form into
+  // a way to ask who is on this server.
   if (!user || user.disabledAt || !(await verifyPassword(password, user.passwordHash))) {
-    return NextResponse.json({ error: "Wrong username or password" }, { status: 401 });
+    return NextResponse.json({ error: "Wrong email or password" }, { status: 401 });
   }
 
   // Signing in is the one moment the password exists in this process, so it is the only moment

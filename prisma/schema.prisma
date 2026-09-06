@@ -18,6 +18,13 @@ datasource db {
 model User {
   id       String  @id @default(cuid())
   username String  @unique
+  // What somebody types to sign in. Separate from `username`, which stays the short
+  // handle the avatar URL is built from and nobody has to remember.
+  //
+  // Nullable because rows exist that predate it, not because an account should be without
+  // one: every screen that makes an account now requires it. An account with none can
+  // still arrive through the tailnet and set one.
+  email    String? @unique
   name     String?
 
   /// scrypt, as `scrypt$N$r$p$salt$hash`. Null for an identity that only ever arrives with a

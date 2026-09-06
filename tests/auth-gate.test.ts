@@ -76,9 +76,17 @@ describe("signing in", () => {
   const password = read("app/api/auth/password/route.ts");
 
   it("does not say which half was wrong", () => {
-    // "No such user" turns the login form into a way to ask who has an account here.
-    expect(login).toContain('{ error: "Wrong username or password" }');
-    expect(login).not.toMatch(/error: "No such user"|error: "Unknown username"/);
+    // "No such account" turns the login form into a way to ask who is on this server — and now
+    // that the identifier is an address, into a way to ask whether a particular person is.
+    expect(login).toContain('{ error: "Wrong email or password" }');
+    expect(login).not.toMatch(/error: "No such (user|account)"|error: "Unknown (username|email)"/);
+  });
+
+  it("identifies somebody by the address they already know", () => {
+    // Not by the username, which the server picked for them: a tailnet identity becomes `sam`,
+    // or `sam2` if `sam` was taken, and nobody should have to remember which.
+    expect(login).toContain("where: { email }");
+    expect(login).toContain("normaliseEmail(body.email)");
   });
 
   it("closes setup for good once an account exists", () => {

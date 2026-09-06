@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
+import { looksLikeEmail, normaliseEmail } from "@/lib/auth/email";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/prisma";
 
@@ -23,6 +24,7 @@ export async function GET() {
     select: {
       id: true,
       username: true,
+      email: true,
       name: true,
       isAdmin: true,
       disabledAt: true,
@@ -41,6 +43,7 @@ export async function GET() {
     users: users.map((u) => ({
       id: u.id,
       username: u.username,
+      email: u.email,
       name: u.name,
       isAdmin: u.isAdmin,
       disabled: u.disabledAt !== null,
@@ -62,6 +65,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as {
     username?: unknown;
+    email?: unknown;
     name?: unknown;
     password?: unknown;
     isAdmin?: unknown;
@@ -69,9 +73,16 @@ export async function POST(req: Request) {
   } | null;
 
   const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
+  const email = typeof body?.email === "string" ? normaliseEmail(body.email) : "";
   if (!USERNAME.test(username)) {
     return NextResponse.json(
       { error: "Usernames are 2–32 characters: letters, numbers, dot, dash, underscore." },
+      { status: 400 },
+    );
+  }
+  if (!looksLikeEmail(email)) {
+    return NextResponse.json(
+      { error: "An email address is how they will sign in. Enter theirs." },
       { status: 400 },
     );
   }
@@ -88,6 +99,7 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: {
         username,
+        email,
         name: typeof body?.name === "string" && body.name.trim() ? body.name.trim() : null,
         // An account with no password is not locked out: it is one that arrives through the
         // tailnet, or one waiting for a reset link. Both are ordinary here.
@@ -100,7 +112,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, user });
   } catch {
     return NextResponse.json(
-      { error: "That username, or that tailnet login, is already taken." },
+      { error: "That username, email, or tailnet login is already taken." },
       { status: 409 },
     );
   }

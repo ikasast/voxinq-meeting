@@ -5,6 +5,7 @@ import { RecoveryCode } from "../recovery-code";
 
 export function SetupForm() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -24,7 +25,7 @@ export function SetupForm() {
       const res = await fetch("/api/auth/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, name }),
+        body: JSON.stringify({ username, email, password, name }),
       });
       const d = (await res.json().catch(() => null)) as {
         error?: string;
@@ -79,7 +80,28 @@ export function SetupForm() {
           required
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Letters, numbers, dot, dash, underscore. This is what you type to sign in.
+          Letters, numbers, dot, dash, underscore. A short handle — you sign in with your email.
+        </p>
+      </div>
+      <div>
+        <label htmlFor="email" className="label">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          placeholder="you@example.com"
+          className="input mt-1"
+          required
+        />
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          What you type to sign in. Nothing is ever sent to it — this server has no way to send
+          mail, and does not want one.
         </p>
       </div>
       <div>
@@ -122,7 +144,7 @@ export function SetupForm() {
         />
       </div>
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-      <button type="submit" disabled={busy || !username || !password} className="btn-ink w-full">
+      <button type="submit" disabled={busy || !username || !email || !password} className="btn-ink w-full">
         {busy ? "Creating…" : "Create the account"}
       </button>
       </form>
