@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
 import { dayFromKey } from "@/lib/utils";
+import { useT } from "@/app/locale-provider";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
 import {
@@ -16,6 +17,8 @@ import {
 import { preloadSttIfIdle } from "@/lib/stt/preload";
 import { useGpuBusy } from "../use-gpu-busy";
 
+// The labels are keys, translated where the lists are rendered — a module-level constant has
+// no hook to reach the language with. The same shape as the meeting list's bands.
 const MIC_MODES: { id: string; label: string }[] = [
   { id: "standard", label: "Standard (close talk / calls)" },
   { id: "room", label: "Room (pick up distant voices)" },
@@ -25,6 +28,18 @@ const SOURCES: { id: string; label: string }[] = [
   { id: "display", label: "PC audio" },
   { id: "both", label: "Microphone + PC audio" },
 ];
+
+/** The five choice labels, spelled out so the table's test can find them. */
+function choiceLabel(t: (k: string) => string, label: string): string {
+  const table: Record<string, string> = {
+    "Standard (close talk / calls)": t("Standard (close talk / calls)"),
+    "Room (pick up distant voices)": t("Room (pick up distant voices)"),
+    Microphone: t("Microphone"),
+    "PC audio": t("PC audio"),
+    "Microphone + PC audio": t("Microphone + PC audio"),
+  };
+  return table[label] ?? label;
+}
 
 const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|oga|flac|webm|mp4|mov|mkv|opus)$/i;
 
@@ -55,6 +70,7 @@ export default function NewMeetingForm({
   // "+ Add a meeting on this day" and being handed today's date as the title is the click
   // appearing to have been ignored — the whole point of that link was to say which day.
   const bookedDay = dayFromKey(date);
+  const t = useT();
   const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
   const [title, setTitle] = useState(dayTitle);
   const [description, setDescription] = useState("");
@@ -196,7 +212,7 @@ export default function NewMeetingForm({
         const meeting = await createMeeting(dayTitle);
         router.push(`/${meeting.id}`);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not create the meeting");
+        setError(e instanceof Error ? e.message : t("Could not create the meeting"));
         setSubmitting(false);
       }
       return;
@@ -225,7 +241,7 @@ export default function NewMeetingForm({
       const qs = new URLSearchParams({ model, mic: micMode, source });
       router.push(`/${meeting.id}/recording?${qs}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create meeting.");
+      setError(err instanceof Error ? err.message : t("Failed to create meeting."));
       setSubmitting(false);
     }
   };
@@ -234,7 +250,7 @@ export default function NewMeetingForm({
     e.preventDefault();
     setError(null);
     if (!title.trim()) {
-      setError("Please enter a title.");
+      setError(t("Please enter a title."));
       return;
     }
     // Recording needs the GPU. If minutes are still generating (Ollama holds the GPU),
@@ -270,7 +286,7 @@ export default function NewMeetingForm({
     if (phase || submitting) return;
     setError(null);
     if (!file.type.startsWith("audio/") && !file.type.startsWith("video/") && !AUDIO_EXT.test(file.name)) {
-      setError("Please drop an audio file (wav, mp3, m4a, ...).");
+      setError(t("Please drop an audio file (wav, mp3, m4a, ...)."));
       return;
     }
     setPhase("creating");
@@ -312,7 +328,7 @@ export default function NewMeetingForm({
         job = (await fetch(`${base}/transcribe/${meeting.id}/status`).then((r) => r.json())) as typeof job;
       }
       if (job.status !== "done" || !Array.isArray(job.utterances)) {
-        throw new Error(job.detail ?? "Transcription failed.");
+        throw new Error(job.detail ?? t("Transcription failed."));
       }
 
       const apply = await fetch(`/api/meetings/${meeting.id}/apply-transcript`, {
@@ -336,7 +352,7 @@ export default function NewMeetingForm({
       }).catch(() => {});
       router.push(`/${meeting.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process the file.");
+      setError(err instanceof Error ? err.message : t("Failed to process the file."));
       setPhase(null);
     }
   };
@@ -345,16 +361,16 @@ export default function NewMeetingForm({
   const busy = Boolean(phase) || submitting;
   const phaseLabel =
     phase === "creating"
-      ? "Creating meeting…"
+      ? t("Creating meeting…")
       : phase === "transcribing"
-        ? "Transcribing the audio… (this can take a few minutes)"
+        ? t("Transcribing the audio… (this can take a few minutes)")
         : phase === "summarizing"
-          ? "Generating minutes…"
+          ? t("Generating minutes…")
           : null;
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">New meeting</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("New meeting")}</h1>
 
       {/* Drag & drop an existing recording to skip live capture. Not from outside the private
           network: the upload goes to the STT service, which is not reachable from there, so
@@ -386,7 +402,7 @@ export default function NewMeetingForm({
         ) : (
           <>
             <p className="text-sm text-[var(--text-secondary)]">
-              Drop an audio file here to transcribe and summarize (no live recording).
+              {t("Drop an audio file here to transcribe and summarize (no live recording).")}
             </p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">wav / mp3 / m4a / etc.</p>
             <button
@@ -396,7 +412,7 @@ export default function NewMeetingForm({
               className="btn-outline mt-3"
               title={gpu.busy ? `Busy: ${gpu.label ?? "another GPU task is running"}` : undefined}
             >
-              Choose file
+              {t("Choose file")}
             </button>
             {gpu.busy ? (
               <p className="mt-2 text-xs text-[var(--warning)]">{gpu.label} — please wait.</p>
@@ -420,14 +436,14 @@ export default function NewMeetingForm({
       <form onSubmit={onSubmit} className="card space-y-4 p-6">
         <div>
           <label htmlFor="title" className="label">
-            Title
+            {t("Title")}
           </label>
           <input
             id="title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Weekly research sync #2"
+            placeholder={t("Weekly research sync #2")}
             maxLength={200}
             autoFocus
             disabled={busy}
@@ -437,13 +453,13 @@ export default function NewMeetingForm({
 
         <div>
           <label htmlFor="description" className="label">
-            Purpose / agenda (metadata)
+            {t("Purpose / agenda (metadata)")}
           </label>
           <textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Purpose, agenda, and background of the meeting. Improves minutes quality."
+            placeholder={t("Purpose, agenda, and background of the meeting. Improves minutes quality.")}
             rows={4}
             disabled={busy}
             className="input mt-1 resize-y"
@@ -452,7 +468,7 @@ export default function NewMeetingForm({
 
         <div>
           <label htmlFor="series" className="label">
-            Series (recurring meetings, optional)
+            {t("Series (recurring meetings, optional)")}
           </label>
           <input
             id="series"
@@ -460,7 +476,7 @@ export default function NewMeetingForm({
             list="series-options"
             value={series}
             onChange={(e) => setSeries(e.target.value)}
-            placeholder="e.g. Weekly sync — links meetings so minutes carry context"
+            placeholder={t("e.g. Weekly sync — links meetings so minutes carry context")}
             maxLength={60}
             disabled={busy}
             className="input mt-1"
@@ -474,7 +490,7 @@ export default function NewMeetingForm({
 
         <div>
           <label htmlFor="scheduled" className="label">
-            When (optional)
+            {t("When (optional)")}
           </label>
           <input
             id="scheduled"
@@ -485,9 +501,9 @@ export default function NewMeetingForm({
             className="input mt-1"
           />
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            Leave empty to record now. Filling it in puts the meeting under{" "}
-            <strong>Upcoming</strong> so the title, agenda and settings can be sorted out ahead
-            of time — then it is one tap to start when the meeting comes round.
+            {/* One sentence, one key. Splicing a translated word into an untranslated sentence
+                is how a screen ends up reading "puts the meeting under 予定" in English. */}
+            {t("Leave empty to record now. Filling it in puts the meeting under Upcoming so the title, agenda and settings can be sorted out ahead of time — then it is one tap to start when the meeting comes round.")}
           </p>
         </div>
 
@@ -496,16 +512,15 @@ export default function NewMeetingForm({
             must be visible before the meeting is set up, not hidden behind a disclosure. */}
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
           <p className="text-sm font-medium text-[var(--text-secondary)]">
-            Recording settings (this meeting only)
+            {t("Recording settings (this meeting only)")}
           </p>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            Defaults come from the app settings. Changes here apply to this meeting only and do not
-            change the settings. (Model and language also apply to dropped files.)
+            {t("Defaults come from the app settings. Changes here apply to this meeting only and do not change the settings. (Model and language also apply to dropped files.)")}
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="model" className="label">
-                Transcription model
+                {t("Transcription model")}
               </label>
               <select
                 id="model"
@@ -531,15 +546,15 @@ export default function NewMeetingForm({
               {isJapaneseOnlyModel(model) ? (
                 <p className="mt-1 text-xs text-[var(--warning)]">
                   {sttLanguage === "en"
-                    ? "This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead."
-                    : "Japanese-only model: transcription is forced to Japanese. Use large-v3-turbo for meetings in any other language."}
+                    ? t("This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead.")
+                    : t("Japanese-only model: transcription is forced to Japanese. Use large-v3-turbo for meetings in any other language.")}
                 </p>
               ) : null}
             </div>
 
             <div>
               <label htmlFor="sttLanguage" className="label">
-                Transcription language
+                {t("Transcription language")}
               </label>
               <select
                 id="sttLanguage"
@@ -548,15 +563,15 @@ export default function NewMeetingForm({
                 disabled={busy}
                 className={selectClass}
               >
-                <option value="auto">Auto (follow settings default)</option>
-                <option value="ja">Japanese</option>
-                <option value="en">English</option>
+                <option value="auto">{t("Auto (follow settings default)")}</option>
+                <option value="ja">{t("Japanese")}</option>
+                <option value="en">{t("English")}</option>
               </select>
             </div>
 
             <div>
               <label htmlFor="micMode" className="label">
-                Microphone mode
+                {t("Microphone mode")}
               </label>
               <select
                 id="micMode"
@@ -570,7 +585,7 @@ export default function NewMeetingForm({
               >
                 {MIC_MODES.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.label}
+                    {choiceLabel(t, m.label)}
                   </option>
                 ))}
               </select>
@@ -578,7 +593,7 @@ export default function NewMeetingForm({
 
             <div>
               <label htmlFor="source" className="label">
-                Recording source
+                {t("Recording source")}
               </label>
               <select
                 id="source"
@@ -590,14 +605,14 @@ export default function NewMeetingForm({
                 {SOURCES.map((s) =>
                   s.id === "mic" || displaySupported ? (
                     <option key={s.id} value={s.id}>
-                      {s.label}
+                      {choiceLabel(t, s.label)}
                     </option>
                   ) : null,
                 )}
               </select>
               {!displaySupported ? (
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  This device cannot capture PC audio (Chrome / Edge on desktop required).
+                  {t("This device cannot capture PC audio (Chrome / Edge on desktop required).")}
                 </p>
               ) : null}
             </div>
@@ -617,11 +632,11 @@ export default function NewMeetingForm({
           <button type="submit" disabled={busy} className="btn-ink">
             {submitting
               ? scheduledAt || external
-                ? "Adding…"
-                : "Setting up…"
+                ? t("Adding…")
+                : t("Setting up…")
               : scheduledAt || external
-                ? "Add to Upcoming"
-                : "Set up meeting"}
+                ? t("Add to Upcoming")
+                : t("Set up meeting")}
           </button>
         </div>
       </form>
@@ -654,7 +669,7 @@ export default function NewMeetingForm({
                 disabled={interrupting}
                 className="btn-ink"
               >
-                {interrupting ? "Interrupting…" : "Interrupt & set up"}
+                {interrupting ? t("Interrupting…") : t("Interrupt & set up")}
               </button>
             </div>
           </div>

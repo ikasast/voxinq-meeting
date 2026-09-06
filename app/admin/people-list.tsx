@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Avatar } from "../avatar";
 import { useConfirm } from "../confirm-dialog";
+import { useT } from "@/app/locale-provider";
 
 // The people on this server.
 //
@@ -29,6 +30,7 @@ type Person = {
 export function PeopleList({ meId }: { meId: string }) {
   const confirm = useConfirm();
   const [people, setPeople] = useState<Person[] | null>(null);
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [link, setLink] = useState<{ username: string; url: string; minutes: number } | null>(null);
@@ -102,7 +104,7 @@ export function PeopleList({ meId }: { meId: string }) {
   };
 
   if (error && !people) return <p className="text-sm text-[var(--error)]">{error}</p>;
-  if (!people) return <p className="text-sm text-[var(--text-muted)]">Loading…</p>;
+  if (!people) return <p className="text-sm text-[var(--text-muted)]">{t("Loading…")}</p>;
 
   return (
     <div className="space-y-3">
@@ -173,7 +175,7 @@ export function PeopleList({ meId }: { meId: string }) {
                 onClick={() => void issueLink(p)}
                 disabled={busy !== null || p.disabled}
                 className="btn-outline !px-2 !py-1 !text-xs"
-                title="Issue a one-time link so they can set their own password"
+                title={t("Issue a one-time link so they can set their own password")}
               >
                 Reset link
               </button>
@@ -200,8 +202,7 @@ export function PeopleList({ meId }: { meId: string }) {
       </ul>
 
       <p className="text-xs text-[var(--text-muted)]">
-        Accounts are disabled, never deleted. An account holds meetings, and deleting one would
-        either destroy them or hand them to somebody who was never in the room.
+        {t("Accounts are disabled, never deleted. An account holds meetings, and deleting one would either destroy them or hand them to somebody who was never in the room.")}
       </p>
 
       {adding ? (
@@ -222,6 +223,7 @@ export function PeopleList({ meId }: { meId: string }) {
 }
 
 function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const t = useT();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -251,7 +253,7 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
 
   return (
     <form onSubmit={submit} className="card space-y-3 p-4">
-      <h2 className="text-sm font-medium text-[var(--text-strong)]">Add someone</h2>
+      <h2 className="text-sm font-medium text-[var(--text-strong)]">{t("Add someone")}</h2>
       <div>
         <label htmlFor="u" className="label">
           Username
@@ -280,18 +282,18 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
           required
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          What they type to sign in. Nothing is sent to it — hand them the link below instead.
+          {t("What they type to sign in. Nothing is sent to it — hand them the link below instead.")}
         </p>
       </div>
       <div>
         <label htmlFor="n" className="label">
-          Display name (optional)
+          {t("Display name (optional)")}
         </label>
         <input id="n" value={name} onChange={(e) => setName(e.target.value)} className="input mt-1" />
       </div>
       <div>
         <label htmlFor="t" className="label">
-          Tailnet login (optional)
+          {t("Tailnet login (optional)")}
         </label>
         <input
           id="t"
@@ -301,18 +303,17 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
           className="input mt-1"
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Fill this in and they are signed in automatically from inside the tailnet, with no
-          password at all. Leave it empty and give them a reset link instead.
+          {t("Fill this in and they are signed in automatically from inside the tailnet, with no password at all. Leave it empty and give them a reset link instead.")}
         </p>
       </div>
       <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
-        An administrator
+        {t("An administrator")}
       </label>
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
       <div className="flex gap-2">
         <button type="submit" disabled={busy || !username || !email} className="btn-ink">
-          {busy ? "Adding…" : "Add"}
+          {busy ? t("Adding…") : t("Add")}
         </button>
         <button type="button" onClick={onCancel} disabled={busy} className="btn-outline">
           Cancel

@@ -323,4 +323,65 @@ export const ja: Record<string, string> = {
   "Stopped.": "停止しました。",
   "Cancelled.": "取り消しました。",
   "The job could not be found.": "その処理が見つかりませんでした。",
+
+  // ---- New meeting ----
+  "Weekly research sync #2": "研究定例 #2",
+  "e.g. Weekly sync — links meetings so minutes carry context":
+    "例: 週次定例 — 会議をつなげ、前回の議事録が文脈として渡ります",
+  Title: "タイトル",
+  "Choose file": "ファイルを選ぶ",
+  "Purpose / agenda (metadata)": "目的・議題（メタデータ）",
+  "Series (recurring meetings, optional)": "シリーズ（定例会議、任意）",
+  "When (optional)": "日時（任意）",
+  "Leave empty to record now. Filling it in puts the meeting under Upcoming so the title, agenda and settings can be sorted out ahead of time — then it is one tap to start when the meeting comes round.":
+    "空欄なら今すぐ録音します。日時を入れると「予定」に入り、タイトル・議題・設定を先に整えておけます — 当日はワンタップで始められます。",
+  "Recording settings (this meeting only)": "録音の設定（この会議のみ）",
+  "Defaults come from the app settings. Changes here apply to this meeting only and do not change the settings. (Model and language also apply to dropped files.)":
+    "既定値はアプリの設定から来ています。ここでの変更はこの会議だけに効き、設定そのものは変わりません。（モデルと言語はドロップしたファイルにも適用されます。）",
+  "Transcription model": "文字起こしモデル",
+  "Transcription language": "文字起こしの言語",
+  "Microphone mode": "マイクモード",
+  "Recording source": "録音ソース",
+  "Set up meeting": "会議を準備する",
+  "Setting up…": "準備中…",
+  "Add to Upcoming": "予定に追加",
+  "Adding…": "追加中…",
+  "Interrupt & set up": "中断して準備する",
+  "Interrupting…": "中断中…",
+  "Creating meeting…": "会議を作成中…",
+  "Could not create the meeting": "会議を作成できませんでした",
+  "Failed to create meeting.": "会議の作成に失敗しました。",
+  "Please enter a title.": "タイトルを入力してください。",
+  "Auto (follow settings default)": "自動（設定の既定に従う）",
+  "Standard (close talk / calls)": "標準（近くで話す・通話）",
+  "Room (pick up distant voices)": "会議室（離れた声を拾う）",
+  "Microphone + PC audio": "マイク + PC音声",
+  "This device cannot capture PC audio (Chrome / Edge on desktop required).":
+    "この端末では PC音声を取り込めません（デスクトップの Chrome / Edge が必要です）。",
+  "Drop an audio file here to transcribe and summarize (no live recording).":
+    "音声ファイルをここにドロップすると、文字起こしと議事録を作ります（録音はしません）。",
+  "Please drop an audio file (wav, mp3, m4a, ...).":
+    "音声ファイルをドロップしてください（wav, mp3, m4a など）。",
+  "Transcribing the audio… (this can take a few minutes)": "音声を文字起こし中…（数分かかることがあります）",
+  "Transcription failed.": "文字起こしに失敗しました。",
+  "Failed to process the file.": "ファイルを処理できませんでした。",
+  "This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead.":
+    "このモデルは日本語専用です — 英語の会議は文字起こしできません。large-v3-turbo を選んでください。",
+  "Japanese-only model: transcription is forced to Japanese. Use large-v3-turbo for meetings in any other language.":
+    "日本語専用モデルです。文字起こしは日本語に固定されます。他の言語の会議には large-v3-turbo を使ってください。",
+
+  // ---- People ----
+  "Add someone": "メンバーを追加",
+  "Loading…": "読み込み中…",
+  "Display name (optional)": "表示名（任意）",
+  "Tailnet login (optional)": "tailnet のログイン（任意）",
+  "An administrator": "管理者にする",
+  "Issue a one-time link so they can set their own password":
+    "本人がパスワードを設定できるワンタイムリンクを発行します",
+  "What they type to sign in. Nothing is sent to it — hand them the link below instead.":
+    "本人がログインに入力するアドレスです。ここには何も送られません — 下のリンクを手渡してください。",
+  "Accounts are disabled, never deleted. An account holds meetings, and deleting one would either destroy them or hand them to somebody who was never in the room.":
+    "アカウントは無効化するもので、削除しません。アカウントは会議を保持しているので、削除は「消す」か「その場にいなかった人に渡す」のどちらかにしかなりません。",
+  "Fill this in and they are signed in automatically from inside the tailnet, with no password at all. Leave it empty and give them a reset link instead.":
+    "ここを埋めると tailnet の内側では自動でログインし、パスワードは不要になります。空欄のままなら、代わりにリセットリンクを渡してください。",
 };

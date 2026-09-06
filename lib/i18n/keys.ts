@@ -29,14 +29,84 @@ const TERNARY =
   /(?<![\w.$])t\([^"'\n]*\?\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
 
 /**
- * Comments go first.
+ * Comments go first — but only real ones.
  *
- * The examples in this module's own documentation are `t("Start recording")`, and a scanner
- * that cannot tell an example from a call puts phantom rows in the table — which then look
- * like translations somebody forgot to remove.
+ * A regex over `/* … *\/` is not enough, and the way it fails is silent. This file contains
+ * `accept="audio/*,video/*"`, whose slash-star starts a comment that never began and runs to the
+ * next star-slash — two and a half thousand characters of real JSX, including four `t()` calls,
+ * removed from what the scanner could see. The table then reported those four translations as
+ * rows for strings nothing shows, which is one step away from somebody deleting them.
+ *
+ * So this walks the source instead, and knows when it is inside a string. Strings are kept: the
+ * keys are in them.
  */
+const REGEX_CAN_START = /^$|[=(,:[!&|?{};+\-*%<>~^]/;
+
 function withoutComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  let out = "";
+  let i = 0;
+  // The last character that was not whitespace, which is how a regex literal is told from a
+  // division: `/` after a value divides, `/` after an operator or a bracket opens a pattern.
+  let lastMeaningful = "";
+  while (i < src.length) {
+    const c = src[i];
+    const next = src[i + 1];
+    if (c === "/" && next === "/") {
+      while (i < src.length && src[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      i += 2;
+      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    // A regex literal, whose quotes are not string quotes. This file's own CALL pattern
+    // contains one, and without this the scanner entered string mode there, lost track of where
+    // it was, and stopped recognising the doc comment below it as a comment — so the example
+    // inside it became two keys nothing shows.
+    if (c === "/" && REGEX_CAN_START.test(lastMeaningful)) {
+      out += c;
+      i++;
+      let inClass = false;
+      while (i < src.length) {
+        const r = src[i];
+        if (r === "\\") {
+          i += 2;
+          continue;
+        }
+        if (r === "[") inClass = true;
+        else if (r === "]") inClass = false;
+        else if (r === "/" && !inClass) break;
+        else if (r === "\n") break;
+        i++;
+      }
+      i++;
+      lastMeaningful = "/";
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      const quote = c;
+      out += c;
+      i++;
+      while (i < src.length && src[i] !== quote) {
+        if (src[i] === "\\") {
+          out += src[i] + (src[i + 1] ?? "");
+          i += 2;
+          continue;
+        }
+        out += src[i];
+        i++;
+      }
+      out += quote;
+      i++;
+      continue;
+    }
+    if (!/\s/.test(c)) lastMeaningful = c;
+    out += c;
+    i++;
+  }
+  return out;
 }
 
 export function keysIn(source: string): string[] {
