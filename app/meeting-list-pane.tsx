@@ -10,9 +10,10 @@ import {
 } from "@/lib/calendar-month";
 import { currentUser } from "@/lib/auth/session";
 import { searchTokens } from "@/lib/crypto/index-meeting";
-import { bandOf } from "@/lib/meeting-bands";
+import { type Band, bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
-import { formatDateTime, formatDurationMs } from "@/lib/utils";
+import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
+import { currentLocale, serverT } from "@/lib/i18n/server";
 import { MinutesWatcher } from "./minutes-watcher";
 import { ArchiveIcon, TrashIcon } from "./icons";
 import { MeetingCalendar } from "./meeting-calendar";
@@ -86,6 +87,8 @@ export async function MeetingListPane({
   // so this one has to name it — otherwise the number beside a tag counts other people's
   // meetings, and says they exist.
   const me = await currentUser();
+  const t = await serverT();
+  const locale = await currentLocale();
   const mine = me ? { ownerId: me.id } : {};
 
   // Encrypted content cannot be searched with `contains`, so a search for somebody with a key
@@ -316,7 +319,7 @@ export async function MeetingListPane({
             {m.archivedAt ? (
               <span
                 className="shrink-0 text-[var(--text-muted)]"
-                title="Archived — hidden from the list, still searchable"
+                title={t("Archived — hidden from the list, still searchable")}
               >
                 <ArchiveIcon className="h-3.5 w-3.5" />
               </span>
@@ -326,12 +329,12 @@ export async function MeetingListPane({
             {(() => {
               const base =
                 m.summaryStatus === "processing"
-                  ? "Generating minutes…"
+                  ? t("Generating minutes…")
                   : m.endedAt
                     ? ""
                     : m.upcoming
-                      ? "Upcoming"
-                      : "In progress";
+                      ? t("Upcoming")
+                      : t("In progress");
               return (
                 <span
                   data-live-status={m.id}
@@ -345,9 +348,14 @@ export async function MeetingListPane({
             })()}
           </div>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {formatDateTime(m.startedAt)}
-            {formatDurationMs(m.durationMs) ? ` · ${formatDurationMs(m.durationMs)}` : ""}{" "}
-            · {m._count.transcripts} utterances / {m._count.summaries} minutes
+            {formatDateTimeIn(locale, m.startedAt)}
+            {formatDurationIn(locale, m.durationMs) ? ` · ${formatDurationIn(locale, m.durationMs)}` : ""}{" "}
+            · {t(m._count.transcripts === 1 ? "1 utterance" : "{n} utterances", {
+              n: m._count.transcripts,
+            })}{" / "}
+            {t(m._count.summaries === 1 ? "1 set of minutes" : "{n} sets of minutes", {
+              n: m._count.summaries,
+            })}
           </p>
           {hit?.snippet ? (
             <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{hit.snippet}</p>
@@ -401,9 +409,17 @@ export async function MeetingListPane({
       </SwipeableRow>
     );
 
+  // Spelled out rather than `t(bandOf(...))`, because a key that only exists at run time is a
+  // key the table's test cannot see — and it would report these three as rows for strings
+  // nothing shows, which is how a translation gets deleted for being unused.
+  const BAND_LABEL: Record<Band, string> = {
+    "This week": t("This week"),
+    "Over a week ago": t("Over a week ago"),
+    "Over a month ago": t("Over a month ago"),
+  };
   const divider = (label: string) => (
     <li key={`__${label}`} className="px-1 pt-2 text-xs font-medium text-[var(--text-muted)]">
-      {label}
+      {label in BAND_LABEL ? BAND_LABEL[label as Band] : label}
     </li>
   );
 
@@ -420,7 +436,7 @@ export async function MeetingListPane({
       .filter((m) => m.upcoming)
       .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
     if (booked.length > 0) {
-      entries.push(divider("Upcoming"));
+      entries.push(divider(t("Upcoming")));
       for (const m of booked) {
         entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
       }
@@ -463,7 +479,7 @@ export async function MeetingListPane({
           className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
         >
           <ArchiveIcon className="h-3.5 w-3.5" />
-          Archived
+          {t("Archived")}
         </Link>
         {!readOnly ? (
           <Link
@@ -471,7 +487,7 @@ export async function MeetingListPane({
             className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
           >
             <TrashIcon className="h-3.5 w-3.5" />
-            Trash
+            {t("Trash")}
           </Link>
         ) : null}
       </div>
@@ -484,11 +500,11 @@ export async function MeetingListPane({
           type="search"
           name="q"
           defaultValue={query}
-          placeholder="Search (title, transcript, minutes)"
+          placeholder={t("Search (title, transcript, minutes)")}
           className="input min-w-0 flex-1"
         />
         {filtering ? (
-          <Link href={base} className="btn-outline shrink-0 !px-3" title="Clear filters">
+          <Link href={base} className="btn-outline shrink-0 !px-3" title={t("Clear filters")}>
             ×
           </Link>
         ) : null}
@@ -569,7 +585,7 @@ export async function MeetingListPane({
       {/* A picked day with nothing on it has already said so, in the band above. */}
       {meetings.length === 0 && !activeDate ? (
         <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
-          {filtering ? "No matching meetings." : "No meetings yet."}
+          {filtering ? t("No matching meetings.") : t("No meetings yet.")}
         </p>
       ) : meetings.length === 0 ? null : (
         <ul className="space-y-2">{entries}</ul>

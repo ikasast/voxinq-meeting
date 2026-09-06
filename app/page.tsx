@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { MeetingListPane } from "./meeting-list-pane";
+import { serverT } from "@/lib/i18n/server";
 import { PageHeader } from "./page-header";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function HomePage({
 }) {
   const { q, tag, series, date, month } = await searchParams;
   const external = await isExternalRequest();
+  const t = await serverT();
 
   return (
     <div className="space-y-4">
@@ -30,17 +32,17 @@ export default async function HomePage({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-mark-light.svg" alt="" aria-hidden className="logo-light h-16 w-16" />
           <p className="text-sm text-[var(--text-secondary)]">
-            Select a meeting from the list to see its minutes and transcript here.
+            {t("Select a meeting from the list to see its minutes and transcript here.")}
           </p>
           {external ? (
-            <p className="text-sm text-[var(--text-muted)]">Recording is available over Tailscale.</p>
+            <p className="text-sm text-[var(--text-muted)]">{t("Recording is available over Tailscale.")}</p>
           ) : (
             <div className="flex flex-wrap justify-center gap-2">
               <Link href="/new" className="btn-ink">
-                + New meeting
+                {t("+ New meeting")}
               </Link>
               <Link href="/quick-record" className="btn-outline">
-                One-tap record
+                {t("One-tap record")}
               </Link>
             </div>
           )}

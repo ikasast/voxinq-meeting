@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { type DayCell, WEEKDAYS, type MonthRef, buildGrid, monthLabel } from "@/lib/calendar-month";
+import { type DayCell, type MonthRef, buildGrid } from "@/lib/calendar-month";
+import { monthLabelIn, weekdaysIn } from "@/lib/i18n/format";
+import { currentLocale, serverT } from "@/lib/i18n/server";
 
 // A month over the meeting list.
 //
@@ -7,7 +9,7 @@ import { type DayCell, WEEKDAYS, type MonthRef, buildGrid, monthLabel } from "@/
 // is how people ask about meetings they half-remember. Every day is selectable, including empty
 // ones — an empty day is not a dead end, it is where a meeting gets booked.
 
-export function MeetingCalendar({
+export async function MeetingCalendar({
   month,
   counts,
   selected,
@@ -23,6 +25,8 @@ export function MeetingCalendar({
   hrefForMonth: (key: string) => string;
   hrefForDay: (key: string | null) => string;
 }) {
+  const t = await serverT();
+  const locale = await currentLocale();
   const weeks = buildGrid(month);
   const step = (delta: number) => {
     const d = new Date(month.year, month.month - 1 + delta, 1);
@@ -35,15 +39,15 @@ export function MeetingCalendar({
       <div className="flex items-center gap-1 px-1 pb-1">
         <Link
           href={hrefForMonth(step(-1))}
-          aria-label="Previous month"
+          aria-label={t("Previous month")}
           className="rounded px-1.5 py-0.5 text-sm text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--foreground)]"
         >
           ‹
         </Link>
-        <span className="text-sm font-medium text-[var(--text-strong)]">{monthLabel(month)}</span>
+        <span className="text-sm font-medium text-[var(--text-strong)]">{monthLabelIn(locale, month)}</span>
         <Link
           href={hrefForMonth(step(1))}
-          aria-label="Next month"
+          aria-label={t("Next month")}
           className="rounded px-1.5 py-0.5 text-sm text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--foreground)]"
         >
           ›
@@ -53,7 +57,7 @@ export function MeetingCalendar({
             href={hrefForMonth(todayMonth)}
             className="ml-auto rounded px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
           >
-            Today
+            {t("Today")}
           </Link>
         ) : null}
       </div>
@@ -61,7 +65,7 @@ export function MeetingCalendar({
       <table className="w-full table-fixed border-collapse">
         <thead>
           <tr>
-            {WEEKDAYS.map((d) => (
+            {weekdaysIn(locale).map((d) => (
               <th
                 key={d}
                 scope="col"
