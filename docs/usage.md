@@ -119,7 +119,9 @@ What works instead is the speakerphone, and **it needs one setting changed first
 1. **Settings → Mic mode → Room.**
 2. Put the call on speakerphone, and record with **Microphone**.
 
-The Room setting is not about distance here. In the normal mode the browser's echo
+The Room setting is doing two things, and only one of them is about distance. It also raises
+the captured level four-fold, which is the half that matters when somebody is across a table
+rather than against your ear. As for the echo: in the normal mode the browser's echo
 cancellation is on, and its whole job is to remove sound coming from this device's own speaker
 from the microphone signal — which on a speakerphone call is precisely the other person's
 voice. Recording that way captures your half of the conversation and quietly deletes the rest.

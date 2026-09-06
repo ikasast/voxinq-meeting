@@ -112,3 +112,45 @@ describe("the recording tips", () => {
     expect(page).not.toContain("open={!active}");
   });
 });
+
+describe("hearing a room, not a handset", () => {
+  const constraints = readFileSync(join(root, "lib/stt/mic-constraints.ts"), "utf8");
+  const client = readFileSync(join(root, "lib/stt/client.ts"), "utf8");
+  const check = readFileSync(join(root, "app/[id]/recording/preflight-check.tsx"), "utf8");
+  const server = readFileSync(join(root, "stt-service/server.py"), "utf8");
+
+  it("makes room mode louder, not just less processed", () => {
+    // Turning the browser's processing off was the whole of room mode, and it does not raise a
+    // level. Reported from an iPhone: even in Room, nothing was recognised unless somebody
+    // spoke at the distance they would hold a phone at.
+    expect(constraints).toContain("export const ROOM_GAIN");
+    expect(client).toContain("(room ? ROOM_GAIN : 1)");
+  });
+
+  it("puts the gain before the limiter that was already there", () => {
+    // So a loud moment is rounded off rather than squared off. Clipping is the one distortion
+    // recognition cannot see past, and four times a close voice would clip.
+    expect(client.indexOf("gain.connect(limiter)")).toBeGreaterThan(client.indexOf("ROOM_GAIN"));
+  });
+
+  it("checks the microphone through the same gain the recording uses", () => {
+    // Otherwise the check answers a different question from the one it appears to: room mode
+    // exists because the raw level is too low, so measuring before the gain would call a
+    // working room silent.
+    expect(check).toContain("boost.gain.value = isRoomMode(micMode) ? ROOM_GAIN : 1");
+  });
+
+  it("uses the recogniser's own threshold rather than a second one", () => {
+    // The check tested against 0.02 and the service against 0.012, so there was a band where
+    // the check said silent and the recogniser would have transcribed.
+    expect(constraints).toContain("export const HEARD_RMS = 0.012;");
+    expect(check).toContain("const HEARD = HEARD_RMS;");
+    expect(server).toContain('VAD_ENERGY_THRESH", "0.012"');
+  });
+
+  it("says how far off it was, not just that it failed", () => {
+    // "It does not hear me from across the room" is a report nobody can act on. A number, and
+    // the number it needed, says whether to move closer or change mode.
+    expect(check).toContain("peak.toFixed(3)");
+  });
+});
