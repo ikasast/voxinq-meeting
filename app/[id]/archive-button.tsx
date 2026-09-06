@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArchiveIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 // Archive / unarchive a meeting. Archived meetings are hidden from the list but stay in the
 // DB, appear in search, and are all listed on /archive.
@@ -17,6 +18,7 @@ export function ArchiveButton({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const t = useT();
 
   const toggle = async () => {
     setBusy(true);
@@ -35,10 +37,10 @@ export function ArchiveButton({
     }
   };
 
-  const label = archived ? "Unarchive" : "Archive";
+  const label = archived ? t("Unarchive") : t("Archive");
   const title = archived
-    ? "Unarchive: show this meeting in the list again"
-    : "Archive: hide from the list (still searchable, listed under Archived)";
+    ? t("Unarchive: show this meeting in the list again")
+    : t("Archive: hide from the list (still searchable, listed under Archived)");
 
   if (variant === "text") {
     return (

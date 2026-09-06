@@ -4,18 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirm } from "../confirm-dialog";
 import { TrashIcon } from "../icons";
+import { useT } from "@/app/locale-provider";
 
 // Delete button on the detail page. Confirm -> DELETE -> back to the list.
 export function DeleteMeetingButton({ id, title }: { id: string; title: string }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [deleting, setDeleting] = useState(false);
+  const t = useT();
 
   const remove = async () => {
     const ok = await confirm({
       title,
-      message: "Move this meeting to the trash. You can restore it within 30 days.",
-      confirmLabel: "Delete",
+      message: t("Move this meeting to the trash. You can restore it within 30 days."),
+      confirmLabel: t("Delete"),
       danger: true,
     });
     if (!ok) return;
@@ -30,7 +32,7 @@ export function DeleteMeetingButton({ id, title }: { id: string; title: string }
       router.refresh();
     } catch (err) {
       await confirm({
-        title: "Failed to delete",
+        title: t("Failed to delete"),
         message: err instanceof Error ? err.message : String(err),
         alertOnly: true,
       });
@@ -43,8 +45,8 @@ export function DeleteMeetingButton({ id, title }: { id: string; title: string }
       type="button"
       onClick={remove}
       disabled={deleting}
-      title="Move to Trash (restorable for 30 days)"
-      aria-label="Move to Trash"
+      title={t("Move to Trash (restorable for 30 days)")}
+      aria-label={t("Move to Trash")}
       className="btn-icon !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
     >
       <TrashIcon className={deleting ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />

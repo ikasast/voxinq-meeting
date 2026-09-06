@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { getSttGlossary, getWhisperModel } from "@/lib/settings";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTimeIn } from "@/lib/i18n/format";
+import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
 import { MeetingListPane } from "../meeting-list-pane";
 import { PageHeader } from "../page-header";
@@ -31,6 +32,7 @@ export default async function MeetingDetailPage({
 }) {
   const { id } = await params;
   const { q, tag, series, date, month } = await searchParams;
+  const locale = await currentLocale();
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     include: {
@@ -89,9 +91,9 @@ export default async function MeetingDetailPage({
         <div className="min-w-0 sm:flex-1">
           <MeetingTitle id={meeting.id} title={meeting.title} readOnly={external} />
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {formatDateTime(meeting.startedAt)}
+            {formatDateTimeIn(locale, meeting.startedAt)}
             {meeting.endedAt ? (
-              <> – {formatDateTime(meeting.endedAt)}</>
+              <> – {formatDateTimeIn(locale, meeting.endedAt)}</>
             ) : upcoming ? (
               // Booked and not recorded yet: the date above is when it is due, and calling
               // that "in progress" would be the app telling you a meeting is happening.

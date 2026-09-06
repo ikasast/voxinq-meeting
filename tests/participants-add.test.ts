@@ -29,7 +29,7 @@ describe("adding a participant", () => {
 
   it("still takes a name that is not enrolled", () => {
     // The whole point of the free-text box: someone who has never been diarized here.
-    expect(src).toMatch(/placeholder="Add a name"/);
+    expect(src).toMatch(/placeholder=\{t\("Add a name"\)\}/);
     expect(src).toMatch(/if \(e\.key === "Enter"\)/);
   });
 });
