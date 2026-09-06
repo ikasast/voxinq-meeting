@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { getSttGlossary, getWhisperModel } from "@/lib/settings";
-import { formatDateTimeIn } from "@/lib/i18n/format";
+import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
 import { MeetingListPane } from "../meeting-list-pane";
@@ -13,6 +13,7 @@ import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 import { DownloadMeetingButton } from "./download-meeting-button";
 import { ResumeRecordingButton } from "./resume-recording-button";
+import { MeetingAside } from "./meeting-aside";
 import { MeetingFactsCard } from "./meeting-facts-card";
 import { ParticipantsCard } from "./participants-card";
 import { ProgressCard } from "./progress-card";
@@ -63,6 +64,26 @@ export default async function MeetingDetailPage({
   const seriesName = meeting.series?.name ?? null;
   const seriesId = meeting.series?.id ?? null;
 
+  // What the details bar says while the details are closed, which is every screen narrower than
+  // the rail. Three numbers rather than a label on its own: closing something is easier to
+  // accept when what it held is still readable.
+  const t = await serverT();
+  const asideSummary = [
+    formatDurationIn(locale, meeting.recordedMs),
+    meeting.transcripts.length > 0
+      ? t(meeting.transcripts.length === 1 ? "1 utterance" : "{n} utterances", {
+          n: meeting.transcripts.length,
+        })
+      : null,
+    meeting.participants.length > 0
+      ? t(meeting.participants.length === 1 ? "1 person" : "{n} people", {
+          n: meeting.participants.length,
+        })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   // Desktop shows the meeting list on the left (2-pane); mobile shows the detail only and
   // goes back via "一覧へ戻る". The header is shared with the home page (so selecting a meeting
   // does not change the page skeleton).
@@ -106,7 +127,7 @@ export default async function MeetingDetailPage({
         <div className="flex flex-wrap items-center gap-2">
           {/* Desktop can navigate via the left pane, so the back button is mobile-only */}
           <Link href="/" className="btn-outline lg:hidden">
-            Back to list
+            {t("Back to list")}
           </Link>
           {!meeting.endedAt && !external ? (
             <Link href={`/${meeting.id}/recording`} className="btn-ink">
@@ -199,9 +220,10 @@ export default async function MeetingDetailPage({
 
       {/* What the meeting *is*, beside what it produced: agenda and tags, the settings it was
           actually recorded and written with, the series it belongs to, and who was there.
-          A rail on wide screens; above the minutes on anything narrower, because on a phone
-          this is context you read first and then scroll past. */}
-      <aside className="order-first space-y-4 2xl:order-none">
+          A rail on wide screens; above the minutes on anything narrower — and closed there,
+          because four cards between the top of the page and the first line of the minutes is
+          most of a phone screen. The bar keeps the numbers; see meeting-aside.tsx. */}
+      <MeetingAside summary={asideSummary}>
         <ProgressCard
           ended={meeting.endedAt !== null}
           recordedMs={meeting.recordedMs}
@@ -245,7 +267,7 @@ export default async function MeetingDetailPage({
               : null
           }
         />
-      </aside>
+      </MeetingAside>
       </div>
       </div>
       </div>
