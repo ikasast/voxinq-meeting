@@ -35,9 +35,33 @@ export function formatTime(value: Date | string | null | undefined): string {
   return `${z2(d.getHours())}:${z2(d.getMinutes())}:${z2(d.getSeconds())}`;
 }
 
-/** Default meeting title: compact start datetime, "20260711 16:00". */
-export function defaultMeetingTitle(now: Date = new Date()): string {
-  return `${now.getFullYear()}${z2(now.getMonth() + 1)}${z2(now.getDate())} ${z2(now.getHours())}:${z2(now.getMinutes())}`;
+/**
+ * Default meeting title: the day, "20260711".
+ *
+ * The day rather than the minute. A title is what somebody reads in a list months later, and
+ * "20260711 16:00" spends half its width on a figure the row already shows beside it — the list
+ * carries the time, the duration and the utterance count on its own line. Two meetings on one
+ * day now start with the same title, which is the honest state of affairs: neither of them has
+ * been named yet, and the one that matters gets named.
+ *
+ * Takes the day it is for, which is not always today — a meeting booked from the calendar is
+ * titled for the day it was booked on.
+ */
+export function defaultMeetingTitle(day: Date = new Date()): string {
+  return `${day.getFullYear()}${z2(day.getMonth() + 1)}${z2(day.getDate())}`;
+}
+
+/**
+ * "2026-09-18" as that day where the reader is standing, or undefined.
+ *
+ * Parsed as local wall-clock rather than through `new Date("2026-09-18")`, which reads a bare
+ * date as UTC — and would title a meeting booked for the 18th as the 17th for anybody west of
+ * Greenwich, or the 19th for anybody far enough east.
+ */
+export function dayFromKey(key: string | null | undefined): Date | undefined {
+  if (!key || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return undefined;
+  const d = new Date(`${key}T00:00`);
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /** Format elapsed seconds as "m:ss" / "h:mm:ss" (for in-recording transcript timestamps). */

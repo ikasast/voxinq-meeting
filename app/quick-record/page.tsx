@@ -7,7 +7,7 @@ import { preloadStt, sttWarmupFromSettings } from "@/lib/stt/preload";
 import { defaultMeetingTitle } from "@/lib/utils";
 
 // Landing point for the home-screen shortcut "new recording".
-// Creates a meeting with the default title (datetime) and jumps straight to the recording
+// Creates a meeting with the default title (the day) and jumps straight to the recording
 // page (one-tap recording). Like the New meeting screen, it first checks whether minutes
 // are generating — recording needs that GPU — and offers to interrupt them before creating
 // the meeting (so cancelling leaves no empty meeting behind).
