@@ -17,9 +17,12 @@ const run = promisify(execFile);
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:3000").replace(/\/+$/, "");
 const OUT = path.join(process.cwd(), "docs", "screenshots", "demo.gif");
 
-// 960 wide keeps the file small enough for a README without going illegible.
-const VIEWPORT = { width: 1280, height: 800 };
-const WIDTH = 960;
+// The same 1600 the stills are shot at, and for the same reason: below 1536 the meeting's own
+// details stack *above* the minutes, so the last frame — the one the whole slideshow is
+// travelling towards — showed a column of cards and no minutes at all. Scaled to 1100, which is
+// as small as the three-column layout stays readable.
+const VIEWPORT = { width: 1600, height: 900 };
+const WIDTH = 1100;
 const SECONDS_PER_FRAME = 2.6;
 
 const FRAMES = [
