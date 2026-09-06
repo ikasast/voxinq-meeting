@@ -17,7 +17,9 @@ const src = readFileSync(join(__dirname, "..", "app/[id]/recording/page.tsx"), "
 
 const topBar = src.indexOf("{/* Sticky top bar");
 const bottomBar = src.indexOf("{/* Sticky bottom bar");
-const control = src.indexOf('{active ? "Stop recording" : "Start recording"}');
+// Through t() since the screen was translated. What this test is about is *where* the control
+// is, so it follows the sentence to its new spelling rather than pinning the literal.
+const control = src.indexOf('{active ? t("Stop recording") : t("Start recording")}');
 
 describe("the recording control", () => {
   it("is in the bottom bar", () => {
@@ -62,7 +64,7 @@ describe("the recording control", () => {
     expect(bar).toContain("formatElapsed(elapsedSec)");
     // The status and the input level stay up there: they are read, not acted on.
     const top = src.slice(topBar, bottomBar);
-    expect(top).toContain("statusLabel(status)");
+    expect(top).toContain("statusText(t, status)");
     expect(top, "the clock is in both places").not.toContain("formatElapsed(elapsedSec)");
   });
 

@@ -15,15 +15,15 @@ import { join } from "node:path";
  * `format("…")` — every identifier ending in t — which is how the first version decided that
  * "Content-Disposition" and "autostart" were user-facing prose.
  */
-const CALL = /(?<![\w.$])t\(\s*"((?:[^"\\]|\\.)*)"/g;
+const CALL = /(?<![\w.$])t\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
 
 /**
  * `t(n === 1 ? "one" : "many", …)`, which is how this app writes a plural.
  *
  * English agrees and Japanese does not, so the choice is made at the call site and both forms
- * are keys. A scanner that only understood a literal first argument would report both of them
- * as missing from the table while they sat in it, which is the failure that reads as "the
- * translation is broken" when nothing is.
+ * are keys. A scanner that only understood a literal first argument reported both of them as
+ * missing from the table while they sat in it — which reads as a broken translation when
+ * nothing is.
  */
 const TERNARY =
   /(?<![\w.$])t\([^"'\n]*\?\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
@@ -41,9 +41,9 @@ function withoutComments(src: string): string {
 
 export function keysIn(source: string): string[] {
   const clean = withoutComments(source);
-  const unescape = (v: string) => v.replace(/\\"/g, String.fromCharCode(34));
+  const unescape = (v: string) => v.replace(/\\(.)/g, "$1");
   return [
-    ...[...clean.matchAll(CALL)].map((m) => unescape(m[1])),
+    ...[...clean.matchAll(CALL)].map((m) => unescape(m[1] ?? m[2])),
     ...[...clean.matchAll(TERNARY)].flatMap((m) => [unescape(m[1]), unescape(m[2])]),
   ];
 }

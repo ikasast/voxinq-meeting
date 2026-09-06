@@ -79,4 +79,100 @@ export const ja: Record<string, string> = {
   "Previous month": "前の月",
   "Next month": "次の月",
   Today: "今日",
+  // ---- The recording screen ----
+  Preparing: "準備中",
+  Listening: "認識中",
+  Reconnecting: "再接続中",
+  Error: "エラー",
+  Stopped: "停止中",
+  "Error:": "エラー:",
+  "● Model ready": "● モデル準備完了",
+  "◌ Loading model…": "◌ モデル読み込み中…",
+  "Start recording": "録音を開始",
+  "Stop recording": "録音を停止",
+  "Generate minutes": "議事録を作成",
+  "Starting…": "開始中…",
+  "End only": "終了のみ",
+  "View minutes": "議事録を見る",
+  Diarize: "話者を分離",
+  "Re-transcribe": "文字起こしをやり直す",
+  Minutes: "議事録",
+  "End the meeting and start generating minutes in the background":
+    "会議を終了し、議事録の作成をバックグラウンドで始めます",
+  "End the meeting and assign speakers automatically; generate minutes after reviewing them":
+    "会議を終了し、話者を自動で割り当てます。議事録は内容を確認してから作成します",
+  "Recording is not available from an external network": "外部ネットワークからは録音できません",
+  "This meeting has ended": "この会議は終了しています",
+  "This meeting has already ended. Recording cannot be restarted.":
+    "この会議は終了済みです。録音は再開できません。",
+  "Settings for this recording": "この録音の設定",
+  Microphone: "マイク",
+  "Mic + PC audio": "マイク + PC音声",
+  "Recording source (PC audio captures online-meeting sound). Changeable while recording.":
+    "録音ソース（PC音声はオンライン会議の音を取り込みます）。録音中も変更できます。",
+  Japanese: "日本語",
+  English: "英語",
+  "Auto-detect": "自動判定",
+  Room: "会議室",
+  Standard: "標準",
+  "Loaded and run once the meeting ends": "会議終了後に読み込んで実行します",
+  "Loaded on the GPU — transcription starts immediately":
+    "GPU に読み込み済み — すぐに文字起こしが始まります",
+  "Still loading; audio is buffered and transcribed once it is ready":
+    "読み込み中です。音声は保持され、準備でき次第まとめて文字起こしします",
+  "Input audio level (movement means sound is arriving)": "入力レベル（動いていれば音が届いています）",
+  "The input is clipping — turn the source down; recognition cannot recover a clipped word":
+    "入力が割れています — 音源を下げてください。割れた音は認識で復元できません",
+  "Screen resting. Recording continues. Activate to show the recording screen.":
+    "休止画面です。録音は続いています。触れると録音画面に戻ります。",
+  "Recording — touch to show": "録音中 — 触れると表示",
+  Transcript: "発言",
+  "Speakers can be distinguished after the meeting": "話者は会議終了後に分けられます",
+  'Press "Start recording" below. Text appears when the meeting ends, not during it.':
+    "下の「録音を開始」を押してください。文字は会議終了後にまとめて出ます。",
+  'Press "Start recording" below to begin transcription.':
+    "下の「録音を開始」を押すと文字起こしが始まります。",
+  "Saving the transcript…": "発言を保存しています…",
+  "Something else is using the GPU": "GPU を他の処理が使っています",
+  "Interrupt and transcribe live": "中断して会議中に文字起こし",
+  "Record only": "録音だけする",
+  "Model:": "モデル:",
+  "Language:": "言語:",
+  "Mic mode:": "マイクモード:",
+  "Source:": "ソース:",
+  "PC audio": "PC音声",
+  "· at meeting end": "· 会議終了後",
+  "● ready": "● 準備完了",
+  "◌ loading…": "◌ 読み込み中…",
+  "Before you start": "始める前に",
+  "Pick the recording source from the menu above (mic / PC audio / both).":
+    "上のメニューから録音ソースを選んでください（マイク / PC音声 / 両方）。",
+  "For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.":
+    "PC音声・両方の場合は、共有ダイアログで「タブの音声を共有」（またはシステム音声）を有効にしてください。",
+  "Headphones are recommended for “both”": "「両方」ではヘッドホンを推奨します",
+  ". With speakers, the mic picks up PC audio and it may be recorded twice.":
+    "。スピーカーだと PC音声をマイクが拾い、二重に録音されることがあります。",
+  "Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.":
+    "話者は会議終了後、詳細画面の「話者を分離」または発言ごとに割り当てられます。",
+  "On phones, ": "スマホでは、",
+  "keep the screen on": "画面を点けたままにしてください",
+  " while recording (sleep is auto-suppressed, but on some devices turning the screen off stops mic capture).":
+    "（スリープは自動で抑止しますが、端末によっては画面を消すとマイクが止まります）。",
+  "Microphone check": "マイクの確認",
+  "Check the microphone": "マイクを確認する",
+  "Check again": "もう一度確認",
+  "Say something. The bar should move.": "何か話してください。バーが動けば届いています。",
+  "Microphone level": "マイクの入力レベル",
+  "Sound is arriving. The microphone stays open, and the recording will use it.":
+    "音が届いています。このマイクは開いたままで、録音でもそのまま使われます。",
+  "Nothing heard yet.": "まだ何も聞こえていません。",
+  "loudest {peak} · needs {needs}": "最大 {peak} · 必要 {needs}",
+  "Heard you. This microphone is open and the recording will use it — no second permission prompt, and no chance of it opening a different input.":
+    "聞こえました。このマイクは開いたままで、録音でもこれが使われます — 許可を再度求められることも、別の入力が開かれることもありません。",
+  "Nothing loud enough came through — the loudest moment was {peak}, and {needs} is where speech starts being recognised. Check that the right input is selected and not muted — a headset with its own mute switch, or another app holding the microphone, both look like this.":
+    "十分な大きさの音が届きませんでした — 最も大きかったところで {peak}、認識が始まるのは {needs} からです。正しい入力が選ばれていて、ミュートされていないか確認してください。ヘッドセット側のミュートスイッチや、他のアプリがマイクを掴んでいる場合も、これと同じに見えます。",
+  "Speaking from across a room needs Mic mode: Room.":
+    "離れた場所から話す場合は、マイクモードを「会議室」にしてください。",
+  "The browser refused access to the microphone. Allow it for this site and try again.":
+    "ブラウザがマイクへのアクセスを拒否しました。このサイトに許可してから、もう一度お試しください。",
 };

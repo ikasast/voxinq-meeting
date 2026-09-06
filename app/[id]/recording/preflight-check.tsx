@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HEARD_RMS, ROOM_GAIN, isRoomMode, micConstraints } from "@/lib/stt/mic-constraints";
+import { useT } from "@/app/locale-provider";
 
 // Is the microphone actually hearing anything?
 //
@@ -50,6 +51,7 @@ export function PreflightCheck({
   disabled?: boolean;
 }) {
   const [state, setState] = useState<PreflightState>("idle");
+  const t = useT();
   const [level, setLevel] = useState(0);
   const [peak, setPeak] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +145,7 @@ export function PreflightCheck({
       setState("error");
       setError(
         (e as Error).name === "NotAllowedError"
-          ? "The browser refused access to the microphone. Allow it for this site and try again."
+          ? t("The browser refused access to the microphone. Allow it for this site and try again.")
           : `Could not open the microphone: ${(e as Error).message}`,
       );
       release(false);
@@ -163,7 +165,7 @@ export function PreflightCheck({
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-[var(--text-strong)]">Microphone check</span>
+        <span className="text-sm font-medium text-[var(--text-strong)]">{t("Microphone check")}</span>
         {!checking ? (
           <button
             type="button"
@@ -171,7 +173,7 @@ export function PreflightCheck({
             disabled={disabled}
             className="btn-outline !px-3 !py-1 !text-xs disabled:opacity-50"
           >
-            {state === "idle" ? "Check the microphone" : "Check again"}
+            {state === "idle" ? t("Check the microphone") : t("Check again")}
           </button>
         ) : (
           <button type="button" onClick={stop} className="btn-outline !px-3 !py-1 !text-xs">
@@ -183,12 +185,12 @@ export function PreflightCheck({
       {checking ? (
         <>
           <p className="mt-2 text-xs text-[var(--text-secondary)]">
-            Say something. The bar should move.
+            {t("Say something. The bar should move.")}
           </p>
           <div
             className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--elevated)]"
             role="meter"
-            aria-label="Microphone level"
+            aria-label={t("Microphone level")}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.min(100, Math.round(level * 300))}
@@ -202,13 +204,13 @@ export function PreflightCheck({
           </div>
           <p className="mt-1.5 text-xs text-[var(--text-muted)]">
             {peak >= HEARD
-              ? "Sound is arriving. The microphone stays open, and the recording will use it."
-              : "Nothing heard yet."}{" "}
+              ? t("Sound is arriving. The microphone stays open, and the recording will use it.")
+              : t("Nothing heard yet.")}{" "}
             {/* The figure, not just the bar. "It does not hear me from across the room" is a
                 report nobody can act on; "loudest 0.004, needs 0.012" says how far off it is,
                 and whether moving closer or changing mode is what would fix it. */}
             <span className="tabular-nums">
-              loudest {peak.toFixed(3)} · needs {HEARD}
+              {t("loudest {peak} · needs {needs}", { peak: peak.toFixed(3), needs: HEARD })}
             </span>
           </p>
         </>
@@ -216,19 +218,21 @@ export function PreflightCheck({
 
       {state === "heard" ? (
         <p className="mt-2 text-xs text-[var(--accent-sub)]">
-          Heard you. This microphone is open and the recording will use it — no second permission
-          prompt, and no chance of it opening a different input.
+          {t(
+            "Heard you. This microphone is open and the recording will use it — no second permission prompt, and no chance of it opening a different input.",
+          )}
         </p>
       ) : null}
 
       {state === "silent" ? (
         <p className="mt-2 text-xs text-[var(--warning)]">
-          Nothing loud enough came through — the loudest moment was{" "}
-          <span className="tabular-nums">{peak.toFixed(3)}</span>, and{" "}
-          <span className="tabular-nums">{HEARD}</span> is where speech starts being recognised.
-          Check that the right input is selected and not muted — a headset with its own mute
-          switch, or another app holding the microphone, both look like this.
-          {!isRoomMode(micMode) ? " Speaking from across a room needs Mic mode: Room." : ""}
+          {t(
+            "Nothing loud enough came through — the loudest moment was {peak}, and {needs} is where speech starts being recognised. Check that the right input is selected and not muted — a headset with its own mute switch, or another app holding the microphone, both look like this.",
+            { peak: peak.toFixed(3), needs: HEARD },
+          )}
+          {!isRoomMode(micMode)
+            ? " " + t("Speaking from across a room needs Mic mode: Room.")
+            : ""}
         </p>
       ) : null}
 
