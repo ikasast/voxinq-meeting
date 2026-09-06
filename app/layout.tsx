@@ -3,12 +3,11 @@ import localFont from "next/font/local";
 import Link from "next/link";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
-import { MicIcon } from "./icons";
 import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { AccountMenu } from "./account-menu";
-import { QueueHeaderLink } from "./queue-header-link";
 import { ThemeToggle } from "./theme-toggle";
+import { BottomBar } from "./bottom-bar";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
 import { SideRail } from "./side-rail";
@@ -78,20 +77,12 @@ function HeaderNav({
           {/* External (read-only) access hides settings/record/new — only viewing + downloads. */}
           {external ? null : (
             <>
-              {/* The queue had no way in from a phone at all — the rail that carries it is
-                  desktop-only, so the only route was typing the address. Settings moved into
-                  the account menu to make room, which is also where it belongs. */}
-              <QueueHeaderLink />
-              <Link
-                href="/quick-record"
-                className="btn-icon"
-                title="One-tap record"
-                aria-label="One-tap record"
-              >
-                <MicIcon />
-              </Link>
-              <Link href="/new" className="btn-ink">
-                + New
+              {/* Recording and the queue are on the bottom bar now, where a thumb reaches them.
+                  What is left up here is the deliberate path — setting a meeting up rather than
+                  starting one — and it can afford to say so: with two icons gone there is room
+                  for the word, and "+ New" alone never said new *what*. */}
+              <Link href="/new" className="btn-ink whitespace-nowrap">
+                New meeting
               </Link>
             </>
           )}
@@ -177,6 +168,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 ) : null}
               </div>
               <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">{children}</main>
+              {/* Narrow layouts only; the rail is this on a desktop. It renders its own spacer,
+                  so nothing ends up underneath it. */}
+              <BottomBar external={external} />
             </div>
           </div>
         </ConfirmProvider>
