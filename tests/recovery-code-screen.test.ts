@@ -29,8 +29,8 @@ describe("the recovery code screen", () => {
 
   it("asks once more before letting anybody leave", () => {
     expect(screen).toContain("Have you saved your recovery code?");
-    expect(screen).toContain('confirmLabel: "Yes, I have saved it"');
-    expect(screen).toContain('cancelLabel: "Not yet"');
+    expect(screen).toContain('confirmLabel: t("Yes, I have saved it")');
+    expect(screen).toContain('cancelLabel: t("Not yet")');
     // Cancelling has to leave them exactly where they were.
     expect(screen).toContain("if (ok) onDone();");
   });
@@ -77,7 +77,7 @@ describe("starting again without the code", () => {
   it("is behind its own confirmation, with the loss spelled out", () => {
     expect(form).toContain("Start again without your old meetings?");
     expect(form).toContain("can never be read again");
-    expect(form).toContain('confirmLabel: "Start again — I accept losing them"');
+    expect(form).toContain('confirmLabel: t("Start again — I accept losing them")');
   });
 
   it("only ever sends the flag because somebody pressed that button", () => {

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "../locale-provider";
 import { RecoveryCode } from "../recovery-code";
 
 export function SetupForm() {
+  const t = useT();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -16,7 +18,7 @@ export function SetupForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      setError("The two passwords do not match.");
+      setError(t("The two passwords do not match."));
       return;
     }
     setError(null);
@@ -48,7 +50,7 @@ export function SetupForm() {
     return (
       <RecoveryCode
         code={recoveryCode}
-        context="Your account"
+        context={t("Your account")}
         onDone={() => (window.location.href = "/")}
       />
     );
@@ -57,16 +59,17 @@ export function SetupForm() {
   return (
     <>
       <h1 className="mb-1 text-center text-xl font-semibold text-[var(--text-strong)]">
-        Create the first account
+        {t("Create the first account")}
       </h1>
       <p className="mb-4 text-center text-xs text-[var(--text-muted)]">
-        It is an administrator. From then on this server asks who you are instead of sharing one
-        password, and <code>APP_PASSWORD</code> stops being a way in.
+        {t(
+          "It is an administrator. From then on this server asks who you are instead of sharing one password, and APP_PASSWORD stops being a way in.",
+        )}
       </p>
       <form onSubmit={onSubmit} className="card space-y-4 p-6">
       <div>
         <label htmlFor="username" className="label">
-          Username
+          {t("Username")}
         </label>
         <input
           id="username"
@@ -80,12 +83,14 @@ export function SetupForm() {
           required
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Letters, numbers, dot, dash, underscore. A short handle — you sign in with your email.
+          {t(
+            "Letters, numbers, dot, dash, underscore. A short handle — you sign in with your email.",
+          )}
         </p>
       </div>
       <div>
         <label htmlFor="email" className="label">
-          Email
+          {t("Email")}
         </label>
         <input
           id="email"
@@ -100,13 +105,14 @@ export function SetupForm() {
           required
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          What you type to sign in. Nothing is ever sent to it — this server has no way to send
-          mail, and does not want one.
+          {t(
+            "What you type to sign in. Nothing is ever sent to it — this server has no way to send mail, and does not want one.",
+          )}
         </p>
       </div>
       <div>
         <label htmlFor="name" className="label">
-          Display name (optional)
+          {t("Display name (optional)")}
         </label>
         <input
           id="name"
@@ -117,7 +123,7 @@ export function SetupForm() {
       </div>
       <div>
         <label htmlFor="password" className="label">
-          Password
+          {t("Password")}
         </label>
         <input
           id="password"
@@ -131,7 +137,7 @@ export function SetupForm() {
       </div>
       <div>
         <label htmlFor="confirm" className="label">
-          Password again
+          {t("Password again")}
         </label>
         <input
           id="confirm"
@@ -145,7 +151,7 @@ export function SetupForm() {
       </div>
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
       <button type="submit" disabled={busy || !username || !email || !password} className="btn-ink w-full">
-        {busy ? "Creating…" : "Create the account"}
+        {busy ? t("Creating…") : t("Create the account")}
       </button>
       </form>
     </>

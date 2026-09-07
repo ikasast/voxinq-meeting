@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "../locale-provider";
 import { RecoveryCode } from "../recovery-code";
 
 export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
+  const t = useT();
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -15,7 +17,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      setError("The two passwords do not match.");
+      setError(t("The two passwords do not match."));
       return;
     }
     setError(null);
@@ -38,7 +40,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
         setRecoveryCode(d.recoveryCode);
         return;
       }
-      setMsg("Saved. You can now sign in from anywhere with it.");
+      setMsg(t("Saved. You can now sign in from anywhere with it."));
       setCurrent("");
       setPassword("");
       setConfirm("");
@@ -63,7 +65,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
     return (
       <RecoveryCode
         code={recoveryCode}
-        context="Your account"
+        context={t("Your account")}
         onDone={() => window.location.reload()}
       />
     );
@@ -73,19 +75,19 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
     <div className="space-y-4">
       <form onSubmit={save} className="card space-y-3 p-4">
         <h2 className="text-sm font-medium text-[var(--text-strong)]">
-          {hasPassword ? "Change your password" : "Set a password"}
+          {hasPassword ? t("Change your password") : t("Set a password")}
         </h2>
         {!hasPassword ? (
           <p className="text-xs text-[var(--text-muted)]">
-            Your account was made from your tailnet login, so it has no password — inside the
-            tailnet you are never asked for one. Set one to be able to sign in from anywhere
-            else.
+            {t(
+              "Your account was made from your tailnet login, so it has no password — inside the tailnet you are never asked for one. Set one to be able to sign in from anywhere else.",
+            )}
           </p>
         ) : null}
         {hasPassword ? (
           <div>
             <label htmlFor="current" className="label">
-              Current password
+              {t("Current password")}
             </label>
             <input
               id="current"
@@ -100,7 +102,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
         ) : null}
         <div>
           <label htmlFor="new" className="label">
-            New password
+            {t("New password")}
           </label>
           <input
             id="new"
@@ -114,7 +116,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
         </div>
         <div>
           <label htmlFor="again" className="label">
-            New password again
+            {t("New password again")}
           </label>
           <input
             id="again"
@@ -129,19 +131,21 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
         {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
         {msg ? <p className="text-sm text-[var(--accent-sub)]">{msg}</p> : null}
         <button type="submit" disabled={busy || !password} className="btn-ink">
-          {busy ? "Saving…" : "Save"}
+          {busy ? t("Saving…") : t("Save")}
         </button>
       </form>
 
       <div className="card space-y-2 p-4">
-        <h2 className="text-sm font-medium text-[var(--text-strong)]">Signed-in devices</h2>
+        <h2 className="text-sm font-medium text-[var(--text-strong)]">
+          {t("Signed-in devices")}
+        </h2>
         <p className="text-xs text-[var(--text-muted)]">
-          Ends every session, including this one. Use it for a phone you no longer have — the
-          sessions live on the server, so this takes effect at once rather than whenever the
-          browser next asks.
+          {t(
+            "Ends every session, including this one. Use it for a phone you no longer have — the sessions live on the server, so this takes effect at once rather than whenever the browser next asks.",
+          )}
         </p>
         <button type="button" onClick={signOutEverywhere} disabled={busy} className="btn-outline">
-          Sign out everywhere
+          {t("Sign out everywhere")}
         </button>
       </div>
     </div>

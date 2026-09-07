@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useConfirm } from "./confirm-dialog";
+import { useT } from "./locale-provider";
 
 // The one screen where skimming costs somebody their meetings.
 //
@@ -18,13 +19,15 @@ import { useConfirm } from "./confirm-dialog";
 export function RecoveryCode({
   code,
   onDone,
-  context = "This account",
+  context,
 }: {
   code: string;
   /** What happens once they have confirmed they have it. */
   onDone: () => void;
+  /** Whose data this protects, already in the reader's language. */
   context?: string;
 }) {
+  const t = useT();
   const confirm = useConfirm();
   const [copied, setCopied] = useState<"yes" | "no" | null>(null);
   const codeRef = useRef<HTMLParagraphElement>(null);
@@ -62,13 +65,13 @@ export function RecoveryCode({
 
   const moveOn = async () => {
     const ok = await confirm({
-      title: "Have you saved your recovery code?",
+      title: t("Have you saved your recovery code?"),
       message:
-        "It cannot be shown again. Nobody can produce it later — not an administrator, not the" +
-        " server, not by resetting your password.\n\nWithout it, forgetting your password means" +
-        " the meetings on this account stay encrypted and cannot be read.",
-      confirmLabel: "Yes, I have saved it",
-      cancelLabel: "Not yet",
+        t("It cannot be shown again. Nobody can produce it later — not an administrator, not the server, not by resetting your password.") +
+        "\n\n" +
+        t("Without it, forgetting your password means the meetings on this account stay encrypted and cannot be read."),
+      confirmLabel: t("Yes, I have saved it"),
+      cancelLabel: t("Not yet"),
       danger: true,
     });
     if (ok) onDone();
@@ -77,17 +80,17 @@ export function RecoveryCode({
   return (
     <div className="space-y-4">
       <h1 className="text-center text-xl font-semibold text-[var(--text-strong)]">
-        Your recovery code
+        {t("Your recovery code")}
       </h1>
       <div className="rounded-lg border border-[color-mix(in_srgb,var(--warning)_50%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] p-4">
         <h2 className="text-sm font-semibold text-[var(--warning)]">
-          Save this now — it is never shown again
+          {t("Save this now — it is never shown again")}
         </h2>
         <p className="mt-1 text-xs text-[var(--text-secondary)]">
-          {context} is encrypted. This code is the only way back in if you forget your password.
-          It is not stored anywhere: an administrator can send you a link to set a new password,
-          and without this code that new password opens an account whose meetings can no longer
-          be read.
+          {t(
+            "{context} is encrypted. This code is the only way back in if you forget your password. It is not stored anywhere: an administrator can send you a link to set a new password, and without this code that new password opens an account whose meetings can no longer be read.",
+            { context: context ?? t("This account") },
+          )}
         </p>
       </div>
 
@@ -95,16 +98,16 @@ export function RecoveryCode({
         <p
           ref={codeRef}
           className="select-all break-all font-mono text-xl font-semibold tracking-[0.15em] text-[var(--text-strong)]"
-          aria-label={`Recovery code ${code.split("").join(" ")}`}
+          aria-label={t("Recovery code {code}", { code: code.split("").join(" ") })}
         >
           {code}
         </p>
         <button type="button" onClick={() => void copy()} className="btn-outline mt-3 !px-4">
-          {copied === "yes" ? "Copied" : "Copy"}
+          {copied === "yes" ? t("Copied") : t("Copy")}
         </button>
         {copied === "no" ? (
           <p className="mt-2 text-xs text-[var(--warning)]">
-            This browser would not let the page copy for you — the code is selected, so press
+            {t("This browser would not let the page copy for you — the code is selected, so press")}
             {" "}
             <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>C</kbd>.
           </p>
@@ -112,13 +115,15 @@ export function RecoveryCode({
       </div>
 
       <ul className="list-disc space-y-1 pl-5 text-xs text-[var(--text-muted)]">
-        <li>A password manager is the right place for it.</li>
-        <li>On paper is fine too — the characters avoid anything that can be misread.</li>
-        <li>Anybody holding it can decrypt this account, so treat it as the password itself.</li>
+        <li>{t("A password manager is the right place for it.")}</li>
+        <li>{t("On paper is fine too — the characters avoid anything that can be misread.")}</li>
+        <li>
+          {t("Anybody holding it can decrypt this account, so treat it as the password itself.")}
+        </li>
       </ul>
 
       <button type="button" onClick={() => void moveOn()} className="btn-ink w-full">
-        I have saved it — continue
+        {t("I have saved it — continue")}
       </button>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "./locale-provider";
 
 // What a locked archive should look like, instead of what it looked like.
 //
@@ -12,6 +13,7 @@ import { useState } from "react";
 // header settles *who*, and carries nothing that opens data. So the app has to ask, once, in the
 // place where the absence shows.
 export function LockedBanner() {
+  const t = useT();
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function LockedBanner() {
       // against the locked answer.
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not unlock");
+      setError(err instanceof Error ? err.message : t("Could not unlock"));
       setBusy(false);
     }
   };
@@ -45,17 +47,19 @@ export function LockedBanner() {
         className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
       >
         <p className="text-sm text-[var(--text-secondary)]">
-          <span className="font-medium text-[var(--text-strong)]">Your meetings are locked.</span>{" "}
-          Transcripts and minutes are encrypted with a key only your password opens.
+          <span className="font-medium text-[var(--text-strong)]">
+            {t("Your meetings are locked.")}
+          </span>{" "}
+          {t("Transcripts and minutes are encrypted with a key only your password opens.")}
         </p>
         <label htmlFor="unlock" className="sr-only">
-          Password
+          {t("Password")}
         </label>
         <input
           id="unlock"
           type="password"
           autoComplete="current-password"
-          placeholder="Password"
+          placeholder={t("Password")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           disabled={busy}
@@ -63,7 +67,7 @@ export function LockedBanner() {
           required
         />
         <button type="submit" disabled={busy || !password} className="btn-ink h-9">
-          {busy ? "Unlocking…" : "Unlock"}
+          {busy ? t("Unlocking…") : t("Unlock")}
         </button>
         {error ? <span className="text-sm text-[var(--error)]">{error}</span> : null}
       </form>

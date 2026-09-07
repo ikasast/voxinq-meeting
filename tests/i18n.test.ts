@@ -129,6 +129,45 @@ describe("the strings themselves", () => {
   });
 });
 
+describe("the screens somebody meets before they are signed in", () => {
+  // The key scanner reads `t("…")` calls, so a screen that never calls `t` at all is not
+  // reported as missing anything — it is simply invisible, and stays English while every screen
+  // around it turns Japanese. That is exactly what happened to these: the i18n pass covered the
+  // meeting screens and never reached the door.
+  //
+  // A translator import does not prove every string in a file goes through it. It proves the
+  // file was wired up, which is the failure this is here for.
+
+  const wired = [
+    "app/page-header.tsx",
+    "app/health-status.tsx",
+    "app/confirm-dialog.tsx",
+    "app/locked-banner.tsx",
+    "app/login/page.tsx",
+    "app/login/login-form.tsx",
+    "app/setup/page.tsx",
+    "app/setup/setup-form.tsx",
+    "app/reset/[token]/reset-form.tsx",
+    "app/recovery-code.tsx",
+    "app/account/page.tsx",
+    "app/account/account-form.tsx",
+    "app/account/profile-form.tsx",
+    "app/admin/page.tsx",
+  ];
+
+  it.each(wired)("%s asks for a translator", (file) => {
+    const src = readFileSync(join(root, file), "utf8");
+    expect(src).toMatch(/\buseT\(\)|\bserverT\(\)/);
+  });
+
+  it("keeps the recovery code screen's own heading out of the key", () => {
+    // `context` is a sentence fragment the three callers each translate for themselves — the
+    // screen interpolates it rather than owning three variants of a long paragraph.
+    const screen = readFileSync(join(root, "app/recovery-code.tsx"), "utf8");
+    expect(screen).toContain("{ context: context ?? t(\"This account\") }");
+  });
+});
+
 describe("what the server says back", () => {
   // The routes write their errors as English sentences at the call site, and `apiError` is the
   // one place that translates them. A route answering with `NextResponse.json({ error })`

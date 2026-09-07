@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "../locale-provider";
 
 // With accounts, an email address and a password. Without any, the single shared password this app
 // asked for before v3.1 — the same field, so an install that has not signed anybody up yet sees
 // no change at all.
 export function LoginForm({ accounts }: { accounts: boolean }) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,12 +39,14 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
 
   return (
     <div className="mx-auto max-w-sm py-16">
-      <h1 className="mb-4 text-center text-xl font-semibold text-[var(--text-strong)]">Log in</h1>
+      <h1 className="mb-4 text-center text-xl font-semibold text-[var(--text-strong)]">
+        {t("Log in")}
+      </h1>
       <form onSubmit={onSubmit} className="card space-y-4 p-6">
         {accounts ? (
           <div>
             <label htmlFor="email" className="label">
-              Email
+              {t("Email")}
             </label>
             <input
               id="email"
@@ -62,7 +66,7 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
         ) : null}
         <div>
           <label htmlFor="password" className="label">
-            Password
+            {t("Password")}
           </label>
           <input
             id="password"
@@ -76,7 +80,7 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
         </div>
         {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
         <button type="submit" disabled={busy || !password} className="btn-ink w-full">
-          {busy ? "Checking…" : "Log in"}
+          {busy ? t("Checking…") : t("Log in")}
         </button>
       </form>
     </div>

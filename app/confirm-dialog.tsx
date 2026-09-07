@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useT } from "./locale-provider";
 
 export type ConfirmOptions = {
   title?: string; // dialog heading (e.g. meeting title). Unlike the browser default, no origin name is shown.
@@ -30,6 +31,7 @@ export const useConfirm = () => {
 };
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
   const [checked, setChecked] = useState(false);
   const resolver = useRef<((v: ConfirmResult) => void) | null>(null);
@@ -99,7 +101,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             <div className="mt-5 flex justify-end gap-2">
               {opts.alertOnly ? null : (
                 <button type="button" className="btn-soft" onClick={() => finish(false)}>
-                  {opts.cancelLabel ?? "Cancel"}
+                  {opts.cancelLabel ?? t("Cancel")}
                 </button>
               )}
               <button
@@ -112,7 +114,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                     : "btn-ink"
                 }
               >
-                {opts.confirmLabel ?? "OK"}
+                {opts.confirmLabel ?? t("OK")}
               </button>
             </div>
           </div>

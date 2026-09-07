@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useConfirm } from "../../confirm-dialog";
+import { useT } from "../../locale-provider";
 import { RecoveryCode } from "../../recovery-code";
 
 // Setting a password from a one-time link.
@@ -12,6 +13,7 @@ import { RecoveryCode } from "../../recovery-code";
 // code can say so — deliberately, twice — and start over with nothing.
 
 export function ResetForm({ token }: { token: string }) {
+  const t = useT();
   const confirm = useConfirm();
   const [password, setPassword] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -64,7 +66,7 @@ export function ResetForm({ token }: { token: string }) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPw) {
-      setError("The two passwords do not match.");
+      setError(t("The two passwords do not match."));
       return;
     }
     await post(false);
@@ -72,14 +74,13 @@ export function ResetForm({ token }: { token: string }) {
 
   const startOver = async () => {
     const ok = await confirm({
-      title: "Start again without your old meetings?",
+      title: t("Start again without your old meetings?"),
       message:
-        "Everything already recorded on this account is encrypted with a key only your recovery" +
-        " code opens. Without it, those meetings can never be read again — not by you, not by an" +
-        " administrator.\n\nThey stay on the disk and stay unreadable. Anything recorded from" +
-        " now on will be fine.",
-      confirmLabel: "Start again — I accept losing them",
-      cancelLabel: "Go back",
+        t("Everything already recorded on this account is encrypted with a key only your recovery code opens. Without it, those meetings can never be read again — not by you, not by an administrator.") +
+        "\n\n" +
+        t("They stay on the disk and stay unreadable. Anything recorded from now on will be fine."),
+      confirmLabel: t("Start again — I accept losing them"),
+      cancelLabel: t("Go back"),
       danger: true,
     });
     if (ok) await post(true);
@@ -89,7 +90,7 @@ export function ResetForm({ token }: { token: string }) {
     return (
       <RecoveryCode
         code={newCode}
-        context="Your account has a new key, and"
+        context={t("Your account has a new key, and")}
         onDone={() => (window.location.href = "/")}
       />
     );
@@ -99,7 +100,7 @@ export function ResetForm({ token }: { token: string }) {
     <form onSubmit={submit} className="card space-y-4 p-6">
       <div>
         <label htmlFor="password" className="label">
-          New password
+          {t("New password")}
         </label>
         <input
           id="password"
@@ -114,7 +115,7 @@ export function ResetForm({ token }: { token: string }) {
       </div>
       <div>
         <label htmlFor="confirm" className="label">
-          New password again
+          {t("New password again")}
         </label>
         <input
           id="confirm"
@@ -130,8 +131,9 @@ export function ResetForm({ token }: { token: string }) {
       {needsCode ? (
         <div className="space-y-2 rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] p-3">
           <p className="text-xs text-[var(--text-secondary)]">
-            This account has encrypted meetings. Enter the recovery code you were given when the
-            account was set up, and everything stays as it is.
+            {t(
+              "This account has encrypted meetings. Enter the recovery code you were given when the account was set up, and everything stays as it is.",
+            )}
           </p>
           <input
             id="recoveryCode"
@@ -149,14 +151,14 @@ export function ResetForm({ token }: { token: string }) {
             disabled={busy}
             className="text-xs text-[var(--text-muted)] underline"
           >
-            I do not have it
+            {t("I do not have it")}
           </button>
         </div>
       ) : null}
 
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
       <button type="submit" disabled={busy || !password} className="btn-ink w-full">
-        {busy ? "Setting…" : "Set the password and sign in"}
+        {busy ? t("Setting…") : t("Set the password and sign in")}
       </button>
     </form>
   );

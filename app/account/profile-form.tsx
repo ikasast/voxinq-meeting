@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Avatar } from "../avatar";
+import { useT } from "../locale-provider";
 
 // Your name and your face.
 //
@@ -23,6 +24,7 @@ export function ProfileForm({
   name: string | null;
   hasImage: boolean;
 }) {
+  const t = useT();
   const [name, setName] = useState(initialName ?? "");
   const [email, setEmail] = useState(initialEmail ?? "");
   const [hasImage, setHasImage] = useState(initialHasImage);
@@ -41,7 +43,7 @@ export function ProfileForm({
       setFile(square);
       setPreview(URL.createObjectURL(square));
     } catch {
-      setError("That file could not be read as an image.");
+      setError(t("That file could not be read as an image."));
     }
   };
 
@@ -60,7 +62,7 @@ export function ProfileForm({
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
       if (file) setHasImage(true);
       setFile(null);
-      setMsg("Saved.");
+      setMsg(t("Saved."));
       // The picture is served from a URL that has not changed, so the page has to be told.
       if (file) window.location.reload();
     } catch (e) {
@@ -84,7 +86,9 @@ export function ProfileForm({
 
   return (
     <form onSubmit={save} className="card space-y-3 p-4">
-      <h2 className="text-sm font-medium text-[var(--text-strong)]">Name and picture</h2>
+      <h2 className="text-sm font-medium text-[var(--text-strong)]">
+        {t("Name and picture")}
+      </h2>
 
       <div className="flex items-center gap-3">
         {preview ? (
@@ -115,7 +119,7 @@ export function ProfileForm({
             disabled={busy}
             className="btn-outline !px-3 !py-1 !text-xs"
           >
-            {hasImage || preview ? "Choose another" : "Choose a picture"}
+            {hasImage || preview ? t("Choose another") : t("Choose a picture")}
           </button>
           {hasImage && !preview ? (
             <button
@@ -124,19 +128,21 @@ export function ProfileForm({
               disabled={busy}
               className="btn-outline !px-3 !py-1 !text-xs text-[var(--error)]"
             >
-              Remove
+              {t("Remove")}
             </button>
           ) : null}
         </div>
       </div>
       <p className="text-xs text-[var(--text-muted)]">
-        Shown as a circle, so anything outside the middle square is trimmed. It is resized to{" "}
-        {SIZE}px here before it is sent — the original never leaves this device.
+        {t(
+          "Shown as a circle, so anything outside the middle square is trimmed. It is resized to {size}px here before it is sent — the original never leaves this device.",
+          { size: SIZE },
+        )}
       </p>
 
       <div>
         <label htmlFor="email" className="label">
-          Email
+          {t("Email")}
         </label>
         <input
           id="email"
@@ -152,13 +158,13 @@ export function ProfileForm({
           required
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          What you type to sign in from outside the tailnet. Nothing is ever sent to it.
+          {t("What you type to sign in from outside the tailnet. Nothing is ever sent to it.")}
         </p>
       </div>
 
       <div>
         <label htmlFor="displayName" className="label">
-          Display name
+          {t("Display name")}
         </label>
         <input
           id="displayName"
@@ -169,14 +175,16 @@ export function ProfileForm({
           className="input mt-1"
         />
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          What other people see beside your work in the queue. Empty falls back to your username.
+          {t(
+            "What other people see beside your work in the queue. Empty falls back to your username.",
+          )}
         </p>
       </div>
 
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
       {msg ? <p className="text-sm text-[var(--accent-sub)]">{msg}</p> : null}
       <button type="submit" disabled={busy} className="btn-ink">
-        {busy ? "Saving…" : "Save"}
+        {busy ? t("Saving…") : t("Save")}
       </button>
     </form>
   );
