@@ -84,7 +84,7 @@ describe("a recording in the queue is shown, not operated on", () => {
   });
 
   it("names it rather than printing the raw kind", () => {
-    expect(list).toContain('? "Recording"');
+    expect(list).toContain('? t("Recording")');
   });
 });
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { isExternalRequest } from "@/lib/is-tailnet";
+import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
+import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime, formatDuration } from "@/lib/utils";
 import { ArchiveButton } from "../[id]/archive-button";
 import { ArchiveIcon } from "../icons";
 import { SwipeableRow } from "../swipeable-row";
@@ -25,6 +26,8 @@ type Row = {
 // stacked presentation of the main list.
 export default async function ArchivePage() {
   const external = await isExternalRequest();
+  const t = await serverT();
+  const locale = await currentLocale();
   const meetings: Row[] = await prisma.meeting.findMany({
     where: { deletedAt: null, archivedAt: { not: null } },
     orderBy: { archivedAt: "desc" },
@@ -64,12 +67,19 @@ export default async function ArchivePage() {
           {m.title}
         </Link>
         <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-          {formatDateTime(m.startedAt)}
-          {formatDuration(m.startedAt, m.endedAt)
-            ? ` · ${formatDuration(m.startedAt, m.endedAt)}`
+          {formatDateTimeIn(locale, m.startedAt)}
+          {m.endedAt
+            ? ` · ${formatDurationIn(locale, m.endedAt.getTime() - m.startedAt.getTime()) ?? ""}`
             : ""}{" "}
-          · {m._count.transcripts} utterances / {m._count.summaries} minutes · archived{" "}
-          {formatDateTime(m.archivedAt)}
+          ·{" "}
+          {t(m._count.transcripts === 1 ? "1 utterance" : "{n} utterances", {
+            n: m._count.transcripts,
+          })}{" "}
+          /{" "}
+          {t(m._count.summaries === 1 ? "1 set of minutes" : "{n} sets of minutes", {
+            n: m._count.summaries,
+          })}{" "}
+          · {t("archived {when}", { when: formatDateTimeIn(locale, m.archivedAt) })}
         </p>
         {m.tags.length > 0 ? (
           <p className="mt-1 flex flex-wrap items-center gap-1">
@@ -100,23 +110,27 @@ export default async function ArchivePage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
           <ArchiveIcon className="h-5 w-5" />
-          Archived meetings
+          {t("Archived meetings")}
         </h1>
         <Link href="/" className="btn-outline">
-          Back to list
+          {t("Back to list")}
         </Link>
       </div>
       <p className="text-sm text-[var(--text-muted)]">
-        Archived meetings are hidden from the main list but kept forever — open them here or
-        via search.
+        {t(
+          "Archived meetings are hidden from the main list but kept forever — open them here or via search.",
+        )}
         {!external
-          ? " Unarchive to bring one back to the list. On a phone, swipe a row right to unarchive or left to move it to Trash."
+          ? " " +
+            t(
+              "Unarchive to bring one back to the list. On a phone, swipe a row right to unarchive or left to move it to Trash.",
+            )
           : ""}
       </p>
 
       {meetings.length === 0 ? (
         <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
-          Nothing archived.
+          {t("Nothing archived.")}
         </p>
       ) : (
         <ul className="space-y-3">
@@ -126,7 +140,7 @@ export default async function ArchivePage() {
                 <Link
                   href={`/series/${g.series.id}`}
                   className="mb-2 inline-flex items-center gap-1.5 px-1 text-xs text-[var(--accent-sub)] hover:underline"
-                  title="Open the series page (timeline & defaults)"
+                  title={t("Open the series page (timeline & defaults)")}
                 >
                   ↻ {g.series.name}
                   <span className="text-[var(--text-muted)]">({g.items.length})</span>

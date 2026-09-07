@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { JOB_LABEL, type JobKind, RECORDING_KIND, isJobKind } from "@/lib/queue/types";
 import { Avatar } from "../avatar";
+import { useT } from "../locale-provider";
 
 // What is running and what is waiting for it.
 //
@@ -34,6 +35,7 @@ export function QueueList({
   /** An administrator can move and stop anybody's row — still without seeing what it is about. */
   isAdmin?: boolean;
 }) {
+  const t = useT();
   const [jobs, setJobs] = useState(initial);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function QueueList({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: queued }),
       });
-      if (!res.ok) throw new Error("Could not reorder the queue");
+      if (!res.ok) throw new Error(t("Could not reorder the queue"));
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -84,14 +86,13 @@ export function QueueList({
     setError(null);
     try {
       const res = await fetch(`/api/jobs/${job.id}/cancel`, { method: "POST" });
-      if (!res.ok) throw new Error("Could not stop it");
+      if (!res.ok) throw new Error(t("Could not stop it"));
       const d = (await res.json()) as { stopsImmediately?: boolean };
       // Said plainly rather than implied by the row vanishing: recognition carries on at the
       // other end whatever this button does, and only its result is thrown away.
       if (d.stopsImmediately === false) {
         setError(
-          "Removed from the queue. The recognition pass already running finishes on the" +
-            " transcription service — there is no way to stop one — and its result is discarded.",
+          t("Removed from the queue. The recognition pass already running finishes on the transcription service — there is no way to stop one — and its result is discarded."),
         );
       }
       await load();
@@ -105,8 +106,9 @@ export function QueueList({
   if (jobs.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-[var(--border)] p-6 text-sm text-[var(--text-muted)]">
-        Nothing queued. Minutes, speaker separation and re-transcription wait here for the GPU
-        when one is already using it.
+        {t(
+          "Nothing queued. Minutes, speaker separation and re-transcription wait here for the GPU when one is already using it.",
+        )}
       </p>
     );
   }
@@ -145,26 +147,30 @@ export function QueueList({
                   name={job.owner.name}
                   hasImage={job.owner.hasImage}
                   size={26}
-                  title={`${job.owner.name || job.owner.username}${job.mine ? " (you)" : ""}`}
+                  title={
+                    job.mine
+                      ? t("{name} (you)", { name: job.owner.name || job.owner.username })
+                      : job.owner.name || job.owner.username
+                  }
                 />
               ) : null}
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-[var(--text-strong)]">
                   {isJobKind(job.kind)
-                    ? JOB_LABEL[job.kind as JobKind]
+                    ? jobLabel(t, JOB_LABEL[job.kind as JobKind])
                     : isRecording
-                      ? "Recording"
+                      ? t("Recording")
                       : job.kind}
                 </span>
                 <span className="block truncate text-xs text-[var(--text-muted)]">
                   {job.mine && job.meetingId ? (
                     <Link href={`/${job.meetingId}`} className="hover:underline">
-                      {job.title || "(untitled meeting)"}
+                      {job.title || t("(untitled meeting)")}
                     </Link>
                   ) : job.owner ? (
                     // Whose, and nothing else. The point of the row is that you can see what is
                     // in front of you — not what it is about.
-                    <span title="Somebody else's work. What it is about is not shown.">
+                    <span title={t("Somebody else’s work. What it is about is not shown.")}>
                       {job.owner.name || job.owner.username}
                     </span>
                   ) : (
@@ -176,23 +182,27 @@ export function QueueList({
                 className="shrink-0 text-xs text-[var(--text-muted)]"
                 title={
                   job.vramMb === 0
-                    ? "Uses no video memory — it runs somewhere else, so it does not wait for the card"
-                    : "Roughly what it is expected to occupy on the GPU"
+                    ? t("Uses no video memory — it runs somewhere else, so it does not wait for the card")
+                    : t("Roughly what it is expected to occupy on the GPU")
                 }
               >
-                {job.vramMb === 0 ? "off-GPU" : `~${(job.vramMb / 1024).toFixed(1)} GB`}
+                {job.vramMb === 0
+                  ? t("off-GPU")
+                  : t("~{gb} GB", { gb: (job.vramMb / 1024).toFixed(1) })}
               </span>
               <span className="shrink-0 text-xs text-[var(--text-secondary)]">
-                {running ? <Elapsed since={job.startedAt} /> : "waiting"}
+                {running ? <Elapsed since={job.startedAt} /> : t("waiting")}
               </span>
               <div className="flex shrink-0 items-center gap-1">
                 {!job.mine && !isRecording && !isAdmin ? (
-                  <span className="text-xs text-[var(--text-muted)]">not yours</span>
+                  <span className="text-xs text-[var(--text-muted)]">{t("not yours")}</span>
                 ) : null}
                 {isRecording ? (
                   // No Stop: it would hand the GPU to something else while people are still
                   // talking, and would not stop the recording.
-                  <span className="text-xs text-[var(--text-muted)]">ends with the meeting</span>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {t("ends with the meeting")}
+                  </span>
                 ) : null}
                 {!running && !isRecording && (job.mine || isAdmin) ? (
                   <>
@@ -201,7 +211,7 @@ export function QueueList({
                       onClick={() => void move(job.id, -1)}
                       disabled={busyId !== null || qAt <= 0}
                       className="btn-outline !px-2 !py-1 !text-xs disabled:opacity-30"
-                      aria-label="Move up"
+                      aria-label={t("Move up")}
                     >
                       ↑
                     </button>
@@ -210,7 +220,7 @@ export function QueueList({
                       onClick={() => void move(job.id, 1)}
                       disabled={busyId !== null || qAt === queuedIds.length - 1}
                       className="btn-outline !px-2 !py-1 !text-xs disabled:opacity-30"
-                      aria-label="Move down"
+                      aria-label={t("Move down")}
                     >
                       ↓
                     </button>
@@ -223,7 +233,7 @@ export function QueueList({
                     disabled={busyId !== null}
                     className="btn-outline !px-2 !py-1 !text-xs text-[var(--error)]"
                   >
-                    {running ? "Stop" : "Remove"}
+                    {running ? t("Stop") : t("Remove")}
                   </button>
                 ) : null}
               </div>
@@ -233,29 +243,44 @@ export function QueueList({
         })}
       </ul>
       <p className="text-xs text-[var(--text-muted)]">
-        Everybody&rsquo;s work is listed, because the GPU is shared and a queue that hid the
-        thing in front of yours could not explain why yours is waiting. For anybody else&rsquo;s
-        row you see who it belongs to and what kind of work it is — <strong>not which meeting</strong>
-        — and only your own rows can be moved or stopped.
+        {t(
+          "Everybody’s work is listed, because the GPU is shared and a queue that hid the thing in front of yours could not explain why yours is waiting. For anybody else’s row you see who it belongs to and what kind of work it is — not which meeting — and only your own rows can be moved or stopped.",
+        )}
       </p>
       <p className="text-xs text-[var(--text-muted)]">
-        How many run at once depends on what they need and what the card has —{" "}
-        <em>off-GPU</em> work (recognition sent to an endpoint, minutes written by a cloud model)
-        does not wait for it at all. Set the budget in <em>Settings → Transcription</em>. A run
-        that is stopped does not go back in the queue — ask for it again when you want it.
+        {t(
+          "How many run at once depends on what they need and what the card has — off-GPU work (recognition sent to an endpoint, minutes written by a cloud model) does not wait for it at all. Set the budget in Settings → Transcription. A run that is stopped does not go back in the queue — ask for it again when you want it.",
+        )}
       </p>
     </div>
   );
 }
 
+/**
+ * The kinds of work, in the reader's language.
+ *
+ * `JOB_LABEL` is a module-level map shared with the server, so it has no hook to reach the
+ * language with — the strings are spelled out here where the key scanner can see them.
+ */
+function jobLabel(t: (k: string) => string, label: string): string {
+  const table: Record<string, string> = {
+    Minutes: t("Minutes"),
+    "Re-transcribe": t("Re-transcribe"),
+    Diarize: t("Diarize"),
+    "Encrypting your older meetings": t("Encrypting your older meetings"),
+  };
+  return table[label] ?? label;
+}
+
 /** How long the running one has been going. Cheap reassurance that it has not wedged. */
 function Elapsed({ since }: { since: string | null }) {
+  const t = useT();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (!since) return <>running</>;
+  if (!since) return <>{t("running")}</>;
   const s = Math.max(0, Math.floor((now - Date.parse(since)) / 1000));
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");

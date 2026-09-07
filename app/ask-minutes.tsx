@@ -3,18 +3,24 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useT } from "./locale-provider";
 import { useGpuBusy } from "./use-gpu-busy";
-
-const EXAMPLES = [
-  "前回までのTODOを教えて",
-  "未解決の論点は？",
-  "これまでの決定事項をまとめて",
-];
 
 type Answer = { answer: string; used: number; omitted: number; withoutMinutes: number };
 
 // Ask a question against the minutes of a series (or of a single meeting that has no
 // series — a one-off is just a series of one). The answer is read once and not stored.
+/** What `useGpuBusy` reports, in the reader's language. */
+function busyLabel(t: (k: string) => string, label: string): string {
+  const table: Record<string, string> = {
+    "Generating minutes…": t("Generating minutes…"),
+    "Recording in progress…": t("Recording in progress…"),
+    "Transcribing…": t("Transcribing…"),
+    "Diarizing…": t("Diarizing…"),
+  };
+  return table[label] ?? label;
+}
+
 export function AskMinutes({
   seriesId,
   meetingId,
@@ -28,6 +34,12 @@ export function AskMinutes({
   const [asking, setAsking] = useState(false);
   const [result, setResult] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
+  const examples = [
+    t("What were the TODOs from last time?"),
+    t("What is still unresolved?"),
+    t("Summarise the decisions so far"),
+  ];
   const gpu = useGpuBusy();
   // Answering runs on the same GPU as minutes generation and recording.
   const blocked = gpu.busy;
@@ -58,10 +70,12 @@ export function AskMinutes({
     <section className="card space-y-3 p-5">
       <div>
         <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
-          Ask about these minutes
+          {t("Ask about these minutes")}
         </h2>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          Answered from the minutes of {scopeLabel} — nothing else. Answers are not saved.
+          {t("Answered from the minutes of {scope} — nothing else. Answers are not saved.", {
+            scope: scopeLabel,
+          })}
         </p>
       </div>
 
@@ -77,22 +91,24 @@ export function AskMinutes({
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           maxLength={500}
-          placeholder="前回までのTODOを教えて"
+          placeholder={examples[0]}
           disabled={asking || blocked}
           className="input min-w-0 flex-1"
         />
         <button type="submit" disabled={asking || blocked || !question.trim()} className="btn-ink">
-          {asking ? "Thinking…" : "Ask"}
+          {asking ? t("Thinking…") : t("Ask")}
         </button>
       </form>
 
       {blocked ? (
         <p className="text-xs text-[var(--warning)]">
-          {gpu.label ?? "A GPU task is running"} — you can ask once it finishes.
+          {t("{task} — you can ask once it finishes.", {
+            task: gpu.label ? busyLabel(t, gpu.label) : t("A GPU task is running"),
+          })}
         </p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
-          {EXAMPLES.map((ex) => (
+          {examples.map((ex) => (
             <button
               key={ex}
               type="button"
@@ -118,10 +134,17 @@ export function AskMinutes({
           </article>
           {/* Say what the answer could actually see, so a gap is visible rather than implied. */}
           <p className="mt-3 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-muted)]">
-            Based on {result.used} meeting(s) with minutes
-            {result.omitted > 0 ? `, ${result.omitted} older one(s) left out for length` : ""}
+            {t(
+              result.used === 1
+                ? "Based on 1 meeting with minutes"
+                : "Based on {n} meetings with minutes",
+              { n: result.used },
+            )}
+            {result.omitted > 0
+              ? t(", {n} older left out for length", { n: result.omitted })
+              : ""}
             {result.withoutMinutes > 0
-              ? `, ${result.withoutMinutes} without minutes not covered`
+              ? t(", {n} without minutes not covered", { n: result.withoutMinutes })
               : ""}
             .
           </p>

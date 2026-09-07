@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext } from "react";
 import { type Locale, translate } from "@/lib/i18n";
 
 // The locale, for the fifty-odd client components that cannot read a setting themselves.
@@ -19,8 +19,18 @@ export function useLocale(): Locale {
   return useContext(LocaleContext);
 }
 
-/** `const t = useT()`, then `t("Start recording")`. */
+/**
+ * `const t = useT()`, then `t("Start recording")`.
+ *
+ * Memoised on the locale, which never changes within a page. It has to be: a fresh closure each
+ * render is a dependency that always differs, and an effect that lists `t` then runs on every
+ * render. The health indicator does list it, so an unmemoised `t` meant a health check — three
+ * network requests — every time anything on the page re-rendered.
+ */
 export function useT(): (key: string, vars?: Record<string, string | number>) => string {
   const locale = useContext(LocaleContext);
-  return (key, vars) => translate(locale, key, vars);
+  return useCallback(
+    (key: string, vars?: Record<string, string | number>) => translate(locale, key, vars),
+    [locale],
+  );
 }
