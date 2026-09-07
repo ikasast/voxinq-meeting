@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useT } from "../../locale-provider";
 
 // Per-series defaults: rename the series and set a minutes format / STT glossary that
 // override the global settings for every meeting in the series.
@@ -18,6 +19,7 @@ export function SeriesSettings({
   sttGlossary: string | null;
   readOnly?: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draftName, setDraftName] = useState(name);
@@ -46,7 +48,7 @@ export function SeriesSettings({
       setEditing(false);
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("Failed to save"));
     } finally {
       setPending(false);
     }
@@ -56,23 +58,23 @@ export function SeriesSettings({
     <section className="card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">
-          Series defaults
+          {t("Series defaults")}
         </h2>
         {!editing && !readOnly ? (
           <button type="button" onClick={() => setEditing(true)} className="btn-outline">
-            Edit
+            {t("Edit")}
           </button>
         ) : null}
       </div>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
-        Apply to every meeting in this series, overriding the global Settings.
+        {t("Apply to every meeting in this series, overriding the global Settings.")}
       </p>
 
       {editing ? (
         <div className="mt-3 space-y-3">
           <div>
             <label htmlFor="series-name" className="label">
-              Series name
+              {t("Series name")}
             </label>
             <input
               id="series-name"
@@ -86,7 +88,7 @@ export function SeriesSettings({
           </div>
           <div>
             <label htmlFor="series-format" className="label">
-              Minutes format (empty = use the global setting)
+              {t("Minutes format (empty = use the global setting)")}
             </label>
             <textarea
               id="series-format"
@@ -94,13 +96,16 @@ export function SeriesSettings({
               onChange={(e) => setDraftFormat(e.target.value)}
               rows={6}
               disabled={pending}
-              placeholder={"## Summary\n…heading structure the minutes must follow for this series"}
+              placeholder={
+                "## Summary\n" +
+                t("…heading structure the minutes must follow for this series")
+              }
               className="input mt-1 resize-y font-mono text-xs"
             />
           </div>
           <div>
             <label htmlFor="series-glossary" className="label">
-              Transcription glossary (appended to the global glossary)
+              {t("Transcription glossary (appended to the global glossary)")}
             </label>
             <textarea
               id="series-glossary"
@@ -108,7 +113,7 @@ export function SeriesSettings({
               onChange={(e) => setDraftGlossary(e.target.value)}
               rows={2}
               disabled={pending}
-              placeholder="Terms and proper nouns that come up in this series"
+              placeholder={t("Terms and proper nouns that come up in this series")}
               className="input mt-1 resize-y"
             />
           </div>
@@ -126,30 +131,32 @@ export function SeriesSettings({
               disabled={pending}
               className="btn-outline"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <button type="button" onClick={save} disabled={pending} className="btn-ink">
-              {pending ? "Saving…" : "Save"}
+              {pending ? t("Saving…") : t("Save")}
             </button>
           </div>
         </div>
       ) : (
         <dl className="mt-3 space-y-2 text-sm">
           <div>
-            <dt className="text-xs text-[var(--text-muted)]">Minutes format</dt>
+            <dt className="text-xs text-[var(--text-muted)]">{t("Minutes format")}</dt>
             <dd className="text-[var(--text-secondary)]">
               {summaryFormat ? (
                 <pre className="mt-1 whitespace-pre-wrap rounded-md border border-[var(--border)] bg-[var(--elevated)] p-2 font-mono text-xs">
                   {summaryFormat}
                 </pre>
               ) : (
-                "Global setting"
+                t("Global setting")
               )}
             </dd>
           </div>
           <div>
-            <dt className="text-xs text-[var(--text-muted)]">Transcription glossary</dt>
-            <dd className="text-[var(--text-secondary)]">{sttGlossary || "Global setting"}</dd>
+            <dt className="text-xs text-[var(--text-muted)]">
+              {t("Transcription glossary")}
+            </dt>
+            <dd className="text-[var(--text-secondary)]">{sttGlossary || t("Global setting")}</dd>
           </div>
         </dl>
       )}

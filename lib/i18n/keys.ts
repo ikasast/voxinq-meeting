@@ -24,9 +24,13 @@ const CALL = /(?<![\w.$])t\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/g;
  * are keys. A scanner that only understood a literal first argument reported both of them as
  * missing from the table while they sat in it — which reads as a broken translation when
  * nothing is.
+ *
+ * The condition may run over several lines — prettier breaks one as soon as the sentences are
+ * long — so newlines are allowed in it. Parentheses are not: without that, the condition could
+ * run past the end of this call and pick up the next one's strings.
  */
 const TERNARY =
-  /(?<![\w.$])t\([^"'\n]*\?\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
+  /(?<![\w.$])t\(\s*[^"'()]{0,300}\?\s*"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g;
 
 /**
  * Comments go first — but only real ones.
@@ -65,7 +69,11 @@ function withoutComments(src: string): string {
     // contains one, and without this the scanner entered string mode there, lost track of where
     // it was, and stopped recognising the doc comment below it as a comment — so the example
     // inside it became two keys nothing shows.
-    if (c === "/" && REGEX_CAN_START.test(lastMeaningful)) {
+    // `/>` closes a JSX tag; `/>/` is a regex nobody writes. Without this exception a
+    // self-closing element started a regex literal that ran to the next slash in the file,
+    // taking whatever `t()` calls were between them with it — which is how `t("waiting")`,
+    // sitting one character after `<Elapsed … />`, became a translation nothing could reach.
+    if (c === "/" && src[i + 1] !== ">" && REGEX_CAN_START.test(lastMeaningful)) {
       out += c;
       i++;
       let inClass = false;

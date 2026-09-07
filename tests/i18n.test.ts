@@ -60,6 +60,15 @@ describe("finding the strings", () => {
     expect(keysIn(src)).toEqual(["Queue"]);
   });
 
+  it("does not mistake a self-closing JSX tag for a regex", () => {
+    // `<Elapsed … />` — the slash starts a regex literal by every other rule, and that regex
+    // then runs to the next slash in the file, taking whatever is between them with it. Here
+    // that was `t("waiting")`, one character later, which the table then reported as a row
+    // nothing shows.
+    const src = 'x ? <Elapsed since={j.at} /> : t("waiting")';
+    expect(keysIn(src)).toEqual(["waiting"]);
+  });
+
   it("does not mistake an example in a comment for a call", () => {
     // This module's own documentation says `t("Start recording")`, and a scanner that cannot
     // tell the two apart puts phantom rows in the table.
@@ -230,6 +239,28 @@ describe("the plural shape", () => {
       "1 utterance",
       "{n} utterances",
     ]);
+  });
+
+  it("is found when the condition runs over several lines", () => {
+    // Which is what happens as soon as the two sentences are long: the formatter breaks the
+    // condition onto its own line, and a scanner anchored to one line stops seeing either
+    // form. They are then neither reported missing nor ever translated — the silent half of
+    // this failure, and the one that had already happened on the series page.
+    const src = [
+      "t(",
+      "  meetings.length === 1",
+      '    ? "1 meeting in this series."',
+      '    : "{n} meetings in this series.",',
+      "  { n: meetings.length },",
+      ")",
+    ].join("\n");
+    expect(keysIn(src)).toEqual(["1 meeting in this series.", "{n} meetings in this series."]);
+  });
+
+  it("does not let the condition run into the next call", () => {
+    // The condition may span lines, but not parentheses — otherwise one unmatched `?` would
+    // swallow whatever call came next and report its strings as a plural pair.
+    expect(keysIn('t(cond(x) ? "a" : "b")')).toEqual([]);
   });
 
   it("still finds a plain call beside one", () => {

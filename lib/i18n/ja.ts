@@ -855,4 +855,95 @@ export const ja: Record<string, string> = {
   Detailed: "詳細",
   "Room (distant voices)": "会議室（離れた声を拾う）",
   "Save the defaults": "既定値を保存",
+
+  // ---- The queue ----
+  "Work that needs the GPU, in the order it will get it.":
+    "GPU が必要な処理を、実行される順に並べています。",
+  "Nothing queued. Minutes, speaker separation and re-transcription wait here for the GPU when one is already using it.":
+    "順番待ちはありません。議事録・話者分離・文字起こしのやり直しは、GPU が他で使われているときここで待ちます。",
+  "Could not reorder the queue": "順番を入れ替えられませんでした",
+  "Could not stop it": "止められませんでした",
+  "Removed from the queue. The recognition pass already running finishes on the transcription service — there is no way to stop one — and its result is discarded.":
+    "順番待ちから外しました。既に走っている認識処理は文字起こしサービス側で最後まで実行され（止める手段がありません）、その結果は破棄されます。",
+  "{name} (you)": "{name}（自分）",
+  Recording: "録音",
+  "(untitled meeting)": "（無題の会議）",
+  "Somebody else’s work. What it is about is not shown.":
+    "他の人の処理です。内容は表示されません。",
+  "Uses no video memory — it runs somewhere else, so it does not wait for the card":
+    "VRAM を使いません。他所で実行されるため、カードの空きを待ちません",
+  "Roughly what it is expected to occupy on the GPU": "GPU 上で占めると見込まれるおおよその量",
+  "off-GPU": "GPU 外",
+  "~{gb} GB": "約 {gb} GB",
+  waiting: "待機中",
+  running: "実行中",
+  "not yours": "自分のものではありません",
+  "ends with the meeting": "会議の終了と同時に終わります",
+  "Move up": "上へ",
+  "Move down": "下へ",
+  "Encrypting your older meetings": "過去の会議を暗号化中",
+  "Everybody’s work is listed, because the GPU is shared and a queue that hid the thing in front of yours could not explain why yours is waiting. For anybody else’s row you see who it belongs to and what kind of work it is — not which meeting — and only your own rows can be moved or stopped.":
+    "全員の処理が並びます。GPU は共有で、自分の前にあるものを隠した待ち行列では「なぜ自分のが待たされているか」を説明できないからです。他の人の行では、誰のものかと処理の種類だけが見え、どの会議かは見えません。動かしたり止めたりできるのは自分の行だけです。",
+  "How many run at once depends on what they need and what the card has — off-GPU work (recognition sent to an endpoint, minutes written by a cloud model) does not wait for it at all. Set the budget in Settings → Transcription. A run that is stopped does not go back in the queue — ask for it again when you want it.":
+    "同時にいくつ走るかは、それぞれの必要量とカードの容量で決まります。GPU 外の処理（エンドポイントに送る認識や、クラウドのモデルが書く議事録）はカードを待ちません。上限は「設定 → 文字起こし」で決めます。止めた処理は待ち行列に戻らないので、必要ならもう一度指示してください。",
+
+  // ---- Archive ----
+  "Archived meetings": "アーカイブした会議",
+  "Archived meetings are hidden from the main list but kept forever — open them here or via search.":
+    "アーカイブした会議は一覧には出ませんが、消えずに残ります。ここか検索から開けます。",
+  "Unarchive to bring one back to the list. On a phone, swipe a row right to unarchive or left to move it to Trash.":
+    "アーカイブを解除すると一覧に戻ります。スマートフォンでは、右スワイプで解除、左スワイプでゴミ箱へ移動します。",
+  "Nothing archived.": "アーカイブした会議はありません。",
+  "archived {when}": "アーカイブ {when}",
+
+  // ---- Trash ----
+  "Deleted meetings": "削除した会議",
+  "Deleted meetings are permanently removed after {n} days. Until then, you can restore them.":
+    "削除した会議は {n} 日後に完全に消えます。それまでは元に戻せます。",
+  "The trash is empty.": "ゴミ箱は空です。",
+  "deleted {when}": "削除 {when}",
+  "Permanently delete this meeting. The transcript, minutes, and recording will all be lost and cannot be recovered.":
+    "この会議を完全に削除します。発言・議事録・録音のすべてが失われ、元に戻せません。",
+  "Delete permanently": "完全に削除",
+  "Failed to load": "読み込みに失敗しました",
+  "Failed to restore": "復元に失敗しました",
+
+  // ---- A series ----
+  "1 meeting in this series. When minutes are generated, the previous meeting’s minutes are passed to the LLM as context.":
+    "このシリーズには 1 件の会議があります。議事録を生成するとき、前回の議事録が文脈として LLM に渡されます。",
+  "{n} meetings in this series. When minutes are generated, the previous meeting’s minutes are passed to the LLM as context.":
+    "このシリーズには {n} 件の会議があります。議事録を生成するとき、前回の議事録が文脈として LLM に渡されます。",
+  "No minutes yet ({n}).": "議事録はまだありません（{n}）。",
+  "No meetings in this series yet.": "このシリーズにはまだ会議がありません。",
+  "Series defaults": "シリーズの既定値",
+  "Apply to every meeting in this series, overriding the global Settings.":
+    "このシリーズのすべての会議に適用され、全体の設定より優先されます。",
+  "Series name": "シリーズ名",
+  "Minutes format (empty = use the global setting)": "議事録の形式（空欄なら全体の設定を使用）",
+  "…heading structure the minutes must follow for this series":
+    "…このシリーズの議事録が従うべき見出し構成",
+  "Transcription glossary (appended to the global glossary)":
+    "文字起こしの用語集（全体の用語集に追加されます）",
+  "Terms and proper nouns that come up in this series": "このシリーズで出てくる用語や固有名詞",
+  "Transcription glossary": "文字起こしの用語集",
+  "Global setting": "全体の設定",
+
+  // ---- Asking about the minutes ----
+  "Ask about these minutes": "この議事録について質問する",
+  "Answered from the minutes of {scope} — nothing else. Answers are not saved.":
+    "「{scope}」の議事録だけを根拠に答えます。それ以外は参照しません。回答は保存されません。",
+  Ask: "質問する",
+  "Thinking…": "考え中…",
+  "What were the TODOs from last time?": "前回までのTODOを教えて",
+  "What is still unresolved?": "未解決の論点は？",
+  "Summarise the decisions so far": "これまでの決定事項をまとめて",
+  "{task} — you can ask once it finishes.": "{task} — 終わったら質問できます。",
+  "A GPU task is running": "GPU の処理が実行中です",
+  "Recording in progress…": "録音中…",
+  "Transcribing…": "文字起こし中…",
+  "Diarizing…": "話者を分離中…",
+  "Based on 1 meeting with minutes": "議事録のある会議 1 件をもとにしています",
+  "Based on {n} meetings with minutes": "議事録のある会議 {n} 件をもとにしています",
+  ", {n} older left out for length": "（古い {n} 件は長さの都合で除外）",
+  ", {n} without minutes not covered": "（議事録のない {n} 件は対象外）",
 };

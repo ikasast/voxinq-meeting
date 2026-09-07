@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
+import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
+import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime, formatDuration } from "@/lib/utils";
 import { AskMinutes } from "../../ask-minutes";
 import { SeriesSettings } from "./series-settings";
 
@@ -28,6 +29,8 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
   if (!series) notFound();
 
   const external = await isExternalRequest();
+  const t = await serverT();
+  const locale = await currentLocale();
   const meetings = await prisma.meeting.findMany({
     where: { seriesId: id, deletedAt: null },
     orderBy: { startedAt: "desc" },
@@ -49,12 +52,16 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
           ↻ {series.name}
         </h1>
         <Link href="/" className="btn-outline">
-          Back to list
+          {t("Back to list")}
         </Link>
       </div>
       <p className="text-sm text-[var(--text-muted)]">
-        {meetings.length} meeting(s) in this series. When minutes are generated, the previous
-        meeting&apos;s minutes are passed to the LLM as context.
+        {t(
+          meetings.length === 1
+            ? "1 meeting in this series. When minutes are generated, the previous meeting’s minutes are passed to the LLM as context."
+            : "{n} meetings in this series. When minutes are generated, the previous meeting’s minutes are passed to the LLM as context.",
+          { n: meetings.length },
+        )}
       </p>
 
       {/* Questions span the whole series ("what were the TODOs from last time?"), so this
@@ -86,11 +93,11 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
               className="absolute left-0 top-2 h-[11px] w-[11px] rounded-full border-2 border-[var(--accent)] bg-[var(--background)]"
             />
             <p className="text-xs text-[var(--text-muted)]">
-              {formatDateTime(m.startedAt)}
-              {formatDuration(m.startedAt, m.endedAt)
-                ? ` · ${formatDuration(m.startedAt, m.endedAt)}`
+              {formatDateTimeIn(locale, m.startedAt)}
+              {m.endedAt
+                ? ` · ${formatDurationIn(locale, m.endedAt.getTime() - m.startedAt.getTime()) ?? ""}`
                 : ""}
-              {m.archivedAt ? " · archived" : ""}
+              {m.archivedAt ? ` · ${t("Archived")}` : ""}
             </p>
             <Link
               href={`/${m.id}`}
@@ -104,14 +111,18 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
               </div>
             ) : (
               <p className="mt-2 text-xs text-[var(--text-muted)]">
-                No minutes yet ({m._count.transcripts} utterances).
+                {t("No minutes yet ({n}).", {
+                  n: t(m._count.transcripts === 1 ? "1 utterance" : "{n} utterances", {
+                    n: m._count.transcripts,
+                  }),
+                })}
               </p>
             )}
           </div>
         ))}
         {meetings.length === 0 ? (
           <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
-            No meetings in this series yet.
+            {t("No meetings in this series yet.")}
           </p>
         ) : null}
       </section>
