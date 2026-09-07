@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { currentMinutesBusy } from "@/lib/minutes-busy";
 import { sttHttpBase } from "@/lib/stt/client";
 import { preloadStt, sttHealth, sttWarmupFromSettings } from "@/lib/stt/preload";
+import { useT } from "./locale-provider";
 
 // Show STT / LLM health as a small indicator on the home page.
 // STT is checked browser->STT directly (same path as recording); LLM is checked via the web server.
@@ -25,6 +26,7 @@ function Dot({ ok }: { ok: boolean | null }) {
 }
 
 export function HealthStatus({ showStt }: { showStt: boolean }) {
+  const t = useT();
   const [stt, setStt] = useState<Check>({ ok: null });
   const [llm, setLlm] = useState<Check>({ ok: null });
   const [db, setDb] = useState<Check>({ ok: null });
@@ -63,7 +65,10 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
                 : e instanceof Error
                   ? e.message
                   : String(e);
-            setStt({ ok: false, detail: `Cannot reach STT — recording unavailable (${reason})` });
+            setStt({
+              ok: false,
+              detail: t("Cannot reach STT — recording unavailable ({reason})", { reason }),
+            });
           }
         }
       };
@@ -84,11 +89,11 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
         },
       )
       .catch(() => {
-        setLlm({ ok: false, detail: "check failed" });
+        setLlm({ ok: false, detail: t("check failed") });
         // A failing health endpoint usually IS a DB outage (pages 500) — mark it red too.
-        setDb({ ok: false, detail: "check failed" });
+        setDb({ ok: false, detail: t("check failed") });
       });
-  }, [showStt]);
+  }, [showStt, t]);
 
   useEffect(() => {
     check();
@@ -109,14 +114,16 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
     const mb = await currentMinutesBusy();
     if (mb.busy) {
       setWarming(false);
-      setWarmMsg("Minutes are being generated — the GPU is busy. Try again once they finish.");
+      setWarmMsg(
+        t("Minutes are being generated — the GPU is busy. Try again once they finish."),
+      );
       return;
     }
     const { model, translate } = await sttWarmupFromSettings();
     const res = await preloadStt(model, translate);
     if (res === null) {
       setWarming(false);
-      setWarmMsg("Could not reach STT.");
+      setWarmMsg(t("Could not reach STT."));
       return;
     }
     if (res === "ready") {
@@ -135,18 +142,18 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
       }
       if (Date.now() > deadline) {
         setWarming(false);
-        setWarmMsg("Model load is taking longer than expected.");
+        setWarmMsg(t("Model load is taking longer than expected."));
         return;
       }
       warmTimer.current = setTimeout(() => void poll(), 3000);
     };
     warmTimer.current = setTimeout(() => void poll(), 3000);
-  }, []);
+  }, [t]);
 
-  const items: { label: string; c: Check }[] = [
-    ...(showStt ? [{ label: "Recording (STT)", c: stt }] : []),
-    { label: "Minutes (LLM)", c: llm },
-    { label: "DB", c: db },
+  const items: { id: string; label: string; c: Check }[] = [
+    ...(showStt ? [{ id: "stt", label: t("Recording (STT)"), c: stt }] : []),
+    { id: "llm", label: t("Minutes (LLM)"), c: llm },
+    { id: "db", label: t("DB"), c: db },
   ];
 
   // Model state is only meaningful when STT is reachable.
@@ -157,19 +164,22 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
       <button
         type="button"
         onClick={check}
-        title="Click to re-check"
+        title={t("Click to re-check")}
         className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]"
       >
-        {items.map(({ label, c }) => (
-          <span key={label} className="flex items-center gap-1.5" title={c.detail}>
+        {items.map(({ id, label, c }) => (
+          <span key={id} className="flex items-center gap-1.5" title={c.detail}>
             <Dot ok={c.ok} />
             {label}
             {c.ok === false && c.detail ? (
               <span className="text-[var(--error)]">— {c.detail}</span>
             ) : null}
-            {label === "Recording (STT)" && c.ok === true && loaded ? (
-              <span className="text-[var(--accent-sub)]" title={`Whisper model loaded: ${loaded}`}>
-                — ready
+            {id === "stt" && c.ok === true && loaded ? (
+              <span
+                className="text-[var(--accent-sub)]"
+                title={t("Whisper model loaded: {model}", { model: loaded })}
+              >
+                — {t("ready")}
               </span>
             ) : null}
           </span>
@@ -180,10 +190,10 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
           type="button"
           onClick={() => void warmUp()}
           disabled={warming}
-          title="Load the Whisper model now so recording starts transcribing immediately"
+          title={t("Load the Whisper model now so recording starts transcribing immediately")}
           className="rounded-full border border-[var(--border-strong)] px-2.5 py-0.5 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
         >
-          {warming ? "Loading model…" : "Warm up"}
+          {warming ? t("Loading model…") : t("Warm up")}
         </button>
       ) : null}
       {warmMsg ? <span className="text-[var(--warning)]">{warmMsg}</span> : null}

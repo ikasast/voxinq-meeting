@@ -615,4 +615,139 @@ export const ja: Record<string, string> = {
   "no minutes to export yet": "書き出せる議事録がまだありません",
   "nothing to export (no minutes/transcript yet)":
     "書き出せるものがありません（議事録も発言もまだありません）",
+
+  // ---- The header on every page: service health ----
+  "Recording (STT)": "録音（STT）",
+  "Minutes (LLM)": "議事録（LLM）",
+  DB: "DB",
+  "Click to re-check": "クリックで再確認",
+  ready: "準備完了",
+  "Whisper model loaded: {model}": "読み込み済みの Whisper モデル: {model}",
+  "Warm up": "先に読み込む",
+  "Loading model…": "モデルを読み込み中…",
+  "Load the Whisper model now so recording starts transcribing immediately":
+    "いま Whisper モデルを読み込んでおくと、録音を始めた瞬間から文字起こしが動きます",
+  "Cannot reach STT — recording unavailable ({reason})":
+    "STT に接続できません — 録音は使えません（{reason}）",
+  "check failed": "確認できませんでした",
+  "Could not reach STT.": "STT に接続できませんでした。",
+  "Minutes are being generated — the GPU is busy. Try again once they finish.":
+    "議事録を生成中で GPU が使われています。終わってからもう一度お試しください。",
+  "Model load is taking longer than expected.": "モデルの読み込みに時間がかかっています。",
+  "Accessing from outside your private network — read-only.":
+    "プライベートネットワークの外からアクセスしています — 閲覧のみです。",
+  "You can view and download minutes and transcripts here; recording, editing and deleting are available on your local network only.":
+    "ここでは議事録と発言の閲覧・ダウンロードができます。録音・編集・削除はローカルネットワークの中だけです。",
+
+  // ---- Logging in ----
+  "Log in": "ログイン",
+  // A sentence with a link through the middle. The pieces are translated for the position they
+  // sit in — Japanese puts the verb after the link, English before it.
+  "This server uses a single shared password.":
+    "このサーバーは共有パスワードを使っています。各自のアカウントを持たせるには",
+  "Create an account": "アカウントを作成",
+  "to give people their own.": "してください。",
+  "Sign in": "ログイン",
+  "Could not unlock": "解除できませんでした",
+  "Your meetings are locked.": "会議がロックされています。",
+  "Transcripts and minutes are encrypted with a key only your password opens.":
+    "発言と議事録は、あなたのパスワードでしか開かない鍵で暗号化されています。",
+  Unlock: "解除する",
+  "Unlocking…": "解除中…",
+
+  // ---- The first account ----
+  "This server already has an account": "このサーバーには既にアカウントがあります",
+  "Further accounts are made by an administrator.":
+    "これ以降のアカウントは管理者が作成します。",
+  "Create the first account": "最初のアカウントを作成",
+  "It is an administrator. From then on this server asks who you are instead of sharing one password, and APP_PASSWORD stops being a way in.":
+    "このアカウントは管理者になります。以降、このサーバーは共有パスワードではなく「あなたが誰か」を尋ねるようになり、APP_PASSWORD では入れなくなります。",
+  Username: "ユーザー名",
+  "Letters, numbers, dot, dash, underscore. A short handle — you sign in with your email.":
+    "英数字・ドット・ハイフン・アンダースコアが使えます。短い識別子で、ログインにはメールアドレスを使います。",
+  Email: "メールアドレス",
+  "What you type to sign in. Nothing is ever sent to it — this server has no way to send mail, and does not want one.":
+    "ログインに入力するアドレスです。ここに何かが送られることはありません — このサーバーにメールを送る手段はなく、持つつもりもありません。",
+  "The two passwords do not match.": "2つのパスワードが一致しません。",
+  "Create the account": "アカウントを作成する",
+  "Creating…": "作成中…",
+
+  // ---- The recovery code ----
+  "Your recovery code": "復旧コード",
+  "Save this now — it is never shown again": "いま保存してください — 二度と表示されません",
+  "{context} is encrypted. This code is the only way back in if you forget your password. It is not stored anywhere: an administrator can send you a link to set a new password, and without this code that new password opens an account whose meetings can no longer be read.":
+    "{context}は暗号化されています。パスワードを忘れたときに戻れる唯一の手段がこのコードです。どこにも保存されていません。管理者はパスワード再設定のリンクを発行できますが、このコードが無ければ、新しいパスワードで開くのは会議を二度と読めなくなったアカウントです。",
+  "This account": "このアカウント",
+  "Your account": "あなたのアカウント",
+  "Your account has a new key, and": "あなたのアカウントには新しい鍵が作られ、それ",
+  "Recovery code {code}": "復旧コード {code}",
+  Copy: "コピー",
+  Copied: "コピーしました",
+  "This browser would not let the page copy for you — the code is selected, so press":
+    "このブラウザではページからのコピーが許可されませんでした。コードは選択済みなので、次を押してください:",
+  "A password manager is the right place for it.": "パスワードマネージャーに入れるのが適切です。",
+  "On paper is fine too — the characters avoid anything that can be misread.":
+    "紙に書いても構いません。読み間違えやすい文字は使われていません。",
+  "Anybody holding it can decrypt this account, so treat it as the password itself.":
+    "これを持っている人はこのアカウントを復号できます。パスワードそのものとして扱ってください。",
+  "I have saved it — continue": "保存しました — 次へ",
+  "Have you saved your recovery code?": "復旧コードを保存しましたか？",
+  "It cannot be shown again. Nobody can produce it later — not an administrator, not the server, not by resetting your password.":
+    "二度と表示されません。後から誰も再発行できません — 管理者にも、サーバーにも、パスワードの再設定でも。",
+  "Without it, forgetting your password means the meetings on this account stay encrypted and cannot be read.":
+    "これが無いままパスワードを忘れると、このアカウントの会議は暗号化されたまま読めなくなります。",
+  "Yes, I have saved it": "はい、保存しました",
+  "Not yet": "まだです",
+
+  // ---- Setting a password from a link ----
+  "New password": "新しいパスワード",
+  "New password again": "新しいパスワード（確認）",
+  "Set the password and sign in": "パスワードを設定してログイン",
+  "Setting…": "設定中…",
+  "This account has encrypted meetings. Enter the recovery code you were given when the account was set up, and everything stays as it is.":
+    "このアカウントには暗号化された会議があります。作成時に渡された復旧コードを入力すれば、すべてそのまま残ります。",
+  "I do not have it": "コードが手元にありません",
+  "Start again without your old meetings?": "これまでの会議を諦めてやり直しますか？",
+  "Everything already recorded on this account is encrypted with a key only your recovery code opens. Without it, those meetings can never be read again — not by you, not by an administrator.":
+    "このアカウントで録音済みのものはすべて、復旧コードでしか開かない鍵で暗号化されています。コードが無ければ、それらの会議は二度と読めません — 本人にも、管理者にも。",
+  "They stay on the disk and stay unreadable. Anything recorded from now on will be fine.":
+    "ディスク上には残りますが、読めないままです。これから録音するものには影響ありません。",
+  "Start again — I accept losing them": "やり直す — 失うことを承知しました",
+  "Go back": "戻る",
+
+  // ---- Your account ----
+  "Signed in as": "ログイン中:",
+  "identified by your tailnet login": "tailnet のログインで識別",
+  "1 signed-in device": "ログイン中の端末 1台",
+  "{n} signed-in devices": "ログイン中の端末 {n}台",
+  "Tailnet login: {login}": "tailnet のログイン: {login}",
+  "Name and picture": "名前と画像",
+  "Choose a picture": "画像を選ぶ",
+  "Choose another": "別の画像を選ぶ",
+  "That file could not be read as an image.": "そのファイルは画像として読み込めませんでした。",
+  "Shown as a circle, so anything outside the middle square is trimmed. It is resized to {size}px here before it is sent — the original never leaves this device.":
+    "円形で表示されるため、中央の正方形からはみ出した部分は切り取られます。送信前にこの端末で {size}px に縮小され、元の画像がこの端末から出ることはありません。",
+  "Display name": "表示名",
+  "What other people see beside your work in the queue. Empty falls back to your username.":
+    "順番待ちなどで他の人に見える名前です。空ならユーザー名が使われます。",
+  "What you type to sign in from outside the tailnet. Nothing is ever sent to it.":
+    "tailnet の外からログインするときに入力するアドレスです。ここに何かが送られることはありません。",
+  "Change your password": "パスワードを変更",
+  "Set a password": "パスワードを設定",
+  "Your account was made from your tailnet login, so it has no password — inside the tailnet you are never asked for one. Set one to be able to sign in from anywhere else.":
+    "このアカウントは tailnet のログインから作られたためパスワードがありません。tailnet の中では尋ねられないからです。それ以外の場所からログインするには設定してください。",
+  "Current password": "現在のパスワード",
+  Save: "保存",
+  "Saved. You can now sign in from anywhere with it.":
+    "保存しました。これでどこからでもログインできます。",
+  "Signed-in devices": "ログイン中の端末",
+  "Ends every session, including this one. Use it for a phone you no longer have — the sessions live on the server, so this takes effect at once rather than whenever the browser next asks.":
+    "この端末を含め、すべてのセッションを終了します。手元に無くなったスマートフォンなどに使ってください。セッションはサーバー側にあるので、ブラウザの次のアクセスを待たずに即座に効きます。",
+  "Sign out everywhere": "すべての端末からログアウト",
+
+  // ---- Managing people ----
+  "Who can use this server, and how they get in. Not what any of them have recorded — running the machine is a different thing from reading what is on it.":
+    "このサーバーを使えるのは誰か、どうやって入るか。誰が何を録音したかは含みません — 機械を運用することと、その中身を読むことは別だからです。",
+
+  OK: "OK",
 };
