@@ -81,11 +81,11 @@ export function DataBackup() {
     setError(null);
     setResult(null);
     if (exportPassword.length < 8) {
-      setError("Choose a password of at least 8 characters.");
+      setError(t("Choose a password of at least 8 characters."));
       return;
     }
     if (exportPassword !== exportConfirm) {
-      setError("The two passwords do not match.");
+      setError(t("The two passwords do not match."));
       return;
     }
 
@@ -131,11 +131,11 @@ export function DataBackup() {
     setResult(null);
     const file = fileRef.current?.files?.[0];
     if (!file) {
-      setError("Choose a backup file first.");
+      setError(t("Choose a backup file first."));
       return;
     }
     if (!importPassword) {
-      setError("Enter the password this backup was created with.");
+      setError(t("Enter the password this backup was created with."));
       return;
     }
 
@@ -189,11 +189,14 @@ export function DataBackup() {
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-[var(--text-strong)]">{t("Export")}</h3>
         <p className="text-xs text-[var(--text-muted)]">
-          <strong>{t("Your")}</strong> meetings, transcripts, minutes, series, tags and voice profiles, plus
-          your settings, in one file. On a server several people share this is yours alone — nobody
-          can export what they cannot read, so everyone takes their own. The file is encrypted with
-          the password below — <strong>without it the backup cannot be opened</strong>, and there is
-          no way to recover it, so store it somewhere safe.
+          {t(
+            "Your meetings, transcripts, minutes, series, tags and voice profiles, plus your settings, in one file. On a server several people share this is yours alone — nobody can export what they cannot read, so everyone takes their own.",
+          )}{" "}
+          <strong>
+            {t(
+              "The file is encrypted with the password below — without it the backup cannot be opened, and there is no way to recover it, so store it somewhere safe.",
+            )}
+          </strong>
         </p>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -230,7 +233,7 @@ export function DataBackup() {
             disabled={busy}
           />
           <span>
-            Include the audio recordings
+            {t("Include the audio recordings")}
             <span className="ml-1 text-xs text-[var(--text-muted)]">
               {t("(much larger; without them a restored meeting cannot be played, re-transcribed or diarized)")}
             </span>
@@ -238,7 +241,7 @@ export function DataBackup() {
         </label>
 
         <button type="button" className="btn-ink" onClick={runExport} disabled={busy}>
-          {exporting ? "Exporting…" : "Export backup"}
+          {exporting ? t("Exporting…") : t("Export backup")}
         </button>
       </div>
 
@@ -279,7 +282,7 @@ export function DataBackup() {
             disabled={busy}
           />
           <span>
-            Also replace my settings
+            {t("Also replace my settings")}
             <span className="ml-1 text-xs text-[var(--text-muted)]">
               {t("(models, glossary, API keys — off by default so a restore does not disturb this machine’s configuration)")}
             </span>
@@ -287,7 +290,7 @@ export function DataBackup() {
         </label>
 
         <button type="button" className="btn-outline" onClick={runImport} disabled={busy}>
-          {importing ? "Restoring…" : "Restore from backup"}
+          {importing ? t("Restoring…") : t("Restore from backup")}
         </button>
       </div>
 

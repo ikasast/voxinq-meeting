@@ -16,11 +16,11 @@ export function RemoteSttNotice({ host }: { host: string }) {
       className="rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] p-3"
     >
       <p className="text-xs font-semibold text-[var(--warning)]">
-        Speech will be recognised by {host}, not on this machine
+        {t("Speech will be recognised by {host}, not on this machine", { host })}
       </p>
       <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-[var(--text-secondary)]">
         <li>
-          The <strong>recording itself</strong> is uploaded — not the transcript, the audio.
+          <strong>{t("The recording itself is uploaded — not the transcript, the audio.")}</strong>{" "}
           {t("Every voice in the room, including anything said that nobody meant to write down.")}
         </li>
         <li>

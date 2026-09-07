@@ -75,8 +75,10 @@ export function MinutesTemplates({
             ))}
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            What new minutes use. Any of these can still be picked for a single run from{" "}
-            <em>{t("Regenerate")}</em>. A series with its own format keeps using that.
+            {t(
+              "What new minutes use. Any of these can still be picked for a single run from {action}. A series with its own format keeps using that.",
+              { action: t("Regenerate") },
+            )}
           </p>
         </div>
         <button
@@ -85,7 +87,7 @@ export function MinutesTemplates({
           disabled={disabled}
           className="btn-ink px-3 py-2 text-sm"
         >
-          + Add format
+          {t("+ Add format")}
         </button>
       </div>
 

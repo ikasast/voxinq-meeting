@@ -170,7 +170,7 @@ export function SttProfiles({
                   <td className="w-full min-w-[9rem] max-w-0 px-3 py-2">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-medium text-[var(--text-strong)]">
-                        {p.name || "Unnamed"}
+                        {p.name || t("Unnamed")}
                       </span>
                       {p.id === defaultId ? <DefaultBadge /> : null}
                     </div>
@@ -181,7 +181,7 @@ export function SttProfiles({
                       {host ? (
                         <span className="text-[var(--warning)]">{host}</span>
                       ) : (
-                        <span className="text-[var(--text-muted)]">your network</span>
+                        <span className="text-[var(--text-muted)]">{t("your network")}</span>
                       )}
                     </span>
                   </td>

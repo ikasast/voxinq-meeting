@@ -92,6 +92,43 @@ const FIELDS: {
   { key: "ollamaModel", label: "Ollama model", kind: "text" },
 ];
 
+/**
+ * The labels above, in the reader's language.
+ *
+ * `FIELDS` is a module-level constant with no hook to reach the language with, so the strings
+ * are spelled out here where the key scanner can see them — the same shape as `settingLabel`
+ * on the settings page itself.
+ */
+function fieldLabel(t: (k: string) => string, label: string): string {
+  const table: Record<string, string> = {
+    "Minutes language": t("Minutes language"),
+    "Minutes detail": t("Minutes detail"),
+    "Transcription language": t("Transcription language"),
+    "Microphone mode": t("Microphone mode"),
+    "Japanese translation under each line": t("Japanese translation under each line"),
+    Glossary: t("Glossary"),
+    "Minutes are written by": t("Minutes are written by"),
+    "Ollama address": t("Ollama address"),
+    "Ollama model": t("Ollama model"),
+    "Terms and names the recogniser should expect. People can add their own on top.":
+      t("Terms and names the recogniser should expect. People can add their own on top."),
+    "Japanese (日本語)": t("Japanese (日本語)"),
+    English: t("English"),
+    "Chinese (中文)": t("Chinese (中文)"),
+    Brief: t("Brief"),
+    Standard: t("Standard"),
+    Detailed: t("Detailed"),
+    "Auto-detect": t("Auto-detect"),
+    "Japanese (fixed)": t("Japanese (fixed)"),
+    "English (fixed)": t("English (fixed)"),
+    "Room (distant voices)": t("Room (distant voices)"),
+    Ollama: t("Ollama"),
+    Anthropic: t("Anthropic"),
+    "OpenAI-compatible": t("OpenAI-compatible"),
+  };
+  return table[label] ?? label;
+}
+
 export function HouseDefaults() {
   const [values, setValues] = useState<Defaults | null>(null);
   const t = useT();
@@ -129,7 +166,7 @@ export function HouseDefaults() {
       });
       const d = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
-      setMsg("Saved. Anybody who has not chosen for themselves uses these now.");
+      setMsg(t("Saved. Anybody who has not chosen for themselves uses these now."));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -160,12 +197,12 @@ export function HouseDefaults() {
                 onChange={(e) => update(f.key, e.target.checked as never)}
                 disabled={saving}
               />
-              {f.label}
+              {fieldLabel(t, f.label)}
             </label>
           ) : (
             <>
               <label htmlFor={`d-${f.key}`} className={label}>
-                {f.label}
+                {fieldLabel(t, f.label)}
               </label>
               {f.options ? (
                 <select
@@ -177,7 +214,7 @@ export function HouseDefaults() {
                 >
                   {f.options.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label}
+                      {fieldLabel(t, o.label)}
                     </option>
                   ))}
                 </select>
@@ -201,14 +238,16 @@ export function HouseDefaults() {
               )}
             </>
           )}
-          {f.hint ? <p className="mt-1 text-xs text-[var(--text-muted)]">{f.hint}</p> : null}
+          {f.hint ? (
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{fieldLabel(t, f.hint)}</p>
+          ) : null}
         </div>
       ))}
 
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
       {msg ? <p className="text-sm text-[var(--accent-sub)]">{msg}</p> : null}
       <button type="button" onClick={() => void save()} disabled={saving} className="btn-ink">
-        {saving ? "Saving…" : "Save the defaults"}
+        {saving ? t("Saving…") : t("Save the defaults")}
       </button>
     </div>
   );

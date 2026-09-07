@@ -32,12 +32,13 @@ export function ExternalProviderNotice({
       className="rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] p-3"
     >
       <p className="text-xs font-semibold text-[var(--warning)]">
-        This sends your meetings to {dest.host}
+        {t("This sends your meetings to {host}", { host: dest.host })}
       </p>
       <ul className="mt-1.5 list-disc space-y-1 pl-4 text-xs text-[var(--text-secondary)]">
         <li>
-          The <strong>full transcript</strong> of a meeting is uploaded each time minutes are
-          written or regenerated, and each time you ask a question about a series.
+          {t(
+            "The full transcript of a meeting is uploaded each time minutes are written or regenerated, and each time you ask a question about a series.",
+          )}
         </li>
         <li>
           {t("Their terms decide how long it is kept and whether it trains anything. Voxinq cannot change that.")}
@@ -51,8 +52,10 @@ export function ExternalProviderNotice({
           that is still true of every install — this setting moves text, not audio — and where
           to look for the other answer. */}
       <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-        This setting sends <strong>text</strong>, never the recording. Where the audio itself
-        goes is decided separately, under <em>{t("Transcription")}</em>.
+        <strong>{t("This setting sends text, never the recording.")}</strong>{" "}
+        {t("Where the audio itself goes is decided separately, under {section}.", {
+          section: t("Transcription"),
+        })}
       </p>
     </div>
   );

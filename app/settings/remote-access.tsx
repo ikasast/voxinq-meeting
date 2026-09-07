@@ -130,7 +130,9 @@ export function RemoteAccess() {
             }`}
           />
           <span className="text-sm font-medium text-[var(--text-strong)]">
-            {isPublic ? "Public — reachable from outside your tailnet" : "Private — tailnet only"}
+            {isPublic
+              ? t("Public — reachable from outside your tailnet")
+              : t("Private — tailnet only")}
           </span>
         </div>
         <button
@@ -139,13 +141,13 @@ export function RemoteAccess() {
           disabled={busy}
           className={isPublic ? "btn-outline" : "btn-ink"}
         >
-          {busy ? "Working…" : isPublic ? "Make private" : "Publish publicly"}
+          {busy ? t("Working…") : isPublic ? t("Make private") : t("Publish publicly")}
         </button>
       </div>
 
       {isPublic && info.url ? (
         <p className="text-sm text-[var(--text-secondary)]">
-          Public URL:{" "}
+          {t("Public URL:")}{" "}
           <a
             href={info.url}
             target="_blank"
@@ -160,8 +162,9 @@ export function RemoteAccess() {
       <ul className="list-disc space-y-1 pl-5 text-xs text-[var(--text-muted)]">
         <li>{t("Only the web app (port 443) is published — the transcription service stays private.")}</li>
         <li>
-          From outside, access is <strong>read-only</strong>: viewing and downloading only, protected
-          by your <code>{t("APP_PASSWORD")}</code>. Recording and editing remain tailnet-only.
+          {t(
+            "From outside, access is read-only: viewing and downloading only, protected by your APP_PASSWORD. Recording and editing remain tailnet-only.",
+          )}
         </li>
         <li>{t("Tailnet devices (this one, your phone) always keep full access, public or not.")}</li>
       </ul>

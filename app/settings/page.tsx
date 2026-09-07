@@ -150,11 +150,23 @@ function settingLabel(t: (k: string) => string, label: string): string {
     "Standard (close talk / calls)": t("Standard (close talk / calls)"),
     "Room (pick up distant voices)": t("Room (pick up distant voices)"),
     "Ollama (default)": t("Ollama (default)"),
+    "Anthropic (Claude API — sends your transcripts off this machine)":
+      t("Anthropic (Claude API — sends your transcripts off this machine)"),
+    "OpenAI-compatible API (OpenAI, or a local server like LM Studio)":
+      t("OpenAI-compatible API (OpenAI, or a local server like LM Studio)"),
     "Never — keep the screen on": t("Never — keep the screen on"),
     "After 30 seconds": t("After 30 seconds"),
     "After 1 minute": t("After 1 minute"),
     "After 5 minutes": t("After 5 minutes"),
     "After 10 minutes": t("After 10 minutes"),
+    // Whisper models. The name is an identifier and stays; the bracket is prose.
+    "large-v3-turbo (default; fast and accurate)": t("large-v3-turbo (default; fast and accurate)"),
+    "large-v3 (accurate)": t("large-v3 (accurate)"),
+    "small (light)": t("small (light)"),
+    "kotoba-whisper-v2.0 (Japanese only)": t("kotoba-whisper-v2.0 (Japanese only)"),
+    // The note shown under the picker, from the same constant.
+    "Distilled on Japanese speech — faster and more accurate for Japanese, but the transcription language is forced to Japanese, it adds little punctuation, and the glossary is skipped for it.":
+      t("Distilled on Japanese speech — faster and more accurate for Japanese, but the transcription language is forced to Japanese, it adds little punctuation, and the glossary is skipped for it."),
   };
   return table[label] ?? label;
 }
@@ -318,22 +330,25 @@ export default function SettingsPage() {
                 >
                   {WHISPER_MODELS.map((m) => (
                     <option key={m.value} value={m.value}>
-                      {m.label}
+                      {settingLabel(t, m.label)}
                     </option>
                   ))}
                   {isKnownWhisperModel(settings.whisperModel) ? null : (
-                    <option value={settings.whisperModel}>{settings.whisperModel} (custom)</option>
+                    <option value={settings.whisperModel}>
+                      {t("{model} (custom)", { model: settings.whisperModel })}
+                    </option>
                   )}
                 </select>
                 <MachineNote isAdmin={settings.isAdmin} />
                 <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  Roughly how much memory each needs: {modelSizeGuide()}. On an 8GB card this is
-                  what has to fit beside whatever else is loaded. Downloaded on first use and
-                  cached afterwards.
+                  {t(
+                    "Roughly how much memory each needs: {guide}. On an 8GB card this is what has to fit beside whatever else is loaded. Downloaded on first use and cached afterwards.",
+                    { guide: modelSizeGuide() },
+                  )}
                 </p>
                 {whisperModel(settings.whisperModel)?.note ? (
                   <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {whisperModel(settings.whisperModel)!.note}
+                    {settingLabel(t, whisperModel(settings.whisperModel)!.note!)}
                   </p>
                 ) : null}
                 {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
@@ -420,7 +435,7 @@ export default function SettingsPage() {
               onChange={(e) => update("sttGlossary", e.target.value)}
               disabled={saving}
               rows={2}
-              placeholder="e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting"
+              placeholder={t("e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting")}
               className="input mt-1 resize-y"
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -446,7 +461,9 @@ export default function SettingsPage() {
               ))}
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              “Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.
+              {t(
+                "“Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.",
+              )}{" "}
               {t("Placing the device in the center of the table helps.")}
             </p>
           </div>
@@ -463,12 +480,13 @@ export default function SettingsPage() {
               {t("Translate non-Japanese speech into Japanese")}
             </label>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Shows a Japanese translation under each non-Japanese utterance, during the meeting and
-              on the transcript. Japanese speech is left alone, and minutes are still generated from
-              the original words. Translation runs on the CPU, so it does not compete with
-              transcription for the GPU. Turning this on downloads a ~600MB translation model
-              (NLLB-200 distilled, <strong>{t("CC-BY-NC — non-commercial use only")}</strong>) to the STT
-              host on first use.
+              {t(
+                "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.",
+              )}{" "}
+              {t(
+                "Turning this on downloads a ~600MB translation model (NLLB-200 distilled, {licence}) to the STT host on first use.",
+                { licence: t("CC-BY-NC — non-commercial use only") },
+              )}
             </p>
           </div>
         </section>
@@ -533,7 +551,9 @@ export default function SettingsPage() {
               onChange={(e) => update("llmBackground", e.target.value)}
               disabled={saving}
               rows={6}
-              placeholder="Org, research topics, ongoing projects, people, and background knowledge. Referenced every time as context for all minutes."
+              placeholder={t(
+                "Org, research topics, ongoing projects, people, and background knowledge. Referenced every time as context for all minutes.",
+              )}
               className="input mt-1 resize-y"
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -635,7 +655,9 @@ export default function SettingsPage() {
                   setAnthropicApiKey(e.target.value);
                   setSaved(false);
                 }}
-                placeholder={settings.hasAnthropicApiKey ? "Set (enter only to change)" : "Not set"}
+                placeholder={
+                  settings.hasAnthropicApiKey ? t("Set (enter only to change)") : t("Not set")
+                }
                 autoComplete="off"
                 className={inputClass}
               />
@@ -694,7 +716,11 @@ export default function SettingsPage() {
                   setOpenaiApiKey(e.target.value);
                   setSaved(false);
                 }}
-                placeholder={settings.hasOpenaiApiKey ? "Set (enter only to change)" : "Not set (OK for LM Studio / vLLM)"}
+                placeholder={
+                  settings.hasOpenaiApiKey
+                    ? t("Set (enter only to change)")
+                    : t("Not set (OK for LM Studio / vLLM)")
+                }
                 autoComplete="off"
                 className={inputClass}
               />
@@ -747,9 +773,10 @@ export default function SettingsPage() {
               ))}
             </div>
             <p className="mt-2 text-xs text-[var(--text-muted)]">
-              {t("Applied instantly and saved per device (browser). No need to press “Save”.")}
-              “System” follows your OS and changes with it. Read-only visitors get the same
-              choice from the icon in the header.
+              {t("Applied instantly and saved per device (browser). No need to press “Save”.")}{" "}
+              {t(
+                "“System” follows your OS and changes with it. Read-only visitors get the same choice from the icon in the header.",
+              )}
             </p>
           </div>
 
@@ -769,8 +796,9 @@ export default function SettingsPage() {
               <option value="ja">日本語</option>
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              The screens. What language the minutes are written in is a separate setting, under
-              {t("Minutes — an English screen writing Japanese minutes is a combination people want.")}
+              {t(
+                "The screens. What language the minutes are written in is a separate setting, under Minutes — an English screen writing Japanese minutes is a combination people want.",
+              )}
             </p>
           </div>
 
@@ -812,7 +840,7 @@ export default function SettingsPage() {
             >
               {REST_SCREEN_CHOICES.map((c) => (
                 <option key={c.value} value={c.value}>
-                  {c.label}
+                  {settingLabel(t, c.label)}
                 </option>
               ))}
             </select>
@@ -820,10 +848,13 @@ export default function SettingsPage() {
               {t("After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.")}
             </p>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
-              On a phone with an OLED screen this is most of the battery: black pixels do not
-              light up. <strong>{t("You cannot watch the live transcript while it rests")}</strong>,
-              which is the trade — worth it for a long meeting recorded from a pocket, not for
-              one you are reading along with.
+              {t(
+                "On a phone with an OLED screen this is most of the battery: black pixels do not light up.",
+              )}{" "}
+              <strong>{t("You cannot watch the live transcript while it rests")}</strong>
+              {t(
+                ", which is the trade — worth it for a long meeting recorded from a pocket, not for one you are reading along with.",
+              )}
             </p>
           </div>
         </section>
@@ -837,7 +868,7 @@ export default function SettingsPage() {
             {t("Back")}
           </Link>
           <button type="submit" disabled={saving} className="btn-ink">
-            {saving ? "Saving…" : "Save"}
+            {saving ? t("Saving…") : t("Save")}
           </button>
         </div>
       </form>
