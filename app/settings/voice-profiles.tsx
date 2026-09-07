@@ -227,10 +227,9 @@ export function VoiceProfiles() {
           <>
           {profiles.some((p) => p.stale) ? (
             <p className="mt-1.5 text-xs text-[var(--warning)]">
-              The profiles marked <strong>re-record</strong> were built by a different
-              speaker-recognition model than this machine is running now, and voiceprints do not
-              carry across models. They are kept, but they no longer match anyone — record those
-              people again to restore automatic naming.
+              {t(
+                "The profiles marked “re-record” were built by a different speaker-recognition model than this machine is running now, and voiceprints do not carry across models. They are kept, but they no longer match anyone — record those people again to restore automatic naming.",
+              )}
             </p>
           ) : null}
           <ul className="mt-1.5 flex flex-wrap gap-1.5">

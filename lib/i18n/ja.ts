@@ -447,7 +447,6 @@ export const ja: Record<string, string> = {
   "at least 8 characters": "8文字以上",
   Unnamed: "名称未設定",
   default: "既定",
-  Your: "自分の",
 
   "Set for the whole machine — there is one card and one transcription service, so this is an administrator’s to change.":
     "この設定は機械全体のものです — カードも文字起こしサービスも 1 つしかないので、変更できるのは管理者だけです。",
@@ -502,8 +501,6 @@ export const ja: Record<string, string> = {
   "Applied instantly and saved per device (browser). No need to press “Save”.":
     "すぐ反映され、端末（ブラウザ）ごとに保存されます。「保存」を押す必要はありません。",
   "Follow my browser": "ブラウザに合わせる",
-  "Minutes — an English screen writing Japanese minutes is a combination people want.":
-    "議事録の設定にあります — 画面は英語で議事録は日本語、という組み合わせは実際に使われます。",
   "Default meeting name": "会議の既定の名前",
   "What a meeting is called until somebody names it. The day it is for — a meeting booked from the calendar is named for that day, not for today.":
     "誰かが名前を付けるまでの会議名です。その会議の日付が入ります — カレンダーから予約した会議は、今日ではなくその日の名前になります。",
@@ -516,7 +513,6 @@ export const ja: Record<string, string> = {
     "公開の切り替えは、プライベートネットワークの中から行います。Tailscale の tailnet に接続した端末（またはホスト自身）で設定を開いてください。",
   "Only the web app (port 443) is published — the transcription service stays private.":
     "公開されるのは Web アプリ（443番）だけで、文字起こしサービスは非公開のままです。",
-  APP_PASSWORD: "APP_PASSWORD",
   "Tailnet devices (this one, your phone) always keep full access, public or not.":
     "tailnet 内の端末（この端末やスマホ）は、公開の有無にかかわらず常に全機能を使えます。",
 
@@ -750,4 +746,113 @@ export const ja: Record<string, string> = {
     "このサーバーを使えるのは誰か、どうやって入るか。誰が何を録音したかは含みません — 機械を運用することと、その中身を読むことは別だからです。",
 
   OK: "OK",
+
+  // ---- Settings: what was left in English ----
+  "“Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.":
+    "「会議室」はエコー・ノイズ抑制を切り、オートゲインを上げて離れた声を拾います。",
+  "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.":
+    "日本語以外の発言の下に日本語訳を表示します（会議中も、文字起こしの画面でも）。日本語の発言はそのままで、議事録は元の言葉から生成されます。翻訳は CPU で動くため、文字起こしと GPU を取り合いません。",
+  "Turning this on downloads a ~600MB translation model (NLLB-200 distilled, {licence}) to the STT host on first use.":
+    "有効にすると、初回利用時に約600MBの翻訳モデル（NLLB-200 distilled、{licence}）が STT ホストにダウンロードされます。",
+  // Mostly sentences that had been split around <strong>, so the emphasised half stayed English
+  // while the rest turned. Each is one key now.
+  "This sends your meetings to {host}": "この設定では会議の内容が {host} に送られます",
+  "The full transcript of a meeting is uploaded each time minutes are written or regenerated, and each time you ask a question about a series.":
+    "議事録を作成・再作成するたび、またシリーズについて質問するたびに、その会議の発言全文がアップロードされます。",
+  "This setting sends text, never the recording.":
+    "この設定が送るのはテキストであって、録音ではありません。",
+  "Where the audio itself goes is decided separately, under {section}.":
+    "音声そのものの送り先は「{section}」で別に決めます。",
+  "Speech will be recognised by {host}, not on this machine":
+    "音声認識はこの機器ではなく {host} で行われます",
+  "The recording itself is uploaded — not the transcript, the audio.":
+    "アップロードされるのは録音そのものです — 文字起こしではなく、音声です。",
+  "From outside, access is read-only: viewing and downloading only, protected by your APP_PASSWORD. Recording and editing remain tailnet-only.":
+    "外部からは閲覧専用です。表示とダウンロードのみで、APP_PASSWORD で保護されます。録音と編集は tailnet 内からのみです。",
+  "The profiles marked “re-record” were built by a different speaker-recognition model than this machine is running now, and voiceprints do not carry across models. They are kept, but they no longer match anyone — record those people again to restore automatic naming.":
+    "「録り直し」と付いた声紋は、いまこの機器で動いているものとは別の話者認識モデルで作られています。声紋はモデルをまたいで使えません。データは残っていますが誰とも一致しないので、自動命名を戻すにはその人たちを録り直してください。",
+
+  // Recognition endpoints.
+  "your network": "自分のネットワーク",
+
+  // The model picker.
+  "large-v3-turbo (default; fast and accurate)": "large-v3-turbo（既定。速くて精度も高い）",
+  "large-v3 (accurate)": "large-v3（高精度）",
+  "small (light)": "small（軽量）",
+  "kotoba-whisper-v2.0 (Japanese only)": "kotoba-whisper-v2.0（日本語のみ）",
+  "Distilled on Japanese speech — faster and more accurate for Japanese, but the transcription language is forced to Japanese, it adds little punctuation, and the glossary is skipped for it.":
+    "日本語音声で蒸留されたモデルです。日本語では速く精度も高い一方、文字起こしの言語は日本語に固定され、句読点はあまり付かず、用語集も適用されません。",
+  "{model} (custom)": "{model}（自分で指定）",
+  "Roughly how much memory each needs: {guide}. On an 8GB card this is what has to fit beside whatever else is loaded. Downloaded on first use and cached afterwards.":
+    "それぞれのおおよその必要メモリ: {guide}。8GB のカードでは、他に読み込まれているものと並んでこれが収まる必要があります。初回利用時にダウンロードされ、以降はキャッシュされます。",
+
+  // Placeholders somebody reads before they type.
+  "e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting":
+    "例: 株式会社アクメ, プロジェクト・オーロラ, 山田太郎, Voxinq Meeting",
+  "Org, research topics, ongoing projects, people, and background knowledge. Referenced every time as context for all minutes.":
+    "組織・研究テーマ・進行中のプロジェクト・人物・前提知識など。すべての議事録で毎回コンテキストとして参照されます。",
+
+  // Backup.
+  "Choose a password of at least 8 characters.": "8文字以上のパスワードにしてください。",
+  "Choose a backup file first.": "先にバックアップファイルを選んでください。",
+  "Enter the password this backup was created with.":
+    "このバックアップを作成したときのパスワードを入力してください。",
+  "Your meetings, transcripts, minutes, series, tags and voice profiles, plus your settings, in one file. On a server several people share this is yours alone — nobody can export what they cannot read, so everyone takes their own.":
+    "あなたの会議・発言・議事録・シリーズ・タグ・声紋に、設定を加えたものを1つのファイルにまとめます。複数人で使うサーバーでも、これはあなたの分だけです — 読めないものは書き出せないので、各自が自分の分を取ります。",
+  "The file is encrypted with the password below — without it the backup cannot be opened, and there is no way to recover it, so store it somewhere safe.":
+    "ファイルは下のパスワードで暗号化されます。これが無いとバックアップは開けず、復旧する手段もありません。安全な場所に保管してください。",
+  "Include the audio recordings": "録音した音声も含める",
+  "Also replace my settings": "設定も置き換える",
+
+  // Defaults for everyone.
+  "Saved. Anybody who has not chosen for themselves uses these now.":
+    "保存しました。自分で選んでいない人は、これ以降この値を使います。",
+
+  // Appearance.
+  "Set (enter only to change)": "設定済み（変更するときだけ入力）",
+  "Not set (OK for LM Studio / vLLM)": "未設定（LM Studio / vLLM なら不要）",
+  "“System” follows your OS and changes with it. Read-only visitors get the same choice from the icon in the header.":
+    "「システムに合わせる」は OS の設定に追従し、それに合わせて切り替わります。閲覧専用の相手も、ヘッダーのアイコンから同じ選択ができます。",
+  "The screens. What language the minutes are written in is a separate setting, under Minutes — an English screen writing Japanese minutes is a combination people want.":
+    "画面の言語です。議事録を書く言語は「議事録」の別の設定で、英語の画面で日本語の議事録を書くという組み合わせも実際に使われます。",
+  "On a phone with an OLED screen this is most of the battery: black pixels do not light up.":
+    "OLED 画面のスマートフォンでは、これがバッテリーの大半を占めます。黒い画素は光らないためです。",
+  ", which is the trade — worth it for a long meeting recorded from a pocket, not for one you are reading along with.":
+    "という引き換えです。ポケットに入れたまま録る長い会議には向きますが、読みながら進める会議には向きません。",
+  // Minutes formats.
+  "What new minutes use. Any of these can still be picked for a single run from {action}. A series with its own format keeps using that.":
+    "これから作る議事録が使う形式です。ここに挙がったものは「{action}」から 1 回だけ選ぶこともできます。独自の形式を持つシリーズはそちらを使い続けます。",
+  "+ Add format": "＋ 形式を追加",
+
+  // LLM providers, spelled out where they warn about what leaves the machine.
+  "Anthropic (Claude API — sends your transcripts off this machine)":
+    "Anthropic（Claude API — 発言内容がこの機器の外に送られます）",
+  "OpenAI-compatible API (OpenAI, or a local server like LM Studio)":
+    "OpenAI 互換 API（OpenAI 本家、または LM Studio のようなローカルのサーバー）",
+
+  // Remote access.
+  "Public — reachable from outside your tailnet": "公開中 — tailnet の外からも到達できます",
+  "Private — tailnet only": "非公開 — tailnet の中だけ",
+  "Publish publicly": "公開する",
+  "Make private": "非公開に戻す",
+  "Working…": "処理中…",
+  "Public URL:": "公開 URL:",
+
+  // Backup.
+  "Export backup": "バックアップを書き出す",
+  "Exporting…": "書き出し中…",
+  "Restore from backup": "バックアップから復元",
+  "Restoring…": "復元中…",
+
+  // Defaults for everyone.
+  "Japanese translation under each line": "各行の下に日本語訳を表示",
+  "Minutes are written by": "議事録を書くのは",
+  "Ollama address": "Ollama のアドレス",
+  "Ollama model": "Ollama のモデル",
+  "Terms and names the recogniser should expect. People can add their own on top.":
+    "認識時に想定させる用語や名前です。各自がこれに自分の分を足せます。",
+  Brief: "簡潔",
+  Detailed: "詳細",
+  "Room (distant voices)": "会議室（離れた声を拾う）",
+  "Save the defaults": "既定値を保存",
 };
