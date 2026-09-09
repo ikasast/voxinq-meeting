@@ -946,4 +946,101 @@ export const ja: Record<string, string> = {
   "Based on {n} meetings with minutes": "議事録のある会議 {n} 件をもとにしています",
   ", {n} older left out for length": "（古い {n} 件は長さの都合で除外）",
   ", {n} without minutes not covered": "（議事録のない {n} 件は対象外）",
+
+  // ---- The transcript panel ----
+  Live: "ライブ",
+  "Click a timestamp to play from that point.": "時刻をクリックすると、そこから再生します。",
+  "Recording:": "録音:",
+  "protected (not auto-deleted)": "保護済み（自動削除されません）",
+  saved: "保存済み",
+  "Show translations": "翻訳を表示",
+  "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)":
+    "録音を解析して各行に話者を割り当てます（人数を入れると精度が上がります）",
+  "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line":
+    "用語集の語が聞き違えられていないか発言を調べ、行ごとに適用できる修正案を出します",
+  "Speaker separation needs a Hugging Face token": "話者分離には Hugging Face のトークンが必要です",
+  "How to set it up →": "設定方法 →",
+  "Speaker names (edits apply to all lines)": "話者の名前（変更はすべての行に反映されます）",
+  "e.g. NEXUS": "例: NEXUS",
+  "…and {n} more": "…ほか {n} 件",
+  "{n} skipped — a replacement cannot empty an utterance (delete it instead) or exceed the length limit.":
+    "{n} 件は対象外です。置換で発言を空にすることはできません（その場合は削除してください）。長さの上限を超える場合も同様です。",
+  "There is no transcript, but the recording remains. You can restore it from here.":
+    "発言は残っていませんが、録音は残っています。ここから復元できます。",
+  "Recognise with": "認識に使うのは",
+  "Apply all": "すべて適用",
+  "Dismiss all": "すべて破棄",
+  Apply: "適用",
+  Dismiss: "破棄",
+  "Enter to save · Shift+Enter for a new line · Esc to cancel":
+    "Enter で保存 · Shift+Enter で改行 · Esc で取り消し",
+
+  // ---- The recording screen ----
+  "No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — nothing is lost, but the text arrives afterwards.":
+    "この機器に GPU アクセラレーションが無いため、リアルタイムでは認識が話す速度に追いつきません。会議は録音され、終了後に一括で文字起こしされます。失われるものはありませんが、文字は後から出てきます。",
+  "Transcribes when the meeting ends": "会議の終了後に文字起こしします",
+  "{model} is loaded — transcription starts right away":
+    "{model} を読み込み済みです — すぐに文字起こしが始まります",
+  "The model": "モデル",
+  "The model is still loading. You can start; audio is buffered and transcribed once it is ready.":
+    "モデルを読み込み中です。開始して構いません。音声は一時保存され、準備ができ次第まとめて文字起こしされます。",
+  "You chose to leave the GPU to what was already using it. The audio is being kept and will be transcribed when the meeting ends.":
+    "GPU を先に使っていた処理に譲る選択をしました。音声は保存され、会議の終了後に文字起こしされます。",
+  "recording only": "録音のみ",
+  "Input too loud": "入力が大きすぎます",
+  "Black out the screen. Recording continues; one touch brings it back, and it rests again by itself.":
+    "画面を消灯します。録音は続きます。触れば戻り、しばらくするとまた自動で消えます。",
+  "Black out the screen. Recording continues; one touch brings it back. Settings → Appearance can do this on its own after a while.":
+    "画面を消灯します。録音は続き、触れば戻ります。「設定 → 表示」で一定時間後に自動で消すこともできます。",
+  "Rest screen": "画面を消す",
+  Meeting: "会議",
+  "Accessing from an external network, so recording is unavailable (recording works over Tailscale only). Viewing/generating minutes, diarization, and sharing still work here.":
+    "外部ネットワークからのアクセスのため録音は使えません（録音は Tailscale 経由のみ）。議事録の閲覧・生成、話者分離、共有はここでも使えます。",
+
+  // ---- Record NOW ----
+  "Failed to start recording: {error}": "録音を開始できませんでした: {error}",
+  "Go to New meeting": "「新しい会議」へ",
+  "Minutes are being generated": "議事録を生成中です",
+  "Recording uses the GPU that minutes generation is running on. Interrupt the in-progress minutes and start recording now? You can regenerate those minutes afterward.":
+    "録音は、いま議事録の生成が使っている GPU を必要とします。生成中の議事録を中断して、すぐ録音を始めますか？　その議事録は後から作り直せます。",
+  "Keep generating": "生成を続ける",
+  "Interrupt & record": "中断して録音する",
+  "Preparing to record…": "録音の準備中…",
+
+  // ---- Printing ----
+  "Print / Save as PDF": "印刷 / PDF で保存",
+  "Back to the meeting": "会議に戻る",
+  "Choose “Save as PDF” as the destination to keep a copy.":
+    "保存したい場合は、出力先に「PDF に保存」を選んでください。",
+  "No minutes have been generated for this meeting yet.":
+    "この会議の議事録はまだ生成されていません。",
+  "Exported from Voxinq Meeting on {when}": "Voxinq Meeting から {when} に書き出し",
+
+  // ---- Adding the app to a device ----
+  "Install app": "アプリを追加",
+  "Add to home screen": "ホーム画面に追加",
+  "Adds Voxinq to this device as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it. Most worthwhile on the phone you record with.":
+    "Voxinq をこの端末に、ブラウザのバーの無い独立したウィンドウとして追加します。中身は同じアプリで、同じ機器と通信します。動かすために何かが新しく入るわけではありません。録音に使うスマートフォンで特に便利です。",
+  "Adds Voxinq to your home screen as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it.":
+    "Voxinq をホーム画面に、ブラウザのバーの無い独立したウィンドウとして追加します。中身は同じアプリで、同じ機器と通信します。動かすために何かが新しく入るわけではありません。",
+  "Add to your home screen": "ホーム画面に追加する",
+  "Tap the share button at the bottom of Safari": "Safari の下部にある共有ボタンをタップ",
+  "Choose “Add to Home Screen”": "「ホーム画面に追加」を選択",
+  "It then opens from your home screen without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it, and it still needs that machine to be on.":
+    "以降はホーム画面から、ブラウザのバー無しで開けます。中身は同じアプリで、同じ機器と通信します。動かすために何かが新しく入るわけではなく、その機器が動いている必要も変わりません。",
+  "Don’t show again": "今後表示しない",
+  "Got it": "わかりました",
+  "Queue — {n} of yours waiting or running": "順番待ち — 自分の処理が {n} 件（待機中または実行中）",
+
+  // ---- Names and tooltips the runtime sweep turned up ----
+  "Remove {name}": "{name} を削除",
+  format: "形式",
+  "{name} spoke": "{name} は発言しました",
+  "+ New speaker": "＋ 話者を追加",
+  "Enrolls each named speaker’s voiceprint from this meeting; future auto-diarize runs will name them automatically.":
+    "名前を付けた話者の声紋を、この会議から登録します。以降の自動話者分離では、その人たちに自動で名前が付きます。",
+  "Play from here ({time})": "ここから再生（{time}）",
+  "New with same settings — start a new meeting inheriting this one’s purpose, tags, and series":
+    "同じ設定で新規作成 — この会議の目的・タグ・シリーズを引き継いで新しい会議を始めます",
+  "API key not set": "API キーが未設定です",
 };

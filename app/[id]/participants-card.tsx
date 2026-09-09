@@ -113,7 +113,7 @@ export function ParticipantsCard({
                   )
                 }
                 title={p.speaking ? t("Expected to speak") : t("Attended, but did not speak")}
-                aria-label={`${p.name} spoke`}
+                aria-label={t("{name} spoke", { name: p.name })}
                 className="accent-[var(--accent)]"
               />
               <span
@@ -129,7 +129,7 @@ export function ParticipantsCard({
                   onClick={() => setPeople((prev) => prev.filter((q) => q.name !== p.name))}
                   className="text-xs text-[var(--text-muted)] hover:text-[var(--error)]"
                   title={t("Remove")}
-                  aria-label={`Remove ${p.name}`}
+                  aria-label={t("Remove {name}", { name: p.name })}
                 >
                   ✕
                 </button>

@@ -212,7 +212,7 @@ export function SttProfiles({
                         onClick={() => remove(p.id)}
                         disabled={disabled}
                         className="btn-outline px-2 py-1 text-xs text-[var(--error)]"
-                        aria-label={`Remove ${p.name || "endpoint"}`}
+                        aria-label={t("Remove {name}", { name: p.name || t("endpoint") })}
                       >
                         {t("Remove")}
                       </button>

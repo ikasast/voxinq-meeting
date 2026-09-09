@@ -66,7 +66,7 @@ export function SpeakerReassignSelect({
           {speakerName(key, labels)}
         </option>
       ))}
-      <option value={NEW_SPEAKER_VALUE}>+ New speaker</option>
+      <option value={NEW_SPEAKER_VALUE}>{t("+ New speaker")}</option>
     </select>
   );
 }

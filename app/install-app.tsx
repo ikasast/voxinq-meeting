@@ -10,6 +10,7 @@
 // because there is nothing useful to say there.
 
 import { useEffect, useState } from "react";
+import { useT } from "./locale-provider";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -37,6 +38,7 @@ function isInstalled() {
 }
 
 export function InstallApp() {
+  const t = useT();
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
   const [showIosHelp, setShowIosHelp] = useState(false);
   const [dismissed, setDismissed] = useState(true); // assume hidden until the check runs
@@ -92,8 +94,10 @@ export function InstallApp() {
       <button
         type="button"
         className="btn-icon"
-        title="Adds Voxinq to this device as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it. Most worthwhile on the phone you record with."
-        aria-label="Install app"
+        title={t(
+          "Adds Voxinq to this device as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it. Most worthwhile on the phone you record with.",
+        )}
+        aria-label={t("Install app")}
         onClick={async () => {
           await prompt.prompt();
           const { outcome } = await prompt.userChoice;
@@ -114,8 +118,10 @@ export function InstallApp() {
         <button
           type="button"
           className="btn-icon"
-          title="Adds Voxinq to your home screen as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it."
-          aria-label="Add to home screen"
+          title={t(
+            "Adds Voxinq to your home screen as its own window, without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it.",
+          )}
+          aria-label={t("Add to home screen")}
           onClick={() => setShowIosHelp(true)}
         >
           <InstallIcon />
@@ -131,22 +137,24 @@ export function InstallApp() {
               className="w-full max-w-sm rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="font-medium text-[var(--text-strong)]">Add to your home screen</p>
+              <p className="font-medium text-[var(--text-strong)]">
+                {t("Add to your home screen")}
+              </p>
               <ol className="mt-2 list-decimal space-y-1 pl-5 text-[var(--text-secondary)]">
-                <li>Tap the share button at the bottom of Safari</li>
-                <li>Choose &ldquo;Add to Home Screen&rdquo;</li>
+                <li>{t("Tap the share button at the bottom of Safari")}</li>
+                <li>{t("Choose “Add to Home Screen”")}</li>
               </ol>
               <p className="mt-2 text-xs text-[var(--text-muted)]">
-                It then opens from your home screen without the browser bars. It is the same
-                app talking to the same machine — nothing new is installed to run it, and it
-                still needs that machine to be on.
+                {t(
+                  "It then opens from your home screen without the browser bars. It is the same app talking to the same machine — nothing new is installed to run it, and it still needs that machine to be on.",
+                )}
               </p>
               <div className="mt-3 flex justify-end gap-2">
                 <button type="button" className="btn-outline text-xs" onClick={hide}>
-                  Don&rsquo;t show again
+                  {t("Don’t show again")}
                 </button>
                 <button type="button" className="btn-ink text-xs" onClick={() => setShowIosHelp(false)}>
-                  Got it
+                  {t("Got it")}
                 </button>
               </div>
             </div>

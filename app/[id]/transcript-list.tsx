@@ -840,7 +840,7 @@ export function TranscriptList({
   return (
     <details open>
       <summary className="cursor-pointer text-lg font-semibold text-[var(--text-strong)]">
-        Transcript ({transcripts.length})
+        {t("Transcript")} ({transcripts.length})
         {live ? (
           <span
             className="ml-2 inline-flex items-center gap-1.5 align-middle text-xs font-medium text-[var(--text-muted)]"
@@ -855,7 +855,7 @@ export function TranscriptList({
                 liveOffline ? "bg-[var(--text-muted)]" : "animate-pulse bg-red-500"
               }`}
             />
-            {liveOffline ? t("Reconnecting…") : "Live"}
+            {liveOffline ? t("Reconnecting…") : t("Live")}
           </span>
         ) : null}
       </summary>
@@ -873,17 +873,24 @@ export function TranscriptList({
             />
           </div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            Click a timestamp to play from that point.
+            {t("Click a timestamp to play from that point.")}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
             <span>
-              Recording:{" "}
+              {t("Recording:")}{" "}
               {recInfo.protected ? (
-                <span className="text-[var(--accent-sub)]">protected (not auto-deleted)</span>
+                <span className="text-[var(--accent-sub)]">{t("protected (not auto-deleted)")}</span>
               ) : recInfo.expiresAt ? (
-                <>auto-deletes in {remainingDays(recInfo.expiresAt)} day(s)</>
+                <>
+                  {t(
+                    remainingDays(recInfo.expiresAt) === 1
+                      ? "auto-deletes in 1 day"
+                      : "auto-deletes in {n} days",
+                    { n: remainingDays(recInfo.expiresAt) },
+                  )}
+                </>
               ) : (
-                "saved"
+                t("saved")
               )}
             </span>
             <button
@@ -922,7 +929,7 @@ export function TranscriptList({
                   onChange={(e) => setShowTranslation(e.target.checked)}
                   className="h-3.5 w-3.5 accent-[var(--accent)]"
                 />
-                Show translations
+                {t("Show translations")}
               </label>
             ) : null}
           </div>
@@ -933,7 +940,7 @@ export function TranscriptList({
                   <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
                     title={t("How many voices to look for. Left empty, the participant list decides.")}
                   >
-                    Speakers
+                    {t("Speakers")}
                     <input
                       type="number"
                       min={1}
@@ -953,7 +960,7 @@ export function TranscriptList({
                       className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-5 py-2.5 text-sm font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
                     >
                       <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
-                      {stoppingDiar ? t("Stopping…") : "Stop"}
+                      {stoppingDiar ? t("Stopping…") : t("Stop")}
                     </button>
                   ) : (
                     <button
@@ -961,9 +968,11 @@ export function TranscriptList({
                       onClick={() => void runDiarization()}
                       disabled={busy}
                       className="btn-ink"
-                      title="Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)"
+                      title={t(
+                        "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)",
+                      )}
                     >
-                      Diarize
+                      {t("Diarize")}
                     </button>
                   )}
                 </>
@@ -974,7 +983,9 @@ export function TranscriptList({
                   onClick={() => void runSuggestions()}
                   disabled={busy || suggesting}
                   className="btn-outline"
-                  title="Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line"
+                  title={t(
+                    "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
+                  )}
                 >
                   {suggesting ? t("Checking…") : t("Suggest fixes")}
                 </button>
@@ -990,7 +1001,7 @@ export function TranscriptList({
       {needsHfToken ? (
         <div className="mt-2 rounded-lg border border-[var(--warning)] bg-[var(--elevated)] p-3 text-xs">
           <p className="font-medium text-[var(--text-strong)]">
-            Speaker separation needs a Hugging Face token
+            {t("Speaker separation needs a Hugging Face token")}
           </p>
           <p className="mt-1 text-[var(--text-secondary)]">
             The model that tells speakers apart is free, but its authors require you to accept
@@ -1003,7 +1014,7 @@ export function TranscriptList({
             target="_blank"
             rel="noreferrer"
           >
-            How to set it up →
+            {t("How to set it up →")}
           </a>
         </div>
       ) : null}
@@ -1012,7 +1023,7 @@ export function TranscriptList({
       {showSpeakerTools ? (
         <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
           <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-            Speaker names (edits apply to all lines)
+            {t("Speaker names (edits apply to all lines)")}
           </p>
           <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
 
@@ -1027,8 +1038,9 @@ export function TranscriptList({
               {profileBusy ? t("Saving…") : t("Save voice profiles")}
             </button>
             <span className="text-xs text-[var(--text-muted)]">
-              Enrolls each named speaker&apos;s voiceprint from this meeting; future auto-diarize
-              runs will name them automatically.
+              {t(
+                "Enrolls each named speaker’s voiceprint from this meeting; future auto-diarize runs will name them automatically.",
+              )}
             </span>
           </div>
           {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
@@ -1089,7 +1101,7 @@ export function TranscriptList({
                   setReplaceText(e.target.value);
                   setReplacePreview(null);
                 }}
-                placeholder="NEXUS"
+                placeholder={t("e.g. NEXUS")}
                 disabled={replaceBusy}
               />
             </label>
@@ -1152,13 +1164,15 @@ export function TranscriptList({
                   </ul>
                   {replacePreview.changeCount > 5 ? (
                     <p className="mt-1 text-[var(--text-muted)]">
-                      …and {replacePreview.changeCount - 5} more
+                      {t("…and {n} more", { n: replacePreview.changeCount - 5 })}
                     </p>
                   ) : null}
                   {replacePreview.skipped.length > 0 ? (
                     <p className="mt-1 text-[var(--warning)]">
-                      {replacePreview.skipped.length} skipped — a replacement cannot empty an
-                      utterance (delete it instead) or exceed the length limit.
+                      {t(
+                        "{n} skipped — a replacement cannot empty an utterance (delete it instead) or exceed the length limit.",
+                        { n: replacePreview.skipped.length },
+                      )}
                     </p>
                   ) : null}
                 </>
@@ -1183,7 +1197,9 @@ export function TranscriptList({
         >
           {transcripts.length === 0 ? (
             <p className="mb-2 text-xs text-[var(--text-muted)]">
-              There is no transcript, but the recording remains. You can restore it from here.
+              {t(
+                "There is no transcript, but the recording remains. You can restore it from here.",
+              )}
             </p>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
@@ -1196,7 +1212,7 @@ export function TranscriptList({
                 machine. Splitting them into two controls would let you choose a combination
                 that does not exist. */}
             <label className="flex min-w-0 max-w-full items-center gap-1 text-xs text-[var(--text-muted)]">
-              Recognise with
+              {t("Recognise with")}
               <select
                 value={retransChoice}
                 onChange={(e) => setRetransChoice(e.target.value)}
@@ -1263,7 +1279,7 @@ export function TranscriptList({
                 onClick={() => void applyAllSuggestions()}
                 className="text-xs font-semibold text-[var(--accent)] hover:underline"
               >
-                Apply all
+                {t("Apply all")}
               </button>
               <button
                 type="button"
@@ -1273,7 +1289,7 @@ export function TranscriptList({
                 }}
                 className="text-xs text-[var(--text-muted)] hover:underline"
               >
-                Dismiss all
+                {t("Dismiss all")}
               </button>
             </>
           ) : null}
@@ -1390,7 +1406,7 @@ function TranscriptRow({
           <button
             type="button"
             onClick={onSeek}
-            title={`Play from here (${formatTime(item.createdAt)})`}
+            title={t("Play from here ({time})", { time: formatTime(item.createdAt) })}
             className="text-xs tabular-nums text-[var(--accent-sub)] hover:underline"
           >
             ▶ {formatOffset(elapsed)}
@@ -1460,7 +1476,7 @@ function TranscriptRow({
           />
           <div className="flex items-center justify-end gap-2">
             <span className="mr-auto text-[11px] text-[var(--text-muted)]">
-              Enter to save · Shift+Enter for a new line · Esc to cancel
+              {t("Enter to save · Shift+Enter for a new line · Esc to cancel")}
             </span>
             <button
               type="button"
@@ -1468,7 +1484,7 @@ function TranscriptRow({
               disabled={saving}
               className="rounded-md border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
             >
-              Cancel
+              {t("Cancel")}
             </button>
             <button
               type="button"
@@ -1497,14 +1513,14 @@ function TranscriptRow({
               onClick={onApplySuggestion}
               className="rounded-md bg-[var(--accent-solid)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
             >
-              Apply
+              {t("Apply")}
             </button>
             <button
               type="button"
               onClick={onDismissSuggestion}
               className="rounded-md border border-[var(--border-strong)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
             >
-              Dismiss
+              {t("Dismiss")}
             </button>
           </div>
         </div>

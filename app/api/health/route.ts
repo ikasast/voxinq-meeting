@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { translate } from "@/lib/i18n";
+import { currentLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { readSettings } from "@/lib/settings";
 
@@ -67,7 +69,7 @@ export async function GET() {
     llm: {
       ok: hasKey,
       provider: s.llmProvider,
-      detail: hasKey ? undefined : "API key not set",
+      detail: hasKey ? undefined : translate(await currentLocale(), "API key not set"),
     },
   });
 }

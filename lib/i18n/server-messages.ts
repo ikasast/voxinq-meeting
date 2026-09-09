@@ -60,6 +60,11 @@ export const SERVER_MESSAGES = [
   "backups are only available from inside your private network",
   "Remote access can only be changed from your local network.",
 
+  // Not an error at all: the health endpoint's answer, which is read out beside the LLM dot in
+  // every page header. It goes through `translate` rather than `apiError` because it is a field
+  // of a successful response — but it is read by a person, so it belongs on this list.
+  "API key not set",
+
   // Downloads.
   "no minutes to export yet",
   "nothing to export (no minutes/transcript yet)",
