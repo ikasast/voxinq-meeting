@@ -15,7 +15,14 @@ import path from "node:path";
 
 const run = promisify(execFile);
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:3000").replace(/\/+$/, "");
-const OUT = path.join(process.cwd(), "docs", "screenshots", "demo.gif");
+const LOCALE = process.env.LOCALE === "ja" ? "ja" : "en";
+const OUT = path.join(
+  process.cwd(),
+  "docs",
+  "screenshots",
+  ...(LOCALE === "ja" ? ["ja"] : []),
+  "demo.gif",
+);
 
 // The same 1600 the stills are shot at, and for the same reason: below 1536 the meeting's own
 // details stack *above* the minutes, so the last frame — the one the whole slideshow is
@@ -25,14 +32,29 @@ const VIEWPORT = { width: 1600, height: 900 };
 const WIDTH = 1100;
 const SECONDS_PER_FRAME = 2.6;
 
+const READY = {
+  en: {
+    meeting: "Weekly Product Sync",
+    newMeeting: "New meeting",
+    transcript: "Transcript",
+    minutes: "Overview",
+  },
+  ja: {
+    meeting: "プロダクト定例",
+    newMeeting: "新しい会議",
+    transcript: "発言",
+    minutes: "概要",
+  },
+};
+
 const FRAMES = [
-  { url: "/", ready: (p) => p.getByText("Weekly Product Sync").first().waitFor() },
-  { url: "/new", ready: (p) => p.getByText("New meeting").first().waitFor() },
+  { url: "/", ready: (p) => p.getByText(READY[LOCALE].meeting).first().waitFor() },
+  { url: "/new", ready: (p) => p.getByText(READY[LOCALE].newMeeting).first().waitFor() },
   {
     url: "/demo-live-recording/recording",
-    ready: (p) => p.getByText("Transcript").first().waitFor(),
+    ready: (p) => p.getByText(READY[LOCALE].transcript).first().waitFor(),
   },
-  { url: "/demo-weekly-sync", ready: (p) => p.getByText("Overview").first().waitFor() },
+  { url: "/demo-weekly-sync", ready: (p) => p.getByText(READY[LOCALE].minutes).first().waitFor() },
 ];
 
 async function main() {
@@ -44,6 +66,8 @@ async function main() {
     deviceScaleFactor: 1,
     colorScheme: "light",
     reducedMotion: "reduce",
+    locale: LOCALE === "ja" ? "ja-JP" : "en-GB",
+    extraHTTPHeaders: { "Accept-Language": LOCALE === "ja" ? "ja-JP,ja" : "en-GB,en" },
   });
   await context.addInitScript(() => {
     try {

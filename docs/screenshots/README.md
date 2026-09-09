@@ -16,10 +16,17 @@ app is for, these say what it looks like.
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
 
-The shots are English. The interface is also Japanese, and which one it speaks follows the
-setting and then the browser — so a Japanese set would come from the same script against a
-context with a Japanese `Accept-Language`. There is no such set yet; README.ja.md carries only
-`workflow.png`.
+There are two sets. `docs/screenshots/*.png` is English, for README.md; `ja/` is Japanese, for
+README.ja.md. Same script, `LOCALE=ja`, which sends a Japanese `Accept-Language` — the same
+signal a Japanese reader's own browser sends.
+
+Its own directory rather than a filename suffix: a name that differs from another only by
+`.ja` gets referenced wrongly once and stays wrong.
+
+**The demo data is Japanese too.** `LOCALE=ja node scripts/seed-demo.mjs` seeds a different
+meeting — not a translation of the English one, a meeting of the kind this app is used for. A
+Japanese README showing an English meeting demonstrates the one thing its reader does not need
+to be shown.
 
 ## Retaking the UI shots
 
@@ -36,7 +43,7 @@ docker run -d --rm --name voxinq-shots-db -p 127.0.0.1:55432:5432 \
 
 export DATABASE_URL="postgresql://voxinq:shots@127.0.0.1:55432/voxinq"
 npx prisma migrate deploy
-node scripts/seed-demo.mjs
+node scripts/seed-demo.mjs            # LOCALE=ja for the Japanese set
 
 # 2. the app, on a port nothing else wants, with auth off and its own settings file
 export VOXINQ_SETTINGS_PATH=/tmp/shots-settings.json   # not the real settings.json
@@ -52,6 +59,11 @@ npm run build && npx next start -p 3100
 npm i -D playwright && npx playwright install chromium
 BASE_URL=http://127.0.0.1:3100 node scripts/shoot-screenshots.mjs
 BASE_URL=http://127.0.0.1:3100 node scripts/shoot-demo-gif.mjs   # needs ffmpeg on PATH
+
+# The Japanese set. Re-seed first: the shots are of a Japanese meeting, not a translated one.
+LOCALE=ja node scripts/seed-demo.mjs
+BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-screenshots.mjs
+BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-demo-gif.mjs
 
 docker rm -f voxinq-shots-db     # when you are done
 ```

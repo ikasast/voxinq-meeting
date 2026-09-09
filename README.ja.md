@@ -515,6 +515,8 @@ sudo systemctl enable --now voxinq-stt
 
 ## 5. 基本的な使い方
 
+![会議一覧 → 新しい会議 → 録音（発言が下に流れる）→ 議事録、の4画面](docs/screenshots/ja/demo.gif)
+
 ### 会議を録音して議事録を作る
 
 1. **「+ New」** をクリックして会議を作成します
@@ -591,6 +593,10 @@ sudo systemctl enable --now voxinq-stt
 - 同時に何個走るかは「個数」ではなく**必要な VRAM の合計**で決まります。設定は
   **Settings → Transcription** の `vramBudgetMb`（空欄なら GPU から自動計算）
 - **録音中もこの一覧に出ます**。会議中に大きな処理が裏で始まらないのはこのためです
+
+| 録音中 | 議事録 |
+| --- | --- |
+| ![録音画面。モデルの状態、マイクの確認、下端の録音ボタン、流れていく発言](docs/screenshots/ja/recording.png) | ![会議の詳細画面。中央に議事録、右に進み具合・目的と議題・参加者・使ったモデル](docs/screenshots/ja/minutes.png) |
 
 ### 既存の録音ファイルから議事録を作る
 
