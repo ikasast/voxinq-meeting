@@ -4,13 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTimeIn } from "@/lib/i18n/format";
 import { PencilIcon, RefreshIcon } from "../icons";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopySummaryButton } from "./copy-summary-button";
 import { MinutesDownloadButton } from "./minutes-download-button";
 import { ShareButton } from "./share-button";
-import { useT } from "@/app/locale-provider";
+import { useLocale, useT } from "@/app/locale-provider";
 
 export type SummaryVersion = { id: string; text: string; createdAt: string };
 
@@ -67,6 +67,7 @@ export function SummarySection({
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(summaries[0]?.id ?? "");
   const t = useT();
+  const locale = useLocale();
   const current = useMemo(
     () => summaries.find((s) => s.id === selectedId) ?? summaries[0],
     [summaries, selectedId],
@@ -425,8 +426,8 @@ export function SummarySection({
           >
             {summaries.map((s, i) => (
               <option key={s.id} value={s.id}>
-                {formatDateTime(s.createdAt)}
-                {i === 0 ? " (latest)" : ""}
+                {formatDateTimeIn(locale, s.createdAt)}
+                {i === 0 ? ` (${t("latest")})` : ""}
               </option>
             ))}
           </select>

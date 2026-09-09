@@ -536,11 +536,16 @@ export function TranscriptList({
         if (job.status === "queued") {
           report(
             job.ahead
-              ? `Waiting — ${job.ahead} job(s) ahead of it.`
+              ? t(
+                  job.ahead === 1
+                    ? "Waiting — 1 job ahead of it."
+                    : "Waiting — {n} jobs ahead of it.",
+                  { n: job.ahead },
+                )
               : t("Waiting for the GPU to be free…"),
           );
         } else if (job.status === "running") {
-          report("Working… (you can leave this page; it finishes on the server)");
+          report(t("Working… (you can leave this page; it finishes on the server)"));
         } else {
           return job;
         }

@@ -264,6 +264,7 @@ export const ja: Record<string, string> = {
   Edit: "編集",
   Cancel: "キャンセル",
   "Version:": "版:",
+  latest: "最新",
   "Viewing an older version": "古い版を表示しています",
   "Built-in default": "組み込みの既定",
   "Same as settings": "設定と同じ",
@@ -1043,4 +1044,12 @@ export const ja: Record<string, string> = {
   "New with same settings — start a new meeting inheriting this one’s purpose, tags, and series":
     "同じ設定で新規作成 — この会議の目的・タグ・シリーズを引き継いで新しい会議を始めます",
   "API key not set": "API キーが未設定です",
+
+  // ---- The live status chip on the meeting list, written straight into the DOM ----
+  "Recording…": "録音中…",
+  "Waiting…": "待機中…",
+  "Waiting — 1 job ahead of it.": "待機中 — 前に 1 件あります。",
+  "Waiting — {n} jobs ahead of it.": "待機中 — 前に {n} 件あります。",
+  "Working… (you can leave this page; it finishes on the server)":
+    "処理中…（このページを離れても、サーバー側で最後まで実行されます）",
 };

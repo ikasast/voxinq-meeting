@@ -33,7 +33,6 @@ export function ParticipantsCard({
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const listId = `voxinq-known-speakers-${meetingId}`;
   const firstRender = useRef(true);
 
   const save = useCallback(
@@ -56,7 +55,9 @@ export function ParticipantsCard({
         setSaving(false);
       }
     },
-    [meetingId],
+    // `t` is memoised on the locale, so listing it is free — and without it `save` keeps
+    // whichever `t` existed on the first render.
+    [meetingId, t],
   );
 
   // Persist on change rather than behind a Save button: the list is small, every edit is one
@@ -82,10 +83,16 @@ export function ParticipantsCard({
 
   const speakers = people.filter((p) => p.speaking).length;
 
-  // Enrolled names not in this meeting yet. Offered as buttons rather than only as an
-  // autocomplete: picking a suggestion filled the box and then waited for Add to be pressed,
-  // which is one tap too many on a phone and reads as nothing having happened. A name here is
-  // added by touching it.
+  // Enrolled names not in this meeting yet, as buttons. One tap adds a name.
+  //
+  // This was once a `<datalist>` on the box as well, and the two overlapped badly. The box is
+  // for the person who is *not* on the list — and the moment you started typing one, a dropdown
+  // opened offering the same names again, over the buttons that already had them. Worse, it
+  // offered all of them, including people already in this meeting, which the buttons correctly
+  // leave out. On a phone the popup was also a real bug rather than only noise: it stayed on
+  // screen after the field lost focus.
+  //
+  // So: buttons for the names that exist, a plain box for the ones that do not.
   const suggestions = knownNames.filter((n) => !people.some((p) => p.name === n));
 
   return (
@@ -158,19 +165,8 @@ export function ParticipantsCard({
           ) : null}
           <div className="mt-2 flex gap-1">
             <input
-              list={listId}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              // Choosing from the autocomplete adds straight away, the same as touching a
-              // name above. Browsers report that choice as `insertReplacementText`; where one
-              // does not, the value is simply typed in and Add still works.
-              onInput={(e) => {
-                const native = e.nativeEvent as InputEvent;
-                const value = (e.target as HTMLInputElement).value;
-                if (native.inputType === "insertReplacementText" && knownNames.includes(value)) {
-                  add(value);
-                }
-              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -180,11 +176,6 @@ export function ParticipantsCard({
               placeholder={t("Add a name")}
               className="input min-w-0 flex-1 !py-1 text-sm"
             />
-            <datalist id={listId}>
-              {knownNames.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
             <button type="button" onClick={() => add()} className="btn-outline !px-2 !py-1 text-xs">
               {t("Add")}
             </button>

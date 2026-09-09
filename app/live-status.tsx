@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
+import { useT } from "./locale-provider";
 
 // Live per-meeting status on the list. Polls the STT service (which knows what the GPU is
 // doing right now) and refines each card's status label: Recording… / Transcribing… /
@@ -11,13 +12,16 @@ import { sttHttpBase } from "@/lib/stt/client";
 // left untouched here. When STT is unreachable the server baseline (e.g. "In progress") stays.
 type Kind = "recording" | "transcribe" | "diarize" | null;
 
-const LABEL: Record<"recording" | "transcribe" | "diarize", string> = {
-  recording: "Recording…",
-  transcribe: "Transcribing…",
-  diarize: "Diarizing…",
-};
+const LABEL = (
+  t: (k: string) => string,
+): Record<"recording" | "transcribe" | "diarize", string> => ({
+  recording: t("Recording…"),
+  transcribe: t("Transcribing…"),
+  diarize: t("Diarizing…"),
+});
 
 export function LiveStatus({ ids }: { ids: string[] }) {
+  const t = useT();
   const [activity, setActivity] = useState<Record<string, Kind> | null>(null);
 
   useEffect(() => {
@@ -55,14 +59,14 @@ export function LiveStatus({ ids }: { ids: string[] }) {
       const kind = activity[id];
       let label = base; // default: restore the server baseline (handles "done" -> revert)
       if (kind === "recording" || kind === "transcribe" || kind === "diarize") {
-        label = LABEL[kind];
+        label = LABEL(t)[kind];
       } else if (open) {
-        label = "Waiting…";
+        label = t("Waiting…");
       }
       el.textContent = label;
       el.className = label ? "tag-lime shrink-0" : "hidden";
     });
-  }, [activity]);
+  }, [activity, t]);
 
   return null;
 }
