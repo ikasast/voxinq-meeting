@@ -881,17 +881,23 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             deferred ? (
               <span
                 className="text-xs text-[var(--text-muted)]"
-                title="No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — nothing is lost, but the text arrives afterwards."
+                title={t(
+                  "No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — nothing is lost, but the text arrives afterwards.",
+                )}
               >
-                ● Transcribes when the meeting ends
+                ● {t("Transcribes when the meeting ends")}
               </span>
             ) : (
               <span
                 className={`text-xs ${modelReady ? "text-[var(--success)]" : "text-[var(--warning)]"}`}
                 title={
                   modelReady
-                    ? `${activeModel ?? "model"} is loaded — transcription starts right away`
-                    : "The model is still loading. You can start; audio is buffered and transcribed once it is ready."
+                    ? t("{model} is loaded — transcription starts right away", {
+                        model: activeModel ?? t("The model"),
+                      })
+                    : t(
+                        "The model is still loading. You can start; audio is buffered and transcribed once it is ready.",
+                      )
                 }
               >
                 {modelReady ? t("● Model ready") : t("◌ Loading model…")}
@@ -905,9 +911,11 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             {recordOnly ? (
               <span
                 className="text-xs text-[var(--warning)]"
-                title="You chose to leave the GPU to what was already using it. The audio is being kept and will be transcribed when the meeting ends."
+                title={t(
+                  "You chose to leave the GPU to what was already using it. The audio is being kept and will be transcribed when the meeting ends.",
+                )}
               >
-                recording only
+                {t("recording only")}
               </span>
             ) : null}
             {active ? (
@@ -931,7 +939,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             ) : null}
             {active && clipping ? (
               <span className="text-[10px] font-medium text-[var(--warning)]">
-                Input too loud
+                {t("Input too loud")}
               </span>
             ) : null}
           </div>
@@ -943,11 +951,15 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
               className="btn-outline px-3 py-1.5 text-xs"
               title={
                 restAfter > 0
-                  ? "Black out the screen. Recording continues; one touch brings it back, and it rests again by itself."
-                  : "Black out the screen. Recording continues; one touch brings it back. Settings → Appearance can do this on its own after a while."
+                  ? t(
+                      "Black out the screen. Recording continues; one touch brings it back, and it rests again by itself.",
+                    )
+                  : t(
+                      "Black out the screen. Recording continues; one touch brings it back. Settings → Appearance can do this on its own after a while.",
+                    )
               }
             >
-              Rest screen
+              {t("Rest screen")}
             </button>
           ) : null}
 
@@ -958,14 +970,14 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-2 py-1 text-xs text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
           >
             <option value="mic">{t("Microphone")}</option>
-            {displaySupported ? <option value="display">PC audio</option> : null}
+            {displaySupported ? <option value="display">{t("PC audio")}</option> : null}
             {displaySupported ? <option value="both">{t("Mic + PC audio")}</option> : null}
           </select>
 
           {/* No link to the meeting page here: navigating away unmounts this page and drops
               the recording. Leave the meeting via the end actions at the bottom. */}
           <div className="min-w-0 flex-1 truncate text-right text-sm font-medium text-[var(--text-strong)]">
-            {title || "Meeting"}
+            {title || t("Meeting")}
           </div>
         </div>
       </div>
@@ -981,8 +993,9 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
 
       {external ? (
         <div className="rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] px-3 py-2 text-sm text-[var(--warning)]">
-          Accessing from an external network, so <strong>recording is unavailable</strong> (recording works
-          over Tailscale only). Viewing/generating minutes, diarization, and sharing still work here.
+          {t(
+            "Accessing from an external network, so recording is unavailable (recording works over Tailscale only). Viewing/generating minutes, diarization, and sharing still work here.",
+          )}
         </div>
       ) : null}
 
@@ -1074,7 +1087,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             onClick={() => setLastError(null)}
             className="text-xs hover:opacity-80"
           >
-            Close
+            {t("Close")}
           </button>
         </div>
       ) : null}

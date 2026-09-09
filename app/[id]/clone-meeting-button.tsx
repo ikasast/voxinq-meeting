@@ -44,7 +44,9 @@ export function CloneMeetingButton({
       type="button"
       onClick={clone}
       disabled={busy}
-      title="New with same settings — start a new meeting inheriting this one's purpose, tags, and series"
+      title={t(
+        "New with same settings — start a new meeting inheriting this one’s purpose, tags, and series",
+      )}
       aria-label={t("New with same settings")}
       className="btn-icon"
     >

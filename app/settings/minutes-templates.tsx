@@ -136,7 +136,7 @@ export function MinutesTemplates({
                         onClick={() => remove(tpl.id)}
                         disabled={disabled}
                         className="btn-outline px-2 py-1 text-xs text-[var(--error)]"
-                        aria-label={`Remove ${tpl.name || "format"}`}
+                        aria-label={t("Remove {name}", { name: tpl.name || t("format") })}
                       >
                         {t("Remove")}
                       </button>

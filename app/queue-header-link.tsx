@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { QueueIcon } from "./icons";
+import { useT } from "./locale-provider";
 
 // The queue, from a phone.
 //
@@ -47,13 +48,18 @@ export function useMyQueueCount(): number {
 }
 
 export function QueueHeaderLink() {
+  const t = useT();
   const mine = useMyQueueCount();
   return (
     <Link
       href="/queue"
       className="btn-icon relative"
-      title={mine > 0 ? `Queue — ${mine} of yours waiting or running` : "Queue"}
-      aria-label="Queue"
+      title={
+        mine > 0
+          ? t("Queue — {n} of yours waiting or running", { n: mine })
+          : t("Queue")
+      }
+      aria-label={t("Queue")}
     >
       <QueueIcon />
       {mine > 0 ? (

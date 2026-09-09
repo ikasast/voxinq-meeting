@@ -70,7 +70,7 @@ function HeaderNav({
       <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3">
         <Link
           href="/"
-          aria-label="Voxinq Meeting home"
+          aria-label={t("Voxinq Meeting home")}
           className="flex items-center"
         >
           {/* Show the logo per theme (.logo-dark/.logo-light in globals.css) */}
