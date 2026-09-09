@@ -131,7 +131,7 @@ export default async function MeetingDetailPage({
           </Link>
           {!meeting.endedAt && !external ? (
             <Link href={`/${meeting.id}/recording`} className="btn-ink">
-              Recording screen
+              {t("Recording screen")}
             </Link>
           ) : null}
           {meeting.endedAt && !external ? (
