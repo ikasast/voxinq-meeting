@@ -67,6 +67,14 @@ const VIA_MEETING = new Set([
 const VIA_MEETINGS_LIST = new Set(["tag", "series"]);
 
 /**
+ * Hangs off a series, so it is reachable by the same people the series is.
+ *
+ * One more hop than the sets above, which is why it needs its own: the condition has to go
+ * through `series` before it can ask about meetings.
+ */
+const VIA_SERIES = new Set(["seriesMember"]);
+
+/**
  * Looking one row up by its id, which cannot simply be narrowed.
  *
  * `findUnique` accepts only a unique field in its `where` — adding `ownerId` beside the id is
@@ -116,6 +124,7 @@ function conditionFor(model: string, userId: string): Record<string, unknown> | 
   if (OWNED.has(model)) return { ownerId: userId };
   if (VIA_MEETING.has(model)) return { meeting: { ownerId: userId } };
   if (VIA_MEETINGS_LIST.has(model)) return { meetings: { some: { ownerId: userId } } };
+  if (VIA_SERIES.has(model)) return { series: { meetings: { some: { ownerId: userId } } } };
   return null;
 }
 

@@ -69,7 +69,7 @@ export function TranscriptList({
   initialTranscripts,
   initialSpeakerLabels,
   seriesGlossary,
-  globalGlossary,
+  hasCorrectionTerms,
   readOnly = false,
 }: {
   meetingId: string;
@@ -84,10 +84,12 @@ export function TranscriptList({
   upcoming?: boolean;
   initialTranscripts: Item[];
   initialSpeakerLabels: string | null;
-  seriesGlossary: string | null;
   // Global glossary from settings. Passed in (rather than fetched) only to decide whether
   // "Suggest fixes" has anything to check against.
-  globalGlossary: string;
+  /** The series' own terms, for Whisper's initial_prompt on a re-transcription. */
+  seriesGlossary: string | null;
+  /** Whether anything is known to be a proper noun here — see lib/correction-terms.ts. */
+  hasCorrectionTerms: boolean;
   // External (read-only) access can view/play/share but not diarize, re-transcribe or reassign.
   readOnly?: boolean;
 }) {
@@ -152,7 +154,6 @@ export function TranscriptList({
   );
 
   // Checking for misheard glossary terms needs a glossary to check against.
-  const hasGlossary = Boolean(globalGlossary.trim() || seriesGlossary?.trim());
 
   // Suggestions are keyed by utterance so a row can render its own.
   const suggestionByT = useMemo(() => {
@@ -986,15 +987,21 @@ export function TranscriptList({
                   )}
                 </>
               ) : null}
-              {transcripts.length > 0 && hasGlossary ? (
+              {transcripts.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => void runSuggestions()}
                   disabled={busy || suggesting}
                   className="btn-outline"
-                  title={t(
-                    "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
-                  )}
+                  title={
+                    hasCorrectionTerms
+                      ? t(
+                          "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
+                        )
+                      : t(
+                          "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.",
+                        )
+                  }
                 >
                   {suggesting ? t("Checking…") : t("Suggest fixes")}
                 </button>

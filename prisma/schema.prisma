@@ -268,16 +268,48 @@ model Job {
   @@map("jobs")
 }
 
+// A recurring meeting, and the things every instance of it has in common.
+//
+// **Shared, and in the clear.** A series has no owner: `lib/prisma.ts` lists it as a label
+// rather than content, so somebody sees a series when they have a meeting in it. That makes
+// `description` and `members` visible to exactly the people who attend it — which is what a
+// recurring meeting's background is for — and it means neither is encrypted, the same as a
+// meeting's own agenda. Anything that should not be readable by the other people in the series
+// belongs in the meeting, not here.
 model Series {
   id            String   @id @default(cuid())
   name          String   @unique
   summaryFormat String?  @map("summary_format") // per-series minutes format (overrides the global setting)
   sttGlossary   String?  @map("stt_glossary") // per-series terms for Whisper initial_prompt (appended to the global glossary)
+  // What every meeting in the series shares: what it is for, who the parties are, what was
+  // settled long ago. Passed to the LLM alongside the meeting's own agenda when minutes are
+  // written, and read for proper nouns when the transcript is checked against the glossary.
+  description   String?
   createdAt     DateTime @default(now()) @map("created_at")
 
   meetings Meeting[]
+  members  SeriesMember[]
 
   @@map("series")
+}
+
+// The people who are always in this series.
+//
+// Copied onto a new meeting when it is filed under the series, rather than referenced: who was
+// actually in the room on a given day is a fact about that day, and a member who leaves the
+// project must not rewrite the record of meetings they did attend. The copy is the point.
+model SeriesMember {
+  id        String   @id @default(cuid())
+  seriesId  String   @map("series_id")
+  name      String
+  position  Int      @default(0) // display order, as entered
+  createdAt DateTime @default(now()) @map("created_at")
+
+  series Series @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([seriesId, name])
+  @@index([seriesId])
+  @@map("series_members")
 }
 
 // User-defined meeting tags (unique by name). Many-to-many with meetings.

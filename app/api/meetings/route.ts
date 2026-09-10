@@ -1,3 +1,4 @@
+import { applySeriesMembers } from "@/lib/series";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
@@ -94,6 +95,11 @@ export async function POST(req: NextRequest) {
         ? { connectOrCreate: { where: { name: seriesName }, create: { name: seriesName } } }
         : undefined,
     },
+    // Needed to copy the series' members onto it below, and harmless to select.
+    include: { series: { select: { id: true } } },
   });
+  // The people who are always in this series, so diarization is told how many voices to expect
+  // and the enrolled voiceprints can name them — without anybody retyping the same five names.
+  if (created.series) await applySeriesMembers(created.id, created.series.id);
   return NextResponse.json(created, { status: 201 });
 }

@@ -1055,4 +1055,27 @@ export const ja: Record<string, string> = {
   "Waiting — {n} jobs ahead of it.": "待機中 — 前に {n} 件あります。",
   "Working… (you can leave this page; it finishes on the server)":
     "処理中…（このページを離れても、サーバー側で最後まで実行されます）",
+
+  "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.":
+    "探す語が必要です。「設定 → 文字起こし」の用語、またはこの会議が属するシリーズに登録してください。",
+  // ---- The series list, and what a series holds in common ----
+  "A series is a meeting that keeps happening. What every instance of it has in common — the background, the regular members, the minutes format, the terms — is set once on its own page and applied to each meeting filed under it.":
+    "シリーズとは、繰り返し開かれる会議のことです。毎回共通する事項 — 背景・常任メンバー・議事録の形式・用語 — はシリーズのページで一度だけ設定し、そのシリーズに入れた各会議に適用されます。",
+  "No series yet. Name one on a meeting — under Purpose & agenda — and it appears here.":
+    "シリーズはまだありません。会議の「目的と議題」でシリーズ名を付けると、ここに出てきます。",
+  "1 meeting": "会議 1件",
+  "{n} meetings": "会議 {n}件",
+  "1 member": "メンバー 1人",
+  "{n} members": "メンバー {n}人",
+  "last met {when}": "最終 {when}",
+  "Shared background": "共通の背景",
+  "What every meeting in this series has in common: what it is for, who the parties are, what was settled long ago.":
+    "このシリーズのどの会議にも共通すること: 何のための会議か、関係者は誰か、以前から決まっていること。",
+  "Passed to the LLM alongside each meeting's own agenda when minutes are written, and read for proper nouns when the transcript is checked against the glossary.":
+    "議事録を作るときに、各会議自身の議題と並べて LLM に渡されます。発言を用語集と突き合わせるときにも固有名詞として読まれます。",
+  "Readable by everybody who has a meeting in this series, and not encrypted. Anything private belongs on the meeting instead.":
+    "このシリーズに会議を持っている人全員が読めます。暗号化されません。人に見せたくないことは、シリーズではなく会議側に書いてください。",
+  "Regular members": "常任メンバー",
+  "Copied onto each new meeting filed under this series, so diarization knows how many voices to expect and enrolled voiceprints name them. Who was actually there is still edited per meeting.":
+    "このシリーズに入れた新しい会議へ複写されます。話者分離が想定する人数になり、登録済みの声紋があれば名前も付きます。実際に誰がいたかは会議ごとに直せます。",
 };

@@ -6,6 +6,19 @@ function contextSection(description?: string | null): string {
   return `\n\nこの会議の目的・内容（メタ情報）は以下の通りです。議事録作成の際は必ず考慮してください。\n"""\n${description.trim()}\n"""`;
 }
 
+/**
+ * What the series shares, kept separate from what this meeting is about.
+ *
+ * Two sections rather than one concatenated blob, and labelled: the background of a project is
+ * standing context — read it to understand the words — while the meeting's own agenda is what
+ * today was supposed to cover. A model handed both under one heading writes the series'
+ * background into every set of minutes as if it had been discussed.
+ */
+function seriesSection(background?: string | null): string {
+  if (!background || !background.trim()) return "";
+  return `\n\nこの会議は継続的なシリーズの一回です。シリーズ全体に共通する背景は以下の通りです。**用語や関係者を理解するための前提**として読み、議事録には今回話された事項だけを書いてください。\n"""\n${background.trim()}\n"""`;
+}
+
 const LANGUAGE_NAME: Record<string, string> = {
   ja: "日本語",
   en: "英語（English）",
@@ -39,7 +52,14 @@ const DETAIL_GUIDANCE: Record<string, string> = {
 
 export function buildSummarySystemPrompt(
   description?: string | null,
-  opts?: { multiSpeaker?: boolean; language?: string; format?: string; detail?: string },
+  opts?: {
+    multiSpeaker?: boolean;
+    language?: string;
+    format?: string;
+    detail?: string;
+    /** The series' shared background, if this meeting is in one. */
+    seriesBackground?: string | null;
+  },
 ): string {
   const speakerRule = opts?.multiSpeaker
     ? "発言者を明示する場合は会話ログ中の話者名（例:「自分」「話者1」、または設定された名前）を使ってください。"
@@ -57,7 +77,7 @@ export function buildSummarySystemPrompt(
   const detailSection = detailRule ? `\n\n## 詳しさ\n${detailRule}` : "";
 
   return `あなたは会議の書記アシスタントです。
-渡された会議の発言ログ（音声認識の生テキスト）を読み、**要約した**議事録を Markdown で生成してください。${contextSection(description)}
+渡された会議の発言ログ（音声認識の生テキスト）を読み、**要約した**議事録を Markdown で生成してください。${seriesSection(opts?.seriesBackground)}${contextSection(description)}
 
 **出力は必ず${langName}で書いてください。** 発言ログが何語であっても、議事録は${langName}で生成します（見出しも${langName}）。
 

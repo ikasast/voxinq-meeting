@@ -31,7 +31,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
       speakerLabels: true,
       seriesId: true,
       startedAt: true,
-      series: { select: { summaryFormat: true } },
+      series: { select: { summaryFormat: true, description: true } },
     },
   });
   if (!meeting) throw new Error("meeting not found");
@@ -79,6 +79,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
       transcripts,
       {
         description: meeting.description,
+        seriesBackground: meeting.series?.description,
         speakerLabels: parseSpeakerLabels(meeting.speakerLabels),
         detail,
         provider,
