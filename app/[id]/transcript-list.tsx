@@ -898,14 +898,18 @@ export function TranscriptList({
                 t("saved")
               )}
             </span>
-            <button
-              type="button"
-              onClick={() => void toggleProtect()}
-              disabled={recBusy}
-              className="rounded-md border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-            >
-              {recBusy ? t("Updating…") : recInfo.protected ? t("Unprotect") : t("Protect")}
-            </button>
+            {/* Not from outside: keeping a recording is not on the external allow-list, so
+                this answered 403 — a button that cannot do the thing it names. */}
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={() => void toggleProtect()}
+                disabled={recBusy}
+                className="rounded-md border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+              >
+                {recBusy ? t("Updating…") : recInfo.protected ? t("Unprotect") : t("Protect")}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

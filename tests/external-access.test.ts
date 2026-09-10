@@ -111,3 +111,46 @@ describe("the new-meeting screen", () => {
     expect(form).toMatch(/router\.push\(`\/\$\{meeting\.id\}`\)/);
   });
 });
+
+describe("the screen agrees with the list", () => {
+  // The half that was missing for a release and a half. `EXTERNAL_WRITES` opened up the title,
+  // the agenda and the participants on purpose — and the meeting page went on handing those
+  // three components `readOnly={external}`, so from outside the API allowed the write and the
+  // UI offered no way to make it. A booked meeting could be created from a laptop and then not
+  // filled in, which is the whole reason for booking it from a laptop.
+  //
+  // Two lists, one file each, and nothing but this test holding them together.
+
+  const page = readFileSync(join(root, "app/[id]/page.tsx"), "utf8");
+
+  const editableFromOutside = ["MeetingTitle", "MeetingMeta", "ParticipantsCard"];
+  const readOnlyFromOutside = ["SummarySection", "TranscriptList", "MeetingListPane"];
+
+  /** The props passed to `<Name …>` on the meeting page. */
+  function props(name: string): string {
+    const at = page.indexOf(`<${name}`);
+    expect(at, `${name} is not on the meeting page`).toBeGreaterThan(-1);
+    return page.slice(at, page.indexOf("/>", at) + 2);
+  }
+
+  it.each(editableFromOutside)("%s is editable from outside", (name) => {
+    // Its write is on the allow-list, so hiding the control is the app refusing something it
+    // permits.
+    expect(props(name)).not.toContain("readOnly={external}");
+  });
+
+  it.each(readOnlyFromOutside)("%s stays read-only from outside", (name) => {
+    // Minutes and diarization run on the GPU; the transcript belongs to a recording made in
+    // there. None of those writes are on the list, so offering them is a button that 403s.
+    expect(props(name)).toContain("readOnly={external}");
+  });
+
+  it("does not offer to keep a recording from outside", () => {
+    // `POST /api/recordings/…/protect` is not on the list either, and the button was rendered
+    // regardless — it answered 403.
+    const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
+    const at = list.indexOf("toggleProtect()");
+    expect(list.slice(Math.max(0, at - 400), at)).toContain("!readOnly");
+    expect(allowedFromOutside("POST", "/api/recordings/abc/protect")).toBe(false);
+  });
+});
