@@ -36,6 +36,8 @@ export function SetupForm() {
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
       // The account exists and is signed in; the code is shown before going anywhere, because
       // this is the only moment it exists outside the reader's own notes.
+      // A full load either way once the code is out of the way: this browser is signed in
+      // now, and every page on screen was rendered for one that was not.
       if (d?.recoveryCode) setRecoveryCode(d.recoveryCode);
       else window.location.href = "/";
     } catch (e) {

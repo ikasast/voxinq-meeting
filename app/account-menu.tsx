@@ -67,6 +67,8 @@ export function AccountMenu({
 
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    // A full load, not router.push: the session cookie is gone and the proxy has to be asked
+    // again what this browser may see.
     window.location.href = "/login";
   };
 
