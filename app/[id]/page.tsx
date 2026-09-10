@@ -13,6 +13,7 @@ import { ArchiveButton } from "./archive-button";
 import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 import { DownloadMeetingButton } from "./download-meeting-button";
+import { FirstRunGuide } from "./first-run-guide";
 import { ResumeRecordingButton } from "./resume-recording-button";
 import { MeetingAside } from "./meeting-aside";
 import { MeetingFactsCard } from "./meeting-facts-card";
@@ -183,6 +184,12 @@ export default async function MeetingDetailPage({
 
       <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] 2xl:items-start">
       <div className="min-w-0 space-y-6">
+
+      {/* Only on the sample, and only from inside: it names buttons an external browser is not
+          shown. Above the minutes because it is the reason somebody is on this page. */}
+      {meeting.sample && !external ? (
+        <FirstRunGuide recordingHref={`/${meeting.id}/recording`} />
+      ) : null}
 
       <section className="card p-5">
         <SummarySection

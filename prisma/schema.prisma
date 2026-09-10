@@ -176,6 +176,13 @@ model Meeting {
   ownerId String? @map("owner_id")
   owner   User?   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
 
+  /// Made by "create a sample meeting", not by anybody attending anything.
+  ///
+  /// A column rather than a tag: a tag is user data, would sit in the tag filter beside real
+  /// ones, and would have to be written in some language. This is what the row *is*, so
+  /// removing the samples is exact and cannot take a real meeting with it.
+  sample Boolean @default(false)
+
   id                        String    @id @default(cuid())
   title                     String
   description               String?   @map("description") // meta info such as the meeting's purpose/contents

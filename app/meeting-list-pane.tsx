@@ -20,6 +20,7 @@ import { MeetingCalendar } from "./meeting-calendar";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
 import { RecordingBadges } from "./recording-badges";
+import { SampleMeetingButton } from "./sample-meeting-button";
 import { SwipeableRow } from "./swipeable-row";
 import { TagFilter } from "./tag-filter";
 
@@ -584,9 +585,12 @@ export async function MeetingListPane({
 
       {/* A picked day with nothing on it has already said so, in the band above. */}
       {meetings.length === 0 && !activeDate ? (
-        <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
+        <div className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
           {filtering ? t("No matching meetings.") : t("No meetings yet.")}
-        </p>
+          {/* Not while filtering: the list is empty because of the filter, not because there
+              is nothing here. And not from outside, where creating rows is not allowed. */}
+          {!filtering && !readOnly ? <SampleMeetingButton /> : null}
+        </div>
       ) : meetings.length === 0 ? null : (
         <ul className="space-y-2">{entries}</ul>
       )}

@@ -1084,4 +1084,36 @@ export const ja: Record<string, string> = {
   "Notify me on this device": "この端末で通知を受け取る",
   "Show these on this device even when the app is not the window you are looking at. Needs the browser or the installed app to be running — there is no outside push service.":
     "このアプリを見ていないときでも、この端末に通知を出します。ブラウザ（またはインストールしたアプリ）が動いている必要があります — 外部のプッシュ配信は使いません。",
+
+  // ---- The sample meeting, and the card that says what to press on it ----
+  "Create a sample meeting": "サンプル会議を作る",
+  "A finished meeting with real transcript text, to try everything on before a real one.":
+    "発言入りの終了済みの会議です。本番の前に、これで全機能を試せます。",
+  "Could not create the sample meeting.": "サンプル会議を作成できませんでした。",
+  "Sample meetings can only be created from inside your private network.":
+    "サンプル会議は、プライベートネットワークの中からのみ作成できます。",
+  "Sample meetings can only be removed from inside your private network.":
+    "サンプル会議は、プライベートネットワークの中からのみ削除できます。",
+  "There is already a sample meeting. Delete it to make a fresh one.":
+    "サンプル会議は既にあります。作り直すには、先に削除してください。",
+  "Your first run": "はじめての1回",
+  "This is sample data. Everything below is the real thing acting on it, so break it as much as you like — then delete it from the meeting list.":
+    "これはサンプルデータです。下にあるものはすべて本物の機能で、このデータに対して動きます。好きなだけ壊してかまいません。終わったら会議一覧から削除してください。",
+  "The speaker names": "話者の名前",
+  "Three speakers, already separated — this is what diarization produces. Rename one and every line by that person changes with it.":
+    "3人の話者が既に分かれています。これが話者分離の結果です。名前を変えると、その人の発言すべてに反映されます。",
+  "Two product names in here are written the way speech recognition mishears them. This asks the model to find exactly those and offers each as a change you accept or refuse.":
+    "この発言には、音声認識が聞き間違えた形の製品名が2つ入っています。それだけをモデルに探させ、1件ずつ「適用する／しない」を選べる形で出します。",
+  "For a word that came out wrong the same way throughout. Preview shows every line it would touch before anything changes.":
+    "同じ語が同じように間違って出ているときに使います。プレビューで、変更前に対象の行がすべて見えます。",
+  "Nothing is written yet — pressing this runs the real model on the text above. A meeting this short takes seconds; a real one takes longer and waits in the queue.":
+    "議事録はまだありません。押すと、上の発言に対して本物のモデルが走ります。これくらい短い会議なら数秒で、実際の会議はもっとかかり、順番待ちに入ります。",
+  "Share, or download": "共有、または書き出し",
+  "Markdown, Word or PDF, and the meeting's own ⬇ bundles the transcript with it.":
+    "Markdown・Word・PDF で出せます。会議自体の ⬇ なら、発言もまとめて1つにできます。",
+  "Recording and separating speakers are not on this list because both need the audio, and a sample meeting has none.":
+    "録音と話者分離がこの一覧に無いのは、どちらも音声そのものを必要とし、サンプル会議には音声が無いためです。",
+  "Record a real one": "実際に録音してみる",
+  "to try those — check the microphone first, which is the one step worth never skipping.":
+    "と、その2つも試せます。先にマイクの確認だけはしてください。省いてよい手順ではない唯一のものです。",
 };
