@@ -65,6 +65,11 @@ export const SERVER_MESSAGES = [
   // of a successful response — but it is read by a person, so it belongs on this list.
   "API key not set",
 
+  // The sample meeting somebody learns on.
+  "Sample meetings can only be created from inside your private network.",
+  "Sample meetings can only be removed from inside your private network.",
+  "There is already a sample meeting. Delete it to make a fresh one.",
+
   // Downloads.
   "no minutes to export yet",
   "nothing to export (no minutes/transcript yet)",
