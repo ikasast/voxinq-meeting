@@ -55,6 +55,7 @@ export function ResetForm({ token }: { token: string }) {
         setNewCode(d.recoveryCode);
         return;
       }
+      // Signed in now, so the proxy and every server component have to be asked again.
       window.location.href = "/";
     } catch (e) {
       setError((e as Error).message);

@@ -55,6 +55,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
     setBusy(true);
     try {
       await fetch("/api/auth/password", { method: "DELETE" });
+      // Every session is gone, including this one — so the proxy has to re-evaluate.
       window.location.href = "/login";
     } catch {
       setBusy(false);
