@@ -59,7 +59,7 @@ describe("what a transcript is checked against", () => {
     expect(correctionTerms({ globalGlossary: "A, AB", series: null })).toEqual(["AB"]);
   });
 
-  it("is empty when there is nothing to check, so the button can be hidden", () => {
+  it("is empty when there is nothing to check, which the tooltip reads", () => {
     expect(correctionTerms({ globalGlossary: "  ", series: null })).toEqual([]);
     expect(correctionGlossary({ globalGlossary: "", series: null })).toBe("");
   });
@@ -70,6 +70,31 @@ describe("what a transcript is checked against", () => {
     // and the function has no way to be given it.
     const src = readFileSync(join(root, "lib/correction-terms.ts"), "utf8");
     expect(src).not.toMatch(/\bdescription\b\s*[?:]/);
+  });
+});
+
+describe("the button is not hidden by the thing it configures", () => {
+  // It used to render only when there was already something to check against. Measured on the
+  // reporting instance: the machine glossary was `""` and no account had an override, so the
+  // control did not exist and nothing on the screen said the feature did — "where is the
+  // button?" was the only question available, and it took a database query to answer.
+  //
+  // A feature that hides itself exactly when somebody has not configured it cannot be found by
+  // the people who need it.
+  it("is offered whenever there is a transcript", () => {
+    const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
+    const at = list.indexOf("runSuggestions()");
+    const gate = list.slice(Math.max(0, at - 300), at);
+    expect(gate).toContain("transcripts.length > 0 ?");
+    expect(gate).not.toContain("hasCorrectionTerms ?");
+  });
+
+  it("says what it wants instead", () => {
+    // With no terms the tooltip names the two places to put them, and pressing it costs one
+    // 400 and no GPU.
+    const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
+    expect(list).toContain("Needs some terms to look for.");
+    expect(list).toContain("hasCorrectionTerms");
   });
 });
 

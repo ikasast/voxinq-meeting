@@ -987,15 +987,21 @@ export function TranscriptList({
                   )}
                 </>
               ) : null}
-              {transcripts.length > 0 && hasCorrectionTerms ? (
+              {transcripts.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => void runSuggestions()}
                   disabled={busy || suggesting}
                   className="btn-outline"
-                  title={t(
-                    "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
-                  )}
+                  title={
+                    hasCorrectionTerms
+                      ? t(
+                          "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
+                        )
+                      : t(
+                          "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.",
+                        )
+                  }
                 >
                   {suggesting ? t("Checking…") : t("Suggest fixes")}
                 </button>

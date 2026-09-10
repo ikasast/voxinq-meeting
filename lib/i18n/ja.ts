@@ -1056,6 +1056,8 @@ export const ja: Record<string, string> = {
   "Working… (you can leave this page; it finishes on the server)":
     "処理中…（このページを離れても、サーバー側で最後まで実行されます）",
 
+  "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.":
+    "探す語が必要です。「設定 → 文字起こし」の用語、またはこの会議が属するシリーズに登録してください。",
   // ---- The series list, and what a series holds in common ----
   "A series is a meeting that keeps happening. What every instance of it has in common — the background, the regular members, the minutes format, the terms — is set once on its own page and applied to each meeting filed under it.":
     "シリーズとは、繰り返し開かれる会議のことです。毎回共通する事項 — 背景・常任メンバー・議事録の形式・用語 — はシリーズのページで一度だけ設定し、そのシリーズに入れた各会議に適用されます。",
