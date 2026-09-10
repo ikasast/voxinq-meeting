@@ -2,15 +2,18 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Picking an enrolled name adds it. It used to fill the box and wait for Add to be pressed,
-// which on a phone is one tap too many and reads as the tap not having registered.
+// Two ways in, for two different people: a button per enrolled name, and a plain box for
+// somebody who has never been diarized here.
 //
-// Two routes in, because the browser decides which one a person gets: a button per name, which
-// works everywhere, and the autocomplete on the box, which reports a chosen suggestion as
-// `insertReplacementText`. Where a browser does not report it, the name is simply left in the
-// box and Add still works — so the fallback has to stay too.
+// It used to be three, and the third fought the other two. The box also carried a `<datalist>`
+// of the same enrolled names — so typing a name that was *not* on the list opened a dropdown
+// offering names that were, on top of the buttons already showing them. It listed all of them,
+// including people already in this meeting, which the buttons correctly leave out. And on a
+// phone the popup outlived the field it belonged to and sat on the page.
 
 const src = readFileSync(join(__dirname, "..", "app/[id]/participants-card.tsx"), "utf8");
+// The file's own comment names what was removed, so the assertions below read the code.
+const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 describe("adding a participant", () => {
   it("offers the enrolled names as something to touch", () => {
@@ -20,11 +23,13 @@ describe("adding a participant", () => {
     expect(src).toMatch(/onClick=\{\(\) => add\(n\)\}/);
   });
 
-  it("adds on choosing from the autocomplete, not on pressing Add afterwards", () => {
-    expect(src).toContain('native.inputType === "insertReplacementText"');
-    // Guarded by the known list: a paste is also a replacement, and pasting half a sentence
-    // into the box must not put it in the meeting.
-    expect(src).toContain("knownNames.includes(value)");
+  it("leaves the box free of an autocomplete", () => {
+    // The box is for the name the buttons do not have. A dropdown of the buttons' own contents
+    // covering it is the opposite of what it is for.
+    expect(code).not.toContain("<datalist");
+    expect(code).not.toMatch(/\blist=\{/);
+    // And with no autocomplete there is no chosen-suggestion event to handle.
+    expect(code).not.toContain("insertReplacementText");
   });
 
   it("still takes a name that is not enrolled", () => {

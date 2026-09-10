@@ -1,4 +1,5 @@
-import { formatDurationMs } from "@/lib/utils";
+import { formatDurationIn } from "@/lib/i18n/format";
+import { currentLocale } from "@/lib/i18n/server";
 import { serverT } from "@/lib/i18n/server";
 
 // Where this meeting has got to.
@@ -53,12 +54,13 @@ export async function ProgressCard({
   summaryStatus: string | null;
 }) {
   const t = await serverT();
+  const locale = await currentLocale();
   const steps: Step[] = [
 
     {
       label: t("Recorded"),
       state: ended || transcriptCount > 0 ? "done" : "not-run",
-      detail: recordedMs ? (formatDurationMs(recordedMs) ?? undefined) : undefined,
+      detail: recordedMs ? (formatDurationIn(locale, recordedMs) ?? undefined) : undefined,
     },
     {
       label: t("Transcribed"),

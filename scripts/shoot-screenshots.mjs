@@ -1,7 +1,8 @@
 // Retake the README screenshots from a running Voxinq instance.
 //
-//   node scripts/seed-demo.mjs            # fictional meetings to photograph
-//   node scripts/shoot-screenshots.mjs    # writes docs/screenshots/*.png
+//   node scripts/seed-demo.mjs               # fictional meetings to photograph
+//   node scripts/shoot-screenshots.mjs       # writes docs/screenshots/*.png
+//   LOCALE=ja node scripts/shoot-screenshots.mjs   # …and docs/screenshots/ja/*.png
 //
 // Point it somewhere other than production with BASE_URL. The instance wants demo data and
 // no password gate; docs/screenshots/README.md has the whole recipe, including how to stand
@@ -14,7 +15,14 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 const BASE = (process.env.BASE_URL ?? "http://127.0.0.1:3000").replace(/\/+$/, "");
-const OUT = path.join(process.cwd(), "docs", "screenshots");
+
+// Which language the app is photographed in. It follows the browser, so this is one header —
+// the same signal a Japanese reader's own browser sends. The Japanese set lands in its own
+// directory rather than beside the English one: README.ja.md points at it, and a filename that
+// differs only by a suffix is the kind of thing that gets referenced wrongly once and stays
+// wrong.
+const LOCALE = process.env.LOCALE === "ja" ? "ja" : "en";
+const OUT = path.join(process.cwd(), "docs", "screenshots", ...(LOCALE === "ja" ? ["ja"] : []));
 
 // Wide enough for the layout the app is actually designed around: the rail, the meeting list,
 // the content and the meeting's own details, all at once. Below 1536 the right-hand details
@@ -24,17 +32,34 @@ const VIEWPORT = { width: 1600, height: 900 };
 const SCALE = 2; // retina, so the images stay sharp when GitHub scales them down
 const MAX_HEIGHT = 1400; // past this a README image is scaled down too far to read
 
+// What each shot waits for, per language. A meeting's own title is the same in both; a heading
+// the app writes is not.
+const READY = {
+  en: {
+    meeting: "Weekly Product Sync",
+    transcript: "Transcript",
+    settings: "Transcription",
+    progress: "Progress",
+  },
+  ja: {
+    meeting: "プロダクト定例",
+    transcript: "発言",
+    settings: "文字起こし",
+    progress: "進み具合",
+  },
+};
+
 const SHOTS = [
   {
     file: "dashboard.png",
     url: "/",
     // The list is the point; let it settle before the health dots resolve.
-    ready: (page) => page.getByText("Weekly Product Sync").first().waitFor(),
+    ready: (page) => page.getByText(READY[LOCALE].meeting).first().waitFor(),
   },
   {
     file: "recording.png",
     url: "/demo-live-recording/recording",
-    ready: (page) => page.getByText("Transcript").first().waitFor(),
+    ready: (page) => page.getByText(READY[LOCALE].transcript).first().waitFor(),
     // Shot beside minutes.png in a two-column README table, so the pair is locked to one
     // height — auto-fitting each gives the columns wildly different aspect ratios.
     fixedHeight: 1000,
@@ -42,13 +67,13 @@ const SHOTS = [
   {
     file: "minutes.png",
     url: "/demo-weekly-sync",
-    ready: (page) => page.getByText("Overview").first().waitFor(),
+    ready: (page) => page.getByText(READY[LOCALE].progress).first().waitFor(),
     fixedHeight: 1000,
   },
   {
     file: "settings.png",
     url: "/settings",
-    ready: (page) => page.getByText("Transcription").first().waitFor(),
+    ready: (page) => page.getByText(READY[LOCALE].settings).first().waitFor(),
   },
 ];
 
@@ -60,6 +85,8 @@ async function main() {
     deviceScaleFactor: SCALE,
     colorScheme: "light",
     reducedMotion: "reduce", // no half-finished transitions in the frame
+    locale: LOCALE === "ja" ? "ja-JP" : "en-GB",
+    extraHTTPHeaders: { "Accept-Language": LOCALE === "ja" ? "ja-JP,ja" : "en-GB,en" },
   });
 
   // Theme is per device (localStorage), so pin it before the first paint rather than
@@ -96,7 +123,7 @@ async function main() {
 
     const file = path.join(OUT, shot.file);
     await page.screenshot({ path: file });
-    console.log(`  ${shot.file}  <- ${shot.url}  (${VIEWPORT.width}x${height})`);
+    console.log(`  ${LOCALE}/${shot.file}  <- ${shot.url}  (${VIEWPORT.width}x${height})`);
   }
 
   await browser.close();
