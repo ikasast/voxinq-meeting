@@ -1078,4 +1078,10 @@ export const ja: Record<string, string> = {
   "Regular members": "常任メンバー",
   "Copied onto each new meeting filed under this series, so diarization knows how many voices to expect and enrolled voiceprints name them. Who was actually there is still edited per meeting.":
     "このシリーズに入れた新しい会議へ複写されます。話者分離が想定する人数になり、登録済みの声紋があれば名前も付きます。実際に誰がいたかは会議ごとに直せます。",
+
+  // ---- A booked meeting whose time has come ----
+  "It is time for this meeting.": "この会議の時刻になりました。",
+  "Notify me on this device": "この端末で通知を受け取る",
+  "Show these on this device even when the app is not the window you are looking at. Needs the browser or the installed app to be running — there is no outside push service.":
+    "このアプリを見ていないときでも、この端末に通知を出します。ブラウザ（またはインストールしたアプリ）が動いている必要があります — 外部のプッシュ配信は使いません。",
 };

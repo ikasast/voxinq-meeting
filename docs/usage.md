@@ -33,8 +33,29 @@ under **Upcoming** at the top of the list, soonest first, and opens on its own p
 the recording screen — because the point of booking it is to settle the title, agenda, series
 and participants calmly beforehand, rather than while everyone waits to start.
 
-When the meeting comes round, open it and press **Recording screen**. Nothing else differs: it
-is an ordinary meeting from the moment anything is said into it.
+When the meeting comes round the app says so: a bar appears across the top of whatever page is
+open, naming the meeting, with **Start recording** next to it. It stays until it is dismissed or
+until the meeting has something in it — recording is what clears it, so there is nothing to
+mark as read. Two hours after its time it stops being mentioned; a reminder for a meeting that
+started this morning is not a reminder.
+
+**The bar can also be an ordinary desktop notification**, for when the app is not the window
+you are looking at. Press **Notify me on this device** on the bar the first time; the browser
+asks, and after that the notification appears outside the app too and clicking it opens the
+recording screen. It is asked for on that tap rather than on load, because a prompt nobody
+asked for is how a browser decides to stop asking on a site's behalf for good.
+
+> **It cannot reach a closed browser.** There is no push service here, deliberately: that would
+> be an outside server holding a channel into a self-hosted app. The notification is produced by
+> this app's own code, so something has to be running — a tab, or the installed app in the
+> background. With everything closed, nothing arrives. Keep a tab open, or install it
+> (the downward-arrow icon in the header — see [Remote access](remote-access.md)), on the machine
+> you want to be told on.
+
+From outside your private network the bar appears without **Start recording**: recording needs
+the transcription service, which is not reachable from out there.
+
+Nothing else differs: it is an ordinary meeting from the moment anything is said into it.
 
 The date shown is the one it is booked for. Once it has been recorded, the start time is
 corrected to when the recording actually began — a meeting booked for Tuesday and recorded on
