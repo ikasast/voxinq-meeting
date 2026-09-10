@@ -11,6 +11,7 @@ import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { BottomBar } from "./bottom-bar";
 import { LocaleProvider } from "./locale-provider";
+import { DueMeetingAlert } from "./due-meeting-alert";
 import { LockedBanner } from "./locked-banner";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
@@ -206,6 +207,9 @@ export default async function RootLayout({
                 <HeaderNav external={external} me={meWithImage} t={t} />
                 {/* Above everything, because until it is dealt with nothing below it can be read. */}
                 {locked ? <LockedBanner /> : null}
+                {/* Below the lock and above the page: a meeting starting is worth interrupting
+                    for, but not worth interrupting an account that cannot read anything yet. */}
+                {locked ? null : <DueMeetingAlert external={external} />}
                 {/* The rail carries navigation on wide screens, but not the controls that only
                   make sense per-device or per-session — those keep a home along the top. */}
                 <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
