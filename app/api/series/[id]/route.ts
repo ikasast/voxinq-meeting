@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
+/** Long enough for the background of a project, short enough not to become the minutes. */
+const DESCRIPTION_MAX = 4000;
+const MEMBERS_MAX = 50;
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const series = await prisma.series.findUnique({
@@ -14,6 +18,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       name: true,
       summaryFormat: true,
       sttGlossary: true,
+      description: true,
+      members: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], select: { name: true } },
       // Named explicitly: a `where` nested inside a `_count` is not rewritten by the scoped
       // client, so without this the number counts everybody's meetings in the series.
       _count: { select: { meetings: { where: { deletedAt: null, ...(await onlyMine()) } } } },
@@ -28,15 +34,29 @@ async function onlyMine(): Promise<{ ownerId?: string }> {
   return me ? { ownerId: me.id } : {};
 }
 
-// Update a series: rename, and per-series defaults (minutes format / STT glossary).
-// Empty strings clear a default back to "use the global setting".
+/**
+ * Update a series: rename, the per-series defaults, the shared background, the regular members.
+ *
+ * Empty strings clear a default back to "use the global setting". `members` is replaced whole
+ * rather than patched — it is a short list edited as a list, and the same shape the meeting's
+ * own participants use.
+ */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await readJson<{ name?: unknown; summaryFormat?: unknown; sttGlossary?: unknown }>(
-    req,
-  );
+  const body = await readJson<{
+    name?: unknown;
+    summaryFormat?: unknown;
+    sttGlossary?: unknown;
+    description?: unknown;
+    members?: unknown;
+  }>(req);
 
-  const data: { name?: string; summaryFormat?: string | null; sttGlossary?: string | null } = {};
+  const data: {
+    name?: string;
+    summaryFormat?: string | null;
+    sttGlossary?: string | null;
+    description?: string | null;
+  } = {};
 
   if (body?.name !== undefined) {
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -57,13 +77,66 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     data.sttGlossary = (typeof body.sttGlossary === "string" && body.sttGlossary.trim()) || null;
   }
-  if (Object.keys(data).length === 0) return apiError("no valid fields", 400);
+  if (body?.description !== undefined) {
+    if (body.description !== null && typeof body.description !== "string") {
+      return apiError("invalid description", 400);
+    }
+    const text = typeof body.description === "string" ? body.description.trim() : "";
+    if (text.length > DESCRIPTION_MAX) {
+      return apiError("The shared background is too long.", 400);
+    }
+    data.description = text || null;
+  }
+
+  // Members are optional and separate: a rename with no `members` key must not empty the list.
+  let members: string[] | undefined;
+  if (body?.members !== undefined) {
+    if (!Array.isArray(body.members)) return apiError("invalid members", 400);
+    if (body.members.length > MEMBERS_MAX) {
+      return apiError("That is more regular members than a series can have.", 400);
+    }
+    const seen = new Set<string>();
+    members = [];
+    for (const raw of body.members) {
+      const name = typeof raw === "string" ? raw.trim().slice(0, 80) : "";
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      members.push(name);
+    }
+  }
+
+  if (Object.keys(data).length === 0 && members === undefined) {
+    return apiError("no valid fields", 400);
+  }
 
   try {
-    const updated = await prisma.series.update({
-      where: { id },
-      data,
-      select: { id: true, name: true, summaryFormat: true, sttGlossary: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      const row =
+        Object.keys(data).length > 0
+          ? await tx.series.update({ where: { id }, data, select: { id: true } })
+          : await tx.series.findUniqueOrThrow({ where: { id }, select: { id: true } });
+      if (members !== undefined) {
+        await tx.seriesMember.deleteMany({ where: { seriesId: row.id } });
+        if (members.length > 0) {
+          await tx.seriesMember.createMany({
+            data: members.map((name, position) => ({ seriesId: row.id, name, position })),
+          });
+        }
+      }
+      return tx.series.findUniqueOrThrow({
+        where: { id: row.id },
+        select: {
+          id: true,
+          name: true,
+          summaryFormat: true,
+          sttGlossary: true,
+          description: true,
+          members: {
+            orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+            select: { name: true },
+          },
+        },
+      });
     });
     return NextResponse.json(updated);
   } catch (e) {

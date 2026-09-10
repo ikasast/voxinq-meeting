@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { getSttGlossary, getWhisperModel } from "@/lib/settings";
+import { correctionTerms } from "@/lib/correction-terms";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
@@ -40,7 +41,15 @@ export default async function MeetingDetailPage({
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
       tags: { select: { name: true }, orderBy: { name: "asc" } },
-      series: { select: { id: true, name: true, sttGlossary: true, summaryFormat: true } },
+      series: {
+        select: {
+          id: true,
+          name: true,
+          sttGlossary: true,
+          summaryFormat: true,
+          members: { orderBy: [{ position: "asc" }], select: { name: true } },
+        },
+      },
       participants: {
         orderBy: [{ position: "asc" }, { createdAt: "asc" }],
         select: { name: true, speaking: true },
@@ -209,7 +218,20 @@ export default async function MeetingDetailPage({
           upcoming={upcoming}
           initialSpeakerLabels={meeting.speakerLabels}
           seriesGlossary={meeting.series?.sttGlossary ?? null}
-          globalGlossary={await getSttGlossary()}
+          // Whether there is anything to check is one question with one answer, computed
+          // where both this page and the route that runs the check can see it.
+          hasCorrectionTerms={
+            correctionTerms({
+              globalGlossary: await getSttGlossary(),
+              series: meeting.series
+                ? {
+                    name: meeting.series.name,
+                    sttGlossary: meeting.series.sttGlossary,
+                    members: meeting.series.members.map((m) => m.name),
+                  }
+                : null,
+            }).length > 0
+          }
           readOnly={external}
           initialTranscripts={meeting.transcripts.map((t) => ({
             id: t.id,

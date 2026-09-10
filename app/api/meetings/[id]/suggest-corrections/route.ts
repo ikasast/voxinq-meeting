@@ -1,3 +1,4 @@
+import { correctionGlossary } from "@/lib/correction-terms";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { suggestCorrections, type UtteranceForCorrection } from "@/lib/llm/correct";
@@ -28,17 +29,34 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[
 
   const meeting = await prisma.meeting.findUnique({
     where: { id },
-    select: { id: true, series: { select: { sttGlossary: true } } },
+    select: {
+      id: true,
+      series: {
+        select: {
+          name: true,
+          sttGlossary: true,
+          members: { orderBy: [{ position: "asc" }], select: { name: true } },
+        },
+      },
+    },
   });
   if (!meeting) return apiError("meeting not found", 404);
 
-  // Same composition as recording: the global glossary plus the series' own terms.
-  const glossary = [await getSttGlossary(), meeting.series?.sttGlossary ?? ""]
-    .filter((s) => s && s.trim())
-    .join(", ");
+  // Composed in `lib/correction-terms.ts`, which the page that offers this button also reads —
+  // so the two cannot disagree about whether there is anything to check.
+  const glossary = correctionGlossary({
+    globalGlossary: await getSttGlossary(),
+    series: meeting.series
+      ? {
+          name: meeting.series.name,
+          sttGlossary: meeting.series.sttGlossary,
+          members: meeting.series.members.map((m) => m.name),
+        }
+      : null,
+  });
   if (!glossary) {
     return apiError(
-      "No glossary to check against. Add terms in Settings → Transcription (or on the series).",
+      "No terms to check against. Add some in Settings → Transcription, or on the series.",
       400,
     );
   }

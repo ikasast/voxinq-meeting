@@ -200,6 +200,8 @@ export async function requestSummary(
   transcripts: TranscriptForPrompt[],
   opts?: {
     description?: string | null;
+    /** The series' shared background, read as standing context rather than as today's agenda. */
+    seriesBackground?: string | null;
     speakerLabels?: SpeakerLabels;
     // Per-generation overrides (e.g. from the "Regenerate with options" panel).
     // They apply to this run only and are NOT persisted to settings.
@@ -249,7 +251,13 @@ export async function requestSummary(
   const effectiveFormat = format?.trim() || DEFAULT_SUMMARY_FORMAT;
   const system = withBackground(
     withPreviousMinutes(
-      buildSummarySystemPrompt(opts?.description, { multiSpeaker, language, format, detail }),
+      buildSummarySystemPrompt(opts?.description, {
+        multiSpeaker,
+        language,
+        format,
+        detail,
+        seriesBackground: opts?.seriesBackground,
+      }),
       opts?.previousMinutes,
     ),
     background,

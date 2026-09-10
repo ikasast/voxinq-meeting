@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { isValidSpeakerKey } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
-import { pruneOrphanSeries } from "@/lib/series";
+import { applySeriesMembers, pruneOrphanSeries } from "@/lib/series";
 import { pruneOrphanTags } from "@/lib/tags";
 
 export const runtime = "nodejs";
@@ -135,9 +135,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         speakerLabels: true,
         archivedAt: true,
         tags: { select: { name: true }, orderBy: { name: "asc" } },
-        series: { select: { name: true } },
+        series: { select: { id: true, name: true } },
       },
     });
+    // Filed under a series it was not in before: give it the regular members, unless somebody
+    // has already said who was there. `applySeriesMembers` is what decides that.
+    if (data.series && updated.series) await applySeriesMembers(updated.id, updated.series.id);
     // After re-tagging/reassigning, clean up tags/series no longer attached to any meeting.
     if (data.tags) await pruneOrphanTags();
     if (data.series) await pruneOrphanSeries();

@@ -11,12 +11,18 @@ export function SeriesSettings({
   name,
   summaryFormat,
   sttGlossary,
+  description,
+  members,
   readOnly = false,
 }: {
   id: string;
   name: string;
   summaryFormat: string | null;
   sttGlossary: string | null;
+  /** What every meeting in the series shares. Passed to the LLM when minutes are written. */
+  description: string | null;
+  /** The people who are always here. Copied onto a new meeting filed under this series. */
+  members: string[];
   readOnly?: boolean;
 }) {
   const t = useT();
@@ -25,8 +31,18 @@ export function SeriesSettings({
   const [draftName, setDraftName] = useState(name);
   const [draftFormat, setDraftFormat] = useState(summaryFormat ?? "");
   const [draftGlossary, setDraftGlossary] = useState(sttGlossary ?? "");
+  const [draftDescription, setDraftDescription] = useState(description ?? "");
+  const [draftMembers, setDraftMembers] = useState<string[]>(members);
+  const [memberInput, setMemberInput] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const addMember = () => {
+    const name = memberInput.trim().slice(0, 80);
+    setMemberInput("");
+    if (!name || draftMembers.includes(name)) return;
+    setDraftMembers((prev) => [...prev, name]);
+  };
 
   const save = async () => {
     setPending(true);
@@ -39,6 +55,8 @@ export function SeriesSettings({
           name: draftName.trim(),
           summaryFormat: draftFormat.trim() || null,
           sttGlossary: draftGlossary.trim() || null,
+          description: draftDescription.trim() || null,
+          members: draftMembers,
         }),
       });
       if (!res.ok) {
@@ -87,6 +105,89 @@ export function SeriesSettings({
             />
           </div>
           <div>
+            <label htmlFor="series-description" className="label">
+              {t("Shared background")}
+            </label>
+            <textarea
+              id="series-description"
+              value={draftDescription}
+              onChange={(e) => setDraftDescription(e.target.value)}
+              rows={5}
+              maxLength={4000}
+              disabled={pending}
+              placeholder={t(
+                "What every meeting in this series has in common: what it is for, who the parties are, what was settled long ago.",
+              )}
+              className="input mt-1 resize-y"
+            />
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {t(
+                "Passed to the LLM alongside each meeting's own agenda when minutes are written, and read for proper nouns when the transcript is checked against the glossary.",
+              )}
+            </p>
+            {/* Said here rather than in the documentation: a series has no owner, so this is
+                the one field on the screen that other people can read. */}
+            <p className="mt-1 text-xs text-[var(--warning)]">
+              {t(
+                "Readable by everybody who has a meeting in this series, and not encrypted. Anything private belongs on the meeting instead.",
+              )}
+            </p>
+          </div>
+          <div>
+            <label htmlFor="series-member" className="label">
+              {t("Regular members")}
+            </label>
+            {draftMembers.length > 0 ? (
+              <ul className="mt-1 flex flex-wrap gap-1.5">
+                {draftMembers.map((m) => (
+                  <li
+                    key={m}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)]"
+                  >
+                    {m}
+                    <button
+                      type="button"
+                      onClick={() => setDraftMembers((prev) => prev.filter((x) => x !== m))}
+                      disabled={pending}
+                      className="text-[var(--text-muted)] hover:text-[var(--error)]"
+                      aria-label={t("Remove {name}", { name: m })}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="mt-1 flex gap-1">
+              <input
+                id="series-member"
+                value={memberInput}
+                onChange={(e) => setMemberInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  addMember();
+                }}
+                disabled={pending}
+                placeholder={t("Add a name")}
+                className="input min-w-0 flex-1 !py-1 text-sm"
+              />
+              <button
+                type="button"
+                onClick={addMember}
+                disabled={pending}
+                className="btn-outline !px-2 !py-1 text-xs"
+              >
+                {t("Add")}
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {t(
+                "Copied onto each new meeting filed under this series, so diarization knows how many voices to expect and enrolled voiceprints name them. Who was actually there is still edited per meeting.",
+              )}
+            </p>
+          </div>
+          <div>
             <label htmlFor="series-format" className="label">
               {t("Minutes format (empty = use the global setting)")}
             </label>
@@ -125,6 +226,9 @@ export function SeriesSettings({
                 setDraftName(name);
                 setDraftFormat(summaryFormat ?? "");
                 setDraftGlossary(sttGlossary ?? "");
+                setDraftDescription(description ?? "");
+                setDraftMembers(members);
+                setMemberInput("");
                 setError(null);
                 setEditing(false);
               }}
@@ -140,6 +244,18 @@ export function SeriesSettings({
         </div>
       ) : (
         <dl className="mt-3 space-y-2 text-sm">
+          <div>
+            <dt className="text-xs text-[var(--text-muted)]">{t("Shared background")}</dt>
+            <dd className="whitespace-pre-wrap text-[var(--text-secondary)]">
+              {description?.trim() || t("Not set")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-[var(--text-muted)]">{t("Regular members")}</dt>
+            <dd className="text-[var(--text-secondary)]">
+              {members.length > 0 ? members.join(" / ") : t("Not set")}
+            </dd>
+          </div>
           <div>
             <dt className="text-xs text-[var(--text-muted)]">{t("Minutes format")}</dt>
             <dd className="text-[var(--text-secondary)]">

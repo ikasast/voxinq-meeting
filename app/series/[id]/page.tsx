@@ -24,7 +24,14 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const series = await prisma.series.findUnique({
     where: { id },
-    select: { id: true, name: true, summaryFormat: true, sttGlossary: true },
+    select: {
+      id: true,
+      name: true,
+      summaryFormat: true,
+      sttGlossary: true,
+      description: true,
+      members: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], select: { name: true } },
+    },
   });
   if (!series) notFound();
 
@@ -74,6 +81,8 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         name={series.name}
         summaryFormat={series.summaryFormat}
         sttGlossary={series.sttGlossary}
+        description={series.description}
+        members={series.members.map((m) => m.name)}
         readOnly={external}
       />
 

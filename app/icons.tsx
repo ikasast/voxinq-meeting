@@ -140,6 +140,14 @@ export const MeetingsIcon = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+export const SeriesIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20" {...p}>
+    {/* The ↻ the meeting list already uses for a series, drawn rather than typed. */}
+    <path d="M20 11a8 8 0 1 0-2.3 5.7" strokeLinecap="round" />
+    <path d="M20 5v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const HelpIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20" {...p}>
     <circle cx="12" cy="12" r="9" />

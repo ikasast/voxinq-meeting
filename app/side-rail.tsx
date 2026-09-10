@@ -11,6 +11,7 @@ import {
   PeopleIcon,
   PlusCircleIcon,
   QueueIcon,
+  SeriesIcon,
 } from "./icons";
 import { useMyQueueCount } from "./queue-header-link";
 import { useT } from "./locale-provider";
@@ -115,8 +116,11 @@ export function SideRail({
   const pathname = usePathname();
   const t = useT();
   // A meeting's own page belongs to the list it came from, so the list stays lit while reading
-  // one — otherwise the rail goes blank the moment you open anything.
-  const onMeetings = !pathname.startsWith("/settings") && !pathname.startsWith("/new");
+  // one — otherwise the rail goes blank the moment you open anything. A series page is its own
+  // destination, so it is excluded: two lit entries would say the rail does not know where it is.
+  const onSeries = pathname.startsWith("/series");
+  const onMeetings =
+    !onSeries && !pathname.startsWith("/settings") && !pathname.startsWith("/new");
 
   return (
     <nav
@@ -132,6 +136,12 @@ export function SideRail({
 
       <RailLink href="/" label={t("Meetings")} active={onMeetings}>
         <MeetingsIcon />
+      </RailLink>
+
+      {/* Outside the `!external` block on purpose: a series is a way of reading meetings, and
+          an external viewer can already read them one at a time. */}
+      <RailLink href="/series" label={t("Series")} active={onSeries}>
+        <SeriesIcon />
       </RailLink>
 
       {!external ? (
