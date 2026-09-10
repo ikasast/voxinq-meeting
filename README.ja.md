@@ -209,7 +209,7 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 | `APP_PASSWORD` + `APP_SESSION_SECRET` | 外部に公開するなら | ログインパスワードと、長いランダム文字列。自分のPCの中だけで使う間は不要です |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
 | `OLLAMA_PROFILE` | 既に Ollama がある場合 | 何か書けば同梱の Ollama を起動しません（例 `external`）。値は Compose の profile 名として使われるだけなので、`off` でも `yes` でも結果は同じです。未設定なら起動します → [自分の環境に合わせる](#自分の環境に合わせる) |
-| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v3.3.0`）。**未指定なら最新の安定版**（`latest`）を追いかけます。プレリリース版は `latest` に含まれないため、beta や rc を使うにはここで指定します。`v1.5.0` は 1.x 系最後の版で、そこに留まりたい場合に指定します（1.x は NVIDIA GPU が必須です） |
+| `VOXINQ_VERSION` | ほぼ不要 | バージョンを固定したいとき（例 `v3.4.0`）。**未指定なら最新の安定版**（`latest`）を追いかけます。プレリリース版は `latest` に含まれないため、beta や rc を使うにはここで指定します。`v1.5.0` は 1.x 系最後の版で、そこに留まりたい場合に指定します（1.x は NVIDIA GPU が必須です） |
 | `NEXT_PUBLIC_STT_WS_URL` | **Docker では無視** | ネイティブ導入専用の項目です |
 
 > **「安定版」は別に用意されているものではありません。**最新の正式リリースがそのまま安定版です
@@ -218,7 +218,7 @@ curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.e
 > ポインタが増えれば、それだけ更新し忘れる場所が増えるためです。
 >
 > **3.x はまだ正式リリースしていません。**タグとイメージはありますが、`latest` は `v2.3.2` の
-> ままです。3.x を使うには `VOXINQ_VERSION` で明示してください（例 `v3.3.0`）。
+> ままです。3.x を使うには `VOXINQ_VERSION` で明示してください（例 `v3.4.0`）。
 
 > ⚠️ `@db:5432` の `db` は**コンテナのサービス名**です。ここを `localhost` にすると、
 > Web コンテナが自分自身を見に行ってしまい接続できません。
