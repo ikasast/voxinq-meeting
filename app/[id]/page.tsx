@@ -110,7 +110,11 @@ export default async function MeetingDetailPage({
       {/* Stack vertically on phones (so the title-edit box and action buttons are not crammed into one row) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:flex-1">
-          <MeetingTitle id={meeting.id} title={meeting.title} readOnly={external} />
+          {/* Editable from outside, like the agenda and the participants below: the point of
+              booking a meeting from a work laptop is to name it and fill it in beforehand.
+              `lib/external-writes.ts` allows exactly this PATCH; see there for what it does
+              not allow. */}
+          <MeetingTitle id={meeting.id} title={meeting.title} />
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {formatDateTimeIn(locale, meeting.startedAt)}
             {meeting.endedAt ? (
@@ -118,9 +122,9 @@ export default async function MeetingDetailPage({
             ) : upcoming ? (
               // Booked and not recorded yet: the date above is when it is due, and calling
               // that "in progress" would be the app telling you a meeting is happening.
-              <> – not recorded yet</>
+              <> – {t("not recorded yet")}</>
             ) : (
-              <> – (in progress)</>
+              <> – {t("(in progress)")}</>
             )}
           </p>
         </div>
@@ -239,13 +243,11 @@ export default async function MeetingDetailPage({
           tags={tagNames}
           series={seriesName}
           seriesId={seriesId}
-          readOnly={external}
         />
         <ParticipantsCard
           meetingId={meeting.id}
           initial={meeting.participants}
           knownNames={knownSpeakers.map((p) => p.name)}
-          readOnly={external}
         />
         <MeetingFactsCard
           whisperModel={meeting.whisperModel}

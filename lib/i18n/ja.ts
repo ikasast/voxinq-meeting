@@ -265,6 +265,8 @@ export const ja: Record<string, string> = {
   Edit: "編集",
   Cancel: "キャンセル",
   "Version:": "版:",
+  "not recorded yet": "まだ録音していません",
+  "(in progress)": "（進行中）",
   latest: "最新",
   "Viewing an older version": "古い版を表示しています",
   "Built-in default": "組み込みの既定",
