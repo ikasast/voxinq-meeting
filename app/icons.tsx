@@ -133,18 +133,43 @@ export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
 );
 
 // A stack of meeting cards — the list, as the rail's own icon for it.
+// Meetings and Series are Tabler Icons' `messages` and `folders` (MIT, © Paweł Kuna,
+// https://tabler.io/icons). A meeting is a conversation; a series is where the meetings that
+// keep happening are kept together. The two bars and the ↻ they replace said neither — the ↻
+// said "repeats", which is a property of a series rather than what one is.
 export const MeetingsIcon = (p: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20" {...p}>
-    <rect x="3" y="4" width="18" height="6" rx="1.6" />
-    <rect x="3" y="14" width="18" height="6" rx="1.6" />
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    width="20"
+    height="20"
+    aria-hidden
+    {...p}
+  >
+    <path d="M21 14l-3 -3h-7a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1h9a1 1 0 0 1 1 1v10" />
+    <path d="M14 15v2a1 1 0 0 1 -1 1h-7l-3 3v-10a1 1 0 0 1 1 -1h2" />
   </svg>
 );
 
 export const SeriesIcon = (p: SVGProps<SVGSVGElement>) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20" {...p}>
-    {/* The ↻ the meeting list already uses for a series, drawn rather than typed. */}
-    <path d="M20 11a8 8 0 1 0-2.3 5.7" strokeLinecap="round" />
-    <path d="M20 5v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    width="20"
+    height="20"
+    aria-hidden
+    {...p}
+  >
+    <path d="M9 4h3l2 2h5a2 2 0 0 1 2 2v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2" />
+    <path d="M17 17v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2h2" />
   </svg>
 );
 

@@ -147,3 +147,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return apiError("not found", 404);
   }
 }
+
+/**
+ * Removing a series nobody is using.
+ *
+ * Refused while any meeting is filed under it, trashed ones included: deleting a series is not a
+ * way to un-file meetings, and a meeting restored from the trash should come back into its
+ * series. The count is a `_count`, which the scoped client does not narrow — so it is everybody's
+ * meetings, not only the caller's, and nobody's series disappears from under them.
+ */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const series = await prisma.series.findUnique({
+    where: { id },
+    select: { id: true, _count: { select: { meetings: true } } },
+  });
+  if (!series) return apiError("not found", 404);
+  if (series._count.meetings > 0) {
+    return apiError("Only a series with no meetings in it can be deleted.", 409);
+  }
+  await prisma.series.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

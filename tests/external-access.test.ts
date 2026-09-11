@@ -26,9 +26,8 @@ describe("writes allowed from outside", () => {
     expect(allowedFromOutside("PUT", "/api/meetings/abc/participants")).toBe(true);
     // A series' shared background and regular members — what its next meeting is set up from.
     expect(allowedFromOutside("PATCH", "/api/series/abc")).toBe(true);
-    // Not /api/series: it answers GET only, and a series is created by naming it in the
-    // meeting's PATCH. An entry for a method that does not exist reads as permission.
-    expect(allowedFromOutside("POST", "/api/series")).toBe(false);
+    // A series of its own, before its first meeting.
+    expect(allowedFromOutside("POST", "/api/series")).toBe(true);
     expect(allowedFromOutside("DELETE", "/api/series/abc")).toBe(false);
     // A meeting can be created and edited from out there, never removed.
     expect(allowedFromOutside("DELETE", "/api/meetings/abc")).toBe(false);

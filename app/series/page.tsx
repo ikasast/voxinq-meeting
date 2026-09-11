@@ -4,6 +4,7 @@ import { formatDateTimeIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { SeriesIcon } from "../icons";
+import { NewSeriesButton } from "./new-series-button";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function SeriesListPage() {
       id: true,
       name: true,
       description: true,
+      standalone: true,
       _count: {
         select: { meetings: { where: { deletedAt: null, ...mine } }, members: true },
       },
@@ -44,7 +46,8 @@ export default async function SeriesListPage() {
   // scoped client already hides those rows, but a series with meetings only in the trash comes
   // back at zero — and an entry that opens onto nothing is worse than no entry.
   const series = rows
-    .filter((s) => s._count.meetings > 0)
+    // …unless it was made on its own, where no meetings yet is what it is.
+    .filter((s) => s._count.meetings > 0 || s.standalone)
     .sort((a, b) => {
       const at = a.meetings[0]?.startedAt?.getTime() ?? 0;
       const bt = b.meetings[0]?.startedAt?.getTime() ?? 0;
@@ -58,9 +61,12 @@ export default async function SeriesListPage() {
           <SeriesIcon className="h-5 w-5" />
           {t("Series")}
         </h1>
-        <Link href="/" className="btn-outline">
-          {t("Back to list")}
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <NewSeriesButton />
+          <Link href="/" className="btn-outline">
+            {t("Back to list")}
+          </Link>
+        </div>
       </div>
       <p className="text-sm text-[var(--text-muted)]">
         {t(
@@ -70,13 +76,13 @@ export default async function SeriesListPage() {
 
       {series.length > 0 ? (
         <p className="text-xs text-[var(--text-muted)]">
-          {t("A new series starts when you name one on a meeting, under Purpose & agenda.")}
+          {t("Create one with New series, or by naming it on a meeting under Purpose & agenda.")}
         </p>
       ) : null}
 
       {series.length === 0 ? (
         <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
-          {t("No series yet. Name one on a meeting — under Purpose & agenda — and it appears here.")}
+          {t("No series yet. Create one with New series, or by naming it on a meeting under Purpose & agenda.")}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -87,8 +93,9 @@ export default async function SeriesListPage() {
                 className="card flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:border-[var(--accent)]"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-[var(--text-strong)]">
-                    ↻ {s.name}
+                  <span className="flex items-center gap-1.5 font-medium text-[var(--text-strong)]">
+                    <SeriesIcon className="h-4 w-4 shrink-0 text-[var(--accent-sub)]" />
+                    <span className="truncate">{s.name}</span>
                   </span>
                   {s.description?.trim() ? (
                     <span className="mt-0.5 block truncate text-xs text-[var(--text-secondary)]">

@@ -9,11 +9,14 @@ import { describe, expect, it } from "vitest";
 const src = readFileSync(join(__dirname, "..", "app", "meeting-list-pane.tsx"), "utf8");
 
 describe("the meeting list", () => {
-  it("lists a series' meetings individually", () => {
-    // A weekly meeting is a meeting. Folding four of them behind a disclosure meant the list
-    // was not the list, and the newest of them hid the other three.
+  it("groups a series in the list, and not on a picked day", () => {
+    // Folded once, unfolded because the folded rows were the ones people scrolled looking for,
+    // folded again on request — with a picked day kept flat, which is the case the unfolding
+    // argument actually covered: "what happened on the 12th" is every meeting on the 12th.
+    expect(src).toContain("const group = !activeDate && !activeSeries;");
+    expect(src).toContain("<details");
+    // Still one component: a separate stack component is what the first version was.
     expect(src).not.toContain("SeriesStack");
-    expect(src).not.toContain("series-stack");
   });
 
   it("closes the meeting link before the badges, so the series chip can be one", () => {

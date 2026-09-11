@@ -41,7 +41,9 @@ export async function applySeriesMembers(meetingId: string, seriesId: string): P
  */
 export async function pruneOrphanSeries(): Promise<void> {
   try {
-    await prisma.series.deleteMany({ where: { meetings: { none: {} } } });
+    // Only a series that existed because a meeting named it. One created on its own was set up
+    // on purpose, before anything was filed under it, and an empty one is its normal state.
+    await prisma.series.deleteMany({ where: { meetings: { none: {} }, standalone: false } });
   } catch {
     // cleanup is best-effort, so swallow errors
   }

@@ -73,4 +73,8 @@ export const SERVER_MESSAGES = [
   // Downloads.
   "no minutes to export yet",
   "nothing to export (no minutes/transcript yet)",
+  // A series of its own.
+  "Enter a name for the series.",
+  "A series with that name already exists.",
+  "Only a series with no meetings in it can be deleted.",
 ] as const;

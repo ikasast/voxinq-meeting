@@ -4,7 +4,7 @@ import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { ArchiveButton } from "../[id]/archive-button";
-import { ArchiveIcon } from "../icons";
+import { ArchiveIcon, SeriesIcon } from "../icons";
 import { SwipeableRow } from "../swipeable-row";
 
 export const dynamic = "force-dynamic";
@@ -142,7 +142,8 @@ export default async function ArchivePage() {
                   className="mb-2 inline-flex items-center gap-1.5 px-1 text-xs text-[var(--accent-sub)] hover:underline"
                   title={t("Open the series page (timeline & defaults)")}
                 >
-                  ↻ {g.series.name}
+                  <SeriesIcon className="h-3.5 w-3.5 shrink-0" />
+                  {g.series.name}
                   <span className="text-[var(--text-muted)]">({g.items.length})</span>
                 </Link>
                 <div className="space-y-2">

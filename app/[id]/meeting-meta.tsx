@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SeriesIcon } from "@/app/icons";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
@@ -245,13 +246,15 @@ export function MeetingMeta({
                   <Link
                     href={`/series/${seriesId}`}
                     title={t("Open the series page (timeline & defaults)")}
-                    className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)] hover:underline"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)] hover:underline"
                   >
-                    ↻ {savedSeries}
+                    <SeriesIcon className="h-3.5 w-3.5 shrink-0" />
+                    {savedSeries}
                   </Link>
                 ) : (
-                  <span className="rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)]">
-                    ↻ {savedSeries}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-2.5 py-0.5 text-xs text-[var(--accent-sub)]">
+                    <SeriesIcon className="h-3.5 w-3.5 shrink-0" />
+                    {savedSeries}
                   </span>
                 )
               ) : null}

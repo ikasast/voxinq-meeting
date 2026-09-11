@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SeriesIcon } from "../icons";
 import { serverT } from "@/lib/i18n/server";
 
 // The settings this meeting was actually recorded and written with.
@@ -62,7 +63,8 @@ export async function MeetingFactsCard({
                 className="inline-flex items-center gap-1 text-[var(--accent-sub)] hover:underline"
                 title={t("Open the series page (timeline & defaults)")}
               >
-                ↻ {series.name}
+                <SeriesIcon className="h-3.5 w-3.5 shrink-0" />
+                {series.name}
               </Link>
             </dd>
           </div>

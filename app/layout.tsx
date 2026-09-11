@@ -17,6 +17,7 @@ import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
 import { SideRail } from "./side-rail";
 import { NewMeetingLink } from "./new-meeting-link";
+import { SeriesIcon } from "./icons";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
@@ -94,6 +95,18 @@ function HeaderNav({
               Internal users keep using Settings → Appearance, which has the same three
               choices with labels. */}
           {external ? <ThemeToggle /> : null}
+          {/* The bottom bar carries Series on a phone, and it is not rendered for an external
+              visitor at all — so for them the way to the series list comes up here. */}
+          {external ? (
+            <Link
+              href="/series"
+              aria-label={t("Series")}
+              title={t("Series")}
+              className="p-1 text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+            >
+              <SeriesIcon className="h-6 w-6" />
+            </Link>
+          ) : null}
           {/* Only renders where it can actually install; see install-app.tsx. Offered to
               external visitors too — installing changes how the page opens, not what it
               lets anyone do. */}

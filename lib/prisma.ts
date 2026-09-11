@@ -120,11 +120,20 @@ function narrow(args: Args, condition: Record<string, unknown>): Args {
   return { ...args, where: args.where ? { AND: [args.where, condition] } : condition };
 }
 
+/**
+ * A series is its creator's as well as its meetings' owners'. One made from the series screen
+ * has no meetings yet, and seen through its meetings alone it would be visible to nobody.
+ */
+const SERIES_VISIBLE = (userId: string) => ({
+  OR: [{ ownerId: userId }, { meetings: { some: { ownerId: userId } } }],
+});
+
 function conditionFor(model: string, userId: string): Record<string, unknown> | null {
   if (OWNED.has(model)) return { ownerId: userId };
   if (VIA_MEETING.has(model)) return { meeting: { ownerId: userId } };
+  if (model === "series") return SERIES_VISIBLE(userId);
   if (VIA_MEETINGS_LIST.has(model)) return { meetings: { some: { ownerId: userId } } };
-  if (VIA_SERIES.has(model)) return { series: { meetings: { some: { ownerId: userId } } } };
+  if (VIA_SERIES.has(model)) return { series: SERIES_VISIBLE(userId) };
   return null;
 }
 

@@ -399,7 +399,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           },
         ]);
       } catch (e) {
-        showToast(`Failed to save utterance: ${(e as Error).message}`);
+        showToast(t("Failed to save utterance: {error}", { error: (e as Error).message }));
       }
     },
     [meetingId, showToast],
@@ -547,7 +547,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         translate: sttTranslateRef.current,
       });
     } catch (e) {
-      showToast(`Cannot start the microphone: ${(e as Error).message}`);
+      showToast(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
       setStatus("error");
     }
   }, [handlers, meetingId, showToast, activeModel, confirm, deferred, claimCard]);
@@ -632,19 +632,24 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
     } catch (e) {
       setDeferredStatus(null);
       showToast(
-        `Transcription failed: ${(e as Error).message}. The recording is saved — use "Re-transcribe" on the meeting page.`,
+        t('Transcription failed: {error}. The recording is saved — use "Re-transcribe" on the meeting page.', {
+          error: (e as Error).message,
+        }),
       );
     }
-  }, [deferred, meetingId, showToast]);
+  }, [deferred, meetingId, showToast, t]);
 
   const generateSummaryAndEnd = useCallback(async () => {
     if (busy !== "none") return;
     const { ok, checked } = await confirm({
-      title: title || "Meeting",
-      message:
+      title: title || t("Meeting"),
+      message: t(
         "Start generating minutes and end the meeting. Generation runs in the background; check the result on the meeting page when it finishes.",
+      ),
       confirmLabel: t("Generate minutes"),
-      checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+      checkboxLabel: t(
+        "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+      ),
     });
     if (!ok) return;
     setBusy("summary");
@@ -671,10 +676,10 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       // detail must not return here and restart the meeting.
       router.replace(`/${meetingId}`);
     } catch (e) {
-      showToast(`Failed to start minutes generation: ${(e as Error).message}`);
+      showToast(t("Failed to start minutes generation: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred]);
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred, t]);
 
   // End the meeting and kick off speaker diarization: the detail page opens with
   // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
@@ -682,11 +687,14 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
   const diarizeAndEnd = useCallback(async () => {
     if (busy !== "none") return;
     const { ok, checked } = await confirm({
-      title: title || "Meeting",
-      message:
+      title: title || t("Meeting"),
+      message: t(
         "End the meeting and start speaker diarization. Speakers are assigned automatically on the meeting page (enrolled voices get their names); generate minutes afterwards.",
+      ),
       confirmLabel: t("Diarize"),
-      checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+      checkboxLabel: t(
+        "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+      ),
     });
     if (!ok) return;
     setBusy("summary");
@@ -702,19 +710,21 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       // replace() so back navigation cannot return here and restart the meeting.
       router.replace(`/${meetingId}?autodiarize=1`);
     } catch (e) {
-      showToast(`Failed to end the meeting: ${(e as Error).message}`);
+      showToast(t("Failed to end the meeting: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred]);
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred, t]);
 
   const endWithoutSummary = useCallback(async () => {
     if (busy !== "none") return;
     const { ok, checked } = await confirm({
-      title: title || "Meeting",
-      message: "End the meeting without generating minutes.",
-      confirmLabel: "End",
+      title: title || t("Meeting"),
+      message: t("End the meeting without generating minutes."),
+      confirmLabel: t("End"),
       danger: true,
-      checkboxLabel: "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+      checkboxLabel: t(
+        "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
+      ),
     });
     if (!ok) return;
     endedRef.current = true;
@@ -725,7 +735,31 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
     await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
     // replace() so back navigation cannot return to this recording page.
     router.replace(`/${meetingId}`);
-  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording, transcribeIfDeferred]);
+  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording, transcribeIfDeferred, t]);
+
+  // Started by mistake, or not worth keeping. The meeting goes to the trash rather than away:
+  // "I did not mean to record that" is sometimes wrong, and the trash keeps it restorable for 30
+  // days. The recording is not protected, so it expires on its own like any other. Nothing is
+  // transcribed on the way out — that would be spending the GPU on something being thrown away.
+  const discardAndEnd = useCallback(async () => {
+    if (busy !== "none") return;
+    const { ok } = await confirm({
+      title: title || t("Meeting"),
+      message: t(
+        "End the meeting without keeping it. It moves to the trash, where it can be restored for 30 days, and its recording is not protected.",
+      ),
+      confirmLabel: t("Discard"),
+      danger: true,
+    });
+    if (!ok) return;
+    endedRef.current = true;
+    setEnded(true);
+    await stopRecording();
+    await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
+    await fetch(`/api/meetings/${meetingId}`, { method: "DELETE" }).catch(() => {});
+    // replace() so back navigation cannot return to a recording page for a meeting in the trash.
+    router.replace("/");
+  }, [busy, confirm, title, meetingId, router, stopRecording, t]);
 
   // Warn before leaving while recording
   useEffect(() => {
@@ -1131,10 +1165,14 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
               <div className="py-12 text-center text-sm text-[var(--text-muted)]">
                 {deferred
                   ? active
-                    ? "Recording. This machine has no GPU acceleration, so speech is recognized once — when you end the meeting — rather than as you speak. The transcript appears then, at full quality."
+                    ? t(
+                        "Recording. This machine has no GPU acceleration, so speech is recognized once — when you end the meeting — rather than as you speak. The transcript appears then, at full quality.",
+                      )
                     : t('Press "Start recording" below. Text appears when the meeting ends, not during it.')
                   : status === "connecting"
-                    ? "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes."
+                    ? t(
+                        "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes.",
+                      )
                     : t('Press "Start recording" below to begin transcription.')}
               </div>
             ) : null}
@@ -1179,6 +1217,15 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
             className="btn-outline !px-3 !py-1.5 !text-xs"
           >
             {t("End only")}
+          </button>
+          <button
+            type="button"
+            onClick={discardAndEnd}
+            disabled={busy !== "none"}
+            className="btn-outline !px-3 !py-1.5 !text-xs text-[var(--error)]"
+            title={t("For a meeting started by mistake: moves it to the trash instead of keeping it")}
+          >
+            {t("End without saving")}
           </button>
         </div>
         <button
