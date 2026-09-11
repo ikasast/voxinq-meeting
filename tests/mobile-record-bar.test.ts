@@ -21,10 +21,14 @@ describe("the record bar on a phone", () => {
   });
 
   it("stays off the screens where nobody is identified yet", () => {
-    // Offering to record on the login page promises what the next tap refuses.
-    expect(bar).toContain(String.raw`/^\/login$/`);
-    expect(bar).toContain(String.raw`/^\/setup$/`);
-    expect(bar).toContain(String.raw`/^\/reset\//`);
+    // Offering to record on the login page promises what the next tap refuses. The list of
+    // those screens is shared now — the header's New meeting needs the same one — so this
+    // follows it there rather than pinning where it used to be written.
+    expect(bar).toContain("isAuthPath(pathname)");
+    const paths = read("app/auth-paths.ts");
+    expect(paths).toContain(String.raw`/^\/login$/`);
+    expect(paths).toContain(String.raw`/^\/setup$/`);
+    expect(paths).toContain(String.raw`/^\/reset\//`);
   });
 
   it("is not offered to somebody who cannot record", () => {
@@ -67,6 +71,8 @@ describe("the top bar, once the bar below exists", () => {
     // icons have now freed. Measured at 375px: "New meeting" fits without wrapping.
     // Through t() since the shell was translated, so this follows the sentence there rather
     // than pinning the literal it used to be.
-    expect(layout).toMatch(/>\s*\{t\("New meeting"\)\}\s*<\/Link>/);
+    // It is its own small component now, so it can stay off the sign-in screens.
+    expect(layout).toContain("<NewMeetingLink />");
+    expect(read("app/new-meeting-link.tsx")).toMatch(/>\s*\{t\("New meeting"\)\}\s*<\/Link>/);
   });
 });

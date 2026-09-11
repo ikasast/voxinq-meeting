@@ -34,18 +34,20 @@ export default async function HomePage({
           <p className="text-sm text-[var(--text-secondary)]">
             {t("Select a meeting from the list to see its minutes and transcript here.")}
           </p>
-          {external ? (
-            <p className="text-sm text-[var(--text-muted)]">{t("Recording is available over Tailscale.")}</p>
-          ) : (
-            <div className="flex flex-wrap justify-center gap-2">
-              <Link href="/new" className="btn-ink">
-                {t("+ New meeting")}
-              </Link>
+          {/* A meeting can be set up from anywhere; only recording one needs to be inside. */}
+          <div className="flex flex-wrap justify-center gap-2">
+            <Link href="/new" className="btn-ink">
+              {t("+ New meeting")}
+            </Link>
+            {external ? null : (
               <Link href="/quick-record" className="btn-outline">
                 {t("One-tap record")}
               </Link>
-            </div>
-          )}
+            )}
+          </div>
+          {external ? (
+            <p className="text-sm text-[var(--text-muted)]">{t("Recording is available over Tailscale.")}</p>
+          ) : null}
         </section>
       </div>
     </div>

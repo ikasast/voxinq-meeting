@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MeetingsIcon, MicIcon, QueueIcon } from "./icons";
+import { isAuthPath } from "./auth-paths";
 import { useMyQueueCount } from "./queue-header-link";
 import { useT } from "./locale-provider";
 
@@ -25,11 +26,6 @@ const HIDDEN = [
   /^\/[^/]+\/recording$/,
   // A redirect in progress. It is already doing what this button asks for.
   /^\/quick-record$/,
-  // Before anybody is identified. Offering to record on the login screen promises something the
-  // next tap would refuse.
-  /^\/login$/,
-  /^\/setup$/,
-  /^\/reset\//,
 ];
 
 function Slot({
@@ -70,7 +66,9 @@ export function BottomBar({ external }: { external: boolean }) {
   const t = useT();
   // Recording is refused server-side from outside the tailnet, so an external visitor gets no
   // button for it. A control that is only ever going to 403 is worse than its absence.
-  if (external || HIDDEN.some((re) => re.test(pathname))) return null;
+  // Nor before anybody is identified: offering to record on the sign-in screen promises
+  // something the next tap would refuse.
+  if (external || isAuthPath(pathname) || HIDDEN.some((re) => re.test(pathname))) return null;
 
   const onMeetings = pathname === "/" || /^\/[^/]+$/.test(pathname);
   return (

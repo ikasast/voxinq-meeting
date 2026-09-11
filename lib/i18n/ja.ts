@@ -1116,4 +1116,9 @@ export const ja: Record<string, string> = {
   "Record a real one": "実際に録音してみる",
   "to try those — check the microphone first, which is the one step worth never skipping.":
     "と、その2つも試せます。先にマイクの確認だけはしてください。省いてよい手順ではない唯一のものです。",
+  "no meetings": "会議なし",
+  "+ Add a meeting on this day": "＋ この日に会議を追加",
+  "clear": "解除",
+  "A new series starts when you name one on a meeting, under Purpose & agenda.":
+    "新しいシリーズは、会議の「目的と議題」でシリーズ名を入れると作られます。",
 };

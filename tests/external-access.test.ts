@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXTERNAL_WRITES, allowedFromOutside } from "../lib/external-writes";
+import { isAuthPath } from "../app/auth-paths";
 
 // What a browser outside the private network may change.
 //
@@ -23,9 +24,12 @@ describe("writes allowed from outside", () => {
     expect(allowedFromOutside("POST", "/api/meetings")).toBe(true);
     expect(allowedFromOutside("PATCH", "/api/meetings/abc")).toBe(true);
     expect(allowedFromOutside("PUT", "/api/meetings/abc/participants")).toBe(true);
+    // A series' shared background and regular members — what its next meeting is set up from.
+    expect(allowedFromOutside("PATCH", "/api/series/abc")).toBe(true);
     // Not /api/series: it answers GET only, and a series is created by naming it in the
     // meeting's PATCH. An entry for a method that does not exist reads as permission.
     expect(allowedFromOutside("POST", "/api/series")).toBe(false);
+    expect(allowedFromOutside("DELETE", "/api/series/abc")).toBe(false);
     // A meeting can be created and edited from out there, never removed.
     expect(allowedFromOutside("DELETE", "/api/meetings/abc")).toBe(false);
   });
@@ -66,6 +70,7 @@ describe("writes allowed from outside", () => {
     // POST today, so this was not reachable — the pattern was wrong, not the app.
     expect(allowedFromOutside("PATCH", "/api/meetings/bulk")).toBe(false);
     expect(allowedFromOutside("PUT", "/api/meetings/abc/participants/x")).toBe(false);
+    expect(allowedFromOutside("PATCH", "/api/series/abc/members")).toBe(false);
   });
 });
 
@@ -152,5 +157,68 @@ describe("the screen agrees with the list", () => {
     const at = list.indexOf("toggleProtect()");
     expect(list.slice(Math.max(0, at - 400), at)).toContain("!readOnly");
     expect(allowedFromOutside("POST", "/api/recordings/abc/protect")).toBe(false);
+  });
+});
+
+describe("the way to a new meeting, from outside", () => {
+  // The other half that was missing. `/new` and `POST /api/meetings` were opened to outside,
+  // and every link to `/new` stayed behind `!external` — the rail, the phone header, the home
+  // screen and the calendar's "add a meeting on this day". Allowed, and unreachable except by
+  // typing the address.
+  const read = (p: string) => readFileSync(join(root, p), "utf8");
+
+  it("is on the rail, before the internal-only block", () => {
+    const rail = read("app/side-rail.tsx");
+    const link = rail.indexOf('href="/new"');
+    expect(link).toBeGreaterThan(-1);
+    expect(link).toBeLessThan(rail.indexOf("{!external ? ("));
+  });
+
+  it("is in the phone header, which is the only way to it on a phone outside", () => {
+    // The bottom bar is all recording and is not rendered for an external visitor.
+    const layout = read("app/layout.tsx");
+    const header = layout.slice(layout.indexOf("function HeaderNav"), layout.indexOf("</header>"));
+    expect(header).toContain("<NewMeetingLink");
+    expect(header).not.toContain("external ? null");
+  });
+
+  it("is not offered on the sign-in screens, where it would lead back to them", () => {
+    // Who stands on the sign-in screen is exactly the external visitor this link now shows to.
+    // The first walk-through with a real browser session found it there.
+    const link = read("app/new-meeting-link.tsx");
+    expect(link).toContain('href="/new"');
+    expect(link).toContain("isAuthPath(pathname)");
+    const rail = read("app/side-rail.tsx");
+    const at = rail.indexOf('href="/new"');
+    expect(rail.slice(Math.max(0, at - 200), at)).toContain("isAuthPath(pathname)");
+    expect(isAuthPath("/login")).toBe(true);
+    expect(isAuthPath("/setup")).toBe(true);
+    expect(isAuthPath("/reset/abc")).toBe(true);
+    expect(isAuthPath("/new")).toBe(false);
+    expect(isAuthPath("/")).toBe(false);
+  });
+
+  it("is on the home screen, with only recording behind the condition", () => {
+    const home = read("app/page.tsx");
+    const link = home.indexOf('href="/new"');
+    expect(link).toBeGreaterThan(-1);
+    expect(link).toBeLessThan(home.indexOf("external ?"));
+  });
+
+  it("is on a day of the calendar", () => {
+    const pane = read("app/meeting-list-pane.tsx");
+    const at = pane.indexOf("/new?date=");
+    expect(at).toBeGreaterThan(-1);
+    expect(pane.slice(Math.max(0, at - 300), at)).not.toContain("!readOnly");
+  });
+});
+
+describe("a series, from outside", () => {
+  it("offers its defaults for editing, because the write is allowed", () => {
+    const page = readFileSync(join(root, "app/series/[id]/page.tsx"), "utf8");
+    const at = page.indexOf("<SeriesSettings");
+    expect(at).toBeGreaterThan(-1);
+    expect(page.slice(at, page.indexOf("/>", at))).not.toContain("readOnly={external}");
+    expect(allowedFromOutside("PATCH", "/api/series/abc")).toBe(true);
   });
 });

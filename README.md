@@ -95,9 +95,10 @@ work is waiting and never what it is about.
 unwrapped by your password and by a **recovery code shown once**. A stolen disk, a database dump
 or a backup on its own reads nothing.
 
-**Read-only sharing.** One click in **Settings → Remote access** publishes a password-protected,
-**read-only** public link (view and download only) for people outside your tailnet — recording,
-editing and the transcription service stay private.
+**Sharing outside the tailnet.** One click in **Settings → Remote access** publishes a
+password-protected public link for people outside your tailnet: they can read and download
+minutes and set a meeting up beforehand, while recording, editing the transcript and the
+transcription service stay private.
 
 ## 💡 Why Voxinq Meeting?
 

@@ -16,6 +16,7 @@ import { LockedBanner } from "./locked-banner";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
 import { SideRail } from "./side-rail";
+import { NewMeetingLink } from "./new-meeting-link";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
@@ -97,18 +98,15 @@ function HeaderNav({
               external visitors too — installing changes how the page opens, not what it
               lets anyone do. */}
           <InstallApp />
-          {/* External (read-only) access hides settings/record/new — only viewing + downloads. */}
-          {external ? null : (
-            <>
-              {/* Recording and the queue are on the bottom bar now, where a thumb reaches them.
-                  What is left up here is the deliberate path — setting a meeting up rather than
-                  starting one — and it can afford to say so: with two icons gone there is room
-                  for the word, and "+ New" alone never said new *what*. */}
-              <Link href="/new" className="btn-ink whitespace-nowrap">
-                {t("New meeting")}
-              </Link>
-            </>
-          )}
+          {/* Recording and the queue are on the bottom bar now, where a thumb reaches them.
+              What is left up here is the deliberate path — setting a meeting up rather than
+              starting one — and it can afford to say so: with two icons gone there is room for
+              the word, and "+ New" alone never said new *what*.
+
+              Shown from outside too. Setting a meeting up is allowed from there, and on a phone
+              outside the tailnet this is the only way to it: the bottom bar is all recording and
+              is not rendered at all. Not on the sign-in screens, though — see NewMeetingLink. */}
+          <NewMeetingLink />
           {me ? (
             <AccountMenu
               username={me.username}

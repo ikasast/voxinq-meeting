@@ -83,7 +83,8 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         sttGlossary={series.sttGlossary}
         description={series.description}
         members={series.members.map((m) => m.name)}
-        readOnly={external}
+        // Editable from outside, like a meeting's agenda: it is what the next meeting in the
+        // series is set up from. `lib/external-writes.ts` allows exactly this PATCH.
       />
 
       {/* Timeline: newest first, each entry shows the overview of its latest minutes */}

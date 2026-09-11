@@ -26,12 +26,18 @@ export const EXTERNAL_WRITES: { method: string; path: RegExp }[] = [
   { method: "PATCH", path: /^\/api\/meetings\/(?!bulk$)[^/]+$/ },
   // Who is expected to be there, which is what diarization is later told to look for.
   { method: "PUT", path: /^\/api\/meetings\/[^/]+\/participants$/ },
+  // What every meeting in a series shares: its background, its regular members, its minutes
+  // format and terms. Text the next meeting is set up from — the same job as the agenda above.
+  // It was left off when series gained those fields, so from outside the series page showed
+  // them and offered no way to change them.
+  { method: "PATCH", path: /^\/api\/series\/[^/]+$/ },
 ];
 
-// Filing a meeting under a series needs no entry of its own: `/api/series` only answers GET,
-// and a series is created by naming it in the meeting's own PATCH, which connects or creates.
-// An allow-list entry for a method the route does not have looks like permission and is only
-// a 405 — it was in here until the boundary was exercised for real and returned one.
+// Creating a series needs no entry of its own: `/api/series` only answers GET, and a series is
+// created by naming it in the meeting's own PATCH, which connects or creates. It has to be that
+// way round — a series is visible through its meetings, so one created empty would be visible
+// to nobody. An allow-list entry for a method the route does not have looks like permission and
+// is only a 405 — it was in here until the boundary was exercised for real and returned one.
 
 export function allowedFromOutside(method: string, pathname: string): boolean {
   return EXTERNAL_WRITES.some((r) => r.method === method && r.path.test(pathname));
