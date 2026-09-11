@@ -68,6 +68,12 @@ export default async function SeriesListPage() {
         )}
       </p>
 
+      {series.length > 0 ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          {t("A new series starts when you name one on a meeting, under Purpose & agenda.")}
+        </p>
+      ) : null}
+
       {series.length === 0 ? (
         <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
           {t("No series yet. Name one on a meeting — under Purpose & agenda — and it appears here.")}

@@ -13,6 +13,7 @@ import {
   QueueIcon,
   SeriesIcon,
 } from "./icons";
+import { isAuthPath } from "./auth-paths";
 import { useMyQueueCount } from "./queue-header-link";
 import { useT } from "./locale-provider";
 
@@ -144,11 +145,17 @@ export function SideRail({
         <SeriesIcon />
       </RailLink>
 
+      {/* Outside it too: setting a meeting up needs no microphone, and `/new` drops its
+          recording half when reached from out there. Recording itself stays inside. Not on the
+          sign-in screens, where it would lead straight back to them. */}
+      {isAuthPath(pathname) ? null : (
+        <RailLink href="/new" label={t("New meeting")} active={pathname.startsWith("/new")} primary>
+          <PlusCircleIcon />
+        </RailLink>
+      )}
+
       {!external ? (
         <>
-          <RailLink href="/new" label={t("New meeting")} active={pathname.startsWith("/new")} primary>
-            <PlusCircleIcon />
-          </RailLink>
           <RailLink href="/quick-record" label={t("Record NOW")} active={pathname.startsWith("/quick-record")}>
             <MicIcon />
           </RailLink>

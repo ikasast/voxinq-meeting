@@ -135,7 +135,8 @@ allows `localhost`, private LAN ranges and `*.ts.net` automatically; if you set
 To let a computer **outside** your tailnet — e.g. a locked-down work PC that cannot install
 Tailscale — read and download minutes, expose the web app with **Tailscale Funnel** and set a
 password. The STT service stays private, so recording is impossible from outside; and the app
-enforces **read-only** access for any request without a tailnet identity.
+enforces **read-only** access for any request without a tailnet identity, apart from setting a
+meeting up (listed below).
 
 ```bash
 # Public HTTPS for the web app only (never Funnel the STT port).
@@ -159,9 +160,12 @@ server, so Docker needs no rebuild). What outside visitors get after logging in 
 password:
 
 - ✅ view meetings, minutes and transcripts; download minutes / transcript / meeting info.
-- ❌ everything that changes state — recording, minutes generation, editing, diarization,
-  delete, archive, settings — is **refused server-side** (HTTP 403), not just hidden. So even
-  the password holder on an untrusted machine cannot trigger those.
+- ✅ set a meeting up: create or book one, and edit its title, purpose & agenda, tags,
+  participants and series — and a series' own defaults (shared background, regular members,
+  minutes format, terms). None of it needs the GPU, the audio or the transcription service.
+- ❌ everything else that changes state — recording, minutes generation, editing the
+  transcript, diarization, delete, archive, settings — is **refused server-side** (HTTP 403),
+  not just hidden. So even the password holder on an untrusted machine cannot trigger those.
 
 > **With accounts**, the same boundary holds and the door changes: people sign in with their own
 > username and password rather than the shared one, `APP_PASSWORD` stops being a way in, and each

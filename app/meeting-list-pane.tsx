@@ -543,19 +543,19 @@ export async function MeetingListPane({
           <span className="font-medium text-[var(--text-strong)]">{longDay(activeDate)}</span>
           <span className="text-[var(--text-muted)]">
             {meetings.length === 0
-              ? "no meetings"
-              : `${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`}
+              ? t("no meetings")
+              : t(meetings.length === 1 ? "1 meeting" : "{n} meetings", { n: meetings.length })}
           </span>
-          {!readOnly ? (
-            <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] underline">
-              + Add a meeting on this day
-            </Link>
-          ) : null}
+          {/* Not behind `readOnly`: booking a meeting is allowed from outside, and a day on the
+              calendar is the most natural place to book one from. */}
+          <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] underline">
+            {t("+ Add a meeting on this day")}
+          </Link>
           <Link
             href={hrefWith({ date: null, month: monthKey(shownMonth) })}
             className="ml-auto text-[var(--text-muted)] underline"
           >
-            clear
+            {t("clear")}
           </Link>
         </div>
       ) : null}
