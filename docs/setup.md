@@ -244,7 +244,7 @@ want the feature they belong to.
 | `VOXINQ_KEY_SECRET` | With accounts | A second long random string. It wraps the keys that are open while somebody is using the app, so a stolen database or a backup on its own reads nothing. **Keep it out of the backup** |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.4.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.5.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
