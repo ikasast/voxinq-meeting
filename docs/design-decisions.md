@@ -918,10 +918,14 @@ the microphone in **Room** mode, which turns off the echo cancellation that woul
 remove the other party's voice.
 
 This was declined because doing it properly means leaving the browser, and one platform's worth
-of native app for one feature was not worth it. **That calculation changed**: v3.2 brings an
-Android app for a different reason — background recording with the screen off, which no web
-page can do — and `MediaProjection` comes almost free once that app exists. It is scheduled
-there. iOS still needs ReplayKit and a paid developer account, so it stays out.
+of native app for one feature was not worth it. A native Android app is now planned for a
+different reason — background recording with the screen off, which no web page can do — **but it
+does not bring this back.** Android's playback capture (`MediaProjection` with
+`AudioPlaybackCapture`) only reaches audio played as media, games or an unknown usage. Calls —
+the phone's own, and VoIP apps like Zoom, Teams and Meet — play as voice communication, which
+Android deliberately leaves out. So a call stays speakerphone and Room mode even with the app;
+what the app could add is capturing *media* another app plays, such as a recorded webinar. iOS
+still needs ReplayKit and a paid developer account, so it stays out.
 
 ## Decided against, not deferred
 
