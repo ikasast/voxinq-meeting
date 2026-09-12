@@ -121,14 +121,19 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 
 ## 🚀 Get started
 
-**An NVIDIA GPU is the best experience, not a requirement.** What changes without one is
-*when* you see the text, not whether you get it:
+**Which install for which machine** — ⭐ marks the one to pick:
 
-| your machine | transcription | when the text appears |
-| --- | --- | --- |
-| **NVIDIA GPU** (8 GB is plenty) | faster-whisper on CUDA | as you speak |
-| **Apple silicon** | whisper.cpp on Metal | as you speak |
-| **AMD/Intel GPU, or CPU only** | whisper.cpp on the CPU — the GPU is not used | when the meeting ends |
+| your machine | install with | also works | text appears |
+| --- | --- | --- | --- |
+| **Windows + NVIDIA GPU** | ⭐ **[Docker](docs/setup.md#a-docker)**, GPU images | [`voxinq`](docs/setup.md#b-without-docker-voxinq) via Scoop · [native](docs/setup.md#c-native-install) | as you speak |
+| **Linux + NVIDIA GPU** | ⭐ **[Docker](docs/setup.md#a-docker)**, GPU images | [native](docs/setup.md#c-native-install) | as you speak |
+| **Mac, Apple silicon** | ⭐ **[`voxinq`](docs/setup.md#b-without-docker-voxinq) via Homebrew** — Docker cannot reach the Mac's GPU | Docker, CPU images | as you speak — with Docker, when the meeting ends |
+| **No NVIDIA GPU** — CPU only, AMD or Intel GPU, Intel Mac | ⭐ **[Docker](docs/setup.md#a-docker)**, CPU images | [`voxinq`](docs/setup.md#b-without-docker-voxinq) via Scoop or Homebrew | when the meeting ends |
+| **Working on the code** | [native](docs/setup.md#c-native-install) | — | as your hardware allows |
+
+**An NVIDIA GPU is the best experience, not a requirement.** What changes without one is
+*when* you see the text, not whether you get it. Neither Mac route has been run on a real Mac
+yet — see [what has actually been run](docs/setup.md#what-has-actually-been-run).
 
 A machine with no GPU acceleration recognises speech slower than people produce it, so instead
 of falling behind for the whole meeting it records and transcribes the file in one pass at the

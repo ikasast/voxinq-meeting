@@ -153,9 +153,11 @@ voice. Recording that way captures your half of the conversation and quietly del
 Room mode turns echo cancellation off, so both halves are recorded.
 
 Quality is lower than capturing the audio directly, since it has been through a speaker and a
-microphone, but it transcribes well enough to be useful. Capturing internal audio properly
-would take a native Android app (MediaProjection); on iOS it would need ReplayKit and a paid
-developer account, which is outside what this project does.
+microphone, but it transcribes well enough to be useful. It is also the only way, and not just
+for a web page: even a native Android app cannot capture call audio. Android's playback capture
+leaves out voice communication, which is what phone calls and apps like Zoom, Teams and Meet
+play as. On iOS, capturing another app's audio at all would need ReplayKit and a paid developer
+account.
 
 ## Summarize an existing recording (no live capture)
 
