@@ -15,7 +15,7 @@ import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { MinutesWatcher } from "./minutes-watcher";
-import { ArchiveIcon, TrashIcon } from "./icons";
+import { ArchiveIcon, SeriesIcon, TrashIcon } from "./icons";
 import { MeetingCalendar } from "./meeting-calendar";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
@@ -369,10 +369,11 @@ export async function MeetingListPane({
             {showSeriesChip ? (
               <Link
                 href={hrefWith({ series: m.seriesName })}
-                className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)] hover:border-[var(--accent)]"
-                title={`Show only "${m.seriesName}"`}
+                className="inline-flex items-center gap-0.5 rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)] hover:border-[var(--accent)]"
+                title={t('Show only "{name}"', { name: m.seriesName ?? "" })}
               >
-                ↻ {m.seriesName}
+                <SeriesIcon className="h-3 w-3 shrink-0" />
+                {m.seriesName}
               </Link>
             ) : null}
             {m.tags.map((t) => (
@@ -443,24 +444,68 @@ export async function MeetingListPane({
       }
     }
 
-    // A series used to be folded into one stacked entry. It is not any more: a weekly meeting
-    // is a meeting, and hiding four of them behind a disclosure meant the list was not the list.
-    // The series chip on each card filters to it instead, which is the same information without
-    // taking the rows away.
+    // A series is one row with its history under it — except on a picked day.
+    //
+    // This has gone both ways. Folded once (e9061b9), then unfolded (6d3df61) because the rows
+    // folded away were the ones people scrolled looking for; folded again on request, with the
+    // day kept flat. The day is where the unfolding argument actually held: "what happened on
+    // the 12th" is answered by every meeting on the 12th, and a series folded there hides the
+    // answer. The whole list is a set of things that recur, and there a weekly meeting reads
+    // better as one row. Filtering to a series already shows only that series, so it stays flat.
     //
     // Sorted by when they happened rather than when the row was made, so the bands below are
     // monotonic — a meeting booked last month and recorded yesterday belongs to yesterday.
+    const group = !activeDate && !activeSeries;
     const past = meetings
       .filter((m) => !m.upcoming)
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
-    let lastBand: string | null = null;
+    // The newest of each series stands for it, in its own band; the older ones go under it.
+    const older = new Map<string, MeetingCardData[]>();
+    const shown: MeetingCardData[] = [];
     for (const m of past) {
+      if (!group || !m.seriesId) {
+        shown.push(m);
+      } else if (!older.has(m.seriesId)) {
+        older.set(m.seriesId, []);
+        shown.push(m);
+      } else {
+        older.get(m.seriesId)!.push(m);
+      }
+    }
+    let lastBand: string | null = null;
+    for (const m of shown) {
       const b = bandOf(m.startedAt, now);
       if (b !== lastBand) {
         entries.push(divider(b));
         lastBand = b;
       }
-      entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
+      const rest = m.seriesId ? (older.get(m.seriesId) ?? []) : [];
+      entries.push(
+        <li key={m.id}>
+          {swipeWrap(card(m), [m.id], m.title)}
+          {rest.length > 0 ? (
+            // Open when the meeting being read is one of them, so the list shows where you are.
+            <details
+              open={rest.some((o) => o.id === activeId)}
+              className="ml-3 mt-1 border-l border-[var(--border)] pl-2"
+            >
+              <summary className="cursor-pointer select-none px-1 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]">
+                {t(
+                  rest.length === 1
+                    ? "1 earlier meeting in this series"
+                    : "{n} earlier meetings in this series",
+                  { n: rest.length },
+                )}
+              </summary>
+              <ol className="mt-1 space-y-2">
+                {rest.map((o) => (
+                  <li key={o.id}>{swipeWrap(card(o), [o.id], o.title)}</li>
+                ))}
+              </ol>
+            </details>
+          ) : null}
+        </li>,
+      );
     }
   }
 
@@ -565,9 +610,11 @@ export async function MeetingListPane({
       {activeSeries ? (
         <p className="flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]">
-            ↻ {activeSeries}
+            <SeriesIcon className="inline h-3.5 w-3.5 align-[-2px]" /> {activeSeries}
           </span>
-          <span className="text-[var(--text-muted)]">{meetings.length} meeting(s) in this series</span>
+          <span className="text-[var(--text-muted)]">{t(meetings.length === 1 ? "1 meeting in this series" : "{n} meetings in this series", {
+              n: meetings.length,
+            })}</span>
           <Link href={hrefWith({ series: null })} className="text-[var(--text-muted)] underline">
             show all
           </Link>

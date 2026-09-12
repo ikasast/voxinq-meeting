@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MeetingsIcon, MicIcon, QueueIcon } from "./icons";
+import { MeetingsIcon, MicIcon, QueueIcon, SeriesIcon } from "./icons";
 import { isAuthPath } from "./auth-paths";
 import { useMyQueueCount } from "./queue-header-link";
 import { useT } from "./locale-provider";
@@ -27,6 +27,10 @@ const HIDDEN = [
   // A redirect in progress. It is already doing what this button asks for.
   /^\/quick-record$/,
 ];
+
+// A meeting's own page is `/<id>`, which is shaped exactly like every other top-level screen —
+// so those are named, or Meetings lit up on the series list and the queue as well as its own.
+const TOP_LEVEL = ["/series", "/queue", "/settings", "/new", "/archive", "/trash", "/account", "/admin"];
 
 function Slot({
   href,
@@ -70,7 +74,9 @@ export function BottomBar({ external }: { external: boolean }) {
   // something the next tap would refuse.
   if (external || isAuthPath(pathname) || HIDDEN.some((re) => re.test(pathname))) return null;
 
-  const onMeetings = pathname === "/" || /^\/[^/]+$/.test(pathname);
+  const onSeries = pathname.startsWith("/series");
+  const onMeetings =
+    pathname === "/" || (/^\/[^/]+$/.test(pathname) && !TOP_LEVEL.includes(pathname));
   return (
     <>
       {/* In the flow, so the last row of a list is not left underneath the bar. Rendering it
@@ -85,6 +91,12 @@ export function BottomBar({ external }: { external: boolean }) {
         <div className="mx-auto flex max-w-md items-end justify-around px-4 pb-1 pt-1.5">
           <Slot href="/" label={t("Meetings")} active={onMeetings}>
             <MeetingsIcon className="h-[22px] w-[22px]" />
+          </Slot>
+
+          {/* On a phone this bar is the only navigation there is. Without Series on it, the
+              series list could be reached from a meeting's chip or by typing its address. */}
+          <Slot href="/series" label={t("Series")} active={onSeries}>
+            <SeriesIcon className="h-[22px] w-[22px]" />
           </Slot>
 
           {/* Raised, and the only accented thing down here. Everything else on this bar is

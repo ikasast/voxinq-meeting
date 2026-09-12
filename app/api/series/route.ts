@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { apiError, readJson } from "@/lib/api";
 import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -15,7 +16,7 @@ async function onlyMine(): Promise<{ ownerId?: string }> {
  * The series, for the pickers and for the series list.
  *
  * Series are created implicitly when a meeting is filed under a new name, and pruned when their
- * last meeting goes. The two pickers that consume this read `name` and nothing else, so the
+ * last meeting goes — unless created on their own by the POST below. The two pickers that consume this read `name` and nothing else, so the
  * extra fields below are additive — there for the list page, ignored by them.
  *
  * The counts have to say `ownerId` themselves: a `where` nested inside a `_count` is not
@@ -60,4 +61,33 @@ export async function GET() {
       lastMetAt: s.meetings[0]?.startedAt?.toISOString() ?? null,
     })),
   );
+}
+
+/**
+ * A series set up on its own, before anything is filed under it — so its background and regular
+ * members can be written before the first meeting rather than after it.
+ *
+ * `standalone` keeps it while it has no meetings, and `ownerId` is what lets the person who made
+ * it see it then: a series is otherwise visible through its meetings, and this one has none.
+ */
+export async function POST(req: NextRequest) {
+  const body = await readJson<{ name?: unknown }>(req);
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  if (!name) return apiError("Enter a name for the series.", 400);
+  if (name.length > 60) return apiError("name too long (max 60)", 400);
+  const me = await currentUser();
+  try {
+    const created = await prisma.series.create({
+      data: { name, standalone: true, ownerId: me?.id ?? null },
+      select: { id: true, name: true },
+    });
+    return NextResponse.json(created, { status: 201 });
+  } catch (e) {
+    // Names are unique across the instance, not per person: a meeting's series field connects to
+    // an existing series by name, and has always worked that way.
+    if ((e as { code?: string }).code === "P2002") {
+      return apiError("A series with that name already exists.", 409);
+    }
+    throw e;
+  }
 }

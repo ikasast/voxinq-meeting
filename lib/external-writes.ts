@@ -31,13 +31,12 @@ export const EXTERNAL_WRITES: { method: string; path: RegExp }[] = [
   // It was left off when series gained those fields, so from outside the series page showed
   // them and offered no way to change them.
   { method: "PATCH", path: /^\/api\/series\/[^/]+$/ },
+  // A series of its own, before its first meeting: the same setting-up, one step earlier.
+  { method: "POST", path: /^\/api\/series$/ },
 ];
 
-// Creating a series needs no entry of its own: `/api/series` only answers GET, and a series is
-// created by naming it in the meeting's own PATCH, which connects or creates. It has to be that
-// way round — a series is visible through its meetings, so one created empty would be visible
-// to nobody. An allow-list entry for a method the route does not have looks like permission and
-// is only a 405 — it was in here until the boundary was exercised for real and returned one.
+// Deleting a series is not on it. Only an empty one can be deleted at all, but the rule for this
+// list is "nothing that cannot be undone", and a deleted series cannot be.
 
 export function allowedFromOutside(method: string, pathname: string): boolean {
   return EXTERNAL_WRITES.some((r) => r.method === method && r.path.test(pathname));

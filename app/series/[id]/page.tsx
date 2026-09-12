@@ -6,6 +6,8 @@ import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { AskMinutes } from "../../ask-minutes";
 import { SeriesSettings } from "./series-settings";
+import { DeleteSeriesButton } from "./delete-series-button";
+import { SeriesIcon } from "../../icons";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +22,16 @@ function leadSection(minutes: string, maxChars = 700): string {
 
 // Series page: per-series defaults + a chronological "story" of the series — each
 // meeting with the overview section of its latest minutes, newest first.
-export default async function SeriesPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SeriesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  /** `edit=1` arrives from New series, where the name is all that exists yet. */
+  searchParams: Promise<{ edit?: string }>;
+}) {
   const { id } = await params;
+  const { edit } = await searchParams;
   const series = await prisma.series.findUnique({
     where: { id },
     select: {
@@ -31,6 +41,9 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
       sttGlossary: true,
       description: true,
       members: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], select: { name: true } },
+      // Everybody's, trashed included: a `_count` is not narrowed by the scoped client. Decides
+      // whether Delete is offered, with the same answer the route will give.
+      _count: { select: { meetings: true } },
     },
   });
   if (!series) notFound();
@@ -55,8 +68,9 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
-          ↻ {series.name}
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
+          <SeriesIcon className="h-6 w-6 shrink-0 text-[var(--accent-sub)]" />
+          {series.name}
         </h1>
         <Link href="/" className="btn-outline">
           {t("Back to list")}
@@ -85,7 +99,13 @@ export default async function SeriesPage({ params }: { params: Promise<{ id: str
         members={series.members.map((m) => m.name)}
         // Editable from outside, like a meeting's agenda: it is what the next meeting in the
         // series is set up from. `lib/external-writes.ts` allows exactly this PATCH.
+        startEditing={edit === "1"}
       />
+
+      {/* Only while nothing is filed under it, and only from inside: deleting is not setting up. */}
+      {series._count.meetings === 0 && !external ? (
+        <DeleteSeriesButton id={series.id} name={series.name} />
+      ) : null}
 
       {/* Timeline: newest first, each entry shows the overview of its latest minutes */}
       <section className="space-y-0">

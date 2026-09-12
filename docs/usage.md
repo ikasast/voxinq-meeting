@@ -105,13 +105,17 @@ recording starts immediately.
    purpose: work that runs somewhere else — recognition sent to an endpoint, minutes written by
    a cloud model — is never in the way, and never asks.
 
-5. End with one of the three quiet buttons above it (all three end the meeting):
+5. End with one of the quiet buttons above it:
    - **Generate minutes** — minutes are generated in the background.
    - **Diarize** — speaker diarization starts automatically on the meeting page
      (enrolled voices get their names); generate minutes after reviewing the speakers.
    - **End only** — just stop; generate or diarize later.
+   - **End without saving** — for a meeting started by mistake. It goes to the trash, where it
+     can be restored for 30 days; nothing is transcribed on the way out, and the recording is
+     not protected, so it expires on its own.
 
-All three land on the meeting itself, where the minutes appear as they finish.
+The first three land on the meeting itself, where the minutes appear as they finish;
+**End without saving** goes back to the list.
 
 Tips:
 - **Start and Stop are at the bottom**, where a thumb reaches them; the status, the input level
@@ -164,15 +168,23 @@ Assign a meeting to a **Series** (on the New meeting screen, or under *Purpose &
 Edit* on the meeting page). Meetings in the same series share context: when generating
 minutes, the **previous meeting's minutes are given to the LLM as reference**, so remarks
 like "continuing from last time" are interpreted correctly. *New with same settings* keeps
-the series. A series disappears automatically when its last meeting is removed.
+the series. A series named this way disappears automatically when its last meeting is removed.
 
-**A series is not folded up in the list.** Each of its meetings is its own row, because four
-weekly meetings are four meetings and the ones worth scrolling for were the ones being hidden.
-The **↻ chip** on a card filters the list to that series instead — a count, the meetings, and
-*show all* to come back out. The calendar hides while a series is showing, since the series is
-already the answer to "which meetings".
+To set one up before its first meeting — its shared background and regular members first —
+use **New series** on the Series page. It opens straight into the series' editor. A series made
+there stays when it has no meetings in it, and can be deleted while it has none; one with
+meetings filed under it, trashed ones included, cannot be.
 
-The chip in a meeting's own rail, and on the Archived page, still opens the **series page**: a
+**In the list, a series is one row with its history under it:** its newest meeting, and
+*N earlier meetings in this series* to open the rest. **On a day picked in the calendar it is
+not folded** — every meeting on that day is its own row, because that is the question being
+asked. The **series chip** (the folder) on a card filters the list to that series instead — a
+count, the meetings, and *show all* to come back out. The calendar hides while a series is
+showing, since the series is already the answer to "which meetings".
+
+**Series** is on the left rail, and on a phone in the bottom bar (from outside the private
+network, where there is no bottom bar, it is the folder in the header). The chip in a meeting's
+own rail, and on the Archived page, opens the **series page**: a
 timeline of every meeting with the overview section of its minutes, plus **per-series
 defaults** — a minutes format and a transcription glossary that override the global Settings
 for this series only.

@@ -54,12 +54,14 @@ function RailLink({
           : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
       }`}
     >
+      {/* Icons at 26px, labels unchanged. The icon is what is recognised at a glance once the
+          label has been read a few times, and at 20px it was the smaller of the two. */}
       <span
-        className={
+        className={`[&_svg]:h-[26px] [&_svg]:w-[26px] ${
           primary
-            ? "flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
-            : undefined
-        }
+            ? "flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
+            : "flex items-center justify-center"
+        }`}
       >
         {children}
       </span>
@@ -86,7 +88,7 @@ function DocsLink({ href }: { href: string }) {
       aria-label={t("Documentation")}
       className="flex w-full flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
     >
-      <HelpIcon />
+      <HelpIcon className="h-[26px] w-[26px]" />
       <span className="text-center leading-tight">{t("Help")}</span>
     </a>
   );

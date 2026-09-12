@@ -14,6 +14,7 @@ export function SeriesSettings({
   description,
   members,
   readOnly = false,
+  startEditing = false,
 }: {
   id: string;
   name: string;
@@ -24,10 +25,12 @@ export function SeriesSettings({
   /** The people who are always here. Copied onto a new meeting filed under this series. */
   members: string[];
   readOnly?: boolean;
+  /** Open in the editor — arriving from New series, where the name is all there is yet. */
+  startEditing?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [draftName, setDraftName] = useState(name);
   const [draftFormat, setDraftFormat] = useState(summaryFormat ?? "");
   const [draftGlossary, setDraftGlossary] = useState(sttGlossary ?? "");

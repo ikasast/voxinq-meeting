@@ -67,6 +67,7 @@ model User {
 
   sessions Session[]
   meetings Meeting[]
+  series   Series[]
   jobs     Job[]
   unlock   KeyUnlock?
   resets   PasswordReset[]
@@ -292,11 +293,20 @@ model Series {
   // settled long ago. Passed to the LLM alongside the meeting's own agenda when minutes are
   // written, and read for proper nouns when the transcript is checked against the glossary.
   description   String?
+  /// Created from the series screen rather than by naming it on a meeting. Such a series is
+  /// kept with no meetings in it — somebody set it up on purpose — where one that only existed
+  /// because a meeting named it still goes when its last meeting does.
+  standalone    Boolean  @default(false)
+  /// Who created it from the series screen. A series is otherwise visible through its meetings,
+  /// and one with none yet would be visible to nobody — including the person who just made it.
+  ownerId       String?  @map("owner_id")
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now()) @map("created_at")
 
   meetings Meeting[]
   members  SeriesMember[]
 
+  @@index([ownerId])
   @@map("series")
 }
 
