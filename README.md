@@ -24,8 +24,7 @@
 
 ### Record, and it becomes words
 
-![Three devices — a phone, a laptop, an audio file — each joined by a line to one computer, and out of that computer a waveform resolving into lines of text](docs/illustrations/record.png)
-
+![A phone, a laptop and an audio file feeding Whisper on your own machine, and a transcript coming out of it with each line under its speaker — Sato, David and You — one voice matched to an enrolled voiceprint, and a misheard word, Boxinq, offered as a one-click fix to Voxinq](docs/illustrations/capture.png)
 Stream the microphone (or PC audio) to a Whisper server on your own machine over WebSocket:
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) on CUDA,
 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) elsewhere, chosen for you. **Words appear
@@ -40,10 +39,28 @@ included. Or just **drop an existing recording** (`wav`/`mp3`/`m4a`).
 Record from a **phone**: install as a PWA and reach it over [Tailscale](https://tailscale.com).
 On a phone the record button is the one at the bottom of the screen, where a thumb reaches it.
 
+**Check the microphone first** — one button, before the meeting starts. The one failure nothing
+can repair afterwards is a meeting nobody recorded.
+
+### Who said what
+
+
+Assign speakers after the meeting — [pyannote](https://github.com/pyannote/pyannote-audio) on
+CUDA, [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) everywhere else, and no Hugging Face
+token needed on that path. **Enrol a voice once** and it is named automatically in every future
+meeting.
+
+**Participants feed the separation.** List who was there and tick who is expected to speak: the
+count becomes the number of voices to look for, and the names narrow which enrolled voiceprints
+can be matched. Someone who attended in silence stays on the list and off the count.
+
+**Fix what was misheard.** **Suggest fixes** checks the transcript against your glossary, the
+series' name and its regular members, and offers each correction to accept or refuse; **Find &
+replace** fixes a word misheard the same way throughout, with a preview before anything changes.
+
 ### Minutes, written for you
 
-![A loose stack of sheets going into a box and one squared-up page coming out, with a speech bubble looping back into the box](docs/illustrations/minutes.png)
-
+![A transcript passing through a local LLM into minutes with decisions and action items, a question asked of past minutes with its answer, and below them a weekly series whose meetings hand the previous minutes forward, ending in an upcoming meeting with a bell and a Record button](docs/illustrations/minutes-memory.png)
 A topic-grouped summary with **decisions and action items**, written by the model you choose:
 Ollama (default, local), vLLM, LM Studio, or any OpenAI-compatible endpoint; Anthropic and OpenAI
 too. Formats are saved with names and picked when the minutes are written — a talk is not a
@@ -55,37 +72,25 @@ grounded in them and told to say when something is not recorded.
 **Live Japanese translation** (optional) puts a translation under each non-Japanese utterance,
 produced on the CPU so it never competes with transcription for the GPU.
 
-### Who said what
-
-![One dense waveform above, combed apart into three separate tracks below, with three circles beside them and one of the three filled in and ticked](docs/illustrations/speakers.png)
-
-Assign speakers after the meeting — [pyannote](https://github.com/pyannote/pyannote-audio) on
-CUDA, [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) everywhere else, and no Hugging Face
-token needed on that path. **Enrol a voice once** and it is named automatically in every future
-meeting.
-
-**Participants feed the separation.** List who was there and tick who is expected to speak: the
-count becomes the number of voices to look for, and the names narrow which enrolled voiceprints
-can be matched. Someone who attended in silence stays on the list and off the count.
-
 ### It adds up over time
 
-![Five cards in a row threaded by one line, the furthest drawn as an outline only, a magnifier over the middle one, and a calendar grid below with a single day filled](docs/illustrations/over-time.png)
 
-**Recurring series** link meetings together: the previous minutes are fed to the LLM as context,
-and each series can carry its own minutes format and glossary.
+**Recurring series** link meetings together: the previous minutes are fed to the LLM as context.
+Each series carries a **shared background** — standing context, given to the LLM apart from what
+was said — its **regular members**, copied onto every new meeting, and its own minutes format and
+glossary. A series is its owner's: two people who both keep a *Weekly sync* have two.
 
 **Book a meeting before it happens** — title, agenda, series and participants entered ahead of
-time; it waits under **Upcoming** until you press record. The calendar over the list turns a
-half-remembered date into a place to click.
+time; it waits under **Upcoming** until you press record, and when its time comes the app says so —
+a banner with a record button and, if you allow it, an OS notification. The calendar over the
+list turns a half-remembered date into a place to click.
 
 **Search, tags, archive and trash** — find meetings fast, soft-delete with 30-day restore. Search
 keeps working after encryption, through an index of keyed hashes rather than by reading.
 
 ### Yours alone
 
-![A cube holding three sheets, two of them sealed and one open; a single key outside it; three keyholes below, only one of which matches; and an unbroken wall around the base](docs/illustrations/private.png)
-
+![Your machine drawn as a house: inside, two people's meetings, each encrypted with their own key, and an administrator who runs the machine but cannot read minutes; outside, a laptop that can set meetings up but not record, and a crossed-out cloud — nothing leaves unless you choose](docs/illustrations/private.png)
 **Accounts, if you want them.** One person needs nothing. The moment somebody creates an account
 the server becomes multi-user, and each person's meetings, voiceprints and settings are their own.
 **An administrator runs the machine and cannot read what is on it** — the shared queue shows whose
@@ -185,6 +190,10 @@ the same `voxinq` command.
 Then open `http://localhost:3000` → **New meeting → Set up meeting**, press **Start recording**
 on the next screen once it says *Model ready*, talk, and finish with **Generate minutes**.
 (Or just **drop an audio file** on the New meeting screen.)
+
+The interface is in **English or Japanese** — it follows your browser, or the language chosen
+in **Settings**. An empty meeting list offers a **sample meeting** with a numbered guide to what
+to press: the real features acting on invented data, deleted like any meeting when you are done.
 
 📖 Docker details, manual install and background services: **[docs/setup.md](docs/setup.md)**.
 To record from your phone, you need an HTTPS address it can reach — the Tailscale walkthrough
