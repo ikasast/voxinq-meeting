@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useT } from "../locale-provider";
+import { RecoveryCode } from "../recovery-code";
 
 // With accounts, an email address and a password. Without any, the single shared password this app
 // asked for before v3.1 — the same field, so an install that has not signed anybody up yet sees
@@ -12,6 +13,13 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+
+  const goOn = () => {
+    const next = new URLSearchParams(window.location.search).get("next") || "/";
+    // Full reload so the middleware re-evaluates.
+    window.location.href = next.startsWith("/") ? next : "/";
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,19 +31,25 @@ export function LoginForm({ accounts }: { accounts: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accounts ? { email, password } : { password }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => null);
-        throw new Error(d?.error ?? `HTTP ${res.status}`);
+      const d = (await res.json().catch(() => null)) as { error?: string; recoveryCode?: string } | null;
+      if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      // The first sign-in of an account somebody else made is when its key comes into being, and
+      // the recovery code has to be seen before anything else happens.
+      if (d?.recoveryCode) {
+        setRecoveryCode(d.recoveryCode);
+        setBusy(false);
+        return;
       }
-      const next = new URLSearchParams(window.location.search).get("next") || "/";
-      // Full reload so the middleware re-evaluates.
-      window.location.href = next.startsWith("/") ? next : "/";
-      // (full reload above so the middleware re-evaluates)
+      goOn();
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
     }
   };
+
+  if (recoveryCode) {
+    return <RecoveryCode code={recoveryCode} context={t("Your account")} onDone={goOn} />;
+  }
 
   return (
     <div className="mx-auto max-w-sm py-16">

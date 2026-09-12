@@ -196,7 +196,7 @@ export function MeetingMeta({
 
           <div>
             <label htmlFor="series" className="label">
-              Series (recurring meetings)
+              {t("Series (recurring meetings)")}
             </label>
             <input
               id="series"
@@ -215,8 +215,9 @@ export function MeetingMeta({
               ))}
             </datalist>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Meetings in the same series share context: the previous meeting&apos;s minutes are
-              given to the LLM as reference when generating minutes.
+              {t(
+                "Meetings in the same series share context: the previous meeting’s minutes are given to the LLM as reference when generating minutes.",
+              )}
             </p>
           </div>
 

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useRef, useState } from "react";
 import { useConfirm } from "./confirm-dialog";
+import { useT } from "./locale-provider";
 import { ArchiveIcon, RestoreIcon, TrashIcon } from "./icons";
 
 // Distance (px) the row must travel before the gesture commits on release.
@@ -23,6 +24,7 @@ type Props = {
 export function SwipeableRow({ ids, label, archived = false, children }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
+  const t = useT();
   const [dx, setDx] = useState(0);
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState(false);
@@ -39,11 +41,13 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
   const run = async (action: "archive" | "unarchive" | "trash") => {
     if (action === "trash") {
       const ok = await confirm({
-        title: many ? `${ids.length} meetings — ${label}` : label,
+        title: many ? t("{n} meetings — {label}", { n: ids.length, label }) : label,
         message: many
-          ? `Move all ${ids.length} meetings in this series to Trash. You can restore them within 30 days.`
-          : "Move this meeting to Trash. You can restore it within 30 days.",
-        confirmLabel: "Move to Trash",
+          ? t("Move all {n} meetings in this series to Trash. You can restore them within 30 days.", {
+              n: ids.length,
+            })
+          : t("Move this meeting to Trash. You can restore it within 30 days."),
+        confirmLabel: t("Move to Trash"),
         danger: true,
       });
       if (!ok) {

@@ -6,7 +6,7 @@ import { normaliseEmail } from "@/lib/auth/email";
 import { hasUsersCached } from "@/lib/auth/has-users";
 import { verifyPassword } from "@/lib/auth/password";
 import { pruneSessions, startSession } from "@/lib/auth/session";
-import { unlockWithPassword } from "@/lib/crypto/user-keys";
+import { setUpKey, unlockWithPassword } from "@/lib/crypto/user-keys";
 import { enqueueEncryptionIfNeeded } from "@/lib/crypto/migrate";
 import { prisma } from "@/lib/prisma";
 
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   const user = email
     ? await prisma.user.findUnique({
         where: { email },
-        select: { id: true, passwordHash: true, disabledAt: true },
+        select: { id: true, passwordHash: true, disabledAt: true, keySalt: true },
       })
     : null;
 
@@ -64,10 +64,20 @@ export async function POST(req: Request) {
   // show it, survive a restart, and hold the key for exactly as long as the work lasts.
   if (master) await enqueueEncryptionIfNeeded(user.id);
 
+  // An account an administrator made has a password and no key: the administrator chose the
+  // password, and a key made from it then would come with a recovery code the administrator saw
+  // first. So it is made here, the first time the account's owner signs in, and the code goes to
+  // them. Before this, such an account stayed unencrypted until its owner happened to change the
+  // password, while the documentation said an account with a password has a key.
+  let recoveryCode: string | null = null;
+  if (!master && !user.keySalt) {
+    ({ recoveryCode } = await setUpKey(user.id, password));
+  }
+
   await pruneSessions();
   const ua = req.headers.get("user-agent");
   const { value, expiresAt } = await startSession(user.id, ua);
-  const res = NextResponse.json({ ok: true });
+  const res = NextResponse.json(recoveryCode ? { ok: true, recoveryCode } : { ok: true });
   res.cookies.set(SESSION_COOKIE, value, { ...cookieOptions(), expires: expiresAt });
   return res;
 }

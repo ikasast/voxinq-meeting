@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { isValidSpeakerKey } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
-import { applySeriesMembers, pruneOrphanSeries } from "@/lib/series";
+import { applySeriesMembers, pruneOrphanSeries, seriesIdForName } from "@/lib/series";
 import { pruneOrphanTags } from "@/lib/tags";
 
 export const runtime = "nodejs";
@@ -58,9 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     speakerLabels?: string;
     archivedAt?: Date | null;
     tags?: { set: []; connectOrCreate: { where: { name: string }; create: { name: string } }[] };
-    series?:
-      | { connectOrCreate: { where: { name: string }; create: { name: string } } }
-      | { disconnect: true };
+    series?: { connect: { id: string } } | { disconnect: true };
   } = {};
 
   if (body?.archived !== undefined) {
@@ -102,9 +100,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
     const name = typeof body.series === "string" ? body.series.trim() : "";
     if (name.length > 60) return apiError("series name too long (max 60)", 400);
-    data.series = name
-      ? { connectOrCreate: { where: { name }, create: { name } } }
-      : { disconnect: true };
+    // The caller's own series of that name: see seriesIdForName.
+    data.series = name ? { connect: { id: await seriesIdForName(name) } } : { disconnect: true };
   }
 
   if (body?.speakerLabels !== undefined) {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError, readJson } from "@/lib/api";
 import { planReplace } from "@/lib/find-replace";
 import { prisma } from "@/lib/prisma";
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/meetings/[i
       prisma.transcript.update({ where: { id: c.id }, data: { text: c.after } }),
     ),
   );
+  // What replace is for — a name spelled right at last — is exactly what search is asked for.
+  await reindexAfterWrite(id);
 
   return NextResponse.json({
     updated: plan.changes.length,

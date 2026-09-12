@@ -99,7 +99,7 @@ export function MinutesDownloadButton({
             title={t("Opens a print view — choose “Save as PDF” as the destination")}
             className="block w-full rounded px-2.5 py-1.5 text-left text-sm hover:bg-[var(--surface-hover)]"
           >
-            PDF (print)
+            {t("PDF (print)")}
           </a>
         </div>
       ) : null}

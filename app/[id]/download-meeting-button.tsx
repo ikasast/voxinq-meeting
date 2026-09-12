@@ -168,7 +168,7 @@ export function DownloadMeetingButton({
             {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
             <div className="mt-3 flex justify-end gap-2">
               <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-outline !px-3 !py-1 text-xs">
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 type="button"

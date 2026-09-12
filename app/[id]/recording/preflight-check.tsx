@@ -150,7 +150,7 @@ export function PreflightCheck({
       );
       release(false);
     }
-  }, [source, micMode, release]);
+  }, [source, micMode, release, t]);
 
   const stop = useCallback(() => {
     setState(peak >= HEARD ? "heard" : "silent");
@@ -177,7 +177,7 @@ export function PreflightCheck({
           </button>
         ) : (
           <button type="button" onClick={stop} className="btn-outline !px-3 !py-1 !text-xs">
-            Done
+            {t("Done")}
           </button>
         )}
       </div>

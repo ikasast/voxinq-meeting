@@ -94,12 +94,12 @@ describe("a series made on its own", () => {
     expect(read("app/api/series/route.ts")).toContain("standalone: true");
   });
 
-  it("is visible to whoever made it before anything is filed under it", () => {
+  it("is its owner's, including before anything is filed under it", () => {
     const p = read("lib/prisma.ts");
-    expect(p).toContain('if (model === "series") return SERIES_VISIBLE(userId);');
-    expect(p).toContain("{ ownerId: userId }, { meetings: { some: { ownerId: userId } } }");
-    // Its members follow the series, not only its meetings.
-    expect(p).toContain("if (VIA_SERIES.has(model)) return { series: SERIES_VISIBLE(userId) };");
+    // Owned outright now; see tests/audit-fixes.test.ts.
+    expect(p).toMatch(/const OWNED = new Set\(\[[^\]]*"series"/);
+    // Its members follow the series.
+    expect(p).toContain("if (VIA_SERIES.has(model)) return { series: { ownerId: userId } };");
   });
 
   it("is shown in the list though it has no meetings yet", () => {

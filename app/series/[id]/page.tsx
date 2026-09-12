@@ -65,6 +65,19 @@ export default async function SeriesPage({
     },
   });
 
+  // Who could be a regular: anybody with an enrolled voice — the names a meeting's participant
+  // list offers — and anybody who has already been at one of this series' meetings.
+  const [profiles, attended] = await Promise.all([
+    prisma.speakerProfile.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
+    prisma.meetingParticipant.findMany({
+      where: { meeting: { seriesId: id, deletedAt: null } },
+      orderBy: { name: "asc" },
+      distinct: ["name"],
+      select: { name: true },
+    }),
+  ]);
+  const knownNames = [...new Set([...profiles, ...attended].map((p) => p.name))];
+
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -100,6 +113,7 @@ export default async function SeriesPage({
         // Editable from outside, like a meeting's agenda: it is what the next meeting in the
         // series is set up from. `lib/external-writes.ts` allows exactly this PATCH.
         startEditing={edit === "1"}
+        knownNames={knownNames}
       />
 
       {/* Only while nothing is filed under it, and only from inside: deleting is not setting up. */}

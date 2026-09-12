@@ -1,4 +1,4 @@
-import { applySeriesMembers } from "@/lib/series";
+import { applySeriesMembers, seriesIdForName } from "@/lib/series";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
@@ -91,9 +91,8 @@ export async function POST(req: NextRequest) {
       tags: tagNames.length
         ? { connectOrCreate: tagNames.map((name) => ({ where: { name }, create: { name } })) }
         : undefined,
-      series: seriesName
-        ? { connectOrCreate: { where: { name: seriesName }, create: { name: seriesName } } }
-        : undefined,
+      // The caller's own series of that name: see seriesIdForName.
+      seriesId: seriesName ? await seriesIdForName(seriesName) : undefined,
     },
     // Needed to copy the series' members onto it below, and harmless to select.
     include: { series: { select: { id: true } } },

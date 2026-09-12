@@ -263,11 +263,11 @@ export function TranscriptList({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setRecInfo((await res.json()) as RecordingInfo);
     } catch (e) {
-      setError(`Failed to change protection: ${(e as Error).message}`);
+      setError(t("Failed to change protection: {error}", { error: (e as Error).message }));
     } finally {
       setRecBusy(false);
     }
-  }, [recInfo, meetingId]);
+  }, [recInfo, meetingId, t]);
 
   const reassignKeys = useMemo(
     () => collectSpeakerKeys(transcripts.map((t) => t.speakerType), speakerLabels),
@@ -322,10 +322,10 @@ export function TranscriptList({
       }).catch(() => null);
       if (!res || !res.ok) {
         setTranscripts(snapshot);
-        setError(`Failed to change speaker (${res ? `HTTP ${res.status}` : "connection error"})`);
+        setError(t("Failed to change speaker ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
       }
     },
-    [transcripts],
+    [transcripts, t],
   );
 
   // Preview a find-and-replace. The server plans it against the rows it holds, so what is shown
@@ -394,13 +394,13 @@ export function TranscriptList({
       }).catch(() => null);
       if (!res || !res.ok) {
         setTranscripts(snapshot);
-        setError(`Failed to save the edit (${res ? `HTTP ${res.status}` : "connection error"})`);
+        setError(t("Failed to save the edit ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
         return false;
       }
       setError(null);
       return true;
     },
-    [transcripts],
+    [transcripts, t],
   );
 
   // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
@@ -476,7 +476,7 @@ export function TranscriptList({
       );
       if (!res || !res.ok) {
         setTranscripts(snapshot);
-        setError(`Failed to delete (${res ? `HTTP ${res.status}` : "connection error"})`);
+        setError(t("Failed to delete ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
         return;
       }
       const d = (await res.json().catch(() => null)) as { synced?: boolean } | null;
@@ -488,7 +488,7 @@ export function TranscriptList({
           : "The recording's utterance list could not be updated to match. Re-run Diarize before trusting speaker names.",
       );
     },
-    [confirm, transcripts],
+    [confirm, transcripts, t],
   );
 
   const renameSpeaker = useCallback(
@@ -501,10 +501,10 @@ export function TranscriptList({
         body: JSON.stringify({ speakerLabels: updated }),
       }).catch(() => null);
       if (!res || !res.ok) {
-        setError(`Failed to save speaker name (${res ? `HTTP ${res.status}` : "connection error"})`);
+        setError(t("Failed to save speaker name ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
       }
     },
-    [speakerLabels, meetingId],
+    [speakerLabels, meetingId, t],
   );
 
   // Where *this* run would send the audio: the picked endpoint, or the default when the picker
@@ -553,7 +553,7 @@ export function TranscriptList({
         await new Promise((r) => setTimeout(r, 3000));
       }
     },
-    [],
+    [t],
   );
 
   /** Pull the transcript and speaker names back after a job has rewritten them. */
@@ -633,7 +633,7 @@ export function TranscriptList({
       setRetransWarn(job.detail ?? null);
       setRetransStatus('Done. Run "Diarize" to distinguish speakers.');
     } catch (e) {
-      setError(`Re-transcription failed: ${(e as Error).message}`);
+      setError(t("Re-transcription failed: {error}", { error: (e as Error).message }));
       setRetransStatus(null);
     } finally {
       setRetransing(false);
@@ -645,7 +645,7 @@ export function TranscriptList({
     uploadTo,
     seriesGlossary,
     awaitJob,
-    reloadTranscript,
+    reloadTranscript, t
   ]);
 
   const runDiarization = useCallback(async () => {
@@ -698,13 +698,13 @@ export function TranscriptList({
       setDiarWarn(job.detail ?? null);
       setDiarStatus(job.detail ? null : t("Done. Rename the speakers below if you like."));
     } catch (e) {
-      setError(`Diarization failed: ${(e as Error).message}`);
+      setError(t("Diarization failed: {error}", { error: (e as Error).message }));
       setDiarStatus(null);
     } finally {
       setDiarizing(false);
       setStoppingDiar(false);
     }
-  }, [meetingId, numSpeakers, awaitJob, reloadTranscript]);
+  }, [meetingId, numSpeakers, awaitJob, reloadTranscript, t]);
 
   // Force-stop a running diarization: tell STT to kill the subprocess and break the poll loop.
   const stopDiarization = useCallback(async () => {

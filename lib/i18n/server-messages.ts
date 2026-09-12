@@ -77,4 +77,6 @@ export const SERVER_MESSAGES = [
   "Enter a name for the series.",
   "A series with that name already exists.",
   "Only a series with no meetings in it can be deleted.",
+  // Settings a person may not change.
+  "Only an administrator can change {keys} — they describe the machine, not you.",
 ] as const;

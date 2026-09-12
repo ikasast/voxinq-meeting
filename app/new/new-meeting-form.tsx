@@ -37,6 +37,12 @@ function choiceLabel(t: (k: string) => string, label: string): string {
     Microphone: t("Microphone"),
     "PC audio": t("PC audio"),
     "Microphone + PC audio": t("Microphone + PC audio"),
+    // Whisper models: the name is an identifier and stays, the bracket is prose. The same rows
+    // the settings screen uses, so the two pickers say the same thing.
+    "large-v3-turbo (default; fast and accurate)": t("large-v3-turbo (default; fast and accurate)"),
+    "large-v3 (accurate)": t("large-v3 (accurate)"),
+    "small (light)": t("small (light)"),
+    "kotoba-whisper-v2.0 (Japanese only)": t("kotoba-whisper-v2.0 (Japanese only)"),
   };
   return table[label] ?? label;
 }
@@ -410,12 +416,12 @@ export default function NewMeetingForm({
               onClick={() => fileInput.current?.click()}
               disabled={busy || gpu.busy}
               className="btn-outline mt-3"
-              title={gpu.busy ? `Busy: ${gpu.label ?? "another GPU task is running"}` : undefined}
+              title={gpu.busy ? t("Busy: {what}", { what: gpu.label ?? t("another GPU task is running") }) : undefined}
             >
               {t("Choose file")}
             </button>
             {gpu.busy ? (
-              <p className="mt-2 text-xs text-[var(--warning)]">{gpu.label} — please wait.</p>
+              <p className="mt-2 text-xs text-[var(--warning)]">{t("{what} — please wait.", { what: gpu.label ?? "" })}</p>
             ) : null}
             <input
               ref={fileInput}
@@ -534,7 +540,7 @@ export default function NewMeetingForm({
               >
                 {WHISPER_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
-                    {m.label}
+                    {choiceLabel(t, m.label)}
                   </option>
                 ))}
                 {isKnownWhisperModel(model) ? null : (
@@ -618,8 +624,9 @@ export default function NewMeetingForm({
             </div>
           </div>
           <p className="mt-3 text-xs text-[var(--text-muted)]">
-            The transcription language is saved on the meeting. Microphone mode and source apply to
-            live recording only (source can also be switched while recording).
+            {t(
+              "The transcription language is saved on the meeting. Microphone mode and source apply to live recording only (source can also be switched while recording).",
+            )}
           </p>
         </div>
 
@@ -627,7 +634,7 @@ export default function NewMeetingForm({
 
         <div className="flex items-center justify-end gap-2">
           <Link href="/" className="btn-outline">
-            Cancel
+            {t("Cancel")}
           </Link>
           <button type="submit" disabled={busy} className="btn-ink">
             {submitting
@@ -647,12 +654,12 @@ export default function NewMeetingForm({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card w-full max-w-sm space-y-4 p-6">
             <h2 className="text-lg font-semibold text-[var(--text-strong)]">
-              Minutes are being generated
+              {t("Minutes are being generated")}
             </h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Recording uses the GPU that minutes generation is running on. Interrupt the
-              in-progress minutes so the meeting is ready to record? You can regenerate those
-              minutes afterward.
+              {t(
+                "Recording uses the GPU that minutes generation is running on. Interrupt the in-progress minutes so the meeting is ready to record? You can regenerate those minutes afterward.",
+              )}
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -661,7 +668,7 @@ export default function NewMeetingForm({
                 disabled={interrupting}
                 className="btn-outline"
               >
-                Keep generating
+                {t("Keep generating")}
               </button>
               <button
                 type="button"

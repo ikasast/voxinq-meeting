@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -12,7 +13,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "summaryText is required" }, { status: 400 });
   }
 
-  const exists = await prisma.meetingSummary.findUnique({ where: { id }, select: { id: true } });
+  const exists = await prisma.meetingSummary.findUnique({
+    where: { id },
+    select: { id: true, meetingId: true },
+  });
   if (!exists) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
@@ -22,5 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     data: { summaryText: text },
     select: { id: true },
   });
+  // Edited minutes are searched like written ones.
+  await reindexAfterWrite(exists.meetingId);
   return NextResponse.json(updated);
 }

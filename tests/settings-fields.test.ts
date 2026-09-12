@@ -82,7 +82,8 @@ describe("every setting says whose it is", () => {
 
   it("refuses a machine key posted by somebody who is not an administrator", () => {
     expect(routeSrc).toContain("machineBits.length > 0 && me && !me.isAdmin");
-    expect(routeSrc).toContain("status: 403");
+    // Through apiError now, so the refusal is in the reader's language like the others.
+    expect(routeSrc).toMatch(/apiError\(\s*"Only an administrator can change \{keys\}[^"]*",\s*403/);
   });
 
   it("drops a machine key that turns up inside a person's stored settings", () => {

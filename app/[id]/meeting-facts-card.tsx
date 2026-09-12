@@ -72,7 +72,7 @@ export async function MeetingFactsCard({
               came out right — both live on the series and were invisible from here. */}
           {series.summaryFormat ? (
             <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-              Uses this series&rsquo; own minutes format.
+              {t("Uses this series’ own minutes format.")}
             </p>
           ) : null}
           {series.glossary?.trim() ? (

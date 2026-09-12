@@ -178,7 +178,7 @@ export default async function MeetingDetailPage({
 
       {meeting.archivedAt ? (
         <div className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-          Archived — hidden from the meeting list, but still found via search.
+          {t("Archived — hidden from the meeting list, but still found via search.")}
         </div>
       ) : null}
 

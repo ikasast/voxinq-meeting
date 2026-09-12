@@ -132,7 +132,7 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
                 </button>
                 <button type="button" onClick={() => void trash()} disabled={busy} className={`${itemClass} !text-[var(--error)]`}>
                   <TrashIcon className="h-3.5 w-3.5" />
-                  Move to Trash
+                  {t("Move to Trash")}
                 </button>
               </div>
             </>,
