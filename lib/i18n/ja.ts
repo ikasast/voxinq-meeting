@@ -965,7 +965,7 @@ export const ja: Record<string, string> = {
   "Speaker separation needs a Hugging Face token": "話者分離には Hugging Face のトークンが必要です",
   "How to set it up →": "設定方法 →",
   "Speaker names (edits apply to all lines)": "話者の名前（変更はすべての行に反映されます）",
-  "e.g. NEXUS": "例: NEXUS",
+  "e.g. Voxinq": "例: Voxinq",
   "…and {n} more": "…ほか {n} 件",
   "{n} skipped — a replacement cannot empty an utterance (delete it instead) or exceed the length limit.":
     "{n} 件は対象外です。置換で発言を空にすることはできません（その場合は削除してください）。長さの上限を超える場合も同様です。",
