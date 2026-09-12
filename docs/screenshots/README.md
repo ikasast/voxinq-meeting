@@ -8,10 +8,8 @@ app is for, these say what it looks like.
 
 | Filename | What it shows | Retaken by |
 | --- | --- | --- |
-| `dashboard.png` | Home: the rail, the month calendar, and the meeting list grouped by when — tags and status chips on each. | `shoot-screenshots.mjs` |
 | `recording.png` | Recording screen: model state, live transcript, and the recording control at the bottom. | `shoot-screenshots.mjs` |
 | `minutes.png` | Meeting detail: minutes in the middle, and the column beside them — progress, agenda, who was there, what it was recorded with. | `shoot-screenshots.mjs` |
-| `settings.png` | Settings → Transcription: the endpoint list (this machine, plus any saved), language, glossary, mic mode. | `shoot-screenshots.mjs` |
 | `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series), a band of what each kind of hardware does, and a strip on encryption, accounts, search and self-hosting. **Says more than any drawing can**, which is why it is the hero and not one. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
