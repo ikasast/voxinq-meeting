@@ -142,7 +142,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (e) {
     // Unique name collision (another series already has this name).
     if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
-      return apiError("a series with this name already exists", 409);
+      return apiError("A series with that name already exists.", 409);
     }
     return apiError("not found", 404);
   }

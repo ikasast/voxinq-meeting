@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { apiError } from "@/lib/api";
 import {
   type AppSettings,
   VALID_REST_SCREEN_SECONDS,
@@ -129,12 +130,9 @@ export async function PATCH(req: NextRequest) {
   const me = await currentUser();
   const machineBits = Object.keys(patch).filter(isMachineKey);
   if (machineBits.length > 0 && me && !me.isAdmin) {
-    return NextResponse.json(
-      {
-        error: `Only an administrator can change ${machineBits.join(", ")} — they describe the machine, not you.`,
-      },
-      { status: 403 },
-    );
+    return apiError("Only an administrator can change {keys} — they describe the machine, not you.", 403, {
+      vars: { keys: machineBits.join(", ") },
+    });
   }
 
   // With no accounts at all this is the app it has always been: one settings file, no owner.

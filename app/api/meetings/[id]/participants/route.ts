@@ -16,6 +16,10 @@ const MAX_PARTICIPANTS = 50;
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Somebody else's meeting is a 404 here as everywhere, rather than an empty list that reads as
+  // "nobody attended".
+  const meeting = await prisma.meeting.findUnique({ where: { id }, select: { id: true } });
+  if (!meeting) return apiError("not found", 404);
   const rows = await prisma.meetingParticipant.findMany({
     where: { meetingId: id },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],

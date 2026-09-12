@@ -2,6 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import { keyFor } from "./crypto/key-cache";
 import { LOCKED, decryptField, encryptField, isEncrypted } from "./crypto/field";
 import { resolveScope } from "./db/owner";
+import { ownerStamp } from "./db/owner-stamp";
 import { prismaRaw } from "./prisma-raw";
 
 // The database, with ownership already applied.
@@ -49,8 +50,12 @@ const UNOWNED = new Set(["user", "session", "passwordReset"]);
  *
  * Voiceprints are here rather than shared because a shared library of "who I can recognise" is
  * a list of who each person meets. The cost is that the same colleague is enrolled twice.
+ *
+ * Series joined them. A series used to be a label shared by everybody with a meeting in it, and
+ * a name as ordinary as 定例 made two people's projects one: each could read and overwrite the
+ * other's background, and the other's regular members were copied into their meetings.
  */
-const OWNED = new Set(["meeting", "speakerProfile", "job"]);
+const OWNED = new Set(["meeting", "speakerProfile", "job", "series"]);
 
 /** Belongs to a person through the meeting it hangs off. */
 const VIA_MEETING = new Set([
@@ -61,17 +66,12 @@ const VIA_MEETING = new Set([
 ]);
 
 /**
- * Labels on meetings rather than content of them. A person sees a tag or a series when they
- * have a meeting in it, which keeps somebody else's project names out of the sidebar.
+ * Labels on meetings rather than content of them. A person sees a tag when they have a meeting
+ * with it, which keeps somebody else's labels out of the sidebar.
  */
-const VIA_MEETINGS_LIST = new Set(["tag", "series"]);
+const VIA_MEETINGS_LIST = new Set(["tag"]);
 
-/**
- * Hangs off a series, so it is reachable by the same people the series is.
- *
- * One more hop than the sets above, which is why it needs its own: the condition has to go
- * through `series` before it can ask about meetings.
- */
+/** Hangs off a series, so it is the series owner's. */
 const VIA_SERIES = new Set(["seriesMember"]);
 
 /**
@@ -120,20 +120,11 @@ function narrow(args: Args, condition: Record<string, unknown>): Args {
   return { ...args, where: args.where ? { AND: [args.where, condition] } : condition };
 }
 
-/**
- * A series is its creator's as well as its meetings' owners'. One made from the series screen
- * has no meetings yet, and seen through its meetings alone it would be visible to nobody.
- */
-const SERIES_VISIBLE = (userId: string) => ({
-  OR: [{ ownerId: userId }, { meetings: { some: { ownerId: userId } } }],
-});
-
 function conditionFor(model: string, userId: string): Record<string, unknown> | null {
   if (OWNED.has(model)) return { ownerId: userId };
   if (VIA_MEETING.has(model)) return { meeting: { ownerId: userId } };
-  if (model === "series") return SERIES_VISIBLE(userId);
   if (VIA_MEETINGS_LIST.has(model)) return { meetings: { some: { ownerId: userId } } };
-  if (VIA_SERIES.has(model)) return { series: SERIES_VISIBLE(userId) };
+  if (VIA_SERIES.has(model)) return { series: { ownerId: userId } };
   return null;
 }
 
@@ -191,7 +182,7 @@ export const prisma = prismaRaw.$extends({
         }
 
         if (operation === "create" || operation === "createMany") {
-          return query(OWNED.has(name) ? stampOwner(a, scope.userId, operation) : a);
+          return query(OWNED.has(name) ? stampOwner(name, a, scope.userId, operation) : a);
         }
         if (BY_ID_WRITE.has(operation)) {
           return run({ ...a, where: { ...(a.where ?? {}), ...condition } });
@@ -201,7 +192,7 @@ export const prisma = prismaRaw.$extends({
             create?: Record<string, unknown>;
           };
           if (OWNED.has(name) && next.create) {
-            next.create = { ...next.create, ownerId: scope.userId };
+            next.create = ownerStamp(name, next.create, scope.userId);
           }
           return query(next);
         }
@@ -241,13 +232,13 @@ function notFound(model: string): Error & { code?: string } {
   return err;
 }
 
-function stampOwner(args: Args, userId: string, operation: string): Args {
-  const owner = userId;
+function stampOwner(model: string, args: Args, userId: string, operation: string): Args {
   if (operation === "createMany") {
+    // createMany takes no nested relations, so a bare `ownerId` is always the right shape here.
     const rows = Array.isArray(args.data) ? args.data : [args.data ?? {}];
-    return { ...args, data: rows.map((d) => ({ ...d, ownerId: owner })) };
+    return { ...args, data: rows.map((d) => ({ ...d, ownerId: userId })) };
   }
-  return { ...args, data: { ...((args.data as Record<string, unknown>) ?? {}), ownerId: owner } };
+  return { ...args, data: ownerStamp(model, (args.data as Record<string, unknown>) ?? {}, userId) };
 }
 
 export { prismaRaw };

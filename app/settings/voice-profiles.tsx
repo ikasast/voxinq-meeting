@@ -163,7 +163,7 @@ export function VoiceProfiles() {
 
   const finish = async () => {
     if (secondsRef.current < MIN_SECONDS) {
-      setError(`Keep reading — at least ${MIN_SECONDS} seconds are needed.`);
+      setError(t("Keep reading — at least {n} seconds are needed.", { n: MIN_SECONDS }));
       return;
     }
     stopCapture();

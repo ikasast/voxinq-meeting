@@ -83,7 +83,7 @@ export function AccountMenu({
         onClick={() => (open ? setOpen(false) : openMenu())}
         className="rounded-full ring-offset-2 ring-offset-[var(--header)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
         title={name || username}
-        aria-label="Your account"
+        aria-label={t("Your account")}
         aria-expanded={open}
         aria-haspopup="menu"
       >
@@ -113,7 +113,7 @@ export function AccountMenu({
                     </p>
                     <p className="truncate text-xs text-[var(--text-muted)]">
                       {isAdmin ? t("Administrator") : username}
-                      {via === "tailnet" ? " · via tailnet" : ""}
+                      {via === "tailnet" ? ` · ${t("via tailnet")}` : ""}
                     </p>
                   </div>
                 </div>

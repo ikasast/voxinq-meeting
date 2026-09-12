@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isValidSpeakerKey } from "@/lib/speakers";
@@ -43,6 +44,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/transcript
 
   try {
     const updated = await prisma.transcript.update({ where: { id }, data });
+    // The encrypted search index is made of the words, so changed words have to reach it — or
+    // a corrected name is the one word the meeting cannot be found by.
+    if (data.text !== undefined) await reindexAfterWrite(updated.meetingId);
     return NextResponse.json(updated);
   } catch {
     return apiError("transcript not found", 404);
@@ -91,5 +95,6 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/transcri
   }
 
   await prisma.transcript.delete({ where: { id } });
+  await reindexAfterWrite(target.meetingId);
   return NextResponse.json({ deleted: id, synced });
 }

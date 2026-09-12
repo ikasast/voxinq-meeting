@@ -286,7 +286,9 @@ model Job {
 // belongs in the meeting, not here.
 model Series {
   id            String   @id @default(cuid())
-  name          String   @unique
+  /// Unique per person rather than across the instance: two people who both have a "定例"
+  /// have two series. 20260913090000_series_per_person split the ones that were shared.
+  name          String
   summaryFormat String?  @map("summary_format") // per-series minutes format (overrides the global setting)
   sttGlossary   String?  @map("stt_glossary") // per-series terms for Whisper initial_prompt (appended to the global glossary)
   // What every meeting in the series shares: what it is for, who the parties are, what was
@@ -297,8 +299,8 @@ model Series {
   /// kept with no meetings in it — somebody set it up on purpose — where one that only existed
   /// because a meeting named it still goes when its last meeting does.
   standalone    Boolean  @default(false)
-  /// Who created it from the series screen. A series is otherwise visible through its meetings,
-  /// and one with none yet would be visible to nobody — including the person who just made it.
+  /// Whose series this is. On an instance with accounts every series has one, as a meeting does;
+  /// without accounts nobody does, as before.
   ownerId       String?  @map("owner_id")
   owner         User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   createdAt     DateTime @default(now()) @map("created_at")
@@ -306,6 +308,7 @@ model Series {
   meetings Meeting[]
   members  SeriesMember[]
 
+  @@unique([ownerId, name])
   @@index([ownerId])
   @@map("series")
 }

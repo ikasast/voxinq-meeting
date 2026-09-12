@@ -67,24 +67,23 @@ export async function GET() {
  * A series set up on its own, before anything is filed under it — so its background and regular
  * members can be written before the first meeting rather than after it.
  *
- * `standalone` keeps it while it has no meetings, and `ownerId` is what lets the person who made
- * it see it then: a series is otherwise visible through its meetings, and this one has none.
+ * `standalone` keeps it while it has no meetings; a series that only existed because a meeting
+ * named it still goes with its last meeting. Its owner is stamped like any series'.
  */
 export async function POST(req: NextRequest) {
   const body = await readJson<{ name?: unknown }>(req);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name) return apiError("Enter a name for the series.", 400);
   if (name.length > 60) return apiError("name too long (max 60)", 400);
-  const me = await currentUser();
   try {
     const created = await prisma.series.create({
-      data: { name, standalone: true, ownerId: me?.id ?? null },
+      data: { name, standalone: true },
       select: { id: true, name: true },
     });
     return NextResponse.json(created, { status: 201 });
   } catch (e) {
-    // Names are unique across the instance, not per person: a meeting's series field connects to
-    // an existing series by name, and has always worked that way.
+    // This person already has a series called that. Names are unique per person, so somebody
+    // else's series of the same name is not what this is telling them.
     if ((e as { code?: string }).code === "P2002") {
       return apiError("A series with that name already exists.", 409);
     }

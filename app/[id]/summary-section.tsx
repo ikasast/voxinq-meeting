@@ -275,7 +275,7 @@ export function SummarySection({
           <div className="mt-4 space-y-2">
             <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
               <Spinner />
-              Generating minutes in the background. They will appear automatically when done…
+              {t("Generating minutes in the background. They will appear automatically when done…")}
             </div>
             {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
           </div>
@@ -313,7 +313,7 @@ export function SummarySection({
         <div className="mt-3 space-y-3 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3">
           <div>
             <label htmlFor="regen-template" className="label">
-              Format
+              {t("Format")}
             </label>
             <select
               id="regen-template"
@@ -337,7 +337,7 @@ export function SummarySection({
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="regen-detail" className="label">
-                Detail
+                {t("Detail")}
               </label>
               <select
                 id="regen-detail"
@@ -377,7 +377,7 @@ export function SummarySection({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-[var(--text-muted)]">
-              Applies to this run only — saved settings are unchanged.
+              {t("Applies to this run only — saved settings are unchanged.")}
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowOptions(false)} className="btn-outline">

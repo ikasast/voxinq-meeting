@@ -131,14 +131,14 @@ export function PeopleList({ meId }: { meId: string }) {
               onClick={() => void navigator.clipboard?.writeText(link.url)}
               className="btn-outline !px-3 !py-1 !text-xs"
             >
-              Copy
+              {t("Copy")}
             </button>
             <button
               type="button"
               onClick={() => setLink(null)}
               className="btn-outline !px-3 !py-1 !text-xs"
             >
-              Done
+              {t("Done")}
             </button>
           </div>
         </div>
@@ -155,18 +155,18 @@ export function PeopleList({ meId }: { meId: string }) {
               <p className="truncate text-sm font-medium text-[var(--text-strong)]">
                 {p.name || p.username}
                 {p.id === meId ? (
-                  <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">(you)</span>
+                  <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">{t("(you)")}</span>
                 ) : null}
-                {p.isAdmin ? <span className="tag-lime ml-2">admin</span> : null}
+                {p.isAdmin ? <span className="tag-lime ml-2">{t("admin")}</span> : null}
                 {p.disabled ? (
-                  <span className="ml-2 text-xs font-normal text-[var(--warning)]">disabled</span>
+                  <span className="ml-2 text-xs font-normal text-[var(--warning)]">{t("disabled")}</span>
                 ) : null}
               </p>
               <p className="truncate text-xs text-[var(--text-muted)]">
                 {p.email ?? p.username}
                 {p.tailscaleLogin && p.tailscaleLogin !== p.email ? ` · ${p.tailscaleLogin}` : ""}
-                {p.hasPassword ? "" : " · no password yet"}
-                {` · ${p.meetings} meeting${p.meetings === 1 ? "" : "s"}`}
+                {p.hasPassword ? "" : ` · ${t("no password yet")}`}
+                {` · ${t(p.meetings === 1 ? "1 meeting" : "{n} meetings", { n: p.meetings })}`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1">
@@ -177,7 +177,7 @@ export function PeopleList({ meId }: { meId: string }) {
                 className="btn-outline !px-2 !py-1 !text-xs"
                 title={t("Issue a one-time link so they can set their own password")}
               >
-                Reset link
+                {t("Reset link")}
               </button>
               <button
                 type="button"
@@ -185,16 +185,16 @@ export function PeopleList({ meId }: { meId: string }) {
                 disabled={busy !== null}
                 className="btn-outline !px-2 !py-1 !text-xs"
               >
-                {p.isAdmin ? "Remove admin" : "Make admin"}
+                {p.isAdmin ? t("Remove admin") : t("Make admin")}
               </button>
               <button
                 type="button"
                 onClick={() => void toggleDisabled(p)}
                 disabled={busy !== null || p.id === meId}
                 className={`btn-outline !px-2 !py-1 !text-xs ${p.disabled ? "" : "text-[var(--error)]"}`}
-                title={p.id === meId ? "You cannot disable your own account" : undefined}
+                title={p.id === meId ? t("You cannot disable your own account") : undefined}
               >
-                {p.disabled ? "Enable" : "Disable"}
+                {p.disabled ? t("Enable") : t("Disable")}
               </button>
             </div>
           </li>
@@ -215,7 +215,7 @@ export function PeopleList({ meId }: { meId: string }) {
         />
       ) : (
         <button type="button" onClick={() => setAdding(true)} className="btn-ink">
-          + Add someone
+          {t("+ Add someone")}
         </button>
       )}
     </div>
@@ -256,7 +256,7 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
       <h2 className="text-sm font-medium text-[var(--text-strong)]">{t("Add someone")}</h2>
       <div>
         <label htmlFor="u" className="label">
-          Username
+          {t("Username")}
         </label>
         <input
           id="u"
@@ -269,7 +269,7 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
       </div>
       <div>
         <label htmlFor="e" className="label">
-          Email
+          {t("Email")}
         </label>
         <input
           id="e"
@@ -316,7 +316,7 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
           {busy ? t("Adding…") : t("Add")}
         </button>
         <button type="button" onClick={onCancel} disabled={busy} className="btn-outline">
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
     </form>

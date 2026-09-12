@@ -389,7 +389,12 @@ export async function MeetingListPane({
                 key={f}
                 className="rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
               >
-                match: {f}
+                {({
+                  title: t("match: title"),
+                  purpose: t("match: purpose"),
+                  transcript: t("match: transcript"),
+                  minutes: t("match: minutes"),
+                } as Record<string, string>)[f] ?? `match: ${f}`}
               </span>
             ))}
           </p>
@@ -616,7 +621,7 @@ export async function MeetingListPane({
               n: meetings.length,
             })}</span>
           <Link href={hrefWith({ series: null })} className="text-[var(--text-muted)] underline">
-            show all
+            {t("show all")}
           </Link>
         </p>
       ) : null}

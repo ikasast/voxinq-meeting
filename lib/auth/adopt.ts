@@ -24,6 +24,9 @@ export async function adoptOrphanedMeetings(userId: string): Promise<number> {
   // Voiceprints too: the same person recorded them, and a library nobody owns is a library
   // nobody can use.
   await prismaRaw.speakerProfile.updateMany({ where: { ownerId: null }, data: { ownerId: userId } });
+  // Series too, now that a series is somebody's: otherwise every series on the instance would
+  // vanish the moment the first account existed, with its meetings still filed under it.
+  await prismaRaw.series.updateMany({ where: { ownerId: null }, data: { ownerId: userId } });
 
   // Both caches answer "are there accounts". Clearing them here means the very next query in
   // this process is scoped, rather than running unscoped until the recheck.

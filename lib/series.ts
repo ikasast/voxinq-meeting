@@ -36,6 +36,29 @@ export async function applySeriesMembers(meetingId: string, seriesId: string): P
 }
 
 /**
+ * The caller's own series with this name, made if there is none yet.
+ *
+ * This replaces a nested `connectOrCreate` by name, which looked the name up across the whole
+ * instance — the scoping layer does not reach inside a nested write — so the second person to
+ * name a series "定例" was filed under the first person's, background and members included. Here
+ * both halves go through the scoped client: the lookup sees only this person's series, and the
+ * create is stamped as theirs.
+ */
+export async function seriesIdForName(name: string): Promise<string> {
+  const existing = await prisma.series.findFirst({ where: { name }, select: { id: true } });
+  if (existing) return existing.id;
+  try {
+    return (await prisma.series.create({ data: { name }, select: { id: true } })).id;
+  } catch (e) {
+    // Two requests naming the same new series at once. The index is per person, so the row the
+    // other request made is this person's as well.
+    const again = await prisma.series.findFirst({ where: { name }, select: { id: true } });
+    if (again) return again.id;
+    throw e;
+  }
+}
+
+/**
  * Delete series no longer attached to any meeting (orphan cleanup).
  * Call after reassigning or deleting a meeting. Failures do not block the main flow.
  */

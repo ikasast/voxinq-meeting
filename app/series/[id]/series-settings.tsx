@@ -15,6 +15,7 @@ export function SeriesSettings({
   members,
   readOnly = false,
   startEditing = false,
+  knownNames = [],
 }: {
   id: string;
   name: string;
@@ -27,6 +28,8 @@ export function SeriesSettings({
   readOnly?: boolean;
   /** Open in the editor — arriving from New series, where the name is all there is yet. */
   startEditing?: boolean;
+  /** One-tap candidates for the members: enrolled voices, and who has attended this series. */
+  knownNames?: string[];
 }) {
   const t = useT();
   const router = useRouter();
@@ -40,12 +43,19 @@ export function SeriesSettings({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const addMember = () => {
-    const name = memberInput.trim().slice(0, 80);
-    setMemberInput("");
+  const addName = (raw: string) => {
+    const name = raw.trim().slice(0, 80);
     if (!name || draftMembers.includes(name)) return;
     setDraftMembers((prev) => [...prev, name]);
   };
+  const addMember = () => {
+    addName(memberInput);
+    setMemberInput("");
+  };
+  // As on a meeting's participant list: the names that exist are buttons, the box is for a name
+  // that does not. (A dropdown on the box offered the same names again over the buttons, and on
+  // a phone it stayed on screen — see ParticipantsCard.)
+  const suggestions = knownNames.filter((n) => !draftMembers.includes(n));
 
   const save = async () => {
     setPending(true);
@@ -128,12 +138,10 @@ export function SeriesSettings({
                 "Passed to the LLM alongside each meeting's own agenda when minutes are written, and read for proper nouns when the transcript is checked against the glossary.",
               )}
             </p>
-            {/* Said here rather than in the documentation: a series has no owner, so this is
-                the one field on the screen that other people can read. */}
+            {/* A series is one person's now, so nobody else reads this — but unlike a transcript
+                it is not encrypted, and that is worth saying where it is typed. */}
             <p className="mt-1 text-xs text-[var(--warning)]">
-              {t(
-                "Readable by everybody who has a meeting in this series, and not encrypted. Anything private belongs on the meeting instead.",
-              )}
+              {t("Only you can see this, but it is not encrypted. Anything confidential belongs on the meeting instead.")}
             </p>
           </div>
           <div>
@@ -160,6 +168,22 @@ export function SeriesSettings({
                   </li>
                 ))}
               </ul>
+            ) : null}
+            {suggestions.length > 0 ? (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {suggestions.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => addName(n)}
+                    disabled={pending}
+                    className="rounded-full border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
+                    title={t("Add {name} to this series", { name: n })}
+                  >
+                    + {n}
+                  </button>
+                ))}
+              </div>
             ) : null}
             <div className="mt-1 flex gap-1">
               <input

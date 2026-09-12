@@ -170,6 +170,9 @@ minutes, the **previous meeting's minutes are given to the LLM as reference**, s
 like "continuing from last time" are interpreted correctly. *New with same settings* keeps
 the series. A series named this way disappears automatically when its last meeting is removed.
 
+**A series is its owner's.** Two people who both name a series 定例 have two series, each with
+its own background, members and history; neither sees the other's.
+
 To set one up before its first meeting — its shared background and regular members first —
 use **New series** on the Series page. It opens straight into the series' editor. A series made
 there stays when it has no meetings in it, and can be deleted while it has none; one with
@@ -550,7 +553,8 @@ and nothing about what filled it.
 
 Once an account has a password it has a key, and its transcripts and minutes are encrypted with
 it. Titles, dates and tags are not: they are what the list, the calendar and the search bar are
-made of.
+made of. An account an administrator creates gets its key the first time its owner signs in, and
+that is when its recovery code is shown.
 
 **Your recovery code is shown once.** It is the only way back into your meetings if you forget
 your password, and it is not stored anywhere — an administrator can send you a link to set a new
