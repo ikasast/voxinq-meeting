@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Voxinq</string>
+
+    <string name="setup_title">Connect to your Voxinq server</string>
+    <string name="setup_body">Enter the address you open Voxinq at in a browser, such as https://your-pc.your-tailnet.ts.net. This phone has to be able to reach it, for example over Tailscale.</string>
+    <string name="setup_hint" translatable="false">https://your-server</string>
+    <string name="setup_connect">Connect</string>
+    <string name="setup_invalid">Enter an address that starts with https://, or just the host name.</string>
+
+    <string name="offline_title">Cannot reach the server</string>
+    <string name="offline_body">%1$s did not answer. Check that the server is running and that this phone can reach it.</string>
+    <string name="retry">Retry</string>
+    <string name="change_server">Change server</string>
+
+    <string name="channel_recording">Recording</string>
+    <string name="channel_recording_description">Shown while a meeting is being recorded</string>
+    <string name="notification_title">Recording: %1$s</string>
+    <string name="notification_title_untitled">Recording a meeting</string>
+    <string name="status_connecting">Preparing…</string>
+    <string name="status_open">Listening</string>
+    <string name="status_reconnecting">Reconnecting…</string>
+    <string name="status_error">Error — open the app</string>
+    <string name="status_saving">Saving…</string>
+    <string name="action_stop">Stop and end</string>
+
+    <string name="mic_permission_denied">Recording needs permission to use the microphone.</string>
+    <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
+    <string name="mic_failed">Cannot start the microphone: %1$s</string>
+    <string name="save_failed">Failed to save utterance: %1$s</string>
+    <string name="backlog_overflow">The transcription service has been unreachable for over five minutes, so the oldest audio is being dropped.</string>
+    <string name="open_failed">No app on this phone can open %1$s</string>
+</resources>

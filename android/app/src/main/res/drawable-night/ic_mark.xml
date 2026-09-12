@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- public/logo-mark.svg, the mark on a dark ground. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="72dp"
+    android:height="69dp"
+    android:viewportWidth="190"
+    android:viewportHeight="182">
+    <group
+        android:translateX="-16"
+        android:translateY="-26">
+        <path
+            android:fillColor="#E5E7EB"
+            android:pathData="M132.572,123.325L116.183,103.758L151.176,49.3301L195.936,49.9503L132.572,123.325Z" />
+        <path
+            android:fillColor="#E5E7EB"
+            android:pathData="M86.0898,144.823L98.7001,160.828L84.6348,178.773L59.8992,178.773L86.0898,144.823Z" />
+        <path android:pathData="M55.7496,35.8299L25.839,59.1985L134.952,198.857L164.863,175.488L55.7496,35.8299Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:endX="83.9987"
+                    android:endY="72.2131"
+                    android:startX="54.2359"
+                    android:startY="95.5448"
+                    android:type="linear">
+                    <item android:color="#67E8F9" android:offset="0" />
+                    <item android:color="#67E8F9" android:offset="0.25" />
+                    <item android:color="#06B6D4" android:offset="0.25" />
+                    <item android:color="#06B6D4" android:offset="1" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A light theme here and a dark one in values-night: the WebView's prefers-color-scheme
+     follows the theme's isLightTheme, so this is also what lets the page follow dark mode. -->
+<resources>
+    <style name="Theme.Voxinq" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorPrimary">@color/accent</item>
+    </style>
+</resources>

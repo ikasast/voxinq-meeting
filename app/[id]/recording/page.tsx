@@ -4,6 +4,14 @@ import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type RecognizerStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
+import {
+  type NativeHandle,
+  type NativeSaved,
+  attachNative,
+  hasNativeRecorder,
+  nativeState,
+  startNative,
+} from "@/lib/stt/native";
 import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
 import { applyTranscript, transcribeRecording } from "@/lib/stt/transcribe-recording";
@@ -161,6 +169,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const [busy, setBusy] = useState<"none" | "summary">("none");
 
   const handleRef = useRef<SttHandle | null>(null);
+  // Inside the Android app the recording is the app's, in a service of its own: the screen can
+  // go off, and this page can even be closed, without it stopping (lib/stt/native.ts).
+  const [native, setNative] = useState(false);
+  const nativeRef = useRef<NativeHandle | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
 
   // Elapsed time
@@ -449,6 +461,95 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     [saveTranscript, applyTranslation, showToast],
   );
 
+  // The transcript as the server has it. In the app, lines are saved by the app's recorder
+  // while this page is hidden, and reading them back is simpler than replaying each one.
+  const resync = useCallback(async () => {
+    const res = await fetch(`/api/meetings/${meetingId}/live`, { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return;
+    const data = (await res.json()) as {
+      transcripts: {
+        id: string;
+        speakerType: string;
+        text: string;
+        translation: string | null;
+        createdAt: string;
+      }[];
+    };
+    const rows: TranscriptEntry[] = data.transcripts.map((r) => ({
+      id: r.id,
+      speaker: r.speakerType,
+      text: r.text,
+      at: new Date(r.createdAt),
+      translation: r.translation ?? undefined,
+    }));
+    const ids = new Set(rows.map((r) => r.id));
+    // A line the app reported while this request was in flight is kept, not dropped.
+    setTranscripts((prev) =>
+      [...rows, ...prev.filter((r) => !ids.has(r.id))].sort((a, b) => a.at.getTime() - b.at.getTime()),
+    );
+  }, [meetingId]);
+
+  // What the app's recorder reports. It saves each line itself, so a line arrives here already
+  // saved — the page shows it and does not save it a second time.
+  const nativeHandlers = useMemo(
+    () => ({
+      onPartial: (text: string) => setPartial(text),
+      onSaved: (row: NativeSaved) => {
+        setPartial("");
+        setTranscripts((prev) =>
+          prev.some((r) => r.id === row.id)
+            ? prev
+            : [
+                ...prev,
+                { id: row.id, speaker: row.speaker, text: row.text, at: new Date(row.createdAt), seq: row.seq },
+              ],
+        );
+      },
+      onTranslation: (seq: number, text: string, id?: string) =>
+        setTranscripts((prev) =>
+          prev.map((r) => ((id ? r.id === id : r.seq === seq) ? { ...r, translation: text } : r)),
+        ),
+      onStatus: (s: RecognizerStatus) => setStatus(s),
+      onError: (message: string) => showToast(message),
+      onLevel: (rms: number) => {
+        if (!restingRef.current) setLevel(rms);
+      },
+      onClipping: () => {
+        setClipping(true);
+        window.setTimeout(() => setClipping(false), 4000);
+      },
+      onResync: () => void resync(),
+      // Stop in the app's notification has ended the meeting; go where the end buttons go.
+      onEnded: () => {
+        handleRef.current = null;
+        nativeRef.current = null;
+        endedRef.current = true;
+        setEnded(true);
+        router.replace(`/${meetingId}`);
+      },
+    }),
+    [showToast, resync, router, meetingId],
+  );
+
+  // In the app, ask whether it is already recording this meeting — this page reloaded, or was
+  // opened again from the recording's notification — and pick that up rather than start another.
+  useEffect(() => {
+    if (!hasNativeRecorder()) return;
+    let cancelled = false;
+    void nativeState().then((s) => {
+      if (cancelled) return;
+      setNative(true);
+      if (!s?.recording || s.meetingId !== meetingId || handleRef.current) return;
+      const h = attachNative(nativeHandlers, s.status);
+      handleRef.current = h;
+      nativeRef.current = h;
+      setTipsOpen(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [meetingId, nativeHandlers]);
+
   // Ready = the model this meeting will use is the one resident on the STT service.
   const modelReady = Boolean(loadedModel) && loadedModel === activeModel;
 
@@ -532,9 +633,8 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       const checked = preflightStreamRef.current;
       preflightStreamRef.current = null;
 
-      handleRef.current = await startMic(handlers, {
+      const options = {
         liveTranscript: live,
-        micStream: checked ?? undefined,
         model,
         meetingId,
         language: effectiveSttLanguage(model, meetingLangRef.current ?? sttLanguageRef.current),
@@ -543,18 +643,32 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           [sttGlossaryRef.current, seriesGlossaryRef.current].filter(Boolean).join("、") ||
           undefined,
         micMode: sttMicModeRef.current,
-        source: sourceRef.current,
         translate: sttTranslateRef.current,
-      });
+      };
+      if (hasNativeRecorder()) {
+        // The app records with its own microphone, in a service the screen cannot stop. The
+        // check's microphone is closed rather than handed over, so the two do not compete.
+        checked?.getTracks().forEach((track) => track.stop());
+        const h = await startNative(nativeHandlers, { ...options, title: title || undefined });
+        handleRef.current = h;
+        nativeRef.current = h;
+      } else {
+        handleRef.current = await startMic(handlers, {
+          ...options,
+          micStream: checked ?? undefined,
+          source: sourceRef.current,
+        });
+      }
     } catch (e) {
       showToast(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
       setStatus("error");
     }
-  }, [handlers, meetingId, showToast, activeModel, confirm, deferred, claimCard]);
+  }, [handlers, nativeHandlers, title, meetingId, showToast, activeModel, confirm, deferred, claimCard]);
 
   const stopRecording = useCallback(async () => {
     const h = handleRef.current;
     handleRef.current = null;
+    nativeRef.current = null;
     if (h) await h.stop().catch(() => {});
     setStatus("idle");
     setPartial("");
@@ -761,23 +875,25 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
     router.replace("/");
   }, [busy, confirm, title, meetingId, router, stopRecording, t]);
 
-  // Warn before leaving while recording
+  // Warn before leaving while recording. Not in the app: there, leaving the page leaves the
+  // recording running, and the warning would be a dialog guarding nothing.
   useEffect(() => {
     const recording = status === "open" || status === "connecting";
-    if (!recording) return;
+    if (!recording || native) return;
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [status]);
+  }, [status, native]);
 
   // While recording, prevent screen sleep (stops mic capture from halting when a phone screen turns off).
   // Wake Lock is auto-released when the page is hidden, so re-acquire on return.
   useEffect(() => {
     const recording = status === "open" || status === "connecting" || status === "reconnecting";
-    if (!recording) return;
+    // In the Android app the recording does not need the screen, so the screen may sleep.
+    if (!recording || native) return;
     const nav = navigator as unknown as {
       wakeLock?: { request(type: "screen"): Promise<{ release: () => Promise<void> }> };
     };
@@ -807,7 +923,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       void sentinel?.release().catch(() => {});
       sentinel = null;
     };
-  }, [status]);
+  }, [status, native]);
 
   // Rest the screen after a while of nobody touching it.
   //
@@ -847,6 +963,14 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
   // Cleanup
   useEffect(() => {
     return () => {
+      // In the app the recording belongs to the app's service and outlives this page: leaving
+      // lets go of it, and the notification is the way back. Stopping is Stop's job.
+      if (nativeRef.current) {
+        nativeRef.current.detach();
+        nativeRef.current = null;
+        handleRef.current = null;
+        return;
+      }
       void handleRef.current?.stop();
       release();
     };
@@ -857,8 +981,12 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
   // lets the request outlive the document. The queue sweep still backstops a browser that dies
   // without either.
   useEffect(() => {
-    window.addEventListener("pagehide", release);
-    return () => window.removeEventListener("pagehide", release);
+    // Except while the app records: its recording goes on without the page, and keeps the GPU.
+    const onHide = () => {
+      if (!nativeRef.current) release();
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
   }, [release]);
 
   const elapsedSec = startedAt
@@ -1067,11 +1195,19 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           </li>
         ) : null}
         <li>{t("Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.")}</li>
-        <li>
-          {t("On phones, ")}
-          <strong>{t("keep the screen on")}</strong>
-          {t(" while recording (sleep is auto-suppressed, but on some devices turning the screen off stops mic capture).")}
-        </li>
+        {native ? (
+          <li>
+            {t(
+              "In the app, recording carries on with the screen off or another app in front. Stop it here, or from the app's notification.",
+            )}
+          </li>
+        ) : (
+          <li>
+            {t("On phones, ")}
+            <strong>{t("keep the screen on")}</strong>
+            {t(" while recording (sleep is auto-suppressed, but on some devices turning the screen off stops mic capture).")}
+          </li>
+        )}
         </ul>
       </details>
 

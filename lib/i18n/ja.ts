@@ -157,6 +157,8 @@ export const ja: Record<string, string> = {
     "話者は会議終了後、詳細画面の「話者を分離」または発言ごとに割り当てられます。",
   "On phones, ": "スマホでは、",
   "keep the screen on": "画面を点けたままにしてください",
+  "In the app, recording carries on with the screen off or another app in front. Stop it here, or from the app's notification.":
+    "アプリでは、画面を消しても、ほかのアプリを開いても録音は続きます。停止はこの画面か、アプリの通知から行えます。",
   " while recording (sleep is auto-suppressed, but on some devices turning the screen off stops mic capture).":
     "（スリープは自動で抑止しますが、端末によっては画面を消すとマイクが止まります）。",
   "Microphone check": "マイクの確認",

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="setup_title">Voxinq サーバーに接続</string>
+    <string name="setup_body">ブラウザで Voxinq を開くときのアドレスを入力してください（例: https://your-pc.your-tailnet.ts.net）。Tailscale などで、このスマホから届く必要があります。</string>
+    <string name="setup_connect">接続</string>
+    <string name="setup_invalid">https:// で始まるアドレス、またはホスト名を入力してください。</string>
+
+    <string name="offline_title">サーバーに接続できません</string>
+    <string name="offline_body">%1$s から応答がありません。サーバーが動いていること、このスマホから届くことを確認してください。</string>
+    <string name="retry">再試行</string>
+    <string name="change_server">サーバーを変更</string>
+
+    <string name="channel_recording">録音</string>
+    <string name="channel_recording_description">会議の録音中に表示されます</string>
+    <string name="notification_title">録音中: %1$s</string>
+    <string name="notification_title_untitled">会議を録音中</string>
+    <string name="status_connecting">準備中…</string>
+    <string name="status_open">認識中</string>
+    <string name="status_reconnecting">再接続中…</string>
+    <string name="status_error">エラー — アプリを開いてください</string>
+    <string name="status_saving">保存中…</string>
+    <string name="action_stop">停止して終了</string>
+
+    <string name="mic_permission_denied">録音にはマイクの許可が必要です。</string>
+    <string name="another_recording">アプリで別の会議を録音中です。先に停止してください。</string>
+    <string name="mic_failed">マイクを開始できません: %1$s</string>
+    <string name="save_failed">発言を保存できませんでした: %1$s</string>
+    <string name="backlog_overflow">文字起こしサービスに 5 分以上つながらないため、古い音声から破棄しています。</string>
+    <string name="open_failed">%1$s を開けるアプリがありません</string>
+</resources>
