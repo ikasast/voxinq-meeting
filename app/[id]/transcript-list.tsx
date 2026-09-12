@@ -1117,7 +1117,7 @@ export function TranscriptList({
                   setReplaceText(e.target.value);
                   setReplacePreview(null);
                 }}
-                placeholder={t("e.g. NEXUS")}
+                placeholder={t("e.g. Voxinq")}
                 disabled={replaceBusy}
               />
             </label>

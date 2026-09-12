@@ -349,14 +349,14 @@ to check what was actually said before correcting a line, or to settle what a de
 ## Find & replace
 
 **Find & replace** — a row below the speaker names, which opens where it is — fixes a term the
-recognizer got wrong the same way throughout: a company name heard as "ネクサス" in forty places
-rather than NEXUS.
+recognizer got wrong the same way throughout: a product name heard as "ボクシンク" in forty
+places rather than Voxinq.
 
 Type the term and its replacement, then **Preview**: it reports how many utterances match and
 shows the first few before/after. Nothing is written until you press replace.
 
 - Matching ignores case by default (**Match case** turns that off), and the replacement is
-  written exactly as you typed it — searching `nexus` and replacing with `NEXUS` fixes `Nexus`
+  written exactly as you typed it — searching `voxinq` and replacing with `Voxinq` fixes `VOXINQ`
   too.
 - The term is plain text, never a pattern. `(JPY)` finds those characters, not a group.
 - Rewording is safe for diarization; only deleting an utterance changes positions.

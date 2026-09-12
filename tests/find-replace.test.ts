@@ -6,12 +6,12 @@ const rows = (...texts: string[]) => texts.map((text, i) => ({ id: `t${i}`, text
 describe("countMatches", () => {
   it("counts non-overlapping occurrences", () => {
     expect(countMatches("aaaa", "aa")).toBe(2);
-    expect(countMatches("ネクサス事業のネクサス", "ネクサス")).toBe(2);
+    expect(countMatches("ボクシンク事業のボクシンク", "ボクシンク")).toBe(2);
   });
 
   it("ignores case unless asked", () => {
-    expect(countMatches("Nexus NEXUS nexus", "nexus")).toBe(3);
-    expect(countMatches("Nexus NEXUS nexus", "nexus", { caseSensitive: true })).toBe(1);
+    expect(countMatches("Voxinq VOXINQ voxinq", "voxinq")).toBe(3);
+    expect(countMatches("Voxinq VOXINQ voxinq", "voxinq", { caseSensitive: true })).toBe(1);
   });
 
   it("is zero for an empty term", () => {
@@ -21,11 +21,11 @@ describe("countMatches", () => {
 
 describe("replaceAll", () => {
   it("replaces every occurrence", () => {
-    expect(replaceAll("ネクサス事業のネクサス", "ネクサス", "NEXUS")).toBe("NEXUS事業のNEXUS");
+    expect(replaceAll("ボクシンク事業のボクシンク", "ボクシンク", "Voxinq")).toBe("Voxinq事業のVoxinq");
   });
 
   it("writes the replacement verbatim even when matching loosely", () => {
-    expect(replaceAll("nexus and NEXUS", "nexus", "NEXUS")).toBe("NEXUS and NEXUS");
+    expect(replaceAll("voxinq and VOXINQ", "voxinq", "Voxinq")).toBe("Voxinq and Voxinq");
   });
 
   it("treats the term as literal text, not a pattern", () => {
@@ -42,11 +42,11 @@ describe("replaceAll", () => {
 
 describe("planReplace", () => {
   it("reports matches and the rows it would change", () => {
-    const plan = planReplace(rows("ネクサスの件", "無関係", "ネクサスとネクサス"), "ネクサス", "NEXUS");
+    const plan = planReplace(rows("ボクシンクの件", "無関係", "ボクシンクとボクシンク"), "ボクシンク", "Voxinq");
     expect(plan.matchedRows).toBe(2);
     expect(plan.totalMatches).toBe(3);
     expect(plan.changes.map((c) => c.id)).toEqual(["t0", "t2"]);
-    expect(plan.changes[1].after).toBe("NEXUSとNEXUS");
+    expect(plan.changes[1].after).toBe("VoxinqとVoxinq");
     expect(plan.changes[1].count).toBe(2);
   });
 
@@ -67,7 +67,7 @@ describe("planReplace", () => {
   });
 
   it("skips a row whose text would not actually change", () => {
-    const plan = planReplace(rows("NEXUS"), "NEXUS", "NEXUS");
+    const plan = planReplace(rows("Voxinq"), "Voxinq", "Voxinq");
     expect(plan.changes).toEqual([]);
     expect(plan.skipped).toEqual([]);
     expect(plan.matchedRows).toBe(1); // still reported as a match, so the count is honest

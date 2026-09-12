@@ -9,9 +9,9 @@ import { parseGlossaryTerms } from "./llm/correct";
  *
  * The list is the glossaries plus **the things the series already knows are proper nouns**: its
  * own name and the people who are always in it. That is not an extra field for somebody to
- * fill in — it is what a series is — and it is the case that started this: a series called
- * `VJSS` came back from Whisper as `VGSS`, and the glossary had no reason to contain a word the
- * app itself had stored three fields away.
+ * fill in — it is what a series is — and it is the case that started this: a series named with an
+ * acronym came back from Whisper as a similar-sounding one, and the glossary had no reason to
+ * contain a word the app itself had stored three fields away.
  *
  * The series' shared background is deliberately **not** in here. It is prose, and a paragraph
  * handed to a term-matching prompt as if every noun in it were a term produces corrections

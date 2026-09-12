@@ -1,7 +1,7 @@
 // Find and replace across one meeting's transcript.
 //
 // The recurring case is a name or term the recogniser got wrong the same way every time —
-// "ネクサス" for NEXUS across forty utterances. Fixing those one row at a time is the tedium
+// "ボクシンク" for Voxinq across forty utterances. Fixing those one row at a time is the tedium
 // this removes.
 //
 // Plain text, never a regular expression: the input is a term someone heard in a meeting, and
@@ -14,7 +14,7 @@
 export const TEXT_MAX = 5000;
 
 export type ReplaceOptions = {
-  /** Off by default: "nexus" should find "NEXUS", which is usually the point. */
+  /** Off by default: "voxinq" should find "Voxinq", which is usually the point. */
   caseSensitive?: boolean;
 };
 

@@ -5,9 +5,10 @@ import { correctionGlossary, correctionTerms } from "../lib/correction-terms";
 
 // What the transcript is checked against.
 //
-// The case this came from: a series called `VJSS` came back from Whisper as `VGSS`, and the
-// correction pass had nothing to catch it with — the glossary had no reason to contain a word
-// the app had itself stored, three fields away, as the name of the series the meeting was in.
+// The case this came from: a series named with an acronym came back from Whisper as a
+// similar-sounding one, and the correction pass had nothing to catch it with — the glossary had
+// no reason to contain a word the app had itself stored, three fields away, as the name of the
+// series the meeting was in.
 //
 // The other half is that two callers used to compose this list separately: the route that runs
 // the check, and the page that decides whether to offer the button. They could disagree, and
@@ -20,37 +21,37 @@ describe("what a transcript is checked against", () => {
   it("includes the series name, which nobody types into a glossary", () => {
     const terms = correctionTerms({
       globalGlossary: "",
-      series: { name: "VJSS", sttGlossary: null, members: [] },
+      series: { name: "Voxinq", sttGlossary: null, members: [] },
     });
-    expect(terms).toEqual(["VJSS"]);
+    expect(terms).toEqual(["Voxinq"]);
   });
 
   it("includes the people who are always in the series", () => {
     // Whisper mishears a name it has never seen exactly as it mishears a project's.
     const terms = correctionTerms({
       globalGlossary: "",
-      series: { name: "VJSS", sttGlossary: null, members: ["佐藤 玲", "アイン先生"] },
+      series: { name: "Voxinq", sttGlossary: null, members: ["佐藤 玲", "田中 悠"] },
     });
     expect(terms).toContain("佐藤 玲");
-    expect(terms).toContain("アイン先生");
+    expect(terms).toContain("田中 悠");
   });
 
   it("takes the glossaries in the order they override each other", () => {
     const terms = correctionTerms({
-      globalGlossary: "NEXUS, ASPIRE",
-      series: { name: "VJSS", sttGlossary: "委託研究契約", members: [] },
+      globalGlossary: "Aurora, Acme",
+      series: { name: "Voxinq", sttGlossary: "年間保守契約", members: [] },
     });
-    expect(terms).toEqual(["NEXUS", "ASPIRE", "委託研究契約", "VJSS"]);
+    expect(terms).toEqual(["Aurora", "Acme", "年間保守契約", "Voxinq"]);
   });
 
   it("says the same term once, however many places it came from", () => {
     // A series whose name is also in the global glossary is the ordinary case once somebody
     // has added it by hand, and a duplicated term wastes prompt on itself.
     const terms = correctionTerms({
-      globalGlossary: "VJSS, NEXUS",
-      series: { name: "vjss", sttGlossary: "nexus", members: ["VJSS"] },
+      globalGlossary: "Voxinq, Aurora",
+      series: { name: "voxinq", sttGlossary: "aurora", members: ["Voxinq"] },
     });
-    expect(terms).toEqual(["VJSS", "NEXUS"]);
+    expect(terms).toEqual(["Voxinq", "Aurora"]);
   });
 
   it("drops a single character", () => {
