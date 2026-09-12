@@ -1,49 +1,55 @@
 # Illustrations
 
-Drawings, as opposed to `../screenshots/`, which are photographs of the running app. These say
-what the app is *for*; the screenshots say what it looks like. Both are in the main README.
+Drawings, as opposed to `../screenshots/`, which are photographs of the running app. The three
+feature drawings lead the main README's *What it does*; `hero.png` is the source of the social
+preview card.
 
 | Filename | What it shows | Where |
 | --- | --- | --- |
-| `hero.png` | A desk, a line of sound leaving the computer and settling into pages, and a room with no way out of it. | Source of `../screenshots/social-preview.png`; it is not in the README, where the banner says more |
-| `record.png` | Three devices and an audio file all arriving at one machine, and a waveform becoming lines of text. | Record, and it becomes words |
-| `minutes.png` | A loose stack going into a box and one squared-up page coming out, with a question looping back in. | Minutes, written for you |
-| `speakers.png` | One dense waveform combed apart into three tracks, one of them recognised. | Who said what |
-| `over-time.png` | Five meetings threaded by one line, the last still an outline; a magnifier; a calendar. | It adds up over time |
-| `private.png` | Sealed sheets inside a cube, one key that fits one of three keyholes, and an unbroken wall. | Yours alone |
+| `capture.png` | Phone, laptop and audio file → Whisper on your machine → a transcript with speakers, a voiceprint match and a suggested fix for a misheard word. | Record, and it becomes words — and the *Who said what* after it |
+| `minutes-memory.png` | Transcript → local LLM → minutes with decisions and action items; a question asked of past minutes; a weekly series handing its minutes forward to an upcoming meeting. | Minutes, written for you — and *It adds up over time* |
+| `private.png` | Your machine as a house: two accounts, each with its own key; an administrator who cannot read minutes; a laptop outside that can set meetings up but not record; a crossed-out cloud. | Yours alone |
+| `hero.png` | A desk, a line of sound leaving the computer and settling into pages, and a room with no way out of it. | Source of `../screenshots/social-preview.png`; not in the README |
 
 ## How they were made
 
-Generated from written prompts, then cropped and compressed here. The prompts are worth keeping
-because the next one has to match: what makes these a set is not the subject but the constraints,
-and those are the same six lines every time —
+Generated from written prompts with `../screenshots/workflow.png` attached as the style reference,
+so the three read as close-ups of the banner at the top of the README. Every prompt carried the
+same constraints:
 
-- **flat vector, subtle isometric**, thin consistent line weight, generous negative space, matte
-- **one palette**: `#0B1220` ground, `#1B2536` panels, `#2F3D54` lines, `#E5E7EB` paper, and
-  `#06B6D4` on **exactly one element per image** — the thing the image is about
-- **no text of any kind**, and no clip-art shorthand: no padlocks, shields, brains, robots,
-  circuit-board texture, binary digits, mascots, or faces
+- flat vector UI-infographic — no 3D, no isometric perspective, no glow, no photos, faces or logos
+- the app's own palette: `#0B1220` ground, `#1B2536` panels, `#2F3D54` lines, `#E5E7EB` text,
+  `#9CA3AF` secondary text, `#06B6D4` / `#67E8F9` accent
+- 21:9, with the content filling about 70% of the height
+- English labels only, **written out in the prompt word for word**, and every small label at least
+  80% of the size of the main text, because the images are shown about 900px wide
 
-**No labels are baked in, on purpose.** Image generators cannot spell, and a diagram whose labels
-are wrong is worse than one with none — but the deeper reason is that words in a picture cannot be
-searched, translated, read aloud by a screen reader, or fixed without regenerating the picture.
-The markdown around each image does that job instead: the heading names the idea and the prose
-carries the detail. If one of these ever needs a label *inside* it, that is a sign it should be an
-SVG rather than a rendering.
+**They have labels now, on purpose.** The first set had none: generators misspell, and words in a
+picture cannot be searched or read aloud. That made the pictures abstract enough to need decoding,
+and a reader decoding a picture is not reading about the app. Short labels written out in the
+prompt came back spelled right, and what the old rule protected is kept another way — each
+image's alt text says in words everything the picture shows, and the prose under it carries the
+detail.
+
+Two rules keep the labels honest:
+
+- **Read every label at 2× before committing.** Crop the small text, enlarge it and read it; a `g`
+  for a `q` is invisible at README size.
+- **Every name and term in them is invented** — the app's own name misheard (`Boxinq`), and the
+  fictional people the screenshots use. Nothing from a real meeting or a real glossary, ever.
 
 ## Retouching them
 
-They are 1400px on the long edge, palette PNG. From a fresh generation at 1536×1024:
+From a 1916×821 generation, cropped to one height so the three sit as a set:
 
 ```js
 // npm i -D sharp
 await sharp(src)
-  .extract({ left: 0, top, width, height })       // hero only: a banner wants less sky
-  .resize({ width: 1400, withoutEnlargement: true })
+  .extract({ left: 0, top, width, height: 700 })  // 700px tall, centred on the content
+  .resize({ width: 1400, height: 512, fit: "fill" })
   .png({ palette: true, quality: 90, effort: 10 })
   .toFile(out);
 ```
 
-The palette step is what makes them fit: 1.2MB each becomes ~200KB, and flat art with a small
-number of colours loses nothing visible to it — the cyan glow survives. Check one by eye before
-committing six.
+About 1MB each becomes 150–250KB; flat art with few colours loses nothing visible to the palette
+step. Check one by eye before committing three.
