@@ -12,6 +12,7 @@ want to do:
 | **Learn the features** (record, upload, diarize, find & replace, export, archive) | 📖 [Usage & recipes](usage.md) |
 | **Understand how it works** (components, data flow, what is Voxinq and what is not) | 🏗 [Architecture](architecture.md) |
 | **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](design-decisions.md) |
+| **See where the Android app is going** (why a native app, its shape, the milestones) | 📱 [Android app](android-app.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
 
 > Voxinq Meeting is self-hosted: by default the audio, the transcripts and the minutes all stay
