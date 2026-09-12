@@ -57,6 +57,11 @@ function wsUrl(): string {
   return BUILT_IN_WS_URL;
 }
 
+/** The STT WebSocket address, for the Android app's recorder to connect to the same service. */
+export function sttWsUrl(): string {
+  return wsUrl();
+}
+
 // Derive the http(s) base from the WS URL, for HTTP endpoints such as diarization.
 // e.g. wss://host:8443/ws -> https://host:8443
 export function sttHttpBase(): string {

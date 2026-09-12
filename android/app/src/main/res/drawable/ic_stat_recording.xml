@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon while recording: the mark, white on transparent as Android requires. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:scaleX="0.1294"
+        android:scaleY="0.1294"
+        android:translateX="-2.35"
+        android:translateY="-3.18">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M132.572,123.325L116.183,103.758L151.176,49.3301L195.936,49.9503L132.572,123.325Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M86.0898,144.823L98.7001,160.828L84.6348,178.773L59.8992,178.773L86.0898,144.823Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M55.7496,35.8299L25.839,59.1985L134.952,198.857L164.863,175.488L55.7496,35.8299Z" />
+    </group>
+</vector>

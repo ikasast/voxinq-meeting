@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The same mark in one colour, for Android 13's themed icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.29"
+        android:scaleY="0.29"
+        android:translateX="21.84"
+        android:translateY="19.97">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M132.572,123.325L116.183,103.758L151.176,49.3301L195.936,49.9503L132.572,123.325Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M86.0898,144.823L98.7001,160.828L84.6348,178.773L59.8992,178.773L86.0898,144.823Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M55.7496,35.8299L25.839,59.1985L134.952,198.857L164.863,175.488L55.7496,35.8299Z" />
+    </group>
+</vector>

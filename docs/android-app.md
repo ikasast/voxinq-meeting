@@ -1,7 +1,9 @@
 # The Android app
 
-A design, written before any of it exists. It says what the app is for, what shape it takes and
+A design, written before any of it existed. It says what the app is for, what shape it takes and
 why, how it talks to the parts that are already there, and what the first version has to prove.
+The first milestone is in `android/`; how to build and install it is in
+[android/README.md](../android/README.md).
 
 ## What it is for
 
@@ -112,9 +114,11 @@ On the web side, one addition:
 
 - **`android/`** in this repository, so the bridge and the page that calls it change in the same
   pull request. Gradle and Kotlin; package `io.github.ikasast.voxinq`.
-- **SDK**: minimum Android 10 (API 29), the first with a `microphone` foreground-service type;
-  target the newest SDK Android Studio ships. Developed against a Pixel 9 on Android 17.
-- **Dependencies**: AndroidX core, webkit and lifecycle; OkHttp for the WebSocket and HTTP;
+- **SDK**: minimum Android 10 (API 29); target the newest SDK Android Studio ships. Developed
+  against a Pixel 9 on Android 17. The `microphone` foreground-service type arrived in Android
+  11, with the rule it answers — an app in the background keeps the microphone only through a
+  service of that type — so on Android 10 the service holds the microphone without one.
+- **Dependencies**: AndroidX core, activity and webkit; OkHttp for the WebSocket and HTTP;
   kotlinx-coroutines. No Firebase, no analytics, nothing that talks to anything but the user's
   server.
 - **CI**: a debug APK built on every pull request that touches `android/`. Release signing comes
