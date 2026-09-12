@@ -32,30 +32,21 @@ const VIEWPORT = { width: 1600, height: 900 };
 const SCALE = 2; // retina, so the images stay sharp when GitHub scales them down
 const MAX_HEIGHT = 1400; // past this a README image is scaled down too far to read
 
-// What each shot waits for, per language. A meeting's own title is the same in both; a heading
-// the app writes is not.
+// What each shot waits for, per language: headings the app writes, which differ between them.
 const READY = {
   en: {
-    meeting: "Weekly Product Sync",
     transcript: "Transcript",
-    settings: "Transcription",
     progress: "Progress",
   },
   ja: {
-    meeting: "プロダクト定例",
     transcript: "発言",
-    settings: "文字起こし",
     progress: "進み具合",
   },
 };
 
+// Only what a README shows. A dashboard and a settings shot used to be taken too, and nothing
+// displayed either — they were a megabyte of the repository kept current for nobody.
 const SHOTS = [
-  {
-    file: "dashboard.png",
-    url: "/",
-    // The list is the point; let it settle before the health dots resolve.
-    ready: (page) => page.getByText(READY[LOCALE].meeting).first().waitFor(),
-  },
   {
     file: "recording.png",
     url: "/demo-live-recording/recording",
@@ -69,11 +60,6 @@ const SHOTS = [
     url: "/demo-weekly-sync",
     ready: (page) => page.getByText(READY[LOCALE].progress).first().waitFor(),
     fixedHeight: 1000,
-  },
-  {
-    file: "settings.png",
-    url: "/settings",
-    ready: (page) => page.getByText(READY[LOCALE].settings).first().waitFor(),
   },
 ];
 

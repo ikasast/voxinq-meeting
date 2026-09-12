@@ -10,7 +10,6 @@ import {
   type SpeakerLabels,
   SELF_KEY,
   collectSpeakerKeys,
-  diarizerLabelToKey,
   parseSpeakerLabels,
   speakerName,
 } from "@/lib/speakers";
@@ -54,10 +53,6 @@ type RecordingInfo = {
 function remainingDays(expiresAt: string): number {
   return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 86400000));
 }
-
-// The label is the key. Module-level, so it is translated where the list is rendered — the
-// same shape the meeting list's bands and the minutes panel's option lists needed.
-const RETRANS_MODELS = [{ value: "", label: "Same as settings" }, ...WHISPER_MODELS];
 
 // Post-meeting transcript. Supports recording playback, auto diarization, speaker renaming, and re-transcription.
 export function TranscriptList({
@@ -1573,7 +1568,6 @@ function Disclosure({
   onToggle: () => void;
   children: React.ReactNode;
 }) {
-  const t = useT();
   return (
     <div className="mt-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--elevated)]">
       <button
