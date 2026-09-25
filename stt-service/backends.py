@@ -37,6 +37,21 @@ SAMPLE_RATE = 16000
 
 
 @dataclass
+class Word:
+    """One word and when it was said, within the audio that was handed to the backend.
+
+    What they are for: an utterance is cut at silences, not at speaker changes, so one of them
+    can hold two people talking. Diarization knows when the speaker changed; these say which
+    words fall on each side of that moment, so the line can be split rather than given wholly
+    to whoever spoke most of it.
+    """
+
+    word: str
+    start: float
+    end: float
+
+
+@dataclass
 class Segment:
     """One recognised span. The fields the caller's filters read, and nothing else.
 
@@ -49,6 +64,20 @@ class Segment:
     end: float = 0.0
     no_speech_prob: float = 0.0
     avg_logprob: float = 0.0
+    # None when the backend cannot align words, or was not asked to. Callers fall back to the
+    # segment as a whole, which is what every caller did before words existed.
+    words: list[Word] | None = None
+
+
+def shift_words(words: list[Word] | None, offset: float) -> list[dict]:
+    """Words as plain dicts, moved from segment-relative time to the recording's own clock.
+
+    Stored short (`w`/`s`/`e`) because there is one of these per word for a whole meeting.
+    """
+    return [
+        {"w": w.word, "s": round(w.start + offset, 2), "e": round(w.end + offset, 2)}
+        for w in (words or [])
+    ]
 
 
 def cuda_available() -> bool:
@@ -147,6 +176,7 @@ class FasterWhisperBackend:
         beam_size: int,
         vad_min_silence_ms: int,
         no_speech_threshold: float,
+        word_timestamps: bool = False,
     ) -> tuple[list[Segment], str | None]:
         segments, info = model.transcribe(
             audio,
@@ -159,6 +189,10 @@ class FasterWhisperBackend:
             vad_parameters=dict(min_silence_duration_ms=vad_min_silence_ms),
             condition_on_previous_text=False,
             no_speech_threshold=no_speech_threshold,
+            # Alignment reuses the attention already computed for the decode, so it costs
+            # about a percent of the decode on a GPU -- measured on this project's own
+            # reference hardware before it was turned on.
+            word_timestamps=word_timestamps,
         )
         out = [
             Segment(
@@ -167,6 +201,11 @@ class FasterWhisperBackend:
                 end=float(getattr(s, "end", 0.0) or 0.0),
                 no_speech_prob=float(getattr(s, "no_speech_prob", 0.0) or 0.0),
                 avg_logprob=float(getattr(s, "avg_logprob", 0.0) or 0.0),
+                words=[
+                    Word(str(w.word), float(w.start), float(w.end))
+                    for w in (getattr(s, "words", None) or [])
+                ]
+                or None,
             )
             for s in segments
         ]
@@ -250,8 +289,12 @@ class WhisperCppBackend:
         beam_size: int,
         vad_min_silence_ms: int,
         no_speech_threshold: float,
+        word_timestamps: bool = False,
     ) -> tuple[list[Segment], str | None]:
-        del vad_min_silence_ms, no_speech_threshold  # whisper.cpp's VAD is a separate model
+        # whisper.cpp's VAD is a separate model, and pywhispercpp exposes no per-word times.
+        # Accepted and ignored: the caller is backend-agnostic on purpose, and falls back to
+        # the whole utterance where words are missing.
+        del vad_min_silence_ms, no_speech_threshold, word_timestamps
         params: dict[str, Any] = {
             "n_threads": max(1, (os.cpu_count() or 4) // 2),
             "translate": False,
@@ -543,11 +586,12 @@ class OpenAiCompatibleBackend:
         beam_size: int,
         vad_min_silence_ms: int,
         no_speech_threshold: float,
+        word_timestamps: bool = False,
     ) -> tuple[list[Segment], str | None]:
-        # beam_size, vad_min_silence_ms and no_speech_threshold have no equivalent over HTTP.
-        # Accepted and ignored rather than raising: the caller is backend-agnostic on purpose,
-        # and refusing here would make it care which backend it has.
-        del beam_size, vad_min_silence_ms, no_speech_threshold
+        # beam_size, vad_min_silence_ms, no_speech_threshold and word_timestamps have no
+        # equivalent over HTTP. Accepted and ignored rather than raising: the caller is
+        # backend-agnostic on purpose, and refusing here would make it care which backend it has.
+        del beam_size, vad_min_silence_ms, no_speech_threshold, word_timestamps
 
         max_samples = max(SAMPLE_RATE * 10, (self.max_bytes - 4096) // 2)
         out: list[Segment] = []
@@ -816,10 +860,12 @@ class GeminiBackend:
         beam_size: int,
         vad_min_silence_ms: int,
         no_speech_threshold: float,
+        word_timestamps: bool = False,
     ) -> tuple[list[Segment], str | None]:
         # A glossary would go in the prompt, where the model may treat it as content to repeat
         # rather than as spelling guidance. Left out until that is measured on real audio.
-        del initial_prompt, beam_size, vad_min_silence_ms, no_speech_threshold
+        # Word times are asked for below in any case, to place the segments in time.
+        del initial_prompt, beam_size, vad_min_silence_ms, no_speech_threshold, word_timestamps
 
         max_samples = max(SAMPLE_RATE * 10, (self.max_bytes - 4096) // 2)
         out: list[Segment] = []
