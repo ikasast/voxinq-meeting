@@ -24,6 +24,12 @@
     <string name="status_saving">Saving…</string>
     <string name="action_stop">Stop and end</string>
 
+    <string name="channel_reminders">Meeting reminders</string>
+    <string name="channel_reminders_description">Shown when a meeting you booked is starting</string>
+    <string name="reminder_untitled">A booked meeting</string>
+    <string name="reminder_text">It is time for this meeting (booked for %1$s).</string>
+    <string name="reminder_record">Record</string>
+
     <string name="mic_permission_denied">Recording needs permission to use the microphone.</string>
     <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
     <string name="mic_failed">Cannot start the microphone: %1$s</string>

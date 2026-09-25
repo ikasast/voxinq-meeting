@@ -148,6 +148,8 @@ class RecorderService : Service() {
         }
 
         config = requested
+        // Whatever this meeting's reminder said, it has been acted on.
+        Reminders.cancel(this, requested.meetingId)
         status = "connecting"
         stopping = false
         startedAt = System.currentTimeMillis()

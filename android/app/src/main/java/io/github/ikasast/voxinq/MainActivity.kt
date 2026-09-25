@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_CHANGE_SERVER = "io.github.ikasast.voxinq.CHANGE_SERVER"
         const val ACTION_OPEN_RECORDING = "io.github.ikasast.voxinq.OPEN_RECORDING"
         const val EXTRA_MEETING = "meetingId"
+        const val EXTRA_AUTOSTART = "autostart"
         private const val BRIDGE = "VoxinqAndroid"
         private val MEETING_ID = Regex("^[A-Za-z0-9_-]{1,100}$")
     }
@@ -151,6 +152,13 @@ class MainActivity : ComponentActivity() {
         // that ended while the server was out of reach — goes now. This is the moment it is
         // allowed to: the app is in front, and the network is likely to be the user's own.
         if (!RecorderBus.state.recording) RecorderService.deliverLeftovers(this)
+        // What is booked for today, so the phone can say so at the time even with nothing open
+        // (Reminders). Asking now is also how a meeting booked minutes ago is heard about.
+        if (server != null) {
+            askAboutNotices()
+            ReminderReceiver.checkNow(this)
+            Reminders.arm(this)
+        }
         // Lines saved while nobody was looking are not replayed one by one: the page reloads
         // the transcript instead.
         if (RecorderBus.state.recording) RecorderBus.post(message("resync"))
@@ -175,26 +183,44 @@ class MainActivity : ComponentActivity() {
             showSetup()
             return
         }
-        // The activity is exported, so this extra can come from anywhere: only an id goes in a path.
-        val meeting = intent?.takeIf { it.action == ACTION_OPEN_RECORDING }
-            ?.getStringExtra(EXTRA_MEETING)
-            ?.takeIf { MEETING_ID.matches(it) }
-        open(origin, meeting?.let { "/$it/recording" })
+        // The activity is exported, so these extras can come from anywhere: only an id goes in
+        // a path, and the most a forged intent can do is open a meeting's own recording page.
+        val opening = intent?.takeIf { it.action == ACTION_OPEN_RECORDING }
+        val meeting = opening?.getStringExtra(EXTRA_MEETING)?.takeIf { MEETING_ID.matches(it) }
+        // Record, from a meeting's reminder: the page starts the recording itself when it is
+        // opened this way, which is what the web app's own one-tap links already do.
+        val autostart = meeting != null && opening?.getBooleanExtra(EXTRA_AUTOSTART, false) == true
+        open(origin, meeting?.let { "/$it/recording" }, if (autostart) "?autostart=1" else "")
     }
 
-    private fun open(origin: String, path: String?) {
+    private fun open(origin: String, path: String?, query: String = "") {
         setup.isVisible = false
         offline.isVisible = false
         val current = web
         if (current != null && webOrigin == origin) {
             // Already there: the notification tapped while the recording page is on screen must
-            // not reload it.
+            // not reload it. Being asked to start recording is different — that has to arrive
+            // at the page, so it is loaded again with the request on it.
             val here = current.url?.let { Uri.parse(it).path }
-            if (path == null || here == path) return
-            current.loadUrl(origin + path)
+            if (path == null || (here == path && query.isEmpty())) return
+            current.loadUrl(origin + path + query)
             return
         }
-        createWebView(origin).loadUrl(origin + (path ?: "/"))
+        createWebView(origin).loadUrl(origin + (path ?: "/") + query)
+    }
+
+    /**
+     * Ask once for somewhere to put the meeting notices.
+     *
+     * Every other permission here is asked for on a tap — the microphone when a recording
+     * starts. A reminder has no tap: it is the notification *itself* that the user would be
+     * waiting for, so the one chance to ask is before there is anything to show.
+     */
+    private fun askAboutNotices() {
+        if (Build.VERSION.SDK_INT < 33 || granted(Manifest.permission.POST_NOTIFICATIONS)) return
+        if (Reminders.asked(this)) return
+        Reminders.markAsked(this)
+        permissions.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -266,6 +292,11 @@ class MainActivity : ComponentActivity() {
         if (origin == null) return
         ServerAddress.save(this, origin)
         server = origin
+        // onStart ran before there was a server to ask, so this is where the meeting notices
+        // start for somebody who has just set the app up.
+        askAboutNotices()
+        ReminderReceiver.checkNow(this)
+        Reminders.arm(this)
         WindowCompat.getInsetsController(window, input).hide(WindowInsetsCompat.Type.ime())
         open(origin, null)
     }

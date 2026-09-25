@@ -51,6 +51,10 @@ asked for is how a browser decides to stop asking on a site's behalf for good.
 > background. With everything closed, nothing arrives. Keep a tab open, or install it
 > (the downward-arrow icon in the header — see [Remote access](remote-access.md)), on the machine
 > you want to be told on.
+>
+> **On Android there is one way round this**: the app sets a notice on the phone for each booked
+> meeting's own time, so nothing has to be open, and its notice has **Record** in it. See
+> [the Android app](android-app.md).
 
 From outside your private network the bar appears without **Start recording**: recording needs
 the transcription service, which is not reachable from out there.

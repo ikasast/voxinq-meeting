@@ -119,6 +119,50 @@ On the web side, one addition:
 - The microphone check before a meeting stays in the page. It runs while the page is visible,
   where the `WebView`'s own `getUserMedia` is enough.
 
+## The notice at a booked meeting's time
+
+A meeting booked in advance is the one most likely to go unrecorded: everybody walks in already
+talking. The web app has a banner for exactly this, but a banner needs a page somebody is looking
+at, and on a phone the page is not open. So the phone wakes at the meeting's own time and says so,
+with **Record** in the notice.
+
+**Two mechanisms, because neither alone is enough.** An alarm for each meeting is on time, but the
+app has to have heard about the meeting to set one. A check every quarter of an hour hears about
+everything, including a meeting booked on the laptop a minute ago, but is late. So both: the check
+sets the alarms and announces anything already past its time, and the app checks whenever it comes
+to the front.
+
+**The server decides what is due, not the phone.** When a meeting's alarm goes off, the app asks
+rather than trusting what it knew when the alarm was set: by then the meeting may have been
+recorded from the laptop, moved, or deleted. Only when the server cannot be reached does the alarm
+speak for itself, from the title and time it was given — better a notice that may be stale than
+silence about a meeting that is starting. Each meeting is announced once; a record of what has been
+mentioned, kept for six hours, is what stops the quarter-hourly check repeating itself.
+
+**No permission is asked for to be on time.** A meeting's alarm is inexact and allowed to fire in
+Doze (`setAndAllowWhileIdle`), which needs nothing from the user — an exact alarm would mean a
+permission prompt for a convenience. Inexact is worth about two minutes: the system gives such an
+alarm a window and tends to use it. The quarter-hourly check is a plain alarm, deliberately: the
+system allows an app one allow-while-idle alarm every nine minutes or so in Doze, and those are
+wanted for the meetings themselves. What is left late by all this is one case — a meeting booked
+minutes before it starts while the phone is asleep, which waits for the next maintenance window or
+for the app to be opened. Anything booked earlier has an alarm of its own.
+
+**Record opens the recording page, which starts by itself** (`?autostart=1`, which the web app
+already uses for its own one-tap links). Not because a notification cannot start work, but because
+a microphone service started with nothing on screen is at the mercy of a rule that has changed with
+every other Android version, and a meeting silently not being recorded is the failure this feature
+exists to prevent.
+
+On the server, one addition: `/api/meetings/due` takes `?soon=<minutes>` and answers with a second
+list of what is coming, so the phone can set its alarms. Without the parameter it answers exactly
+what it did before — which is what the page's own banner asks for.
+
+Alarms do not survive a reboot or an install over the top, so both re-arm the check, and its first
+run sets the meetings' alarms again. The **Meeting reminders** notification channel is the off
+switch; permission to post is asked for once, when the app is first opened with a server set,
+because unlike the microphone there is no later tap to ask on.
+
 ## The project
 
 - **`android/`** in this repository, so the bridge and the page that calls it change in the same
