@@ -283,6 +283,21 @@ back, and a passage that came out right last time may not this time. If one line
 it; re-transcribing rerolls the whole meeting. See
 [design notes](design-decisions.md#transcription-is-not-reproducible-and-the-cause-is-the-temperature-fallback).
 
+## Minutes later, for a day of meetings at once
+
+Recording and writing up are one action here and two in practice: at a conference you record
+all day and the minutes wait for the evening. So a meeting that was recorded and has no minutes
+says **No minutes** on its card, rather than "0 sets of minutes" in grey — and above the list,
+a bar offers to write all of them.
+
+It works on **what the list is showing**, so the filters are the selection: a series, a day
+from the calendar, a search. Open it to uncheck any you do not want, then send them. They go
+into the queue and run one at a time, as everything that needs the GPU does; the cards say
+*Generating minutes…* while they wait their turn.
+
+A meeting already generating or already waiting is left out rather than queued twice, and so
+is one with nothing recorded. A meeting whose last attempt failed is offered again.
+
 ## Regenerate minutes
 
 The **Regenerate** button opens a small panel to pick a **detail level**, a **provider** and a
