@@ -50,5 +50,15 @@ With a debug build, `chrome://inspect` on the PC opens the page's DevTools.
 
 - Files the page builds itself — minutes and meeting exports, backups — do not download in the
   app yet. Use a browser for those.
-- While the transcription service is out of reach, up to five minutes of audio is held in
-  memory, as in the browser. Keeping it on disk is the next milestone.
+- Sharing an audio file to the app, and the notice at a booked meeting's time, are milestone 3.
+
+## When the network goes
+
+Audio is written to a file before it is sent, and the file is the queue: an outage of twenty
+minutes costs nothing, and the oldest audio only starts to go after two hours of it. Lines
+waiting to be saved are written down too.
+
+If the system kills the app mid-recording, what it owed stays on the phone. Open the app again
+and it delivers it — the audio is appended to that meeting's recording and recognised, and the
+lines it had already recognised are saved. `files/pending/<meeting id>/` is where that lives;
+an empty directory means nothing is owed.

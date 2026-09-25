@@ -147,6 +147,10 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         RecorderBus.setVisible(true)
         web?.onResume()
+        // Anything an earlier run could not hand over — a recording the system killed, or one
+        // that ended while the server was out of reach — goes now. This is the moment it is
+        // allowed to: the app is in front, and the network is likely to be the user's own.
+        if (!RecorderBus.state.recording) RecorderService.deliverLeftovers(this)
         // Lines saved while nobody was looking are not replayed one by one: the page reloads
         // the transcript instead.
         if (RecorderBus.state.recording) RecorderBus.post(message("resync"))
