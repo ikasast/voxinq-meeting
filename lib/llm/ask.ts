@@ -7,7 +7,8 @@
 // something is not there — an invented action item is worse than "not recorded".
 
 import { getLlmBackground, getLlmConfig, getSummaryLanguage } from "../settings";
-import { CONTEXT_BUDGET, estTokens, providerFor } from "./provider";
+import { CONTEXT_BUDGET, estTokens, ollamaContextBudget, providerFor } from "./provider";
+import { condenseTranscript } from "./index";
 
 const ANSWER_MAX_TOKENS = 2048;
 const LANG_NAME: Record<string, string> = { ja: "日本語", en: "英語", zh: "中国語" };
@@ -118,4 +119,81 @@ export async function askMinutes(
     signal,
   );
   return { answer: answer.trim(), used, omitted, withoutMinutes };
+}
+
+export type MeetingTranscriptForAsk = {
+  title: string;
+  startedAt: Date | string;
+  /** The meeting as a prompt sees it — see `conversationText`. */
+  conversation: string;
+};
+
+export type TranscriptAskResult = { answer: string; condensed: boolean };
+
+/**
+ * Answer `question` from one meeting's transcript, rather than from its minutes.
+ *
+ * The minutes are the reviewed version and the dense one, which is why a whole series of them
+ * fits where a single meeting's log might not. But they are a summary, and a question is
+ * sometimes about what was actually said: a phrase, a name, an aside nobody wrote down. It is
+ * one meeting at a time because one is what fits — an hour of Japanese is ten to thirteen
+ * thousand tokens against a local budget of twenty-four.
+ *
+ * A meeting past that budget is condensed first, by the same map-reduce the minutes use, so
+ * the far half of a long meeting is answered from rather than quietly dropped. The answer says
+ * which of the two it was.
+ */
+export async function askTranscript(
+  question: string,
+  meeting: MeetingTranscriptForAsk,
+  signal?: AbortSignal,
+): Promise<TranscriptAskResult> {
+  const cfg = await getLlmConfig();
+  const provider = providerFor(cfg.provider);
+  const language = await getSummaryLanguage();
+  const background = (await getLlmBackground()).trim();
+  const langName = LANG_NAME[language] ?? "日本語";
+
+  // The Ollama figure is a VRAM budget rather than a model limit, and somebody with a bigger
+  // card can raise it in settings — so ask for the one in force, not the constant.
+  const budget =
+    cfg.provider === "ollama"
+      ? ollamaContextBudget(cfg.ollamaNumCtx)
+      : (CONTEXT_BUDGET[cfg.provider] ?? CONTEXT_BUDGET.ollama);
+  const avail = Math.max(2000, budget - ANSWER_MAX_TOKENS - estTokens(question) - 1200);
+
+  let source = meeting.conversation.trim();
+  let condensed = false;
+  if (estTokens(source) > avail) {
+    source = await condenseTranscript(provider, cfg, source, avail, language, signal);
+    condensed = true;
+  }
+
+  const system = [
+    `あなたは会議の発言ログを参照して質問に答えるアシスタントです。回答は${langName}で書いてください。`,
+    "回答は与えられた発言ログの内容だけを根拠にしてください。書かれていないことは推測せず、「記録には見当たりません」と述べてください。",
+    "関係する発言があれば、その言い回しを短く引用してください。話者名が付いている場合は、誰の発言かも添えてください。",
+    "発言ログに無い事業名・組織・人物・数値を新たに作り出さないこと。",
+    background
+      ? `次は用語解釈のための業務背景です。回答の根拠にはせず、用語の理解にのみ使ってください:\n${background}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const user = [
+    `以下は「${meeting.title}」（${formatDate(meeting.startedAt)}）の発言ログです。`,
+    condensed
+      ? "（長い会議のため、ログ全体から抽出した要点メモになっています。会議の全体をカバーしています。）"
+      : "",
+    "",
+    source,
+    "",
+    `上の内容だけを根拠に、次の質問に答えてください。\n\n質問: ${question}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const answer = await provider.chat({ system, user, maxTokens: ANSWER_MAX_TOKENS }, cfg, signal);
+  return { answer: answer.trim(), condensed };
 }

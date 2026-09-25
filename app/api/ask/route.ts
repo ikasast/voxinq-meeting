@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
-import { askMinutes, type MeetingForAsk } from "@/lib/llm/ask";
+import { conversationText } from "@/lib/llm";
+import { askMinutes, askTranscript, type MeetingForAsk } from "@/lib/llm/ask";
+import { parseSpeakerLabels } from "@/lib/speakers";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+// Reading a whole meeting's transcript is a bigger prompt than a set of minutes, and a long
+// one is condensed in several passes first. Self-hosted, so this is a ceiling rather than a
+// bill.
+export const maxDuration = 300;
 
 const QUESTION_MAX = 500;
 
@@ -12,7 +17,13 @@ const QUESTION_MAX = 500;
 // A meeting with no series is asked about on its own — a one-off is just a series of one.
 // Nothing is stored: the answer is read once and discarded.
 export async function POST(req: NextRequest) {
-  const body = await readJson<{ question?: unknown; seriesId?: unknown; meetingId?: unknown }>(req);
+  const body = await readJson<{
+    question?: unknown;
+    seriesId?: unknown;
+    meetingId?: unknown;
+    // "transcript" reads one meeting's own words instead of its minutes.
+    source?: unknown;
+  }>(req);
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question) return apiError("question is required", 400);
   if (question.length > QUESTION_MAX) {
@@ -32,6 +43,48 @@ export async function POST(req: NextRequest) {
       `Busy: minutes are being generated for "${inFlight.title}". Please wait until it finishes.`,
       409,
     );
+  }
+
+  // One meeting, read in full: what was actually said, for a question the minutes cannot
+  // answer — or for a meeting that has none yet, which is most of a conference week.
+  if (body?.source === "transcript") {
+    if (!meetingId) return apiError("meetingId is required to read a transcript", 400);
+    const meeting = await prisma.meeting.findUnique({
+      where: { id: meetingId },
+      select: {
+        title: true,
+        startedAt: true,
+        speakerLabels: true,
+        transcripts: {
+          orderBy: { createdAt: "asc" },
+          select: { speakerType: true, text: true, createdAt: true },
+        },
+      },
+    });
+    if (!meeting) return apiError("meeting not found", 404);
+    if (meeting.transcripts.length === 0) {
+      return apiError("This meeting has no transcript to read.", 400);
+    }
+    try {
+      const { answer, condensed } = await askTranscript(question, {
+        title: meeting.title,
+        startedAt: meeting.startedAt,
+        conversation: conversationText(
+          meeting.transcripts,
+          parseSpeakerLabels(meeting.speakerLabels),
+        ),
+      });
+      return NextResponse.json({
+        answer,
+        condensed,
+        source: "transcript",
+        used: 1,
+        omitted: 0,
+        withoutMinutes: 0,
+      });
+    } catch (e) {
+      return apiError(`Failed to answer: ${(e as Error).message}`, 502);
+    }
   }
 
   // Newest first — the context builder drops the oldest meetings when they do not all fit.

@@ -423,6 +423,22 @@ each item came from.
   how many older ones were left out for length, how many have no minutes yet.
 - Answering uses the GPU, so it is refused while minutes are generating. Nothing is stored.
 
+### Asking one meeting's own words
+
+On a single meeting, the box offers **From the minutes** / **From the transcript**. The minutes
+are the reviewed version and the dense one; the transcript is what was actually said — a
+phrase, a name, an aside that never made the minutes.
+
+- It is **one meeting at a time**. An hour of Japanese is ten to thirteen thousand tokens
+  against a local budget of about twenty-four thousand, so a whole series of transcripts does
+  not fit. A series is asked of its minutes.
+- A meeting **too long to read at once** is condensed first — the same pass the minutes use, so
+  the far half of a long meeting is answered from rather than dropped. The footer says when
+  that happened.
+- A meeting that is **recorded but not written up yet** gets the box too, reading the
+  transcript. That is the state a day of back-to-back meetings leaves behind, and usually when
+  the question is about what was said.
+
 ## Translation
 
 With `sttTranslate` on (Settings → Transcription), each **non-Japanese** utterance gets a

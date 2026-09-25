@@ -1199,6 +1199,14 @@ export const ja: Record<string, string> = {
   "Re-transcription failed: {error}": "文字起こしのやり直しに失敗しました: {error}",
   "Undo split": "分割を元に戻す",
   "No minutes": "議事録なし",
+  "Ask about this meeting": "この会議について質問",
+  "Answered from everything said in {scope} — nothing else. Answers are not saved.":
+    "「{scope}」で話された内容だけから答えます。回答は保存されません。",
+  "From the minutes": "議事録から",
+  "From the transcript": "文字起こしから",
+  "Based on everything said in this meeting.": "この会議で話された内容すべてに基づいています。",
+  "Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).":
+    "長い会議のため、全体から抽出した要点メモに基づいています（会議全体をカバーしています）。",
   "Recorded, but no minutes yet": "録音はあり、議事録がまだ作られていません",
   "{n} of these meetings have no minutes yet": "この一覧のうち {n} 件は議事録がまだです",
   "Write them all": "まとめて作成",
