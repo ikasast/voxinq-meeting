@@ -40,6 +40,31 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Where a recording made by another app arrives: a question over that app, and then
+             the upload runs in a service so the person goes back to what they were doing. -->
+        <activity
+            android:name=".ShareActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:noHistory="true"
+            android:theme="@style/Theme.Voxinq.Share">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="video/*" />
+                <!-- Plenty of apps share a file off storage as bytes with no type at all. What
+                     it actually is, is checked before anything is created. -->
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".ImportService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <service
             android:name=".RecorderService"
             android:exported="false"

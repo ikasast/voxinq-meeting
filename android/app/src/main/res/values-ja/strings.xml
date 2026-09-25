@@ -27,6 +27,26 @@
     <string name="reminder_text">会議の時間です（予約 %1$s）。</string>
     <string name="reminder_record">録音</string>
 
+    <string name="channel_import">取り込み</string>
+    <string name="channel_import_description">共有された録音の送信中に表示されます</string>
+    <string name="import_title">この録音を取り込みますか？</string>
+    <string name="import_message">%1$s — %2$s
+
+新しい会議を作成し、サーバーで文字起こしします。</string>
+    <string name="import_confirm">取り込む</string>
+    <string name="cancel">キャンセル</string>
+    <string name="import_untitled">共有された録音</string>
+    <string name="import_started">取り込んでいます…</string>
+    <string name="import_preparing">準備中…</string>
+    <string name="import_sending">送信中 %1$s</string>
+    <string name="import_queued">送信完了 — サーバーで文字起こし中です。タップして会議を開きます。</string>
+    <string name="import_failed">取り込めませんでした: %1$s</string>
+    <string name="import_no_server">最初に Voxinq を開いてサーバーのアドレスを入力してください。</string>
+    <string name="import_not_audio">このアプリが読める音声ファイルではありません。</string>
+    <string name="import_unreadable">共有元のアプリからこのファイルを読み取れませんでした。</string>
+    <string name="import_too_big">%1$s を超えるファイルです。</string>
+    <string name="import_while_recording">会議を録音中です。終了後にもう一度お試しください。</string>
+
     <string name="mic_permission_denied">録音にはマイクの許可が必要です。</string>
     <string name="another_recording">アプリで別の会議を録音中です。先に停止してください。</string>
     <string name="mic_failed">マイクを開始できません: %1$s</string>

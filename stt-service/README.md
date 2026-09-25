@@ -82,7 +82,7 @@ sherpa-onnx（トークン不要・全OS）の2本立てで、これもハード
 | 状態 | `GET /health`（`busy` / `busyKind` を含む）, `POST /preload`, `POST /activity`, `POST /recordings/states` |
 | 録音 | `GET/POST/DELETE /recordings/{id}` とその `/audio` `/sidecars` `/protect` `/restore` `/segments/delete` |
 | 一括文字起こし | `POST /transcribe/{id}` → `GET /transcribe/{id}/status` |
-| ファイルからの取り込み | `POST /upload/{id}`（wav/mp3/m4a など ffmpeg が読める形式） |
+| ファイルからの取り込み | `POST /upload/{id}`（wav/mp3/m4a など ffmpeg が読める形式。`?transcribe=false` で保存のみ、文字起こしは Web のキューに任せる） |
 | 話者分離 | `POST /diarize/{id}` → `GET /diarize/{id}/status`、`POST /diarize/{id}/cancel` |
 | 声紋 | `POST /voiceprint` |
 

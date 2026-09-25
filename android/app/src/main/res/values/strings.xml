@@ -30,6 +30,26 @@
     <string name="reminder_text">It is time for this meeting (booked for %1$s).</string>
     <string name="reminder_record">Record</string>
 
+    <string name="channel_import">Imports</string>
+    <string name="channel_import_description">Shown while a shared recording is being sent</string>
+    <string name="import_title">Import this recording?</string>
+    <string name="import_message">%1$s — %2$s
+
+A new meeting is created and the audio is transcribed on your server.</string>
+    <string name="import_confirm">Import</string>
+    <string name="cancel">Cancel</string>
+    <string name="import_untitled">Shared recording</string>
+    <string name="import_started">Importing…</string>
+    <string name="import_preparing">Preparing…</string>
+    <string name="import_sending">Sending %1$s</string>
+    <string name="import_queued">Sent — being transcribed on the server. Tap to open the meeting.</string>
+    <string name="import_failed">Could not import: %1$s</string>
+    <string name="import_no_server">Open Voxinq once and enter your server address first.</string>
+    <string name="import_not_audio">That is not an audio file this app can read.</string>
+    <string name="import_unreadable">That file could not be read from the app that shared it.</string>
+    <string name="import_too_big">That file is larger than %1$s.</string>
+    <string name="import_while_recording">A meeting is being recorded. Try again once it has finished.</string>
+
     <string name="mic_permission_denied">Recording needs permission to use the microphone.</string>
     <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
     <string name="mic_failed">Cannot start the microphone: %1$s</string>

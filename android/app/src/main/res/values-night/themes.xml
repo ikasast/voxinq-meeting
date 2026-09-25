@@ -5,4 +5,8 @@
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:colorPrimary">@color/accent</item>
     </style>
+
+    <style name="Theme.Voxinq.Share" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">@color/accent</item>
+    </style>
 </resources>

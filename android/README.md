@@ -3,8 +3,8 @@
 The web app in a WebView, with a native recorder that keeps going with the screen off or another
 app in front. What it is for, and why it is shaped this way: [docs/android-app.md](../docs/android-app.md).
 
-Built so far: a recording that survives the screen, one that survives the network, and the notice
-at a booked meeting's time. Nothing is published yet, and the server has to run a version of
+Built so far: a recording that survives the screen, one that survives the network, the notice at a
+booked meeting's time, and importing a recording shared from another app. Nothing is published yet, and the server has to run a version of
 Voxinq that includes the page's side of the recorder (`lib/stt/native.ts`); an older server
 records in the page, as a browser does.
 
@@ -51,7 +51,7 @@ With a debug build, `chrome://inspect` on the PC opens the page's DevTools.
 
 - Files the page builds itself — minutes and meeting exports, backups — do not download in the
   app yet. Use a browser for those.
-- Sharing an audio file to the app, and capturing another app's playback, are milestone 3.
+- Capturing another app's playback is the rest of milestone 3.
 
 ## When the network goes
 
@@ -79,3 +79,16 @@ recorded from somewhere else, is not announced — the server is asked at the mo
 off, and it is the server's answer that decides.
 
 Turn it off in the phone's notification settings for the app, under **Meeting reminders**.
+
+## A recording from another app
+
+Share an audio file to Voxinq — from a voice recorder, a chat, a file manager — and it becomes a
+meeting: the app asks once, uploads it, and the transcription runs on the server as a queued job.
+The upload is the only part that needs the phone, so it can be pocketed afterwards; the
+notification that stays behind opens the meeting.
+
+Minutes are not written automatically. The list says how many meetings have none and offers
+**Write them all**, which is the quicker way through a day of shared recordings.
+
+It refuses, with a reason: something that is not audio, a file over 512 MB, and anything at all
+while a meeting is being recorded.

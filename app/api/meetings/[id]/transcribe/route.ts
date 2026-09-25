@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { resolveDestination } from "@/lib/queue/runners/transcribe";
+import { readSettings } from "@/lib/settings";
+import { withDefaults } from "@/lib/stt/transcribe-defaults";
 
 export const runtime = "nodejs";
 
@@ -18,7 +20,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
-  const meeting = await prisma.meeting.findUnique({ where: { id }, select: { id: true } });
+  const meeting = await prisma.meeting.findUnique({
+    where: { id },
+    select: { id: true, series: { select: { sttGlossary: true } } },
+  });
   if (!meeting) return NextResponse.json({ error: "meeting not found" }, { status: 404 });
 
   const already = await openJobFor("transcribe", id);
@@ -28,13 +33,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     });
   }
 
-  const params = {
-    profileId: typeof body.profileId === "string" ? body.profileId : undefined,
-    model: typeof body.model === "string" ? body.model : undefined,
-    language: typeof body.language === "string" ? body.language : undefined,
-    initialPrompt: typeof body.initialPrompt === "string" ? body.initialPrompt : undefined,
-    translate: body.translate === true,
-  };
+  // A caller that says nothing gets what the settings say, model, language, glossary and all
+  // (lib/stt/transcribe-defaults.ts). The pages always say; the Android app, handed a shared
+  // audio file, has nothing to say it with.
+  const settings = await readSettings();
+  const params = withDefaults(
+    {
+      profileId: typeof body.profileId === "string" ? body.profileId : undefined,
+      model: typeof body.model === "string" ? body.model : undefined,
+      language: typeof body.language === "string" ? body.language : undefined,
+      initialPrompt: typeof body.initialPrompt === "string" ? body.initialPrompt : undefined,
+      translate: typeof body.translate === "boolean" ? body.translate : undefined,
+    },
+    {
+      model: settings.whisperModel,
+      language: settings.sttLanguage,
+      glossary: settings.sttGlossary,
+      translate: settings.sttTranslate,
+      seriesGlossary: meeting.series?.sttGlossary,
+    },
+  );
 
   // Resolved now, not when the job runs: an endpoint that is no longer saved should be refused
   // while someone is looking at the button, not minutes later when the job reaches the front.

@@ -47,6 +47,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_CHANGE_SERVER = "io.github.ikasast.voxinq.CHANGE_SERVER"
         const val ACTION_OPEN_RECORDING = "io.github.ikasast.voxinq.OPEN_RECORDING"
+
+        /** A meeting's own page, for a notification about one that is not being recorded. */
+        const val ACTION_OPEN_MEETING = "io.github.ikasast.voxinq.OPEN_MEETING"
         const val EXTRA_MEETING = "meetingId"
         const val EXTRA_AUTOSTART = "autostart"
         private const val BRIDGE = "VoxinqAndroid"
@@ -184,13 +187,17 @@ class MainActivity : ComponentActivity() {
             return
         }
         // The activity is exported, so these extras can come from anywhere: only an id goes in
-        // a path, and the most a forged intent can do is open a meeting's own recording page.
-        val opening = intent?.takeIf { it.action == ACTION_OPEN_RECORDING }
+        // a path, and the most a forged intent can do is open a meeting's own page.
+        val action = intent?.action
+        val opening = intent?.takeIf { action == ACTION_OPEN_RECORDING || action == ACTION_OPEN_MEETING }
         val meeting = opening?.getStringExtra(EXTRA_MEETING)?.takeIf { MEETING_ID.matches(it) }
         // Record, from a meeting's reminder: the page starts the recording itself when it is
         // opened this way, which is what the web app's own one-tap links already do.
-        val autostart = meeting != null && opening?.getBooleanExtra(EXTRA_AUTOSTART, false) == true
-        open(origin, meeting?.let { "/$it/recording" }, if (autostart) "?autostart=1" else "")
+        val autostart = meeting != null &&
+            action == ACTION_OPEN_RECORDING &&
+            opening?.getBooleanExtra(EXTRA_AUTOSTART, false) == true
+        val path = meeting?.let { if (action == ACTION_OPEN_MEETING) "/$it" else "/$it/recording" }
+        open(origin, path, if (autostart) "?autostart=1" else "")
     }
 
     private fun open(origin: String, path: String?, query: String = "") {
