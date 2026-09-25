@@ -51,7 +51,10 @@ With a debug build, `chrome://inspect` on the PC opens the page's DevTools.
 
 - Files the page builds itself — minutes and meeting exports, backups — do not download in the
   app yet. Use a browser for those.
-- Capturing another app's playback is the rest of milestone 3.
+- Capturing what other apps are playing is **not planned**. Android's playback capture reaches
+  media only — never a call, and never Zoom, Teams or Meet — and for audio that exists as a file,
+  sharing it to the app (above) is better. The reasoning is in
+  [docs/android-app.md](../docs/android-app.md#not-capturing-what-the-phone-plays).
 
 ## When the network goes
 

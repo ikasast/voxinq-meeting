@@ -141,7 +141,9 @@ Tips:
 
 "PC audio" does not appear on a phone, and cannot: `getDisplayMedia` is implemented by no
 mobile browser at all — not Chrome for Android, Safari, Samsung Internet or Firefox — so there
-is no way for a web page to reach the audio another app is playing.
+is no way for a web page to reach the audio another app is playing. **The Android app does not add
+one either**, deliberately: what Android would let it capture is media, never a call
+([why](android-app.md#not-capturing-what-the-phone-plays)).
 
 What works instead is the speakerphone, and **it needs one setting changed first**:
 

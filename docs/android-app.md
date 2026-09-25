@@ -203,6 +203,29 @@ all while a meeting is being recorded — the uplink belongs to the recording, w
 thing here that cannot be done again later. A file the sharing app granted no permission to read
 is refused too, rather than crashing on it.
 
+## Not capturing what the phone plays
+
+The third convenience was to record what other apps are playing, as the page does on a PC with
+the browser's screen share. It was built and then closed, because of what it can actually reach.
+
+Android's playback capture covers audio played as **media**, **game** or **unknown** usage, and an
+app may opt out of being captured at all. Voice communication is a usage of its own, so the case it
+would most be wanted for — a phone call, or Zoom, Teams and Meet — cannot be captured, and no
+version of this app will change that. What is left is live media: a talk being streamed, a
+recording played back by an app that will not hand the file over.
+
+That last case is the one to weigh, and **sharing the file is better at it** (above): no sitting
+through the playback in real time, no second pass through a decoder, and nothing to consent to. So
+what remained was narrow enough not to be worth six hundred lines, a screen-recording consent flow
+and a media-projection service type in an app that is installed as an APK.
+
+For a meeting somebody is *attending* on the phone, the answer is unchanged and written down in
+[usage](usage.md#recording-an-online-meeting-you-are-attending-on-a-phone): speakerphone, with the
+microphone in **Room** mode.
+
+The work is not lost — it is on the `android-phone-audio` branch and in closed pull request #283 —
+if a use for live media capture turns up later.
+
 ## The project
 
 - **`android/`** in this repository, so the bridge and the page that calls it change in the same
@@ -233,5 +256,5 @@ is refused too, rather than crashing on it.
    is killed. Done when a six-minute outage — past the five minutes the page holds in memory —
    costs nothing, and a killed process delivers what it owed when the app is next opened.
 3. **The conveniences.** The notice at a booked meeting's time with a record action; sharing an
-   audio file from another app to transcribe it; capturing another app's media playback — never
-   calls.
+   audio file from another app to transcribe it. Capturing another app's playback was the third,
+   and is **not being done** — see below.
