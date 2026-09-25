@@ -8,6 +8,9 @@
     <!-- For sending what a killed or disconnected recording left on the phone: no microphone,
          only delivery. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- For recording what the phone is playing: the user consents to each session, and the
+         service has to say that is what it is doing. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- To set the meeting notices again: a reboot forgets every alarm the phone held. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -68,7 +71,7 @@
         <service
             android:name=".RecorderService"
             android:exported="false"
-            android:foregroundServiceType="microphone|dataSync" />
+            android:foregroundServiceType="microphone|dataSync|mediaProjection" />
 
         <!-- The meeting notices. Not exported: what reaches it is this app's own alarms, so
              nothing else on the phone can ask for a notice about a meeting id it invented. -->

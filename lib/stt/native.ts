@@ -60,6 +60,13 @@ export type NativeStartOptions = {
   translate?: boolean;
   liveTranscript?: boolean;
   micMode?: string;
+  /**
+   * "mic", "display" — what the phone itself is playing — or "both".
+   *
+   * Playback needs the user's consent for each recording, which the app asks for; it covers
+   * media only, so a call cannot be captured whatever it is played through.
+   */
+  source?: string;
 };
 
 type Message = { type: string; [key: string]: unknown };

@@ -15,8 +15,19 @@ data class RecorderConfig(
     val translate: Boolean,
     val liveTranscript: Boolean?,
     val micMode: String?,
+    /** "mic" (the default), "display" — what the phone is playing — or "both". */
+    val source: String?,
 ) {
     val room: Boolean get() = micMode == "room"
+
+    /** The microphone is in the recording unless the page asked for playback alone. */
+    val capturesMic: Boolean get() = source != "display"
+
+    /**
+     * Whether what other apps are playing is in the recording, which is what needs the user's
+     * consent and a media-projection service.
+     */
+    val capturesPlayback: Boolean get() = source == "display" || source == "both"
 
     /**
      * The browser's start message (lib/stt/client.ts), key for key.
@@ -45,10 +56,14 @@ data class RecorderConfig(
         put("translate", translate)
         liveTranscript?.let { put("liveTranscript", it) }
         micMode?.let { put("micMode", it) }
+        source?.let { put("source", it) }
     }.toString()
 
     companion object {
         private val MEETING_ID = Regex("^[A-Za-z0-9_-]{1,100}$")
+
+        /** Anything else the page might say is read as the microphone alone. */
+        private val SOURCES = setOf("mic", "display", "both")
 
         fun from(json: JSONObject, serverOrigin: String): RecorderConfig? {
             val meetingId = json.stringOrNull("meetingId")?.takeIf { MEETING_ID.matches(it) } ?: return null
@@ -69,6 +84,7 @@ data class RecorderConfig(
                     null
                 },
                 micMode = json.stringOrNull("micMode"),
+                source = json.stringOrNull("source")?.takeIf { it in SOURCES },
             )
         }
 

@@ -2,6 +2,7 @@ package io.github.ikasast.voxinq
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
@@ -9,6 +10,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
@@ -45,6 +48,8 @@ class RecorderService : Service() {
         /** Deliver what an earlier run left behind. No microphone; see deliverLeftovers. */
         const val ACTION_DELIVER = "io.github.ikasast.voxinq.action.DELIVER"
         private const val EXTRA_CONFIG = "config"
+        /** The consent to capture what the phone is playing, as the activity received it. */
+        private const val EXTRA_PROJECTION = "projection"
         /** One directory per recording that still owes the server something. */
         const val PENDING_DIR = "pending"
 
@@ -55,11 +60,18 @@ class RecorderService : Service() {
         /** How long delivery of one leftover recording is given before it is left for later. */
         private const val DELIVER_DEADLINE_MS = 10 * 60 * 1000L
 
-        /** From the visible page: Android only lets a microphone service start from there. */
-        fun start(context: Context, config: RecorderConfig) {
+        /**
+         * From the visible page: Android only lets a microphone service start from there.
+         *
+         * `consent` is what the user granted for capturing playback — the activity's result,
+         * passed through because only a service of type mediaProjection may turn it into a
+         * projection, and only after it is in the foreground.
+         */
+        fun start(context: Context, config: RecorderConfig, consent: Intent? = null) {
             val intent = Intent(context, RecorderService::class.java)
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_CONFIG, config.toJson())
+            if (consent != null) intent.putExtra(EXTRA_PROJECTION, consent)
             ContextCompat.startForegroundService(context, intent)
         }
 
@@ -101,6 +113,7 @@ class RecorderService : Service() {
     private var stopping = false
     private var delivering = false
     private var deliverJob: kotlinx.coroutines.Job? = null
+    private var projection: MediaProjection? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
 
@@ -111,7 +124,11 @@ class RecorderService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> begin(RecorderConfig.fromJson(intent.getStringExtra(EXTRA_CONFIG)))
+            ACTION_START -> begin(
+                RecorderConfig.fromJson(intent.getStringExtra(EXTRA_CONFIG)),
+                @Suppress("DEPRECATION") // the typed overload is API 33; this app starts at 29
+                intent.getParcelableExtra(EXTRA_PROJECTION) as? Intent,
+            )
             ACTION_STOP -> finish(endMeeting = false)
             ACTION_END -> finish(endMeeting = true)
             ACTION_DELIVER -> deliver()
@@ -120,7 +137,7 @@ class RecorderService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun begin(requested: RecorderConfig?) {
+    private fun begin(requested: RecorderConfig?, consent: Intent? = null) {
         // A recording owns its meeting's queue. Delivery of what earlier runs left can wait —
         // it is picked up again the next time the app comes to the front.
         deliverJob?.cancel()
@@ -157,6 +174,20 @@ class RecorderService : Service() {
         goForeground(requested)
         holdLocks()
 
+        // What the phone is playing, if the page asked for it. The order is the platform's:
+        // consent, then a foreground service of type mediaProjection (just above), then the
+        // projection, and only then the audio.
+        var tap: PlaybackTap? = null
+        if (requested.capturesPlayback) {
+            tap = openPlayback(consent)
+            if (tap == null) {
+                config = null
+                RecorderBus.update { RecorderBus.State() }
+                refuse(getString(R.string.capture_failed))
+                return
+            }
+        }
+
         val origin = requested.serverOrigin
         // Where this recording's audio and unsaved lines are written down, named after the
         // meeting so a run that is killed can be found again.
@@ -171,10 +202,13 @@ class RecorderService : Service() {
             userAgent = userAgent(),
             events = Events(),
         )
+        s.playback = tap
         try {
             s.start()
         } catch (e: Exception) {
             Log.w(TAG, "microphone", e)
+            tap?.close()
+            stopProjection()
             config = null
             RecorderBus.update { RecorderBus.State() }
             refuse(getString(R.string.mic_failed, e.message ?: e.javaClass.simpleName))
@@ -234,6 +268,54 @@ class RecorderService : Service() {
         }
     }
 
+    /**
+     * Turn the user's consent into a tap on what the phone is playing.
+     *
+     * Everything about the order here is the platform's: the projection may only be created by
+     * an app already in the foreground as a mediaProjection service, a callback has to be
+     * registered before it is used, and the consent is good for this one session.
+     */
+    private fun openPlayback(consent: Intent?): PlaybackTap? {
+        if (consent == null) return null
+        val manager = getSystemService(MediaProjectionManager::class.java) ?: return null
+        val projection = try {
+            manager.getMediaProjection(Activity.RESULT_OK, consent)
+        } catch (e: Exception) {
+            Log.w(TAG, "media projection", e)
+            null
+        } ?: return null
+        projection.registerCallback(
+            object : MediaProjection.Callback() {
+                override fun onStop() {
+                    // The user took it back from the status bar, or the system did. A recording
+                    // of the room carries on without it; one that was only the phone's audio has
+                    // nothing left to record.
+                    main.launch { playbackLost() }
+                }
+            },
+            null,
+        )
+        this.projection = projection
+        val tap = PlaybackTap.open(projection)
+        if (tap == null) stopProjection()
+        return tap
+    }
+
+    private fun playbackLost() {
+        val cfg = config ?: return
+        session?.playback?.close()
+        session?.playback = null
+        stopProjection()
+        RecorderBus.post(message("error", "message" to getString(R.string.capture_stopped)))
+        // Nothing else was being recorded, so the recording ends rather than writing silence.
+        if (!cfg.capturesMic) finish(endMeeting = false)
+    }
+
+    private fun stopProjection() {
+        projection?.let { runCatching { it.stop() } }
+        projection = null
+    }
+
     private fun refuse(reason: String) {
         RecorderBus.post(message("error", "message" to reason))
         RecorderBus.post(message("status", "status" to "error"))
@@ -259,6 +341,7 @@ class RecorderService : Service() {
             }
             session = null
             config = null
+            stopProjection()
             RecorderBus.update { RecorderBus.State() }
             RecorderBus.post(message("status", "status" to "closed"))
             RecorderBus.post(message(if (endMeeting) "ended" else "stopped", "meetingId" to cfg.meetingId))
@@ -278,6 +361,7 @@ class RecorderService : Service() {
         session?.let { s -> CoroutineScope(Dispatchers.IO).launch { s.stop() } }
         session = null
         config = null
+        stopProjection()
         RecorderBus.update { RecorderBus.State() }
         releaseLocks()
         main.cancel()
@@ -315,6 +399,7 @@ class RecorderService : Service() {
                 is RecordingSession.Problem.SaveFailed -> getString(R.string.save_failed, problem.detail)
                 is RecordingSession.Problem.Microphone -> getString(R.string.mic_failed, problem.detail)
                 RecordingSession.Problem.BacklogOverflow -> getString(R.string.backlog_overflow)
+                RecordingSession.Problem.PlaybackSilent -> getString(R.string.capture_silent)
                 is RecordingSession.Problem.Storage -> getString(R.string.storage_failed, problem.detail)
                 is RecordingSession.Problem.Unsent ->
                     getString(R.string.unsent_kept, problem.seconds, problem.lines)
@@ -341,13 +426,18 @@ class RecorderService : Service() {
             // Delivery holds no microphone — it is only sending what is already recorded — so
             // it runs as a data-sync service. Claiming the microphone type without one is how
             // an app gets its microphone access taken away.
-            ServiceCompat.startForeground(
-                this,
-                NOTIFICATION,
-                notification(cfg, delivering),
-                if (delivering) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
-            )
+            // The type has to be what the work actually is. Claiming the microphone without one
+            // is how an app loses microphone access; claiming mediaProjection is what makes the
+            // projection legal to create at all.
+            val type = when {
+                delivering -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                cfg?.capturesPlayback == true && cfg.capturesMic ->
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                cfg?.capturesPlayback == true -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+                else -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
+            ServiceCompat.startForeground(this, NOTIFICATION, notification(cfg, delivering), type)
         } catch (e: Exception) {
             Log.w(TAG, "startForeground", e)
         }

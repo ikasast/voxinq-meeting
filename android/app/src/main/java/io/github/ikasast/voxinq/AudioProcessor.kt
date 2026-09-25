@@ -21,13 +21,21 @@ import kotlin.math.sqrt
  * node adds on its own, and the 6 ms it looks ahead so a peak is turned down before it arrives
  * rather than after.
  */
-class AudioProcessor(room: Boolean, sampleRate: Int = SAMPLE_RATE) {
+class AudioProcessor(room: Boolean, sampleRate: Int = SAMPLE_RATE, mixed: Boolean = false) {
     companion object {
         const val SAMPLE_RATE = 16_000
         const val FRAME_SAMPLES = 1_600 // 100 ms, the size the service is sent
 
         /** lib/stt/mic-constraints.ts. */
         const val ROOM_GAIN = 4f
+
+        /**
+         * Headroom for each of two sources, as the page gives them: the microphone and what the
+         * phone is playing, both at full scale, would add past the rails before the limiter had
+         * a chance to round the peak off, and clipping is the one distortion recognition cannot
+         * see past.
+         */
+        const val MIX_HEADROOM = 0.7f
 
         private const val THRESHOLD_DB = -6f
         private const val KNEE_DB = 3f
@@ -55,7 +63,7 @@ class AudioProcessor(room: Boolean, sampleRate: Int = SAMPLE_RATE) {
 
     class Frame(val pcm: ByteArray, val rms: Float, val clipRatio: Float)
 
-    private val gain = if (room) ROOM_GAIN else 1f
+    private val gain = (if (room) ROOM_GAIN else 1f) * (if (mixed) MIX_HEADROOM else 1f)
     private val attack = exp(-1f / (ATTACK_S * sampleRate))
     private val release = exp(-1f / (RELEASE_S * sampleRate))
     private val delay = FloatArray(max(1, (LOOKAHEAD_S * sampleRate).toInt()))
@@ -63,14 +71,27 @@ class AudioProcessor(room: Boolean, sampleRate: Int = SAMPLE_RATE) {
     private var delayAt = 0
     private var reductionDb = 0f
 
-    fun process(input: ShortArray, count: Int = input.size): Frame {
+    /**
+     * One frame out of one or two sources.
+     *
+     * `second` is what the phone was playing over the same 100 ms, as far as it had arrived. It
+     * is summed in before the limiter — the page sums its sources into the same limiter — so a
+     * loud moment in either is rounded off rather than squared off.
+     */
+    fun process(
+        input: ShortArray,
+        count: Int = input.size,
+        second: ShortArray? = null,
+        secondCount: Int = 0,
+    ): Frame {
         val pcm = ByteArray(count * 2)
         var clipped = 0
         var sum = 0.0
         var n = 0
         for (i in 0 until count) {
             val raw = input[i]
-            val x = raw / 32768f * gain
+            val other: Int = if (second != null && i < secondCount) second[i].toInt() else 0
+            val x = (raw.toInt() + other) / 32768f * gain
 
             // Detect on the sample coming in, apply to the one leaving the delay line.
             val levelDb = 20 * log10(max(abs(x), 1e-6f))
@@ -83,7 +104,8 @@ class AudioProcessor(room: Boolean, sampleRate: Int = SAMPLE_RATE) {
             // travels with its sample, so one sample is counted once however it clipped.
             val delayedRail = railDelay[delayAt]
             delay[delayAt] = x
-            railDelay[delayAt] = raw == Short.MAX_VALUE || raw == Short.MIN_VALUE
+            railDelay[delayAt] = raw == Short.MAX_VALUE || raw == Short.MIN_VALUE ||
+                other == Short.MAX_VALUE.toInt() || other == Short.MIN_VALUE.toInt()
             delayAt = (delayAt + 1) % delay.size
             val y = delayed * 10f.pow(reductionDb / 20f) * MAKEUP
 

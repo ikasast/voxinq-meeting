@@ -22,8 +22,11 @@ describe("the recording page inside the Android app", () => {
     const start = between("const startRecording = useCallback", "const stopRecording = useCallback");
     expect(start).toContain("if (hasNativeRecorder())");
     // One set of options for both, so what the app is asked for cannot drift from the browser.
-    expect(start).toMatch(/startNative\(nativeHandlers, \{ \.\.\.options/);
+    expect(start).toMatch(/startNative\(nativeHandlers, \{\s+\.\.\.options/);
     expect(start).toMatch(/startMic\(handlers, \{\s+\.\.\.options/);
+    // Both are told which source to record: the app has a second one of its own now (what the
+    // phone is playing), and the page is where that choice is made.
+    expect(start.match(/source: sourceRef\.current/g) ?? []).toHaveLength(2);
   });
 
   it("does not save a line the app has already saved", () => {

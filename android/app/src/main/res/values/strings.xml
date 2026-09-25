@@ -53,6 +53,11 @@ A new meeting is created and the audio is transcribed on your server.</string>
     <string name="mic_permission_denied">Recording needs permission to use the microphone.</string>
     <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
     <string name="mic_failed">Cannot start the microphone: %1$s</string>
+    <string name="capture_denied">Recording what this phone plays needs your permission.</string>
+    <string name="capture_unavailable">This phone cannot record what it is playing.</string>
+    <string name="capture_failed">Could not start recording what this phone is playing.</string>
+    <string name="capture_stopped">The phone audio is no longer being recorded.</string>
+    <string name="capture_silent">Nothing is arriving from this phone’s audio. Either nothing is playing, or the app playing it does not allow being recorded — a call, or Zoom, Teams and Meet, never can be.</string>
     <string name="save_failed">Failed to save utterance: %1$s</string>
     <string name="storage_failed">Could not write the audio to this phone: %1$s</string>
     <string name="unsent_kept">Kept on this phone: %1$d seconds of audio and %2$d line(s) not sent yet. The app sends them when it next reaches the server.</string>

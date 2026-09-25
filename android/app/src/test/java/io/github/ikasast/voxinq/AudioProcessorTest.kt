@@ -13,6 +13,7 @@ import kotlin.math.sqrt
 // mode, and a loud room rounded off rather than clipped.
 class AudioProcessorTest {
     private val n = AudioProcessor.FRAME_SAMPLES
+    private val FRAME = AudioProcessor.FRAME_SAMPLES
 
     private fun sine(amplitude: Double, frame: Int): ShortArray = ShortArray(n) { i ->
         val t = (frame * n + i).toDouble() / AudioProcessor.SAMPLE_RATE
@@ -87,5 +88,60 @@ class AudioProcessorTest {
     fun theMeterReadsWhatIsSent() {
         val frame = settled(AudioProcessor(room = false), 0.2)
         assertEquals(rms(samples(frame)), frame.rms.toDouble(), 0.01)
+    }
+
+    // ---- A recording with two sources: the microphone and what the phone is playing ----
+
+    /** The settled last frame of a mixed recording, both sources the same sine. */
+    private fun settledMixed(p: AudioProcessor, amplitude: Double, secondCount: Int = FRAME): AudioProcessor.Frame {
+        var last: AudioProcessor.Frame? = null
+        for (f in 0 until 5) {
+            val a = sine(amplitude, f)
+            last = p.process(a, a.size, sine(amplitude, f), secondCount)
+        }
+        return last!!
+    }
+
+    @Test
+    fun twoSourcesAreGivenHeadroomInsteadOfClipping() {
+        // Both at half scale would sum past the rails; the page's answer is headroom on each
+        // and a limiter over the sum, and clipping is the one thing recognition cannot see past.
+        val out = samples(settledMixed(AudioProcessor(room = false, mixed = true), 0.5))
+        assertTrue("nothing at the rail", out.none { it == Short.MAX_VALUE || it == Short.MIN_VALUE })
+        assertEquals(0f, settledMixed(AudioProcessor(room = false, mixed = true), 0.5).clipRatio, 0f)
+    }
+
+    @Test
+    fun oneSourceIsNotQuietenedForTheSakeOfTheOther() {
+        val alone = rms(samples(settled(AudioProcessor(room = false), 0.2)))
+        val mixedSame = rms(samples(settledMixed(AudioProcessor(room = false, mixed = true), 0.1)))
+        // Two sources at 0.1 with 0.7 headroom each is 0.14 in; one source at 0.2 keeps its 0.2.
+        assertTrue("a lone source keeps its level", alone > mixedSame)
+    }
+
+    @Test
+    fun playbackIsMixedOnlyAsFarAsItArrived() {
+        // The microphone paces the recording; what the phone played is read without waiting, so
+        // a short read means the rest of the frame is the room alone rather than a gap in it.
+        val mic = ShortArray(FRAME) { 4_000 }
+        val played = ShortArray(FRAME) { 4_000 }
+        val p = AudioProcessor(room = false, mixed = true)
+        var out = samples(p.process(mic, mic.size, played, 400))
+        // Past the point the playback reached, only the microphone is in it — and quieter,
+        // because one sample of two is missing rather than because anything was turned down.
+        assertTrue("both sources early on", abs(out[200].toInt()) > abs(out[1_000].toInt()))
+        assertTrue("the room is still there", abs(out[1_000].toInt()) > 0)
+        // Nothing at all from the second source is an ordinary microphone recording.
+        out = samples(p.process(mic, mic.size, played, 0))
+        assertTrue(out.all { it != 0.toShort() })
+    }
+
+    @Test
+    fun aPlaybackSampleAtTheRailCountsAsClipping() {
+        // It was clipped before it reached us, whichever source it came from.
+        val quiet = ShortArray(FRAME)
+        val railed = ShortArray(FRAME) { Short.MAX_VALUE }
+        val frame = AudioProcessor(room = false, mixed = true).process(quiet, quiet.size, railed, railed.size)
+        assertTrue(frame.clipRatio > 0.9f)
     }
 }

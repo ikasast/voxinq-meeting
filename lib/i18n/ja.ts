@@ -111,6 +111,14 @@ export const ja: Record<string, string> = {
   "Mic + PC audio": "マイク + PC音声",
   "Recording source (PC audio captures online-meeting sound). Changeable while recording.":
     "録音ソース（PC音声はオンライン会議の音を取り込みます）。録音中も変更できます。",
+  "This phone's audio": "この端末の音",
+  "Mic + phone audio": "マイク + 端末の音",
+  "Recording source. This phone's audio covers what apps play as media — a call cannot be captured. Changeable while recording.":
+    "録音ソース。「この端末の音」はアプリがメディアとして再生する音です—通話は取得できません。録音中も変更できます。",
+  "This phone's audio is what apps play as media. A phone call, or Zoom, Teams and Meet, cannot be captured — Android does not allow it. Android asks for screen-recording permission each time; only the audio is taken.":
+    "「この端末の音」はアプリがメディアとして再生する音です。通話や Zoom・Teams・Meet の音は Android の仕様上取得できません。毎回画面録画の許可を聞かれますが、取得するのは音声だけです。",
+  ". Through a speaker the microphone hears the playback as well, and it is recorded twice.":
+    "。スピーカーだとマイクが再生音も拾い、二重に録音されます。",
   Japanese: "日本語",
   English: "英語",
   "Auto-detect": "自動判定",

@@ -196,12 +196,15 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   }, []);
 
   // The default recording source is saved per device in the browser (e.g. phone=mic / PC=both).
-  // Phones etc. lack getDisplayMedia, so disable PC audio/both and fall back to mic.
+  // A browser on a phone has no getDisplayMedia, so there is nothing but the microphone — but
+  // the app does have a second source of its own: what this phone is playing, captured natively
+  // (lib/stt/native.ts). Either way the page calls it "display".
   useEffect(() => {
     const supported =
-      typeof navigator !== "undefined" &&
-      !!navigator.mediaDevices &&
-      typeof navigator.mediaDevices.getDisplayMedia === "function";
+      hasNativeRecorder() ||
+      (typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices &&
+        typeof navigator.mediaDevices.getDisplayMedia === "function");
     setDisplaySupported(supported);
 
     // Temporary settings (query) take top priority; otherwise the per-device saved value.
@@ -535,10 +538,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // opened again from the recording's notification — and pick that up rather than start another.
   useEffect(() => {
     if (!hasNativeRecorder()) return;
+    // Being in the app is known from the bridge, not from its answer: the source menu says
+    // "this phone's audio" from the first paint rather than after a round trip.
+    setNative(true);
     let cancelled = false;
     void nativeState().then((s) => {
       if (cancelled) return;
-      setNative(true);
       if (!s?.recording || s.meetingId !== meetingId || handleRef.current) return;
       const h = attachNative(nativeHandlers, s.status);
       handleRef.current = h;
@@ -649,7 +654,11 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         // The app records with its own microphone, in a service the screen cannot stop. The
         // check's microphone is closed rather than handed over, so the two do not compete.
         checked?.getTracks().forEach((track) => track.stop());
-        const h = await startNative(nativeHandlers, { ...options, title: title || undefined });
+        const h = await startNative(nativeHandlers, {
+          ...options,
+          title: title || undefined,
+          source: sourceRef.current,
+        });
         handleRef.current = h;
         nativeRef.current = h;
       } else {
@@ -1003,8 +1012,11 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
   const langLabel =
     effectiveLang === "ja" ? t("Japanese") : effectiveLang === "en" ? t("English") : t("Auto-detect");
   const micLabel = cfg?.micMode === "room" ? t("Room") : t("Standard");
+  // In the app the second source is this phone's own playback, not a PC's.
+  const playbackLabel = native ? t("This phone's audio") : t("PC audio");
+  const bothLabel = native ? t("Mic + phone audio") : t("Mic + PC audio");
   const sourceLabel =
-    source === "display" ? t("PC audio") : source === "both" ? t("Mic + PC audio") : t("Microphone");
+    source === "display" ? playbackLabel : source === "both" ? bothLabel : t("Microphone");
 
   return (
     <div className="space-y-4">
@@ -1128,12 +1140,18 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           <select
             value={source}
             onChange={(e) => void changeSource(e.target.value as "mic" | "display" | "both")}
-            title={t("Recording source (PC audio captures online-meeting sound). Changeable while recording.")}
+            title={
+              native
+                ? t(
+                    "Recording source. This phone's audio covers what apps play as media — a call cannot be captured. Changeable while recording.",
+                  )
+                : t("Recording source (PC audio captures online-meeting sound). Changeable while recording.")
+            }
             className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-2 py-1 text-xs text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
           >
             <option value="mic">{t("Microphone")}</option>
-            {displaySupported ? <option value="display">{t("PC audio")}</option> : null}
-            {displaySupported ? <option value="both">{t("Mic + PC audio")}</option> : null}
+            {displaySupported ? <option value="display">{playbackLabel}</option> : null}
+            {displaySupported ? <option value="both">{bothLabel}</option> : null}
           </select>
 
           {/* No link to the meeting page here: navigating away unmounts this page and drops
@@ -1185,13 +1203,22 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
         </summary>
         <ul className="mt-1 list-disc space-y-1 pl-4 marker:text-[var(--accent)]">
         <li>{t("Pick the recording source from the menu above (mic / PC audio / both).")}</li>
-        {displaySupported ? (
+        {displaySupported && !native ? (
           <li>{t("For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.")}</li>
+        ) : null}
+        {native ? (
+          <li>
+            {t(
+              "This phone's audio is what apps play as media. A phone call, or Zoom, Teams and Meet, cannot be captured — Android does not allow it. Android asks for screen-recording permission each time; only the audio is taken.",
+            )}
+          </li>
         ) : null}
         {displaySupported ? (
           <li>
             <strong>{t("Headphones are recommended for “both”")}</strong>
-            {t(". With speakers, the mic picks up PC audio and it may be recorded twice.")}
+            {native
+              ? t(". Through a speaker the microphone hears the playback as well, and it is recorded twice.")
+              : t(". With speakers, the mic picks up PC audio and it may be recorded twice.")}
           </li>
         ) : null}
         <li>{t("Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.")}</li>

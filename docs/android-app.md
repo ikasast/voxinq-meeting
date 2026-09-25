@@ -203,6 +203,41 @@ all while a meeting is being recorded — the uplink belongs to the recording, w
 thing here that cannot be done again later. A file the sharing app granted no permission to read
 is refused too, rather than crashing on it.
 
+## What the phone itself is playing
+
+The recording page has always offered a second source on a PC: the browser's screen share, which
+carries the sound of an online meeting. A browser on a phone has nothing to offer there, but the
+app does — `AudioPlaybackCaptureConfiguration` hands an app the audio other apps are playing — so
+the menu is back, reading **This phone's audio** and **Mic + phone audio**.
+
+**Two limits decide what it is for, and they are not small.** Capture covers playback whose usage
+is *media*, *game* or *unknown*, and an app may opt out of being captured at all. Voice
+communication is a usage of its own, so **a phone call cannot be captured, and neither can Zoom,
+Teams or Meet** — their audio is voice communication however it sounds. What is left is media: a
+talk being streamed, a recording played back by an app that will not share the file, a video.
+Where the file itself can be shared, sharing it (above) is the better route by far — it does not
+need the phone to sit through the playback in real time.
+
+Android asks for consent every time, with its screen-recording dialog, because the same
+projection could take the screen. This takes only the audio: no virtual display is ever created.
+**Entire screen** is the choice to make in that dialog — sharing one app limits the capture to
+that app's audio, which is right only if the meeting is coming out of exactly one of them.
+
+The mechanics are all platform order-of-operations, which is why they are worth writing down:
+consent comes from an activity, then the service goes to the foreground *as a
+`mediaProjection` service* (plus `microphone` when both sources are being recorded), and only
+then may the projection be created and the tap opened. A callback is registered on it because
+the platform requires one, and because the user can take the projection back from the status bar:
+a recording of the room carries on without it, and one that was only the phone's audio ends,
+saying so.
+
+Mixing follows the page's own graph, because the transcription service's idea of silence is set
+against what that graph produces: each of two sources gets headroom (`MIX_HEADROOM`, 0.7, as the
+page gives them) and the sum passes through the same limiter. The microphone paces a mixed
+recording and the playback is read without waiting, so a short read leaves the rest of that
+frame as the room alone — a gap in what the phone was playing is inaudible, while holding the
+microphone back to wait for it would put a gap in the room.
+
 ## The project
 
 - **`android/`** in this repository, so the bridge and the page that calls it change in the same

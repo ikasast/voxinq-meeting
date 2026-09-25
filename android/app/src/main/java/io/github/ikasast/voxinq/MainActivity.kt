@@ -2,10 +2,12 @@ package io.github.ikasast.voxinq
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -65,6 +67,8 @@ class MainActivity : ComponentActivity() {
     private var server: String? = null
 
     private var pendingStart: RecorderConfig? = null
+    /** Waiting for the user to allow capturing what the phone is playing. */
+    private var pendingCapture: RecorderConfig? = null
     private var pendingMicGrant: PermissionRequest? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
@@ -75,9 +79,28 @@ class MainActivity : ComponentActivity() {
         val start = pendingStart ?: return@registerForActivityResult
         pendingStart = null
         if (mic) {
-            RecorderService.start(this, start)
+            begin(start)
         } else {
             RecorderBus.post(message("error", "message" to getString(R.string.mic_permission_denied)))
+            RecorderBus.post(message("status", "status" to "error"))
+        }
+    }
+
+    /**
+     * The consent to capture what the phone is playing.
+     *
+     * Android asks with its screen-recording dialog, because the same projection could take the
+     * screen; this app only ever takes audio from it, and never creates a display. The service
+     * is what turns the answer into a projection — only a foreground service of that type may.
+     */
+    private val capture = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val config = pendingCapture ?: return@registerForActivityResult
+        pendingCapture = null
+        val consent = result.data
+        if (result.resultCode == Activity.RESULT_OK && consent != null) {
+            RecorderService.start(this, config, consent)
+        } else {
+            RecorderBus.post(message("error", "message" to getString(R.string.capture_denied)))
             RecorderBus.post(message("status", "status" to "error"))
         }
     }
@@ -277,7 +300,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 if (needed.isEmpty()) {
-                    RecorderService.start(this, config)
+                    begin(config)
                 } else {
                     pendingStart = config
                     permissions.launch(needed.toTypedArray())
@@ -285,6 +308,28 @@ class MainActivity : ComponentActivity() {
             }
             "stop" -> if (RecorderBus.state.recording) RecorderService.stop(this) else RecorderBus.post(message("stopped"))
         }
+    }
+
+    /**
+     * Start the recording, asking for the one thing that cannot be asked for in advance.
+     *
+     * Capturing playback needs the user's consent for *this* session, every time — there is no
+     * permission to hold. So the question comes here, after the microphone's, and the answer
+     * goes straight to the service.
+     */
+    private fun begin(config: RecorderConfig) {
+        if (!config.capturesPlayback) {
+            RecorderService.start(this, config)
+            return
+        }
+        val manager = getSystemService(MediaProjectionManager::class.java)
+        if (manager == null) {
+            RecorderBus.post(message("error", "message" to getString(R.string.capture_unavailable)))
+            RecorderBus.post(message("status", "status" to "error"))
+            return
+        }
+        pendingCapture = config
+        capture.launch(manager.createScreenCaptureIntent())
     }
 
     private fun granted(permission: String) =

@@ -4,7 +4,8 @@ The web app in a WebView, with a native recorder that keeps going with the scree
 app in front. What it is for, and why it is shaped this way: [docs/android-app.md](../docs/android-app.md).
 
 Built so far: a recording that survives the screen, one that survives the network, the notice at a
-booked meeting's time, and importing a recording shared from another app. Nothing is published yet, and the server has to run a version of
+booked meeting's time, importing a recording shared from another app, and recording what the phone
+itself is playing. Nothing is published yet, and the server has to run a version of
 Voxinq that includes the page's side of the recorder (`lib/stt/native.ts`); an older server
 records in the page, as a browser does.
 
@@ -51,7 +52,6 @@ With a debug build, `chrome://inspect` on the PC opens the page's DevTools.
 
 - Files the page builds itself — minutes and meeting exports, backups — do not download in the
   app yet. Use a browser for those.
-- Capturing another app's playback is the rest of milestone 3.
 
 ## When the network goes
 
@@ -92,3 +92,16 @@ Minutes are not written automatically. The list says how many meetings have none
 
 It refuses, with a reason: something that is not audio, a file over 512 MB, and anything at all
 while a meeting is being recorded.
+
+## What the phone is playing
+
+The source menu on the recording screen has **This phone's audio** and **Mic + phone audio** as
+well as the microphone. Android asks for screen-recording permission each time — only the audio is
+taken, never the screen — and **Entire screen** is the choice to make there.
+
+It covers what apps play as *media*. **A phone call cannot be captured, and neither can Zoom, Teams
+or Meet**: Android treats their audio as voice communication and does not allow it. For a file you
+already have, share it to the app instead (above); this is for something playing live.
+
+With both sources at once, headphones are worth it: through a speaker the microphone hears the
+playback too, and it lands in the recording twice.

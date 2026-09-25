@@ -50,6 +50,11 @@
     <string name="mic_permission_denied">録音にはマイクの許可が必要です。</string>
     <string name="another_recording">アプリで別の会議を録音中です。先に停止してください。</string>
     <string name="mic_failed">マイクを開始できません: %1$s</string>
+    <string name="capture_denied">この端末の再生音を録音するには許可が必要です。</string>
+    <string name="capture_unavailable">この端末は再生音の録音に対応していません。</string>
+    <string name="capture_failed">この端末の再生音の録音を開始できませんでした。</string>
+    <string name="capture_stopped">この端末の再生音の録音が停止しました。</string>
+    <string name="capture_silent">端末の再生音が届いていません。何も再生されていないか、再生中のアプリが録音を許していません（通話や Zoom・Teams・Meet は常に不可）。</string>
     <string name="save_failed">発言を保存できませんでした: %1$s</string>
     <string name="storage_failed">この端末に音声を書き込めませんでした: %1$s</string>
     <string name="unsent_kept">この端末に保持しています: 未送信の音声 %1$d 秒と発言 %2$d 件。次にサーバーへつながったときに送ります。</string>

@@ -63,6 +63,15 @@ class RecordingSession(
         /** Kept on the phone rather than lost: the next run sends it. */
         data class Unsent(val seconds: Int, val lines: Int) : Problem
         data object BacklogOverflow : Problem
+
+        /**
+         * Half a minute of digital silence from what the phone is playing.
+         *
+         * Two things look like this and the person can act on either: nothing is playing, or the
+         * app that is playing does not allow being recorded — which plenty do not. Saying
+         * nothing would mean handing them an empty meeting at the end of it.
+         */
+        data object PlaybackSilent : Problem
     }
 
     companion object {
@@ -84,6 +93,9 @@ class RecordingSession(
         private const val MAX_QUEUED_BYTES = 128L * 1024
 
         /** How much is handed over at a time while catching up. */
+        /** 100 ms frames of nothing from the tap before it is worth mentioning: half a minute. */
+        private const val SILENT_FRAMES = 300
+
         private const val PUMP_BYTES = 32_000
 
         /** How long the end of a meeting waits for the last of its audio to go out. */
@@ -125,11 +137,17 @@ class RecordingSession(
     private val inFlight = java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
     private var overflowReported = false
 
+    /** Frames of exact zeros from the tap in a row; half a minute of them is worth saying. */
+    private var playbackSilence = 0
+    private var playbackReported = false
+
     @Volatile private var capturing = false
     @Volatile private var draining = false
     private var recorder: AudioRecord? = null
     private var captureThread: Thread? = null
-    private val processor = AudioProcessor(config.room)
+    /** What the phone is playing, when the page asked for it. Set before [start]. */
+    @Volatile var playback: PlaybackTap? = null
+    private val processor = AudioProcessor(config.room, mixed = config.capturesMic && config.capturesPlayback)
 
     private val work = Channel<JSONObject>(Channel.UNLIMITED)
     private var worker: kotlinx.coroutines.Job? = null
@@ -137,17 +155,29 @@ class RecordingSession(
     /** Row ids by connection and utterance number: seq starts again on each connection. */
     private val rowIds = HashMap<Long, String>()
 
-    /** The caller has checked RECORD_AUDIO. Throws when no microphone can be opened. */
+    /**
+     * The caller has checked RECORD_AUDIO, and has opened [playback] if the page asked for it.
+     * Throws when the recording has no source it can open.
+     */
     fun start() {
-        val rec = openMicrophone()
-        rec.startRecording()
-        if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
-            rec.release()
-            throw IllegalStateException("the microphone did not start")
+        val rec = if (config.capturesMic) {
+            openMicrophone().also {
+                it.startRecording()
+                if (it.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                    it.release()
+                    throw IllegalStateException("the microphone did not start")
+                }
+            }
+        } else {
+            // Playback alone: the tap paces the recording instead, and silence is what arrives
+            // when nothing is playing.
+            if (playback == null) throw IllegalStateException("nothing to record from")
+            null
         }
         recorder = rec
         capturing = true
-        captureThread = Thread({ capture(rec) }, "voxinq-capture").apply { start() }
+        captureThread = Thread({ if (rec != null) capture(rec) else capturePlayback() }, "voxinq-capture")
+            .apply { start() }
         worker = scope.launch { for (w in work) perform(w) }
         pump = pumpAudio()
         sweep = retrySweep()
@@ -165,9 +195,14 @@ class RecordingSession(
     suspend fun stop() {
         capturing = false
         recorder?.let { runCatching { it.stop() } }
+        // Both have to stop delivering before the thread is waited for: a read still in flight
+        // is what a blocking capture is sitting in.
+        playback?.pause()
         withContext(Dispatchers.IO) { captureThread?.join(2_000) }
         recorder?.release()
         recorder = null
+        playback?.close()
+        playback = null
 
         // The tail of the meeting still has to go. The pump stops on its own once the file is
         // empty; a service that cannot be reached must not hold up the end of the meeting, so
@@ -266,6 +301,9 @@ class RecordingSession(
     private fun capture(rec: AudioRecord) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val frame = ShortArray(AudioProcessor.FRAME_SAMPLES)
+        // Only allocated for a recording that has both: what the phone played over the same
+        // 100 ms, read without waiting once the microphone's own frame is in.
+        val played = if (config.capturesPlayback) ShortArray(AudioProcessor.FRAME_SAMPLES) else null
         while (capturing) {
             var filled = 0
             while (filled < frame.size && capturing) {
@@ -278,21 +316,68 @@ class RecordingSession(
                 filled += n
             }
             if (filled < frame.size) break
-            val out = processor.process(frame)
-            events.level(out.rms, out.clipRatio)
-            if (!store.appendAudio(out.pcm)) {
-                if (!overflowReported) {
-                    overflowReported = true
-                    events.problem(Problem.Storage("the phone would not write the audio down"))
-                }
-                continue
-            }
-            // Hours out of reach, or a full disk. The oldest goes, as it does in the page.
-            if (store.trim(MAX_PENDING_BYTES) > 0 && !overflowReported) {
-                overflowReported = true
-                events.problem(Problem.BacklogOverflow)
-            }
+            val alsoPlayed = if (played != null) playback?.readAvailable(played) ?: 0 else 0
+            if (played != null) watchPlayback(played, alsoPlayed)
+            val out = processor.process(frame, frame.size, played, alsoPlayed)
+            if (!keep(out)) continue
         }
+    }
+
+    /**
+     * A recording of what the phone is playing and nothing else. The tap paces it, and what
+     * arrives while nothing plays is silence — which is what a room with nobody talking sounds
+     * like too, so there is nothing special to do about it.
+     */
+    private fun capturePlayback() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+        val frame = ShortArray(AudioProcessor.FRAME_SAMPLES)
+        while (capturing) {
+            val tap = playback ?: break
+            val filled = tap.read(frame)
+            if (filled < frame.size) {
+                if (capturing && filled < 0) events.problem(Problem.Microphone("playback read error $filled"))
+                break
+            }
+            watchPlayback(frame, filled)
+            if (!keep(processor.process(frame))) continue
+        }
+    }
+
+    /**
+     * Notice when nothing at all is coming from the phone's audio.
+     *
+     * Exactly zero, not merely quiet: a tap with nothing to give delivers zeros, and so does one
+     * whose source refused to be recorded. Real audio, however faint, does not.
+     */
+    private fun watchPlayback(frame: ShortArray, count: Int) {
+        val silent = count == 0 || (0 until count).all { frame[it] == 0.toShort() }
+        if (!silent) {
+            playbackSilence = 0
+            return
+        }
+        playbackSilence++
+        if (playbackSilence >= SILENT_FRAMES && !playbackReported) {
+            playbackReported = true
+            events.problem(Problem.PlaybackSilent)
+        }
+    }
+
+    /** The end of either loop: the meter, the file, and the cap on how much may wait. */
+    private fun keep(out: AudioProcessor.Frame): Boolean {
+        events.level(out.rms, out.clipRatio)
+        if (!store.appendAudio(out.pcm)) {
+            if (!overflowReported) {
+                overflowReported = true
+                events.problem(Problem.Storage("the phone would not write the audio down"))
+            }
+            return false
+        }
+        // Hours out of reach, or a full disk. The oldest goes, as it does in the page.
+        if (store.trim(MAX_PENDING_BYTES) > 0 && !overflowReported) {
+            overflowReported = true
+            events.problem(Problem.BacklogOverflow)
+        }
+        return true
     }
 
     /**

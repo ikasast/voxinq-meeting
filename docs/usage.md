@@ -134,16 +134,24 @@ Tips:
   lose while it rests is the live transcript.
 - There is deliberately no link away from the recording screen: navigating away unmounts it
   and drops the recording. Leave via the end actions.
-- Choose the source (mic / PC audio / both) from the top bar; you can switch mid-recording.
-- For "both", use headphones to avoid the mic double-capturing PC audio.
+- Choose the source (mic / PC audio / both) from the top bar; you can switch mid-recording. In
+  the Android app the second source is **this phone's audio** — what other apps are playing.
+- For "both", use headphones to avoid the mic double-capturing the other source.
 
 ### Recording an online meeting you are attending on a phone
 
-"PC audio" does not appear on a phone, and cannot: `getDisplayMedia` is implemented by no
-mobile browser at all — not Chrome for Android, Safari, Samsung Internet or Firefox — so there
-is no way for a web page to reach the audio another app is playing.
+**In a browser on a phone there is no second source at all**, and there cannot be:
+`getDisplayMedia` is implemented by no mobile browser — not Chrome for Android, Safari, Samsung
+Internet or Firefox — so a web page has no way to reach the audio another app is playing.
 
-What works instead is the speakerphone, and **it needs one setting changed first**:
+**The Android app does have one**, and it stops short of exactly this case. **This phone's
+audio** captures what apps play as *media*; a call — the phone's own, or Zoom, Teams and Meet —
+plays as voice communication, which Android does not allow any app to capture. So for a meeting
+you are *attending*, the answer below is still the answer, app or no app. What the app's source
+is good for is media: a talk being streamed, a recording played back by an app that will not
+hand over the file.
+
+What works for a call is the speakerphone, and **it needs one setting changed first**:
 
 1. **Settings → Mic mode → Room.**
 2. Put the call on speakerphone, and record with **Microphone**.
