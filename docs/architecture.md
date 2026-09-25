@@ -169,7 +169,11 @@ recording survives the web app restarting.
    boundaries, then recognizes each segment with Whisper — which applies its own **Silero VAD**
    (`vad_filter`) inside the segment to suppress silence hallucinations. Provisional text is
    streamed first, then the final wording; the browser saves each utterance to the DB.
-3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization.
+3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization. Each
+   boundary carries the words it was recognised from (`{"w","s","e"}`, on the recording's own
+   clock) where the backend can align them — an utterance is cut at silences, not at speaker
+   changes, so these are what will let a line holding two people be split between them rather
+   than given whole to whoever spoke most of it.
 4. The web app calls the LLM with the transcript to produce the minutes.
 
 Re-transcription takes the same path from step 3: the web app posts the job to STT, attaching

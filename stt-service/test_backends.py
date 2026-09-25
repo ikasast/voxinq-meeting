@@ -15,6 +15,7 @@ import base64
 import contextlib
 import email
 import http.server
+import inspect
 import json
 import os
 import sys
@@ -720,6 +721,83 @@ def test_an_openai_endpoint_with_segments_says_nothing() -> None:
             beam_size=5, vad_min_silence_ms=500, no_speech_threshold=0.6,
         )
     assert b.note is None
+
+
+# ---- Word timestamps ----
+#
+# An utterance is cut at silences, not at speaker changes, so one line can hold two people.
+# Diarization says when the speaker changed; word times say which words fall either side of
+# that moment. What is checked here is the plumbing: the request reaches the model, the words
+# come back mapped, and a backend that cannot align them still accepts being asked.
+
+
+class _FakeWord:
+    def __init__(self, word, start, end):
+        self.word, self.start, self.end = word, start, end
+
+
+class _FakeSegment:
+    def __init__(self, text, start, end, words=None):
+        self.text, self.start, self.end, self.words = text, start, end, words
+        self.no_speech_prob, self.avg_logprob = 0.0, 0.0
+
+
+class _FakeWhisper:
+    """Stands in for faster-whisper's WhisperModel, and records how it was called."""
+
+    def __init__(self, segments):
+        self.segments, self.kwargs = segments, None
+
+    def transcribe(self, audio, **kwargs):
+        del audio
+        self.kwargs = kwargs
+        return iter(self.segments), type("Info", (), {"language": "ja"})()
+
+
+def _fw():
+    return backends.FasterWhisperBackend(device="cuda", compute="int8_float16")
+
+
+def test_word_timestamps_reach_faster_whisper_and_come_back_mapped() -> None:
+    model = _FakeWhisper([
+        _FakeSegment(" そうですね ", 0.0, 1.5, [_FakeWord("そう", 0.0, 0.7), _FakeWord("ですね", 0.7, 1.5)])
+    ])
+    segs, lang = _fw().transcribe(
+        model, np.zeros(backends.SAMPLE_RATE, dtype=np.float32), language=None, initial_prompt=None,
+        beam_size=5, vad_min_silence_ms=300, no_speech_threshold=0.6, word_timestamps=True,
+    )
+    assert model.kwargs["word_timestamps"] is True
+    assert lang == "ja"
+    assert [(w.word, w.start, w.end) for w in segs[0].words] == [("そう", 0.0, 0.7), ("ですね", 0.7, 1.5)]
+
+
+def test_without_the_flag_nothing_is_aligned() -> None:
+    model = _FakeWhisper([_FakeSegment("そうですね", 0.0, 1.5)])
+    segs, _ = _fw().transcribe(
+        model, np.zeros(backends.SAMPLE_RATE, dtype=np.float32), language=None, initial_prompt=None,
+        beam_size=5, vad_min_silence_ms=300, no_speech_threshold=0.6,
+    )
+    assert model.kwargs["word_timestamps"] is False
+    # None rather than an empty list: the caller keeps the whole utterance, as it always did.
+    assert segs[0].words is None
+
+
+def test_every_backend_accepts_being_asked_for_words() -> None:
+    # The caller is backend-agnostic. Asking for words must never be the thing that breaks one.
+    for cls in (backends.FasterWhisperBackend, backends.WhisperCppBackend,
+                backends.OpenAiCompatibleBackend, backends.GeminiBackend):
+        assert "word_timestamps" in inspect.signature(cls.transcribe).parameters, cls.__name__
+
+
+def test_words_are_moved_onto_the_recordings_clock() -> None:
+    # A live utterance is recognised on its own, starting at zero, while diarization looks for
+    # it in the whole recording. This offset is what lines the two up.
+    words = [backends.Word("そう", 0.10, 0.44), backends.Word("ですね", 0.44, 1.02)]
+    assert backends.shift_words(words, 61.5) == [
+        {"w": "そう", "s": 61.6, "e": 61.94},
+        {"w": "ですね", "s": 61.94, "e": 62.52},
+    ]
+    assert backends.shift_words(None, 3.0) == []
 
 
 if __name__ == "__main__":

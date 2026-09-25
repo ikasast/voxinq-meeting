@@ -55,6 +55,7 @@ from backends import (
     Segment,
     choose_backend,
     live_transcription_available,
+    shift_words,
 )
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -66,6 +67,9 @@ SAMPLE_RATE = 16000
 
 # Where meeting audio and utterance boundaries are saved (on this PC). On meeting end,
 # writes <meetingId>.wav and <meetingId>.segments.json for later diarization via /diarize.
+# Each boundary also carries the words it was recognised from, where the backend can align
+# them, so diarization can split an utterance at a speaker change instead of giving the whole
+# of it to whoever spoke most.
 RECORDINGS_DIR = Path(os.environ.get("STT_RECORDINGS_DIR", Path(__file__).parent / "recordings"))
 # Diarization calls diarize.py in a separate venv (diarization/.venv) as a subprocess.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -354,8 +358,12 @@ def transcribe_segment_ex(
     language: str | None = None,
     initial_prompt: str | None = None,
     beam_size: int = 5,
-) -> tuple[str, str | None]:
-    """Transcribe one utterance segment (float32 mono 16k) -> (text, detected language).
+    word_timestamps: bool = False,
+) -> tuple[str, str | None, list[dict]]:
+    """Transcribe one utterance segment (float32 mono 16k) -> (text, language, words).
+
+    The words carry their times within *this segment*, and are empty unless they were asked
+    for and the backend can align them.
 
     language=None auto-detects the spoken language ("ja"/"en" pins it).
     Passing a glossary as initial_prompt biases recognition toward proper nouns, etc.
@@ -374,8 +382,10 @@ def transcribe_segment_ex(
         beam_size=beam_size,
         vad_min_silence_ms=300,
         no_speech_threshold=STT_NO_SPEECH_THRESH,
+        word_timestamps=word_timestamps,
     )
     out: list[str] = []
+    words: list[dict] = []
     for seg in segments:
         t = seg.text.strip()
         if not t:
@@ -388,7 +398,10 @@ def transcribe_segment_ex(
         if _normalize(t) in HALLUCINATION_PHRASES:
             continue
         out.append(t)
-    return "".join(out).strip(), detected
+        # Words follow their segment through the filters above: a span dropped as a
+        # hallucination must not leave its words behind for diarization to split on.
+        words.extend(shift_words(seg.words, 0.0))
+    return "".join(out).strip(), detected, words
 
 
 def transcribe_segment(
@@ -399,7 +412,7 @@ def transcribe_segment(
     beam_size: int = 5,
 ) -> str:
     """transcribe_segment_ex for callers that only need the text."""
-    text, _lang = transcribe_segment_ex(model, audio, language, initial_prompt, beam_size)
+    text, _lang, _words = transcribe_segment_ex(model, audio, language, initial_prompt, beam_size)
     return text
 
 
@@ -1295,8 +1308,12 @@ def _retranscribe_job(
             beam_size=5,
             vad_min_silence_ms=500,
             no_speech_threshold=STT_NO_SPEECH_THRESH,
+            word_timestamps=True,
         )
         utterances: list[dict] = []
+        # Kept beside the utterances rather than in them: the web app is sent the utterances,
+        # and has no use for a word list per line. Diarization does, from segments.json.
+        utterance_words: list[list[dict]] = []
         for seg in segments:
             text = seg.text.strip()
             if not text:
@@ -1313,11 +1330,17 @@ def _retranscribe_job(
                 if ja:
                     item["translation"] = ja
             utterances.append(item)
+            # Already on the recording's clock here: the whole file went in at once.
+            utterance_words.append(shift_words(seg.words, 0.0))
 
         p = _rec_paths(mid)
         p["seg"].write_text(
             json.dumps(
-                [{"start": u["start"], "end": u["end"]} for u in utterances], ensure_ascii=False
+                [
+                    {"start": u["start"], "end": u["end"], **({"words": w} if w else {})}
+                    for u, w in zip(utterances, utterance_words)
+                ],
+                ensure_ascii=False,
             ),
             encoding="utf-8",
         )
@@ -1663,8 +1686,13 @@ async def ws_endpoint(ws: WebSocket) -> None:
             # frames, /health, other connections) stays responsive during the ~seconds it takes.
             async with transcribe_lock:
                 model = whisper.get(state.model_name)
-                text, detected = await asyncio.to_thread(
-                    transcribe_segment_ex, model, audio, state.language, state.initial_prompt
+                text, detected, words = await asyncio.to_thread(
+                    transcribe_segment_ex,
+                    model,
+                    audio,
+                    state.language,
+                    state.initial_prompt,
+                    word_timestamps=True,
                 )
             if text:
                 start_s = start_sample / SAMPLE_RATE
@@ -1687,7 +1715,15 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 # Record finalized-utterance times in save order, to map utterances to times during diarization.
                 # Recording only after a successful send prevents an utterance that never reached the client
                 # from remaining only in segments.json and shifting the numbering vs the DB utterances.
-                state.finals.append({"start": round(start_s, 2), "end": round(end_s, 2)})
+                entry: dict = {"start": round(start_s, 2), "end": round(end_s, 2)}
+                if words:
+                    # On the recording's clock, not the segment's, so diarization can line
+                    # them up against the speaker turns it finds in the whole WAV.
+                    entry["words"] = [
+                        {"w": w["w"], "s": round(w["s"] + start_s, 2), "e": round(w["e"] + start_s, 2)}
+                        for w in words
+                    ]
+                state.finals.append(entry)
                 # Translation runs on the CPU and lands separately, keyed by seq — the
                 # transcript must never wait on it.
                 if state.translate:
