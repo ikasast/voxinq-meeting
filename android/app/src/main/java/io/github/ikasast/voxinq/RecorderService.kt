@@ -27,6 +27,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
@@ -39,10 +41,19 @@ class RecorderService : Service() {
         const val ACTION_START = "io.github.ikasast.voxinq.action.START"
         const val ACTION_STOP = "io.github.ikasast.voxinq.action.STOP"
         const val ACTION_END = "io.github.ikasast.voxinq.action.END"
+
+        /** Deliver what an earlier run left behind. No microphone; see deliverLeftovers. */
+        const val ACTION_DELIVER = "io.github.ikasast.voxinq.action.DELIVER"
         private const val EXTRA_CONFIG = "config"
+        /** One directory per recording that still owes the server something. */
+        const val PENDING_DIR = "pending"
+
         private const val CHANNEL = "recorder"
         private const val NOTIFICATION = 1
         private const val TAG = "VoxinqRecorder"
+
+        /** How long delivery of one leftover recording is given before it is left for later. */
+        private const val DELIVER_DEADLINE_MS = 10 * 60 * 1000L
 
         /** From the visible page: Android only lets a microphone service start from there. */
         fun start(context: Context, config: RecorderConfig) {
@@ -50,6 +61,20 @@ class RecorderService : Service() {
                 .setAction(ACTION_START)
                 .putExtra(EXTRA_CONFIG, config.toJson())
             ContextCompat.startForegroundService(context, intent)
+        }
+
+        /**
+         * Send anything a killed or disconnected run left on the phone.
+         *
+         * Called when the app comes to the front, which is the one moment a service is allowed
+         * to be started and the network is likely to be the user's own again.
+         */
+        fun deliverLeftovers(context: Context) {
+            if (PendingStore.leftovers(File(context.filesDir, PENDING_DIR)).isEmpty()) return
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, RecorderService::class.java).setAction(ACTION_DELIVER),
+            )
         }
 
         /** The page's Stop: the recording ends, the meeting does not — the page does that. */
@@ -74,8 +99,13 @@ class RecorderService : Service() {
     private var status = "connecting"
     private var startedAt = 0L
     private var stopping = false
+    private var delivering = false
+    private var deliverJob: kotlinx.coroutines.Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+
+    private fun userAgent() =
+        "VoxinqAndroid/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -84,12 +114,18 @@ class RecorderService : Service() {
             ACTION_START -> begin(RecorderConfig.fromJson(intent.getStringExtra(EXTRA_CONFIG)))
             ACTION_STOP -> finish(endMeeting = false)
             ACTION_END -> finish(endMeeting = true)
+            ACTION_DELIVER -> deliver()
             else -> if (session == null) stopSelf()
         }
         return START_NOT_STICKY
     }
 
     private fun begin(requested: RecorderConfig?) {
+        // A recording owns its meeting's queue. Delivery of what earlier runs left can wait —
+        // it is picked up again the next time the app comes to the front.
+        deliverJob?.cancel()
+        delivering = false
+
         // A foreground start has to be answered with a notification, even one that is refused.
         goForeground(config ?: requested)
         val running = config
@@ -120,11 +156,17 @@ class RecorderService : Service() {
         holdLocks()
 
         val origin = requested.serverOrigin
+        // Where this recording's audio and unsaved lines are written down, named after the
+        // meeting so a run that is killed can be found again.
+        val store = PendingStore(File(File(filesDir, PENDING_DIR), requested.meetingId))
+        store.open()
+        store.writeMeta(JSONObject(requested.toJson()).put("startedAt", startedAt))
         val s = RecordingSession(
             config = requested,
             client = http,
+            store = store,
             cookie = { withContext(Dispatchers.Main) { CookieManager.getInstance().getCookie(origin) } },
-            userAgent = "VoxinqAndroid/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})",
+            userAgent = userAgent(),
             events = Events(),
         )
         try {
@@ -137,6 +179,57 @@ class RecorderService : Service() {
             return
         }
         session = s
+    }
+
+    /**
+     * Hand over what earlier runs could not.
+     *
+     * Each leftover recording is opened, sent the same `start` message a reconnect sends — so
+     * the service appends to that meeting's recording — and emptied. A recording in progress
+     * owns its own queue, so this stands aside for one.
+     */
+    private fun deliver() {
+        if (session != null || delivering) return
+        val waiting = PendingStore.leftovers(File(filesDir, PENDING_DIR))
+        if (waiting.isEmpty()) {
+            stopEverything()
+            return
+        }
+        delivering = true
+        goForeground(null, delivering = true)
+        deliverJob = main.launch {
+            for (store in waiting) {
+                if (session != null) break // a recording started; the rest waits for next time
+                store.open()
+                val cfg = RecorderConfig.fromJson(store.meta()?.toString())
+                if (cfg == null) {
+                    // Nothing here can ever be delivered; keeping it would mean trying forever.
+                    Log.w(TAG, "discarding a leftover recording with no readable details")
+                    store.discard()
+                    continue
+                }
+                val s = RecordingSession(
+                    config = cfg,
+                    client = http,
+                    store = store,
+                    cookie = { withContext(Dispatchers.Main) { CookieManager.getInstance().getCookie(cfg.serverOrigin) } },
+                    userAgent = userAgent(),
+                    events = Events(),
+                )
+                try {
+                    withContext(Dispatchers.IO) {
+                        runCatching { s.deliverLeftovers(DELIVER_DEADLINE_MS) }
+                            .onFailure { Log.w(TAG, "delivering leftovers", it) }
+                    }
+                } finally {
+                    // Also the way out when a recording cancels this: the file handle is closed
+                    // and what is still owed stays written down.
+                    store.close()
+                }
+            }
+            delivering = false
+            stopEverything()
+        }
     }
 
     private fun refuse(reason: String) {
@@ -220,6 +313,9 @@ class RecorderService : Service() {
                 is RecordingSession.Problem.SaveFailed -> getString(R.string.save_failed, problem.detail)
                 is RecordingSession.Problem.Microphone -> getString(R.string.mic_failed, problem.detail)
                 RecordingSession.Problem.BacklogOverflow -> getString(R.string.backlog_overflow)
+                is RecordingSession.Problem.Storage -> getString(R.string.storage_failed, problem.detail)
+                is RecordingSession.Problem.Unsent ->
+                    getString(R.string.unsent_kept, problem.seconds, problem.lines)
             }
             RecorderBus.post(message("error", "message" to text))
         }
@@ -227,7 +323,7 @@ class RecorderService : Service() {
 
     // ---- The notification ----
 
-    private fun goForeground(cfg: RecorderConfig?) {
+    private fun goForeground(cfg: RecorderConfig?, delivering: Boolean = false) {
         // Default importance, but silent. A low-importance channel files the notification under
         // "Silent", collapsed, where its Stop is a tap further away than it should be.
         NotificationManagerCompat.from(this).createNotificationChannel(
@@ -240,8 +336,15 @@ class RecorderService : Service() {
                 .build(),
         )
         try {
+            // Delivery holds no microphone — it is only sending what is already recorded — so
+            // it runs as a data-sync service. Claiming the microphone type without one is how
+            // an app gets its microphone access taken away.
             ServiceCompat.startForeground(
-                this, NOTIFICATION, notification(cfg), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                this,
+                NOTIFICATION,
+                notification(cfg, delivering),
+                if (delivering) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
             )
         } catch (e: Exception) {
             Log.w(TAG, "startForeground", e)
@@ -256,7 +359,7 @@ class RecorderService : Service() {
         if (allowed) NotificationManagerCompat.from(this).notify(NOTIFICATION, notification(cfg))
     }
 
-    private fun notification(cfg: RecorderConfig?): Notification {
+    private fun notification(cfg: RecorderConfig?, delivering: Boolean = false): Notification {
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java)
@@ -265,9 +368,12 @@ class RecorderService : Service() {
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val title = cfg?.title?.let { getString(R.string.notification_title, it) }
-            ?: getString(R.string.notification_title_untitled)
-        val text = getString(
+        val title = when {
+            delivering -> getString(R.string.app_name)
+            cfg?.title != null -> getString(R.string.notification_title, cfg.title)
+            else -> getString(R.string.notification_title_untitled)
+        }
+        val text = if (delivering) getString(R.string.sending_leftovers) else getString(
             when (status) {
                 "open" -> R.string.status_open
                 "reconnecting" -> R.string.status_reconnecting
@@ -286,7 +392,9 @@ class RecorderService : Service() {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-        if (startedAt > 0) builder.setWhen(startedAt).setShowWhen(true).setUsesChronometer(true)
+        if (startedAt > 0 && !delivering) {
+            builder.setWhen(startedAt).setShowWhen(true).setUsesChronometer(true)
+        }
         if (!stopping && cfg != null) {
             val stop = PendingIntent.getService(
                 this, 1, Intent(this, RecorderService::class.java).setAction(ACTION_END), PendingIntent.FLAG_IMMUTABLE,

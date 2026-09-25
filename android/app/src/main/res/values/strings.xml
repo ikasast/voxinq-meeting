@@ -28,6 +28,9 @@
     <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
     <string name="mic_failed">Cannot start the microphone: %1$s</string>
     <string name="save_failed">Failed to save utterance: %1$s</string>
+    <string name="storage_failed">Could not write the audio to this phone: %1$s</string>
+    <string name="unsent_kept">Kept on this phone: %1$d seconds of audio and %2$d line(s) not sent yet. The app sends them when it next reaches the server.</string>
+    <string name="sending_leftovers">Sending audio kept from an interrupted recording…</string>
     <string name="backlog_overflow">The transcription service has been unreachable for over five minutes, so the oldest audio is being dropped.</string>
     <string name="open_failed">No app on this phone can open %1$s</string>
 </resources>

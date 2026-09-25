@@ -71,8 +71,17 @@ browser does:
   `PATCH /api/transcripts/{id}`, matched to its row by `seq`.
 - **End**: `{"type":"end"}`, then wait up to ten seconds for `status: closed` — the service has
   transcribed the last segment and saved the recording — before closing.
-- **Reconnecting**: audio captured while connecting or reconnecting is held and sent once the
-  service says `open`, as the browser does. In memory in the first version, on disk in the second.
+- **Reconnecting**: audio captured while connecting or reconnecting is **written to a file and
+  sent from there**, so the file is the queue rather than a five-minute buffer in memory. A
+  connection that returns twenty minutes later finds everything, in order; two hours is the
+  point at which the oldest starts to go. A connection that dies gives back whatever OkHttp was
+  still holding, so a drop costs a few seconds re-sent rather than seconds lost.
+- **Lines waiting to be saved** are written down too, before they are sent. A line the server
+  refuses is dropped (it would be refused again); one it cannot be reached for is kept.
+- **A run the system kills** leaves its audio and its unsaved lines on the phone. The next time
+  the app is opened it delivers them: the same `start` message a reconnect sends, so the service
+  appends to that meeting's recording, and whatever it recognises is saved like any other line.
+  Delivery holds no microphone, so it runs as a data-sync service.
 - **Signed in**: the `WebView`'s session cookie is sent with the service's own HTTP requests
   (`CookieManager`). The STT service has no sign-in of its own; it is reachable only inside the
   tailnet, as it is for the browser.
@@ -137,7 +146,8 @@ On the web side, one addition:
    diarizes.
 2. **A recording that survives the network.** Audio written to disk and sent after a dropped
    connection; failed saves queued and retried; a recording that picks itself up if the process
-   is killed.
+   is killed. Done when a six-minute outage — past the five minutes the page holds in memory —
+   costs nothing, and a killed process delivers what it owed when the app is next opened.
 3. **The conveniences.** The notice at a booked meeting's time with a record action; sharing an
    audio file from another app to transcribe it; capturing another app's media playback — never
    calls.

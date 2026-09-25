@@ -25,6 +25,9 @@
     <string name="another_recording">アプリで別の会議を録音中です。先に停止してください。</string>
     <string name="mic_failed">マイクを開始できません: %1$s</string>
     <string name="save_failed">発言を保存できませんでした: %1$s</string>
+    <string name="storage_failed">この端末に音声を書き込めませんでした: %1$s</string>
+    <string name="unsent_kept">この端末に保持しています: 未送信の音声 %1$d 秒と発言 %2$d 件。次にサーバーへつながったときに送ります。</string>
+    <string name="sending_leftovers">中断された録音の音声を送っています…</string>
     <string name="backlog_overflow">文字起こしサービスに 5 分以上つながらないため、古い音声から破棄しています。</string>
     <string name="open_failed">%1$s を開けるアプリがありません</string>
 </resources>
