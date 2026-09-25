@@ -387,6 +387,18 @@ html[data-theme="light"] .logo-dark {
   }
 
   /* --- Tags --- */
+  /* Something waiting to be done, rather than something happening. */
+  .tag-warn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.625rem;
+    border-radius: calc(infinity * 1px);
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: var(--warning);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
   .tag-lime {
     display: inline-flex;
     align-items: center;

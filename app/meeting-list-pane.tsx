@@ -14,6 +14,8 @@ import { type Band, bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
+import { minutesCandidates, needsMinutes } from "@/lib/meetings/bulk-minutes";
+import { BulkMinutes } from "./bulk-minutes";
 import { MinutesWatcher } from "./minutes-watcher";
 import { ArchiveIcon, SeriesIcon, TrashIcon } from "./icons";
 import { MeetingCalendar } from "./meeting-calendar";
@@ -325,6 +327,11 @@ export async function MeetingListPane({
                 <ArchiveIcon className="h-3.5 w-3.5" />
               </span>
             ) : null}
+            {needsMinutes(m) ? (
+              <span className="tag-warn shrink-0" title={t("Recorded, but no minutes yet")}>
+                {t("No minutes")}
+              </span>
+            ) : null}
             {/* Status pill. Baseline is server-rendered (minutes generation / open session);
                 LiveStatus refines it from STT to Recording…/Transcribing…/Diarizing…/Waiting…. */}
             {(() => {
@@ -353,10 +360,11 @@ export async function MeetingListPane({
             {formatDurationIn(locale, m.durationMs) ? ` · ${formatDurationIn(locale, m.durationMs)}` : ""}{" "}
             · {t(m._count.transcripts === 1 ? "1 utterance" : "{n} utterances", {
               n: m._count.transcripts,
-            })}{" / "}
-            {t(m._count.summaries === 1 ? "1 set of minutes" : "{n} sets of minutes", {
-              n: m._count.summaries,
-            })}
+            })}{m._count.summaries > 0
+              ? ` / ${t(m._count.summaries === 1 ? "1 set of minutes" : "{n} sets of minutes", {
+                  n: m._count.summaries,
+                })}`
+              : ""}
           </p>
           {hit?.snippet ? (
             <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{hit.snippet}</p>
@@ -608,6 +616,18 @@ export async function MeetingListPane({
             {t("clear")}
           </Link>
         </div>
+      ) : null}
+
+      {/* Recorded and not yet written up — the state a day of back-to-back meetings leaves
+          behind. It acts on what the list is showing, so the filters above are the selection. */}
+      {!readOnly ? (
+        <BulkMinutes
+          candidates={minutesCandidates(meetings).map((c) => ({
+            id: c.id,
+            title: c.title,
+            when: formatDateTimeIn(locale, new Date(c.startedAt)),
+          }))}
+        />
       ) : null}
 
       {/* The series is stated once, with its count and the way out of it. Repeating it in the
