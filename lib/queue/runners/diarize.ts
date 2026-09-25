@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { applyDiarizationEmbeddings, applySpeakers } from "@/lib/meetings/apply";
+import {
+  applyDiarizationEmbeddings,
+  applySpeakers,
+  applySpeakersToRows,
+  spansForDiarization,
+} from "@/lib/meetings/apply";
 import { parseParams } from "../types";
 import { sttPost, sttWait } from "./stt-job";
 
@@ -23,14 +28,33 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   const qs = new URLSearchParams({ force: "true" });
   if (numSpeakers && numSpeakers > 0) qs.set("num_speakers", String(numSpeakers));
 
-  await sttPost(`/diarize/${encodeURIComponent(meetingId)}?${qs}`);
+  // Which lines to ask about: the rows' own places in the recording, so each answer comes
+  // back attached to the row it is about. Null means this recording has to be asked the old
+  // way, about the boundaries the service saved, and answered by position.
+  const rows = await prisma.transcript.findMany({
+    where: { meetingId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, audioStartMs: true, audioEndMs: true },
+  });
+  const spans = spansForDiarization(rows);
+
+  await sttPost(
+    `/diarize/${encodeURIComponent(meetingId)}?${qs}`,
+    spans ? { utterances: spans } : undefined,
+  );
   const result = await sttWait(`/diarize/${encodeURIComponent(meetingId)}/status`, signal);
 
   if (result.status === "error") throw new Error(String(result.detail ?? "diarization failed"));
   const speakers = result.speakers;
   if (!Array.isArray(speakers)) throw new Error("the diarizer returned no speakers");
 
-  const applied = await applySpeakers(meetingId, speakers as string[]);
+  const labels = speakers as string[];
+  const applied = spans
+    ? await applySpeakersToRows(
+        meetingId,
+        rows.slice(0, labels.length).map((r, i) => ({ id: r.id, speaker: labels[i] })),
+      )
+    : await applySpeakers(meetingId, labels);
 
   // Voiceprints are best-effort: the speakers are already attached, and failing the job here
   // would throw that away over the naming step.

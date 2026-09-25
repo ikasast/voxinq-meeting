@@ -176,9 +176,16 @@ transcription that has to keep up with live speech. Since the transcript is revi
 meeting anyway, speakers are assigned in a batch pass at the end, in its own venv, as a
 subprocess.
 
-Speakers map onto utterances **by index**: `segments.json[N]` corresponds to the Nth transcript
-row. This is why deleting an utterance also deletes the matching boundary in the recording, and
-why editing text does not — rewording changes no positions.
+Speakers map onto utterances **by time**: the request carries each transcript row's own audio
+offsets, and each answer goes back on the row it was computed for. Nothing then depends on how
+many lines there are or what order they are in.
+
+It was by index — `segments.json[N]` for the Nth row — which is why deleting an utterance also
+deletes the matching boundary in the recording. That sync is still there, and still matters for
+**meetings recorded before those offsets were kept**: they have nothing to send, so they are
+asked about the saved boundaries and answered positionally, exactly as before. What the change
+removes is the failure mode where a count that had drifted by one put every later speaker on
+the wrong line, looking for all the world like a diarizer that had simply done badly.
 
 ## Diarization has two backends, chosen by the hardware
 

@@ -25,14 +25,38 @@ export class MeetingWorkError extends Error {
   }
 }
 
+/** A row's place in the recording, as the recorder saved it. */
+export type RowSpan = { id: string; audioStartMs: number | null; audioEndMs: number | null };
+
 /**
- * Attach a speaker to each utterance.
+ * The spans to ask the diarizer about, or null when this meeting cannot be asked that way.
  *
- * `speakers[i]` is the diarizer's label for the i-th utterance in creation order — the whole
- * mapping is positional, which is why `segments.json` on the STT side and the rows here have to
- * stay the same length. Where they are not, the overlap is applied and the caller is told both
- * counts rather than being failed: a partial attribution is more useful than none, and the
- * numbers are what make the mismatch visible.
+ * Each row knows where it sits in the recording, so the answer can come back attached to the
+ * row it was computed for. All or nothing: with one row's offsets missing, the diarizer's
+ * answer would be about a different set of lines than the caller thinks, and a speaker landing
+ * on the wrong line is not a failure anybody sees. Meetings recorded before offsets were kept
+ * fall back to the positional mapping, which is all they have.
+ */
+export function spansForDiarization(rows: RowSpan[]): { start: number; end: number }[] | null {
+  if (rows.length === 0) return null;
+  const spans = [];
+  for (const r of rows) {
+    if (typeof r.audioStartMs !== "number" || typeof r.audioEndMs !== "number") return null;
+    if (!(r.audioEndMs > r.audioStartMs && r.audioStartMs >= 0)) return null;
+    spans.push({ start: r.audioStartMs / 1000, end: r.audioEndMs / 1000 });
+  }
+  return spans;
+}
+
+/**
+ * Attach a speaker to each utterance, by position.
+ *
+ * `speakers[i]` is the diarizer's label for the i-th utterance in creation order, which is
+ * why `segments.json` on the STT side and the rows here have to stay the same length. Where
+ * they are not, the overlap is applied and the caller is told both counts rather than being
+ * failed: a partial attribution is more useful than none, and the numbers are what make the
+ * mismatch visible. `applySpeakersToRows` is the way round this for a recording whose rows
+ * know their own offsets.
  */
 export async function applySpeakers(meetingId: string, speakers: string[]) {
   const transcripts = await prisma.transcript.findMany({
@@ -43,22 +67,52 @@ export async function applySpeakers(meetingId: string, speakers: string[]) {
   if (transcripts.length === 0) throw new MeetingWorkError("no transcripts", 404);
 
   const n = Math.min(transcripts.length, speakers.length);
+  const pairs = transcripts.slice(0, n).map((t, i) => ({ id: t.id, speaker: speakers[i] }));
+  return attachSpeakers(pairs, transcripts.length, speakers.length);
+}
+
+/**
+ * Attach each speaker to the row it was computed for.
+ *
+ * Nothing here depends on how many rows there are or what order they are in, so a line
+ * deleted, added or re-recognised between the request and the answer costs at most its own
+ * label — where positional attribution would have shifted every later line onto the wrong
+ * speaker, quietly.
+ */
+export async function applySpeakersToRows(
+  meetingId: string,
+  assignments: { id: string; speaker: string }[],
+) {
+  const mine = new Set(
+    (await prisma.transcript.findMany({ where: { meetingId }, select: { id: true } })).map(
+      (t) => t.id,
+    ),
+  );
+  if (mine.size === 0) throw new MeetingWorkError("no transcripts", 404);
+  // A row that has gone since the request was made is skipped, not an error.
+  const pairs = assignments.filter((a) => mine.has(a.id));
+  return attachSpeakers(pairs, mine.size, assignments.length);
+}
+
+async function attachSpeakers(
+  pairs: { id: string; speaker: string }[],
+  transcriptCount: number,
+  speakerCount: number,
+) {
   const usedKeys = new Set<string>();
   const updates = [];
-  for (let i = 0; i < n; i++) {
-    const key = diarizerLabelToKey(speakers[i]); // "speakerN" -> "partner-N"
+  for (const { id, speaker } of pairs) {
+    const key = diarizerLabelToKey(speaker); // "speakerN" -> "partner-N"
     if (!isValidSpeakerKey(key)) continue;
     usedKeys.add(key);
-    updates.push(
-      prisma.transcript.update({ where: { id: transcripts[i].id }, data: { speakerType: key } }),
-    );
+    updates.push(prisma.transcript.update({ where: { id }, data: { speakerType: key } }));
   }
   await prisma.$transaction(updates);
 
   return {
     updated: updates.length,
-    transcriptCount: transcripts.length,
-    speakerCount: speakers.length,
+    transcriptCount,
+    speakerCount,
     speakerKeys: [...usedKeys].sort(),
   };
 }
