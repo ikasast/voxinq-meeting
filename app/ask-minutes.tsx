@@ -6,7 +6,16 @@ import remarkGfm from "remark-gfm";
 import { useT } from "./locale-provider";
 import { useGpuBusy } from "./use-gpu-busy";
 
-type Answer = { answer: string; used: number; omitted: number; withoutMinutes: number };
+type Answer = {
+  answer: string;
+  used: number;
+  omitted: number;
+  withoutMinutes: number;
+  // Set when the meeting was too long to read in one pass and was condensed first.
+  condensed?: boolean;
+};
+
+type Source = "minutes" | "transcript";
 
 // Ask a question against the minutes of a series (or of a single meeting that has no
 // series — a one-off is just a series of one). The answer is read once and not stored.
@@ -25,11 +34,23 @@ export function AskMinutes({
   seriesId,
   meetingId,
   scopeLabel,
+  hasMinutes = true,
+  hasTranscript = false,
 }: {
   seriesId?: string;
   meetingId?: string;
   scopeLabel: string;
+  /** Whether there are minutes to read. False on a meeting recorded but not written up yet. */
+  hasMinutes?: boolean;
+  /**
+   * Whether this one meeting's own words can be read instead. Only offered for a meeting: a
+   * series of transcripts is several times any local model's context.
+   */
+  hasTranscript?: boolean;
 }) {
+  // What to read. The minutes when there are any — they are the reviewed version, and the
+  // dense one — and the meeting's own words when there are not, or when asked for.
+  const [source, setSource] = useState<Source>(hasMinutes ? "minutes" : "transcript");
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
   const [result, setResult] = useState<Answer | null>(null);
@@ -54,7 +75,7 @@ export function AskMinutes({
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text, seriesId, meetingId }),
+        body: JSON.stringify({ question: text, seriesId, meetingId, source }),
       });
       const d = (await res.json().catch(() => null)) as (Answer & { error?: string }) | null;
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
@@ -70,13 +91,38 @@ export function AskMinutes({
     <section className="card space-y-3 p-5">
       <div>
         <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
-          {t("Ask about these minutes")}
+          {source === "transcript" ? t("Ask about this meeting") : t("Ask about these minutes")}
         </h2>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("Answered from the minutes of {scope} — nothing else. Answers are not saved.", {
-            scope: scopeLabel,
-          })}
+          {source === "transcript"
+            ? t("Answered from everything said in {scope} — nothing else. Answers are not saved.", {
+                scope: scopeLabel,
+              })
+            : t("Answered from the minutes of {scope} — nothing else. Answers are not saved.", {
+                scope: scopeLabel,
+              })}
         </p>
+        {/* Only where both exist: a series of transcripts is several times any local model's
+            context, and a meeting with no minutes has nothing to choose between. */}
+        {meetingId && hasTranscript && hasMinutes ? (
+          <div className="mt-2 inline-flex overflow-hidden rounded-full border border-[var(--border-strong)] text-xs">
+            {(["minutes", "transcript"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setSource(option)}
+                disabled={asking}
+                className={
+                  option === source
+                    ? "bg-[var(--accent-solid)] px-3 py-1 font-medium text-[var(--accent-contrast)]"
+                    : "px-3 py-1 text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
+                }
+              >
+                {option === "minutes" ? t("From the minutes") : t("From the transcript")}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <form
@@ -134,19 +180,27 @@ export function AskMinutes({
           </article>
           {/* Say what the answer could actually see, so a gap is visible rather than implied. */}
           <p className="mt-3 border-t border-[var(--border)] pt-2 text-[11px] text-[var(--text-muted)]">
-            {t(
-              result.used === 1
-                ? "Based on 1 meeting with minutes"
-                : "Based on {n} meetings with minutes",
-              { n: result.used },
+            {source === "transcript" ? (
+              result.condensed
+                ? t("Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).")
+                : t("Based on everything said in this meeting.")
+            ) : (
+              <>
+                {t(
+                  result.used === 1
+                    ? "Based on 1 meeting with minutes"
+                    : "Based on {n} meetings with minutes",
+                  { n: result.used },
+                )}
+                {result.omitted > 0
+                  ? t(", {n} older left out for length", { n: result.omitted })
+                  : ""}
+                {result.withoutMinutes > 0
+                  ? t(", {n} without minutes not covered", { n: result.withoutMinutes })
+                  : ""}
+                .
+              </>
             )}
-            {result.omitted > 0
-              ? t(", {n} older left out for length", { n: result.omitted })
-              : ""}
-            {result.withoutMinutes > 0
-              ? t(", {n} without minutes not covered", { n: result.withoutMinutes })
-              : ""}
-            .
           </p>
         </div>
       ) : null}

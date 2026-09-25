@@ -210,8 +210,17 @@ export default async function MeetingDetailPage({
       {/* A meeting outside a series is its own scope for questions — a one-off is a series of
           one. Meetings in a series are asked about on the series page, where the whole history
           is available, so no box here. */}
-      {!external && !seriesId && meeting.summaries.length > 0 ? (
-        <AskMinutes meetingId={meeting.id} scopeLabel={meeting.title} />
+      {!external &&
+      !seriesId &&
+      (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
+        <AskMinutes
+          meetingId={meeting.id}
+          scopeLabel={meeting.title}
+          hasMinutes={meeting.summaries.length > 0}
+          // Recorded and not written up yet is exactly when the question is about what was
+          // said, so the box appears then too — reading the meeting's own words.
+          hasTranscript={meeting.transcripts.length > 0}
+        />
       ) : null}
 
       <section className="card p-5">

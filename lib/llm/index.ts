@@ -60,6 +60,21 @@ function transcriptsToText(
     .join("\n");
 }
 
+/**
+ * The transcript as a prompt sees it: "Speaker: text" lines, or bare lines where only one
+ * speaker was ever distinguished.
+ *
+ * Exported because the minutes are no longer the only thing written from a transcript — a
+ * question can be asked of one too, and it has to read the same meeting the minutes did.
+ */
+export function conversationText(
+  transcripts: TranscriptForPrompt[],
+  labels: SpeakerLabels = {},
+): string {
+  const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
+  return transcriptsToText(transcripts, labels, multiSpeaker);
+}
+
 // Append the shared business background (if set) as reference-only material at the END
 // of the system prompt. It must NOT become minutes content: with the background at the
 // top and framed as "premise", small models tend to summarize the background document
@@ -174,7 +189,7 @@ export function splitForCondense(conversation: string, avail: number): string[] 
   return chunks;
 }
 
-async function condenseTranscript(
+export async function condenseTranscript(
   provider: ChatProvider,
   cfg: LlmConfig,
   conversation: string,
@@ -216,7 +231,7 @@ export async function requestSummary(
   signal?: AbortSignal,
 ): Promise<string> {
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
-  const conversation = transcriptsToText(transcripts, opts?.speakerLabels ?? {}, multiSpeaker);
+  const conversation = conversationText(transcripts, opts?.speakerLabels ?? {});
 
   const [cfg, background, savedFormat, language, savedDetail] = await Promise.all([
     getLlmConfig(),
