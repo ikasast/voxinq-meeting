@@ -168,6 +168,13 @@ account.
 Drag an audio file (`wav`/`mp3`/`m4a`/…) onto the **New meeting** screen. Voxinq Meeting creates the
 meeting, transcribes the file, and generates minutes automatically.
 
+**On Android, share it to the app instead.** A recording made by a voice recorder app, or one
+somebody sent in a chat, goes to Voxinq from the share sheet: the app asks once, sends the file,
+and the recognition runs on your server as a queued job — so the phone can be pocketed while it
+happens, and the notification it leaves opens the finished meeting. Minutes are not written
+automatically there; the list's **Write them all** does a day of them at once (see
+[the Android app](android-app.md)).
+
 ## Recurring series
 
 Assign a meeting to a **Series** (on the New meeting screen, or under *Purpose & agenda →

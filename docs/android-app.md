@@ -163,6 +163,46 @@ run sets the meetings' alarms again. The **Meeting reminders** notification chan
 switch; permission to post is asked for once, when the app is first opened with a server set,
 because unlike the microphone there is no later tap to ask on.
 
+## A recording made somewhere else
+
+A phone is full of audio that belongs in a meeting: a voice recorder app's file, something a
+colleague sent in a chat, the dictation from a handset nobody had Voxinq on. Android's answer to
+"put this in that app" is the share sheet, so the app is in it.
+
+Sharing a recording asks one question — the file's name, its size, and that a meeting will be
+created — over whatever app the person was in, and then gets out of the way. A share is one tap
+from a mis-tap, and the answer costs a meeting and a place in the transcription queue.
+
+**The upload is the app's only job.** It creates the meeting, sends the file, says the meeting is
+over, and asks for the recognition; the recognition itself is a **queued job on the server**, the
+same one a re-transcription uses. So the phone can be pocketed the moment the upload finishes, and
+what is left behind is a notification that opens the meeting when it is ready. Three of those four
+calls already existed. The fourth is new:
+
+- `POST /api/meetings/{id}/recording` takes the audio and hands it to the transcription service as
+  that meeting's recording, *stored but not recognised* (`/upload/{id}?transcribe=false`, also new).
+  Storing and recognising were one step before, which is fine for a browser watching it happen and
+  wrong here: recognition belongs in the queue, which is the only thing that can see the LLM's work
+  as well as this service's, and on a single-GPU host that is the difference between one job at a
+  time and two fighting.
+- The route is where the meeting's guards live, too: a meeting that already has a transcript is
+  refused rather than overwritten, and the meeting's start time is wound back by the recording's
+  own length — without which every line of an hour-long recording imported at five o'clock would
+  be stamped after six, because a line's time is reconstructed as "meeting start plus its offset".
+- `POST /api/meetings/{id}/transcribe` now fills in **what the settings say** when the caller says
+  nothing: the model, the language, and the glossary — the host's terms and the series' own. The
+  pages always said; the app, handed a file and nothing else, cannot. So a meeting recognised from
+  the phone is primed with exactly what the same meeting recognised from a browser would have been.
+
+Minutes are not written automatically, unlike the web app's drop zone. A day of recordings shared
+from a phone is exactly the case the list's **Write them all** was built for.
+
+What the app refuses, and says so: a file that is not audio (by the type the sharing app declares
+or the name), one larger than half a gigabyte (the service decodes it in memory), and anything at
+all while a meeting is being recorded — the uplink belongs to the recording, which is the one
+thing here that cannot be done again later. A file the sharing app granted no permission to read
+is refused too, rather than crashing on it.
+
 ## The project
 
 - **`android/`** in this repository, so the bridge and the page that calls it change in the same

@@ -7,4 +7,10 @@
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:colorPrimary">@color/accent</item>
     </style>
+
+    <!-- The share question: a dialog over the app the person shared from, not a screen of
+         Voxinq's own. -->
+    <style name="Theme.Voxinq.Share" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">@color/accent</item>
+    </style>
 </resources>

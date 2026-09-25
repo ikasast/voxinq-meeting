@@ -1576,11 +1576,18 @@ async def upload_recording(
     model: str | None = None,
     initialPrompt: str | None = None,  # noqa: N803  query name mirrors the JSON field elsewhere
     translate: bool = False,
+    transcribe: bool = True,
 ) -> dict:
     """Accept an uploaded audio file (raw body, any format), save it as the meeting recording,
     and start transcription. Lets a meeting be created from an existing recording, skipping live
     capture. faster-whisper decodes many formats (wav/mp3/m4a/...) via ffmpeg, so no extension
-    is needed. Progress is polled via GET /transcribe/{id}/status, same as re-transcription."""
+    is needed. Progress is polled via GET /transcribe/{id}/status, same as re-transcription.
+
+    `transcribe=false` stores the recording and stops there, for a caller that wants the
+    recognition to be a queued job instead: the web app's queue is the only thing that can see
+    this service's work and the LLM's at once, and on a single-GPU host that is the difference
+    between one job at a time and two fighting. The audio is still decoded here — that is what
+    turns an m4a from a phone into the WAV everything else reads."""
     mid = _safe_meeting_id(meeting_id)
     if not mid:
         raise HTTPException(status_code=400, detail="invalid meeting id")
@@ -1627,6 +1634,9 @@ async def upload_recording(
     p["pcs"].unlink(missing_ok=True)
     with _DIA_LOCK:
         _DIA_JOBS.pop(mid, None)
+
+    if not transcribe:
+        return {"status": "stored", "bytes": len(data), "seconds": round(len(audio) / SAMPLE_RATE, 3)}
 
     lang = None if language in (None, "", "auto") else str(language)
     ip = str(initialPrompt).strip() or None if initialPrompt else None
