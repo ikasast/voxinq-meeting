@@ -35,6 +35,9 @@ type Item = {
   translation?: string | null;
   // Where this utterance starts in the recording. Null on rows saved before this was stored.
   audioStartMs?: number | null;
+  // Set when this line was split off another at a speaker change — the id of the line it came
+  // from. Its presence is what offers the way back.
+  splitOfId?: string | null;
 };
 
 // A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
@@ -96,6 +99,7 @@ export function TranscriptList({
   const [error, setError] = useState<string | null>(null);
   const [numSpeakers, setNumSpeakers] = useState<string>("");
   const [diarizing, setDiarizing] = useState(false);
+  const [undoingSplit, setUndoingSplit] = useState(false);
   const [stoppingDiar, setStoppingDiar] = useState(false);
   const stopDiarRef = useRef(false); // set by the Stop button to break the polling loop
   const diarJobRef = useRef<string | null>(null); // the queued job, so Stop can cancel it
@@ -643,6 +647,25 @@ export function TranscriptList({
     reloadTranscript, t
   ]);
 
+  // Putting divided lines back together: the way out of a split that got it wrong. The lines
+  // that came out of another are appended to it and removed; nothing else is touched.
+  const undoSplit = useCallback(async () => {
+    setError(null);
+    setUndoingSplit(true);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/unsplit`, { method: "POST" });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? `HTTP ${res.status}`);
+      }
+      await reloadTranscript();
+    } catch (e) {
+      setError(t("Could not undo the split ({reason})", { reason: (e as Error).message }));
+    } finally {
+      setUndoingSplit(false);
+    }
+  }, [meetingId, reloadTranscript, t]);
+
   const runDiarization = useCallback(async () => {
     setError(null);
     setDiarWarn(null);
@@ -980,6 +1003,21 @@ export function TranscriptList({
                       {t("Diarize")}
                     </button>
                   )}
+                  {/* Only once something has been divided, which is the only time it means
+                      anything. */}
+                  {!diarizing && transcripts.some((x) => x.splitOfId) ? (
+                    <button
+                      type="button"
+                      onClick={() => void undoSplit()}
+                      disabled={busy || undoingSplit}
+                      className="btn-outline"
+                      title={t(
+                        "Put lines that were divided at a speaker change back together as they were",
+                      )}
+                    >
+                      {undoingSplit ? t("Undoing…") : t("Undo split")}
+                    </button>
+                  ) : null}
                 </>
               ) : null}
               {transcripts.length > 0 ? (

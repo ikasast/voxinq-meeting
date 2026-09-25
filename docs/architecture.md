@@ -183,7 +183,10 @@ utterances and `segments.json`.
 Diarization is asked about the transcript rows' own offsets — the queue sends them with the
 request (`{"utterances": [{"start", "end"}]}`) and puts each answer back on the row it was
 computed for. A meeting recorded before those offsets were kept has none to send, so it falls
-back to the saved boundaries and a positional answer: `segments.json[N]` for the Nth row.
+back to the saved boundaries and a positional answer: `segments.json[N]` for the Nth row. The
+answer also says where a line holding two speakers divides, from the word times kept with the
+recording; those lines are split, and the pieces point back at the line they came from so the
+split can be undone.
 
 ## Data & retention
 

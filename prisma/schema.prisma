@@ -53,11 +53,11 @@ model User {
   /// hold the same key, so either opens everything and neither is stored in the clear. There is
   /// no third copy: an administrator can issue a reset link, and a reset without the recovery
   /// code leaves an account that signs in and cannot read what it wrote before.
-  keyWrappedPassword String? @map("key_wrapped_password")
-  keyWrappedRecovery String? @map("key_wrapped_recovery")
+  keyWrappedPassword String?   @map("key_wrapped_password")
+  keyWrappedRecovery String?   @map("key_wrapped_recovery")
   /// Salt for both wrappings. One salt, two secrets, two derived keys.
-  keySalt      String?   @map("key_salt")
-  keyCreatedAt DateTime? @map("key_created_at")
+  keySalt            String?   @map("key_salt")
+  keyCreatedAt       DateTime? @map("key_created_at")
 
   isAdmin    Boolean   @default(false) @map("is_admin")
   /// Set to lock the account out without deleting what it owns.
@@ -83,14 +83,14 @@ model User {
 /// signature the proxy can check without a database; the row is what makes it revocable, and
 /// it is checked wherever data is actually read.
 model Session {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now()) @map("created_at")
-  expiresAt DateTime @map("expires_at")
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
+  expiresAt  DateTime @map("expires_at")
   lastSeenAt DateTime @default(now()) @map("last_seen_at")
   /// For the "your sessions" list, so a device can be recognised before it is signed out.
-  userAgent String? @map("user_agent")
+  userAgent  String?  @map("user_agent")
 
   @@index([userId])
   @@index([expiresAt])
@@ -107,16 +107,16 @@ model Session {
 /// The token in the URL is not what is stored. Only its hash is, so a copy of the database is
 /// not a set of working links, and a used or expired row proves nothing about the secret.
 model PasswordReset {
-  id        String   @id @default(cuid())
+  id         String    @id @default(cuid())
   /// SHA-256 of the token that travels in the link.
-  tokenHash String   @unique @map("token_hash")
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique @map("token_hash")
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Who issued it. Kept so the account can show that somebody did.
-  issuedById String? @map("issued_by_id")
-  createdAt DateTime @default(now()) @map("created_at")
-  expiresAt DateTime @map("expires_at")
-  usedAt    DateTime? @map("used_at")
+  issuedById String?   @map("issued_by_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  usedAt     DateTime? @map("used_at")
 
   @@index([userId])
   @@index([expiresAt])
@@ -139,11 +139,11 @@ model PasswordReset {
 /// The row is deleted the moment its owner's queue empties, so the window is the work, not the
 /// session.
 model KeyUnlock {
-  userId  String @id @map("user_id")
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   @id @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// The master key, wrapped with the server secret. Never the key itself.
-  wrapped   String
-  createdAt DateTime @default(now()) @map("created_at")
+  wrapped    String
+  createdAt  DateTime @default(now()) @map("created_at")
   /// When it was last actually used to read or write something. The queue is not the only thing
   /// that needs a key — somebody reading their own meetings needs it too — so "finished" is not
   /// the same as "done with it".
@@ -164,7 +164,7 @@ model MeetingGram {
   meetingId String  @map("meeting_id")
   meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   /// HMAC of the sequence under the account's index key. Not reversible without it.
-  token String
+  token     String
 
   @@id([meetingId, token])
   @@index([token])
@@ -382,6 +382,10 @@ model Transcript {
   audioStartMs Int?     @map("audio_start_ms")
   audioEndMs   Int?     @map("audio_end_ms")
   createdAt    DateTime @default(now()) @map("created_at")
+  // Set when this line was split off another one at a speaker change: the id of the line it
+  // came from, which keeps the first piece. It is what lets a split be undone. Null for every
+  // line that was recognised as itself, which is nearly all of them.
+  splitOfId    String?  @map("split_of_id")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 

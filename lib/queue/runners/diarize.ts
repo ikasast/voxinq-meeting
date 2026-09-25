@@ -5,6 +5,7 @@ import {
   applySpeakersToRows,
   spansForDiarization,
 } from "@/lib/meetings/apply";
+import { type SplitPiece, applySplits, planSplits } from "@/lib/meetings/split";
 import { parseParams } from "../types";
 import { sttPost, sttWait } from "./stt-job";
 
@@ -34,7 +35,7 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   const rows = await prisma.transcript.findMany({
     where: { meetingId },
     orderBy: { createdAt: "asc" },
-    select: { id: true, audioStartMs: true, audioEndMs: true },
+    select: { id: true, text: true, createdAt: true, audioStartMs: true, audioEndMs: true },
   });
   const spans = spansForDiarization(rows);
 
@@ -56,6 +57,18 @@ export async function runDiarize(job: { meetingId: string | null; params: string
       )
     : await applySpeakers(meetingId, labels);
 
+  // A line is cut where the room goes quiet, so a quick exchange lands in one of them. Where
+  // the words show the speaker changing inside a line, it is divided between them. Only on the
+  // by-time path: the pieces are about the spans that were sent.
+  const divided =
+    spans && Array.isArray(result.pieces)
+      ? await applySplits(
+          meetingId,
+          rows,
+          planSplits(rows, result.pieces as (SplitPiece[] | null)[]),
+        )
+      : { split: 0, added: 0 };
+
   // Voiceprints are best-effort: the speakers are already attached, and failing the job here
   // would throw that away over the naming step.
   try {
@@ -68,13 +81,21 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   // person can act on, and the count is what makes it visible.
   const distinct = applied.speakerKeys.length;
   const missed = applied.transcriptCount - applied.speakerCount;
-  const note =
+  const trouble =
     distinct <= 1 || missed > 0
       ? `Found ${distinct} speaker(s) across ${applied.transcriptCount} utterance(s).` +
         (missed > 0 ? ` ${missed} had no label.` : "") +
         " A short or one-sided recording, or a transcript that arrived as one block, gives the" +
         " diarizer little to separate."
       : undefined;
+  // Worth saying even when nothing went wrong: the transcript has more lines than it did, and
+  // that is something a person will notice and want explained.
+  const divisions =
+    divided.split > 0
+      ? `${divided.split} utterance(s) held more than one speaker and were divided, adding` +
+        ` ${divided.added} line(s).`
+      : undefined;
+  const note = [trouble, divisions].filter(Boolean).join(" ") || undefined;
 
   return { note };
 }
