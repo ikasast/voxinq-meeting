@@ -178,8 +178,12 @@ recording survives the web app restarting.
 
 Re-transcription takes the same path from step 3: the web app posts the job to STT, attaching
 the chosen endpoint and its key if the run is going somewhere else, and STT rewrites both the
-utterances and `segments.json` — they have to stay the same length, because diarization maps
-speakers onto utterances by index.
+utterances and `segments.json`.
+
+Diarization is asked about the transcript rows' own offsets — the queue sends them with the
+request (`{"utterances": [{"start", "end"}]}`) and puts each answer back on the row it was
+computed for. A meeting recorded before those offsets were kept has none to send, so it falls
+back to the saved boundaries and a positional answer: `segments.json[N]` for the Nth row.
 
 ## Data & retention
 

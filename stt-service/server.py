@@ -32,6 +32,7 @@ Configuration (environment variables):
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -515,7 +516,11 @@ def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]
     seg_path.write_text(json.dumps(prev_finals + finals, ensure_ascii=False), encoding="utf-8")
 
     # The recording content changed, so invalidate the previous diarization-result cache.
-    for stale in (spk_path, RECORDINGS_DIR / f"{meeting_id}.embeddings.json"):
+    for stale in (
+        spk_path,
+        RECORDINGS_DIR / f"{meeting_id}.embeddings.json",
+        RECORDINGS_DIR / f"{meeting_id}.speakers.key",
+    ):
         try:
             stale.unlink()
         except FileNotFoundError:
@@ -687,6 +692,10 @@ def _rec_paths(mid: str) -> dict[str, Path]:
         "wav": RECORDINGS_DIR / f"{mid}.wav",
         "seg": RECORDINGS_DIR / f"{mid}.segments.json",
         "spk": RECORDINGS_DIR / f"{mid}.speakers.json",
+        # The spans the last run was asked about, and a fingerprint of them: a cached
+        # answer belongs to the utterances it was computed for, not to a position.
+        "req": RECORDINGS_DIR / f"{mid}.request.json",
+        "key": RECORDINGS_DIR / f"{mid}.speakers.key",
         "emb": RECORDINGS_DIR / f"{mid}.embeddings.json",
         "keep": RECORDINGS_DIR / f"{mid}.keep",
     }
@@ -1106,7 +1115,46 @@ def _needs_hf_token(err: str) -> bool:
     )
 
 
-def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> None:
+def _clean_spans(raw: Any) -> list[dict]:
+    """The spans a caller asks to have labelled: `[{"start": s, "end": s}, ...]`, in its order.
+
+    The web app sends its transcript rows' own audio offsets, so the answer comes back tied to
+    the rows it was computed for rather than to whatever sits at the same position. Anything
+    malformed drops the whole list rather than part of it: a half-read request would label the
+    wrong lines, and say nothing about it.
+    """
+    if not isinstance(raw, list) or not raw:
+        return []
+    spans: list[dict] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            return []
+        try:
+            start, end = float(item["start"]), float(item["end"])
+        except (KeyError, TypeError, ValueError):
+            return []
+        if not (end > start >= 0):
+            return []
+        spans.append({"start": round(start, 3), "end": round(end, 3)})
+    return spans
+
+
+def _spans_fingerprint(spans: list[dict]) -> str:
+    """Which spans an answer belongs to. A cached answer for other spans is not an answer."""
+    return hashlib.sha1(json.dumps(spans, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _cached_spans_fingerprint(mid: str) -> str | None:
+    """The fingerprint the cached answer was computed for; None for a positional run."""
+    try:
+        return (RECORDINGS_DIR / f"{mid}.speakers.key").read_text(encoding="utf-8").strip() or None
+    except FileNotFoundError:
+        return None
+
+
+def _diarize_job(
+    mid: str, wav: Path, seg: Path, num_speakers: int | None, spans_key: str | None = None
+) -> None:
     try:
         result = _run_diarizer(wav, seg, num_speakers, mid)
         speakers = result["speakers"]
@@ -1114,6 +1162,12 @@ def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> No
         embedding_model = result.get("embeddingModel")
         with open(RECORDINGS_DIR / f"{mid}.speakers.json", "w", encoding="utf-8") as f:
             json.dump(speakers, f, ensure_ascii=False)
+        # Which spans this answer is about, so the next request can tell whether it is asking
+        # the same question. A positional run leaves no fingerprint, as it had no spans.
+        if spans_key:
+            (RECORDINGS_DIR / f"{mid}.speakers.key").write_text(spans_key, encoding="utf-8")
+        else:
+            (RECORDINGS_DIR / f"{mid}.speakers.key").unlink(missing_ok=True)
         # Per-speaker voice embeddings for voice-profile enrollment/recognition on the web side.
         with open(RECORDINGS_DIR / f"{mid}.embeddings.json", "w", encoding="utf-8") as f:
             json.dump(embeddings, f, ensure_ascii=False)
@@ -1138,14 +1192,29 @@ def _diarize_job(mid: str, wav: Path, seg: Path, num_speakers: int | None) -> No
 
 
 @app.post("/diarize/{meeting_id}")
-async def diarize_start(meeting_id: str, num_speakers: int | None = None, force: bool = False) -> dict:
-    """Start diarization in the background. Check progress via GET /diarize/{id}/status."""
+async def diarize_start(
+    meeting_id: str, request: Request, num_speakers: int | None = None, force: bool = False
+) -> dict:
+    """Start diarization in the background. Check progress via GET /diarize/{id}/status.
+
+    body (JSON, optional): `{"utterances": [{"start": 0.0, "end": 5.4}, ...]}`
+
+    Those are the spans to label, in the caller's order, and the web app fills them from its
+    transcript rows' own audio offsets — so the answer belongs to the rows it was computed for.
+    Without a body the saved boundaries are used and the answer is positional, which is all a
+    meeting recorded before those offsets were stored can have.
+    """
     mid = _safe_meeting_id(meeting_id)
     if not mid:
         raise HTTPException(status_code=400, detail="invalid meeting id")
-    wav = RECORDINGS_DIR / f"{mid}.wav"
-    seg = RECORDINGS_DIR / f"{mid}.segments.json"
-    if not wav.exists() or not seg.exists():
+    p = _rec_paths(mid)
+    wav, seg = p["wav"], p["seg"]
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001  no body at all is the positional call
+        body = {}
+    spans = _clean_spans(body.get("utterances") if isinstance(body, dict) else None)
+    if not wav.exists() or (not spans and not seg.exists()):
         raise HTTPException(status_code=404, detail="Recording not found (meeting not yet saved, or already deleted)")
     if not _DIA_PYTHON.exists() or not _DIA_SCRIPT.exists():
         raise HTTPException(status_code=500, detail="Diarization environment not found")
@@ -1160,9 +1229,17 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
         if cur and cur.get("status") == "running":
             return {"status": "running"}
 
-    cached = RECORDINGS_DIR / f"{mid}.speakers.json"
-    if cached.exists() and not force:
-        speakers = json.loads(cached.read_text(encoding="utf-8"))
+    # What the run will be asked about, and the fingerprint the answer will be filed under.
+    ask, spans_key = seg, None
+    if spans:
+        spans_key = _spans_fingerprint(spans)
+        p["req"].write_text(json.dumps(spans, ensure_ascii=False), encoding="utf-8")
+        ask = p["req"]
+
+    # A cached answer counts only if it answers this question: same spans, or positional then
+    # and positional now. Otherwise it describes lines that have since moved.
+    if p["spk"].exists() and not force and _cached_spans_fingerprint(mid) == spans_key:
+        speakers = json.loads(p["spk"].read_text(encoding="utf-8"))
         embeddings = _read_cached_embeddings(mid)
         embedding_model = _read_cached_embedding_model(mid)
         with _DIA_LOCK:
@@ -1181,7 +1258,9 @@ async def diarize_start(meeting_id: str, num_speakers: int | None = None, force:
 
     with _DIA_LOCK:
         _DIA_JOBS[mid] = {"status": "running"}
-    threading.Thread(target=_diarize_job, args=(mid, wav, seg, num_speakers), daemon=True).start()
+    threading.Thread(
+        target=_diarize_job, args=(mid, wav, ask, num_speakers, spans_key), daemon=True
+    ).start()
     return {"status": "running"}
 
 
@@ -1346,6 +1425,7 @@ def _retranscribe_job(
         )
         p["spk"].unlink(missing_ok=True)
         p["emb"].unlink(missing_ok=True)
+        p["key"].unlink(missing_ok=True)
         with _DIA_LOCK:
             _DIA_JOBS.pop(mid, None)
         # Anything the backend wants said about this run. A remote endpoint that answers
@@ -1501,6 +1581,7 @@ async def upload_recording(
     p["seg"].unlink(missing_ok=True)
     p["spk"].unlink(missing_ok=True)
     p["emb"].unlink(missing_ok=True)
+    p["key"].unlink(missing_ok=True)
     with _DIA_LOCK:
         _DIA_JOBS.pop(mid, None)
 
