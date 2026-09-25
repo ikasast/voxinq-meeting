@@ -187,6 +187,33 @@ asked about the saved boundaries and answered positionally, exactly as before. W
 removes is the failure mode where a count that had drifted by one put every later speaker on
 the wrong line, looking for all the world like a diarizer that had simply done badly.
 
+### A line that holds two speakers is divided between them
+
+An utterance is cut where the room goes quiet — 0.7 s of it, or twelve seconds of talking —
+never where the speaker changes. So a question and the "はい" that answers it land in one line,
+and that line used to go whole to whoever spoke most of it. On a three-speaker recording that
+was 9 lines in 25.
+
+The recogniser's word times are kept beside the recording (`segments.json`), so each word can
+be given to the turn it falls in and the line divided at the changes. Measured against a known
+answer, the speaker on a character went from 80% right to 96% with pyannote — what is left is
+the diarizer's own error, not the words'.
+
+What it refuses is as much of the design as what it does, because a refusal leaves a line
+exactly as it is while a wrong acceptance rewrites one:
+
+- **An edited line is never divided.** The pieces are the recogniser's words; when they no
+  longer add up to the line that is there, somebody has corrected it, and that correction is
+  worth more than the split.
+- **A line with no words behind it keeps its single speaker** — older recordings, and backends
+  that cannot align words.
+- **Short pieces are kept, not absorbed.** Measured, absorbing them hurt: in a live line the
+  short pieces are mostly real ("はい", "なるほど"). `DIA_MIN_PIECE_S` turns absorption on for
+  a diarizer that flickers.
+
+The line that was there keeps the first piece, so its id and its place survive; the rest become
+new lines that point back at it, which is what **Undo split** walks back.
+
 ## Diarization has two backends, chosen by the hardware
 
 `diarization/diarize.py` dispatches to one of two implementations:

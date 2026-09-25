@@ -65,6 +65,11 @@ jobs:
       - run: pip install numpy pywhispercpp
       - run: python stt-service/test_backends.py
 
+      # Dividing an utterance between the people who spoke in it: which words fall on which
+      # side of a speaker change. Pure arithmetic over written-out turns, so no models and no
+      # GPU — and it is the part that would put text on the wrong speaker without saying so.
+      - run: python diarization/test_diarize.py
+
   # Catches rot in the container setup (bad Dockerfile, a dependency that stopped
   # resolving) without waiting for someone to try `docker compose up`.
   #

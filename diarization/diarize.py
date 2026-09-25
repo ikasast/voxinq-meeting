@@ -26,9 +26,11 @@ Usage:
     python diarize.py path/to/audio.wav
 
     # Assign speakers to STT's finalized segments (production)
-    #   segments.json = [{"start": 0.0, "end": 5.4}, ...] (in STT final start/end order)
+    #   segments.json = [{"start": 0.0, "end": 5.4, "words": [{"w","s","e"}, ...]}, ...]
+    #   (in STT final start/end order; words optional)
     python diarize.py path/to/audio.wav segments.json
-    #   -> prints the assigned ["speaker0","speaker1",...] per segment as JSON to stdout
+    #   -> prints, as JSON on stdout: the assigned ["speaker0","speaker1",...] per segment, and
+    #      "pieces" — for any segment whose words show a speaker change, how it divides
 
     # Voice-profile enrollment: one voiceprint from a single-speaker clip
     python diarize.py --embed path/to/clip.wav
@@ -38,6 +40,8 @@ Usage:
 
 Environment variables:
     DIA_BACKEND         pyannote / sherpa / auto (default: auto, as described above)
+    DIA_MIN_PIECE_S     absorb pieces shorter than this when splitting an utterance
+                        (default 0 = keep them; a short piece is usually a real "はい")
 
     ...plus whatever the chosen backend reads; see backend_pyannote.py and backend_sherpa.py.
 """
@@ -126,6 +130,102 @@ def assign_speakers(turns, segments):
     return result
 
 
+def _speaker_of_word(turns, label_map, start, end):
+    """The speaker of one word: the turn it shares most time with."""
+    best, best_ov = None, 0.0
+    for ts, te, label in turns:
+        ov = max(0.0, min(end, te) - max(start, ts))
+        if ov > best_ov:
+            best, best_ov = label, ov
+    if best is None:  # a word in a gap between turns: the nearest turn owns it
+        best = min(turns, key=lambda t: min(abs(start - t[1]), abs(end - t[0])))[2]
+    return label_map[best]
+
+
+def absorb_short(pieces, min_seconds):
+    """Merge a piece shorter than min_seconds into its longer neighbour.
+
+    A guard against a diarizer that flickers for a fraction of a second. It is off by default:
+    measured on a three-speaker meeting, absorbing hurt, because the short pieces in a live
+    line are mostly real — "はい", "なるほど", a name being confirmed.
+    """
+    if min_seconds <= 0:
+        return pieces
+    pieces = [dict(p) for p in pieces]
+    while len(pieces) > 1:
+        short = [i for i, p in enumerate(pieces) if p["end"] - p["start"] < min_seconds]
+        if not short:
+            break
+        i = short[0]
+        length = lambda k: pieces[k]["end"] - pieces[k]["start"]  # noqa: E731
+        j = i - 1 if i == len(pieces) - 1 or (i > 0 and length(i - 1) >= length(i + 1)) else i + 1
+        if j < i:
+            pieces[j]["text"] += pieces[i]["text"]
+            pieces[j]["end"] = pieces[i]["end"]
+        else:
+            pieces[j]["text"] = pieces[i]["text"] + pieces[j]["text"]
+            pieces[j]["start"] = pieces[i]["start"]
+        del pieces[i]
+        k = 0
+        while k < len(pieces) - 1:  # the merge may have put two of the same speaker side by side
+            if pieces[k]["speaker"] == pieces[k + 1]["speaker"]:
+                pieces[k]["text"] += pieces[k + 1]["text"]
+                pieces[k]["end"] = pieces[k + 1]["end"]
+                del pieces[k + 1]
+            else:
+                k += 1
+    return pieces
+
+
+def split_utterances(turns, segments, min_piece_seconds=0.0):
+    """Where a single utterance holds more than one speaker, say who said which part.
+
+    An utterance is cut where the room goes quiet, never where the speaker changes, so a quick
+    exchange lands in one line. The words carry their own times (kept by the STT service), so
+    each word can be given to the turn it falls in and the line divided at the changes.
+
+    Returns one entry per segment: None where the whole line is one speaker (which is most of
+    them, and nothing needs doing), otherwise the pieces in order, each with the text it is
+    made of. A segment with no words — an older recording, a backend that cannot align them —
+    is always None, and the caller keeps using the single speaker from `assign_speakers`.
+    """
+    label_map = normalize_labels(turns)
+    out: list[list[dict] | None] = []
+    for seg in segments:
+        words = seg.get("words") if isinstance(seg, dict) else None
+        if not words:
+            out.append(None)
+            continue
+        pieces: list[dict] = []
+        for w in words:
+            try:
+                start, end, text = float(w["s"]), float(w["e"]), str(w["w"])
+            except (KeyError, TypeError, ValueError):
+                pieces = []
+                break
+            speaker = _speaker_of_word(turns, label_map, start, end)
+            if pieces and pieces[-1]["speaker"] == speaker:
+                pieces[-1]["text"] += text
+                pieces[-1]["end"] = end
+            else:
+                pieces.append({"speaker": speaker, "text": text, "start": start, "end": end})
+        pieces = absorb_short(pieces, min_piece_seconds)
+        out.append(
+            [
+                {
+                    "speaker": p["speaker"],
+                    "text": p["text"].strip(),
+                    "start": round(p["start"], 2),
+                    "end": round(p["end"], 2),
+                }
+                for p in pieces
+            ]
+            if len(pieces) > 1
+            else None
+        )
+    return out
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         print("usage: python diarize.py <audio> [segments.json] | --embed <audio> | --backend-info")
@@ -164,6 +264,8 @@ def main() -> None:
         with open(sys.argv[2], encoding="utf-8") as f:
             segments = json.load(f)
         speakers = assign_speakers(turns, segments)
+        # And, for any utterance whose words say two people spoke in it, how it divides.
+        pieces = split_utterances(turns, segments, float(os.environ.get("DIA_MIN_PIECE_S") or 0))
         # Emit embeddings keyed by the normalized labels ("speaker0", ...) so the web side can
         # enroll and match voice profiles per displayed speaker.
         label_map = normalize_labels(turns)
@@ -172,6 +274,7 @@ def main() -> None:
             json.dumps(
                 {
                     "speakers": speakers,
+                    "pieces": pieces,
                     "embeddings": norm_embeddings,
                     "embeddingModel": backend.EMBEDDING_MODEL_ID,
                 },
