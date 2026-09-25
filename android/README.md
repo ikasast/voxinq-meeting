@@ -3,7 +3,8 @@
 The web app in a WebView, with a native recorder that keeps going with the screen off or another
 app in front. What it is for, and why it is shaped this way: [docs/android-app.md](../docs/android-app.md).
 
-This is the first milestone. Nothing is published yet, and the server has to run a version of
+Built so far: a recording that survives the screen, one that survives the network, and the notice
+at a booked meeting's time. Nothing is published yet, and the server has to run a version of
 Voxinq that includes the page's side of the recorder (`lib/stt/native.ts`); an older server
 records in the page, as a browser does.
 
@@ -50,7 +51,7 @@ With a debug build, `chrome://inspect` on the PC opens the page's DevTools.
 
 - Files the page builds itself — minutes and meeting exports, backups — do not download in the
   app yet. Use a browser for those.
-- Sharing an audio file to the app, and the notice at a booked meeting's time, are milestone 3.
+- Sharing an audio file to the app, and capturing another app's playback, are milestone 3.
 
 ## When the network goes
 
@@ -62,3 +63,19 @@ If the system kills the app mid-recording, what it owed stays on the phone. Open
 and it delivers it — the audio is appended to that meeting's recording and recognised, and the
 lines it had already recognised are saved. `files/pending/<meeting id>/` is where that lives;
 an empty directory means nothing is owed.
+
+## A meeting you booked
+
+When a meeting has a time, the phone says so at that time, with **Record** in the notice — which
+opens that meeting's recording page and starts it. It works with nothing open, and it needs no
+push service: the app sets an alarm for each meeting it knows about, within a day or so ahead,
+and checks with the server every quarter of an hour for anything new.
+
+What is late, and honestly: the notice can arrive a couple of minutes after the hour, because
+being exact to the second would mean asking for a permission. And a meeting booked minutes before
+it starts, while the phone is asleep, waits for the next check; anything booked earlier has an
+alarm of its own. A meeting already being recorded, or
+recorded from somewhere else, is not announced — the server is asked at the moment the alarm goes
+off, and it is the server's answer that decides.
+
+Turn it off in the phone's notification settings for the app, under **Meeting reminders**.

@@ -9,6 +9,8 @@
          only delivery. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- To set the meeting notices again: a reboot forgets every alarm the phone held. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!-- No backup: the app holds the session cookie for the user's server. -->
@@ -42,5 +44,22 @@
             android:name=".RecorderService"
             android:exported="false"
             android:foregroundServiceType="microphone|dataSync" />
+
+        <!-- The meeting notices. Not exported: what reaches it is this app's own alarms, so
+             nothing else on the phone can ask for a notice about a meeting id it invented. -->
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Both of these are broadcasts only the system can send, and both mean the alarms are
+             gone and have to be set again. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

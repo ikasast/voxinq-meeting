@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -22,9 +22,14 @@ const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
  *
  * Read by a poller on every page, so it is deliberately cheap: an indexed range on
  * `scheduledAt`, no joins, and at most a handful of rows.
+ *
+ * With `?soon=<minutes>` it also answers what is *coming*, for a caller that cannot poll every
+ * thirty seconds — the Android app, which sets a notice for each booked meeting's own time.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const now = Date.now();
+  // How far ahead to also report, in minutes. Absent — which is every browser — adds nothing.
+  const soonMinutes = Number(req.nextUrl.searchParams.get("soon") ?? 0);
   const rows = await prisma.meeting.findMany({
     where: {
       deletedAt: null,
@@ -37,11 +42,29 @@ export async function GET() {
     select: { id: true, title: true, scheduledAt: true },
   });
 
-  return NextResponse.json({
-    meetings: rows.map((m) => ({
-      id: m.id,
-      title: m.title,
-      scheduledAt: m.scheduledAt?.toISOString() ?? null,
-    })),
+  const soon =
+    Number.isFinite(soonMinutes) && soonMinutes > 0
+      ? await prisma.meeting.findMany({
+          where: {
+            deletedAt: null,
+            endedAt: null,
+            scheduledAt: {
+              gt: new Date(now),
+              lte: new Date(now + Math.min(soonMinutes, 7 * 24 * 60) * 60_000),
+            },
+            transcripts: { none: {} },
+          },
+          orderBy: { scheduledAt: "asc" },
+          take: 50,
+          select: { id: true, title: true, scheduledAt: true },
+        })
+      : [];
+
+  const shape = (m: { id: string; title: string; scheduledAt: Date | null }) => ({
+    id: m.id,
+    title: m.title,
+    scheduledAt: m.scheduledAt?.toISOString() ?? null,
   });
+
+  return NextResponse.json({ meetings: rows.map(shape), soon: soon.map(shape) });
 }

@@ -21,6 +21,12 @@
     <string name="status_saving">保存中…</string>
     <string name="action_stop">停止して終了</string>
 
+    <string name="channel_reminders">会議のリマインド</string>
+    <string name="channel_reminders_description">予約した会議の開始時刻に表示されます</string>
+    <string name="reminder_untitled">予約した会議</string>
+    <string name="reminder_text">会議の時間です（予約 %1$s）。</string>
+    <string name="reminder_record">録音</string>
+
     <string name="mic_permission_denied">録音にはマイクの許可が必要です。</string>
     <string name="another_recording">アプリで別の会議を録音中です。先に停止してください。</string>
     <string name="mic_failed">マイクを開始できません: %1$s</string>
