@@ -65,10 +65,9 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 
 **Updates install over the app**, keeping the server address and anything not yet sent — as long
 as the APK is signed with the same key. To be told when there is one, point an updater such as
-[Obtainium](https://github.com/ImranR98/Obtainium) at this repository's releases and let it watch;
-every 3.x release is a **pre-release** until 3.x ships properly, so turn its "include prereleases"
-setting on. There is no automatic silent update outside the Play Store: an updater notices the new
-version, and the install is still a tap.
+[Obtainium](https://github.com/ImranR98/Obtainium) at this repository's releases and let it watch.
+There is no automatic silent update outside the Play Store: an updater notices the new version, and
+the install is still a tap.
 
 **A debug build cannot be updated into a signed one** — different key, so Android refuses. Uninstall
 the debug app once (`adb uninstall io.github.ikasast.voxinq`), then install the signed APK.
