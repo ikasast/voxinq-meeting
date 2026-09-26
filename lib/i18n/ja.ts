@@ -95,6 +95,9 @@ export const ja: Record<string, string> = {
   "End only": "終了のみ",
   "View minutes": "議事録を見る",
   Diarize: "話者を分離",
+  "Speaker separation": "話者分離",
+  "Work out who spoke each line, and give them names":
+    "どの発言を誰が話したかを判定し、名前を付けます",
   "Recording screen": "録音画面",
   "Re-transcribe": "文字起こしをやり直す",
   Minutes: "議事録",
