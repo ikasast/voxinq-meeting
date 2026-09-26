@@ -30,6 +30,21 @@ export function ollamaBase(url: string): string | null {
 
 export type InstalledModel = { name: string; sizeMb: number };
 
+/**
+ * Roughly what a model occupies once loaded, from its file size.
+ *
+ * The file is the weights, quantised. Loaded, it also needs room for the context and the
+ * working buffers, which depend on the context length and are not in the file — so a fifth is
+ * added rather than pretending the file size is it. Checked once against the real thing: a
+ * 6.08 GiB file came to 7.3 by this and to 7.4 GB in `ollama ps`, at a context of 24576.
+ *
+ * The queue prices a minutes job with this, and the settings screen shows it, so the two
+ * cannot disagree about whether a model fits.
+ */
+export function loadedMb(fileMb: number): number {
+  return Math.round(fileMb * 1.2);
+}
+
 /** Installed models, or null when Ollama cannot be reached. */
 export async function listModels(base: string): Promise<InstalledModel[] | null> {
   try {

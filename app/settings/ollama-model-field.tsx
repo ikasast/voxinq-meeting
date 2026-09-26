@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
-import { findInstalled, sameModel, type InstalledModel } from "@/lib/llm/ollama-models";
+import { findInstalled, loadedMb, sameModel, type InstalledModel } from "@/lib/llm/ollama-models";
 
 // The Ollama model field, with what the Ollama at that address actually has.
 //
@@ -170,7 +170,11 @@ export function OllamaModelField({
   const name = model.trim();
   const hit = name ? findInstalled(installed, name) : null;
   // A fifth on top of the file for the context, as the queue prices it.
-  const tooBig = hit && budgetMb !== null && hit.sizeMb * 1.2 > budgetMb;
+  // What it occupies loaded, which is what the budget is about — not the file. Shown beside the
+  // file size, because a warning that compares a number it does not print reads as a mistake:
+  // "6.1 GB is larger than 7.0 GB" is what the first version of this said.
+  const need = hit ? loadedMb(hit.sizeMb) : 0;
+  const tooBig = hit && budgetMb !== null && need > budgetMb;
 
   return (
     <div>
@@ -222,13 +226,18 @@ export function OllamaModelField({
         ) : hit ? (
           <>
             <p className="text-[var(--accent-sub)]">
-              {t("Installed · {size}", { size: gb(hit.sizeMb, "mb") })}
+              {budgetMb !== null
+                ? t("Installed · {size} file, about {need} once loaded", {
+                    size: gb(hit.sizeMb, "mb"),
+                    need: gb(need, "mb"),
+                  })
+                : t("Installed · {size}", { size: gb(hit.sizeMb, "mb") })}
             </p>
             {tooBig ? (
               <p className="text-[var(--warning)]">
                 {t(
-                  "Larger than this machine's GPU budget ({budget}). It will run partly on the CPU, which is much slower.",
-                  { budget: gb(budgetMb!, "mb") },
+                  "Loaded, it needs about {need}, more than this machine's GPU budget of {budget}. Part of it will run on the CPU, which is much slower.",
+                  { need: gb(need, "mb"), budget: gb(budgetMb!, "mb") },
                 )}
               </p>
             ) : null}
