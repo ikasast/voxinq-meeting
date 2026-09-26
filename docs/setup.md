@@ -740,11 +740,18 @@ git tag -a v1.1.0 -m "v1.1.0" && git push origin v1.1.0
 git push origin 'v1.1.0^{}:refs/heads/release'   # the docs' download links follow this
 ```
 
-Then publish the GitHub release — **not** as a pre-release, or `latest` stays where it is:
+Then the Android app, which rides the same version: build it signed and attach it, so the release
+is the one place a phone can be updated from (`android/README.md` covers the key).
 
 ```bash
-gh release create v1.1.0 --title v1.1.0 --notes-file <file>
+cd android && ./gradlew assembleRelease
+gh release create v1.1.0 --title v1.1.0 --notes-file <file>   android/app/build/outputs/apk/release/app-release.apk
 ```
+
+**Publish it — not as a pre-release — or `latest` stays where it is.** A pre-release is the right
+shape while a line is not official yet: it still builds and pushes the images for its own tag, and
+gives the APK a download address, but it leaves `latest`, the Homebrew tap and the Scoop bucket
+alone. That is what every 3.x tag is, and `gh release create --prerelease` is how.
 
 Publishing is what builds and pushes the container images, and the only thing that moves
 `latest`, so nothing can be deployed from Docker until it has run. The **Publish images**
