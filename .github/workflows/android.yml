@@ -1,7 +1,9 @@
 # Build the Android app on every change to it, and keep the APK.
 #
-# Until the app is published, the artifact is how a debug build reaches a phone without Android
-# Studio. Release signing comes with distribution (docs/android-app.md).
+# The artifact is how a debug build reaches a phone without Android Studio. The *signed* APK is
+# not built here on purpose: the key would have to live in this repository's secrets, and it is
+# the one thing that cannot be replaced. It is built where it is kept, and attached to the
+# release (android/README.md).
 
 name: Android
 

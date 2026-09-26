@@ -16,15 +16,57 @@ In Android Studio, or from this directory with its JDK:
 ./gradlew assembleDebug testDebugUnitTest
 ```
 
-The APK is `app/build/outputs/apk/debug/app-debug.apk`.
+The APK is `app/build/outputs/apk/debug/app-debug.apk`. Its version is the project's — read from
+`package.json`, so `3.8.0` becomes `versionName 3.8.0` and `versionCode 30800`. One number to bump,
+and the phone can tell which build is newer.
 
-## Install
+## The signed build, and the key it needs
 
-With USB debugging on:
+A release build is signed with the app's own key, and **the key decides whether a later version can
+be installed over this one**. Android refuses an update signed by anything else, so:
+
+- **Back up the key.** It lives outside the working tree, in `~/.voxinq/android-signing/`:
+  `voxinq-release.jks` and `keystore.properties` beside it (the passwords are in that file). A
+  `git clean` cannot touch it there — and if it is lost, every future update has to be an
+  uninstall and a fresh install, which loses the server address and anything the phone had not
+  sent yet.
+- Another machine can point `VOXINQ_KEYSTORE_PROPERTIES` at its own copy, or drop a
+  `keystore.properties` in `android/` (git ignores it).
+- Without a key, `assembleRelease` **stops and says so** rather than handing over an APK that
+  cannot install over anything.
 
 ```bash
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleRelease
 ```
+
+`app/build/outputs/apk/release/app-release.apk`, signed. Making a key in the first place:
+
+```bash
+keytool -genkeypair -keystore ~/.voxinq/android-signing/voxinq-release.jks -alias voxinq -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then write `~/.voxinq/android-signing/keystore.properties` with `storeFile`, `storePassword`,
+`keyAlias` and `keyPassword`.
+
+## Install, and how updates arrive
+
+The signed APK of each version is attached to its
+[release](https://github.com/ikasast/voxinq-meeting/releases). Download it on the phone and open
+it, or with USB debugging on:
+
+```bash
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+**Updates install over the app**, keeping the server address and anything not yet sent — as long
+as the APK is signed with the same key. To be told when there is one, point an updater such as
+[Obtainium](https://github.com/ImranR98/Obtainium) at this repository's releases and let it watch;
+every 3.x release is a **pre-release** until 3.x ships properly, so turn its "include prereleases"
+setting on. There is no automatic silent update outside the Play Store: an updater notices the new
+version, and the install is still a tap.
+
+**A debug build cannot be updated into a signed one** — different key, so Android refuses. Uninstall
+the debug app once (`adb uninstall io.github.ikasast.voxinq`), then install the signed APK.
 
 On first launch the app asks for the server's address, the one you open Voxinq at in a browser,
 such as `https://your-pc.your-tailnet.ts.net`. The phone has to be able to reach it, over

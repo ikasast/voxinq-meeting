@@ -94,3 +94,8 @@ docs/screenshots/*.mp4
 
 # Local compose overrides (ports, extra services) — machine-specific, not shared
 docker-compose.override.yml
+# The Android signing key never goes in here. It lives in ~/.voxinq/android-signing/ (see
+# android/README.md); these lines are for anyone who puts a copy beside the build by mistake.
+android/keystore.properties
+*.jks
+*.keystore

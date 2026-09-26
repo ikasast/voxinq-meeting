@@ -237,13 +237,20 @@ if a use for live media capture turns up later.
 - **Dependencies**: AndroidX core, activity and webkit; OkHttp for the WebSocket and HTTP;
   kotlinx-coroutines. No Firebase, no analytics, nothing that talks to anything but the user's
   server.
-- **CI**: a debug APK built on every pull request that touches `android/`. Release signing comes
-  with distribution.
-- **Distribution**: the APK on GitHub Releases, at no cost. Google's developer verification for
-  apps installed outside Play starts in four countries on 30 September 2026 and reaches everywhere
-  else in 2027; before then nothing changes, and after it the free limited-distribution account
-  (up to twenty devices, no fee, no ID) or Android's advanced install flow cover a small team. The
-  Play Store's one-off fee is not needed.
+- **CI**: a debug APK built on every pull request that touches `android/`. Signing is deliberately
+  not in CI: the key would have to be kept in this repository's secrets, and it is the one thing
+  that cannot be replaced — an update signed by anything else is refused by Android. It stays on
+  the machine that cuts releases, in `~/.voxinq/android-signing/`.
+- **Version**: the project's, read from `package.json` at build time, so `3.8.0` is `versionName
+  3.8.0` and `versionCode 30800`. One number to bump.
+- **Distribution**: the signed APK attached to the release, at no cost, and the release is what an
+  updater watches — [Obtainium](https://github.com/ImranR98/Obtainium) or anything else that
+  follows a repository's releases, with pre-releases included while 3.x is still cut that way.
+  **There is no silent auto-update outside the Play Store**; what this gives is being told, and one
+  tap. Google's developer verification for apps installed outside Play starts in four countries on
+  30 September 2026 and reaches everywhere else in 2027; before then nothing changes, and after it
+  the free limited-distribution account (up to twenty devices, no fee, no ID) or Android's advanced
+  install flow cover a small team. The Play Store's one-off fee is not needed.
 
 ## Milestones
 
