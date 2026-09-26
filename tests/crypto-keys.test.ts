@@ -4,7 +4,6 @@ import {
   newRecoveryCode,
   newSalt,
   normaliseRecoveryCode,
-  sameKey,
   unwrapKey,
   wrapKey,
   wrappingKey,
@@ -21,7 +20,7 @@ describe("wrapping a key", () => {
     const blob = wrapKey(master, await wrappingKey("a good long password", salt));
     const out = unwrapKey(blob, await wrappingKey("a good long password", salt));
     expect(out).not.toBeNull();
-    expect(sameKey(out!, master)).toBe(true);
+    expect(out!.equals(master)).toBe(true);
   });
 
   it("does not come out with the wrong one", async () => {
@@ -71,7 +70,7 @@ describe("wrapping a key", () => {
     const byCode = wrapKey(master, await wrappingKey(normaliseRecoveryCode(code), salt));
     const a = unwrapKey(byPassword, await wrappingKey("pw", salt))!;
     const b = unwrapKey(byCode, await wrappingKey(normaliseRecoveryCode(code), salt))!;
-    expect(sameKey(a, b)).toBe(true);
+    expect(a.equals(b)).toBe(true);
   });
 });
 

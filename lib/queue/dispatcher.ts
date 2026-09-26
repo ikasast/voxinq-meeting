@@ -48,10 +48,6 @@ export function abortJob(id: string): boolean {
   return true;
 }
 
-export function isRunning(): boolean {
-  return timer !== null;
-}
-
 export async function startDispatcher(): Promise<void> {
   if (timer) return;
   const recovered = await asSystem("restart recovery spans every account's queue", () =>
@@ -64,11 +60,6 @@ export async function startDispatcher(): Promise<void> {
   if (recovered > 0) console.log(`[queue] ${recovered} interrupted job(s) put back in the queue`);
   timer = setInterval(() => void tick(), TICK_MS);
   void tick();
-}
-
-export function stopDispatcher(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
 }
 
 /**

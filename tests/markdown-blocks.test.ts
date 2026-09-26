@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { blockText, parseInline, parseMarkdownBlocks } from "../lib/markdown-blocks";
+import { type Block, parseInline, parseMarkdownBlocks } from "../lib/markdown-blocks";
+
+/** A block's words, for asserting on. Here rather than in the library, which never needed it. */
+const blockText = (b: Block): string => ("spans" in b ? b.spans.map((s) => s.text).join("") : "");
 
 describe("parseInline", () => {
   it("reads bold, italic and code", () => {

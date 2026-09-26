@@ -5,7 +5,6 @@ import {
   WrongPasswordError,
   decryptContainer,
   encryptContainer,
-  isBackupFile,
 } from "../lib/backup/container";
 
 const PAYLOAD = Buffer.from("meeting minutes, an api key, and a WAV or two", "utf8");
@@ -80,9 +79,12 @@ describe("backup container", () => {
     expect(file.includes(Buffer.from("sk-ant-secret-key-value"))).toBe(false);
   });
 
-  it("recognizes its own files without a password", async () => {
-    expect(isBackupFile(await encryptContainer(PAYLOAD, "pw"))).toBe(true);
-    expect(isBackupFile(Buffer.from("PK a zip file"))).toBe(false);
+  it("refuses a file that is not one of its own", async () => {
+    // Told apart by its header, before the password is even considered: a zip handed to the
+    // import screen should be told it is a zip, not that the password is wrong.
+    await expect(decryptContainer(Buffer.from("PK a zip file"), "pw")).rejects.toThrow(
+      BadFormatError,
+    );
   });
 
   it("requires a password to encrypt", async () => {

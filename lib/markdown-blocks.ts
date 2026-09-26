@@ -154,7 +154,3 @@ export function parseMarkdownBlocks(md: string): Block[] {
   return blocks;
 }
 
-/** Flatten spans back to plain text — for alt text, previews and tests. */
-export function blockText(block: Block): string {
-  return "spans" in block ? block.spans.map((s) => s.text).join("") : "";
-}

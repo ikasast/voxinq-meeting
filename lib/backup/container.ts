@@ -155,7 +155,3 @@ export async function decryptContainer(file: Buffer, password: string): Promise<
   }
 }
 
-/** Whether a file looks like one of ours, without needing the password. */
-export function isBackupFile(file: Buffer): boolean {
-  return file.length >= HEADER_LEN + TAG_LEN && file.subarray(0, 6).equals(MAGIC);
-}

@@ -1,8 +1,8 @@
 import { ollamaContextBudget } from "./context";
 import { addOllamaUsage, type ChatArgs, type ChatProvider, type LlmConfig } from "./types";
 
-// Default on-prem provider. Calls a local Ollama.
-// Defaults to a Japanese model that fits in 8GB VRAM (qwen2.5:7b-instruct ≈4.7GB).
+// Default on-prem provider. Calls a local Ollama. Which model is a setting; what it costs to
+// hold is worked out from the model itself (lib/llm/ollama-models.ts).
 export const ollamaProvider: ChatProvider = {
   name: "ollama",
   async chat(

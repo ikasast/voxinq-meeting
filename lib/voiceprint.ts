@@ -5,10 +5,7 @@
 // Two embeddings from different models are not comparable even when they are the same length —
 // see lib/embedding-models.ts, which is where that lesson and the per-model thresholds live.
 
-import { LEGACY_EMBEDDING_MODEL, comparable, thresholdFor } from "./embedding-models";
-
-/** Kept for callers that predate per-model thresholds; prefer thresholdFor(modelId). */
-export const VOICEPRINT_MATCH_THRESHOLD = thresholdFor(LEGACY_EMBEDDING_MODEL);
+import { comparable, thresholdFor } from "./embedding-models";
 
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return -1;

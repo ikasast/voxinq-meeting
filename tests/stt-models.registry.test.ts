@@ -8,7 +8,6 @@ import {
   modelSizeGuide,
   refusesGlossary,
   whisperModel,
-  whisperModelLabel,
 } from "../lib/stt/models";
 
 describe("the registry describes each model rather than just naming it", () => {
@@ -46,10 +45,6 @@ describe("model lookup", () => {
     expect(isKnownWhisperModel("some/custom-model")).toBe(false);
   });
 
-  it("falls back to the raw value as a label for a model typed in by hand", () => {
-    expect(whisperModelLabel("some/custom-model")).toBe("some/custom-model");
-    expect(whisperModelLabel("large-v3")).toContain("large-v3");
-  });
 
   it("returns nothing for an absent or unknown value", () => {
     expect(whisperModel(undefined)).toBeUndefined();

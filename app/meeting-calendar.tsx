@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { type DayCell, type MonthRef, buildGrid } from "@/lib/calendar-month";
+import { type DayCell, type MonthRef, buildGrid, monthKey, shiftMonth } from "@/lib/calendar-month";
 import { monthLabelIn, weekdaysIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 
@@ -28,10 +28,7 @@ export async function MeetingCalendar({
   const t = await serverT();
   const locale = await currentLocale();
   const weeks = buildGrid(month);
-  const step = (delta: number) => {
-    const d = new Date(month.year, month.month - 1 + delta, 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  };
+  const step = (delta: number) => monthKey(shiftMonth(month, delta));
   const todayMonth = `${today.slice(0, 7)}`;
 
   return (

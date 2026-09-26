@@ -1039,7 +1039,6 @@ export const ja: Record<string, string> = {
     "以降はホーム画面から、ブラウザのバー無しで開けます。中身は同じアプリで、同じ機器と通信します。動かすために何かが新しく入るわけではなく、その機器が動いている必要も変わりません。",
   "Don’t show again": "今後表示しない",
   "Got it": "わかりました",
-  "Queue — {n} of yours waiting or running": "順番待ち — 自分の処理が {n} 件（待機中または実行中）",
 
   // ---- Names and tooltips the runtime sweep turned up ----
   "Remove {name}": "{name} を削除",

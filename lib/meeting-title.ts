@@ -33,10 +33,6 @@ export type TitleFormatId = (typeof TITLE_FORMATS)[number]["id"];
 /** What an instance that has never been asked uses. Where this app started, so nobody's titles change under them. */
 export const DEFAULT_TITLE_FORMAT: TitleFormatId = "compact";
 
-export function isTitleFormat(v: unknown): v is TitleFormatId {
-  return typeof v === "string" && TITLE_FORMATS.some((f) => f.id === v);
-}
-
 /**
  * The title a meeting gets when nobody types one.
  *

@@ -55,10 +55,6 @@ export function whisperModel(value?: string): WhisperModel | undefined {
   return value ? WHISPER_MODELS.find((m) => m.value === value) : undefined;
 }
 
-export function whisperModelLabel(value: string): string {
-  return whisperModel(value)?.label ?? value;
-}
-
 export function isKnownWhisperModel(value: string): boolean {
   return Boolean(whisperModel(value));
 }
