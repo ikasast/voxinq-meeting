@@ -693,8 +693,8 @@ Two branches, with different jobs:
   published tarball, both produced by publishing the release.
 - **`release`** — **the current stable release**, and what the documentation's download links
   point at. `docker-compose.yml`, `docker-compose.cpu.yml` and `.env.example` are fetched from
-  `raw.githubusercontent.com/…/release/…` in seventeen places across the two READMEs, and the
-  app's own link to this guide uses `blob/release`. It has to mean the release it says it does,
+  `raw.githubusercontent.com/…/release/…` — nine times across the two READMEs and seven in this
+  guide — and the app's own link to this guide uses `blob/release`. It has to mean the release it says it does,
   so **moving it is part of cutting one** (below). It no longer builds anything — that was the
   redeploy scripts, and they are legacy — but a reader downloading a compose file from it is
   not.
