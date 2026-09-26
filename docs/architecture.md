@@ -142,11 +142,14 @@ browser drives, which is why closing a tab no longer abandons a run.
 - **Claiming** — `lib/queue/queue.ts` takes the next job with `FOR UPDATE SKIP LOCKED`, so two
   processes cannot claim the same one. A job is admitted when its estimated VRAM plus what is
   already running fits the budget; a job larger than the whole budget runs alone rather than
-  never.
+  never. **Minutes run one at a time** regardless: they all go to one model, which answers one
+  request at a time and leaves the rest without a reply until the HTTP client gives up on them.
 - **Pricing** — `lib/queue/capacity.ts` estimates each job when it is queued. An Ollama model
   is costed by asking Ollama, plus a fifth for context. Work sent to a cloud model or a remote
   endpoint costs **zero**; a whisper server on *this* machine is costed as the local model,
-  because "over HTTP" does not mean "somewhere else".
+  because "over HTTP" does not mean "somewhere else". A host name with no dots counts as this
+  machine, since that is what a Compose service is called — the bundled Ollama is
+  `http://ollama:11434`.
 - **Budget** — `vramBudgetMb` when set, otherwise the card's total (from `nvidia-smi`, reported
   on `/health`) less 1 GB of headroom, or 4 GB where there is no NVIDIA card.
 - **Dispatching** — `lib/queue/dispatcher.ts` ticks every 2 s from `instrumentation.ts`, and

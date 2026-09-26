@@ -63,17 +63,29 @@ export async function budgetMb(): Promise<number> {
   return Math.max(1024, vramTotalMb - HEADROOM_MB);
 }
 
-/** Is this address on this machine? A local Ollama competes for the card; a remote one does not. */
+/**
+ * Is this address on this machine? A local Ollama competes for the card; a remote one does not.
+ *
+ * A name with no dots counts as this machine. That is what a Compose service is called, and the
+ * bundled Ollama is one: `http://ollama:11434`. It used to read as somewhere else, so every set of
+ * minutes was priced at zero -- none of them waited for a recording or a transcription, and a
+ * list's worth sent at once all started together, queued up inside Ollama, and ran out of time
+ * waiting for a first byte. A dotless name that really is another machine only costs a wait.
+ */
 export function isLocalUrl(url: string): boolean {
   try {
-    const h = new URL(url).hostname;
+    // IPv6 comes back in brackets: `[::1]`.
+    const h = new URL(url).hostname.replace(/^\[|\]$/g, "");
     return (
       h === "localhost" ||
+      h.endsWith(".localhost") ||
       h === "127.0.0.1" ||
       h === "::1" ||
       h === "0.0.0.0" ||
       h === "host.docker.internal" ||
-      h.endsWith(".local")
+      h.endsWith(".local") ||
+      // One label: a Compose service or a container. (Not an IPv6 address, which has colons.)
+      (h !== "" && !h.includes(".") && !h.includes(":"))
     );
   } catch {
     return false;

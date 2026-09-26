@@ -96,8 +96,9 @@ describe.skipIf(!ENABLED)("the queue", () => {
   });
 
   sysIt("stops at the capacity it is given", async () => {
-    const a = await job({ kind: "minutes", vramMb: SLOT });
-    await job({ kind: "minutes", vramMb: SLOT });
+    // Not minutes: two of those never run together, whatever the room (below).
+    const a = await job({ kind: "diarize", vramMb: SLOT });
+    await job({ kind: "diarize", vramMb: SLOT });
     expect((await claimNext(ONE_SLOT))?.id).toBe(a);
     // One is running, so a second may not start — this is the whole of the GPU rule today.
     expect(await claimNext(ONE_SLOT)).toBeNull();
@@ -117,10 +118,26 @@ describe.skipIf(!ENABLED)("the queue", () => {
 
   sysIt("counts a run against capacity even when it was started by someone else", async () => {
     // A row left `running` — by another process, or by this one before a crash.
-    const stuck = await job({ kind: "minutes", vramMb: SLOT });
+    const stuck = await job({ kind: "diarize", vramMb: SLOT });
     await prisma.job.update({ where: { id: stuck }, data: { status: "running" } });
-    await job({ kind: "minutes", vramMb: SLOT });
+    await job({ kind: "diarize", vramMb: SLOT });
     expect(await claimNext(ONE_SLOT)).toBeNull();
+  });
+
+  sysIt("writes one set of minutes at a time, however much room there is", async () => {
+    // Priced at nothing, as a cloud model's are -- and as the bundled Ollama's were, which is
+    // how a list's worth started together and timed out waiting inside the one model.
+    const a = await job({ kind: "minutes", vramMb: 0, params: { tag: "a" } });
+    const b = await job({ kind: "minutes", vramMb: 0, params: { tag: "b" } });
+    expect((await claimNext(BUDGET))?.id).toBe(a);
+    // The second waits for the first...
+    const other = await job({ kind: "transcribe", vramMb: 0 });
+    // ...without holding up work of another kind behind it.
+    expect((await claimNext(BUDGET))?.id, "other work should step past the waiting minutes").toBe(other);
+    expect(await claimNext(BUDGET)).toBeNull();
+    await finish(a, "done");
+    expect((await claimNext(BUDGET))?.id).toBe(b);
+    await prisma.job.updateMany({ where: { id: { in: made } }, data: { status: "done" } });
   });
 
   sysIt("starts free work beside a job that is holding the card", async () => {

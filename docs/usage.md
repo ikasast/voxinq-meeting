@@ -372,7 +372,8 @@ the server, not in the browser.
   result is discarded. Voxinq says so rather than letting it look instant.
 - **off-GPU** in a row means the work happens somewhere else — recognition sent to an endpoint,
   minutes written by a cloud model. It costs no video memory here and never waits for the card,
-  so it can run beside anything.
+  so it can run beside anything. Minutes are still written **one meeting at a time**, wherever
+  the model is.
 
 How many run at once depends on what they expect to need and what the card has, not on a count.
 See [`vramBudgetMb`](configuration.md#settingsjson) for the budget and how it is worked out.

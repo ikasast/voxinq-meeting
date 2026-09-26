@@ -237,6 +237,7 @@ the household are different acts.
   memory. It is a scheduling figure, not a cap on any one job — something larger than the whole
   budget still runs, on its own, because the alternative is a queue that silently never moves.
   Work sent to an endpoint or a cloud model is priced at zero and never waits for the card.
+  Minutes are written one meeting at a time whatever the budget, because they share one model.
 - `sttProfiles` — saved recognition endpoints, one object each:
   `{ id, name, kind: "openai" | "gemini", baseUrl, model, apiKey }`. Edited in the UI; the keys
   never reach the browser. Empty (the default) means recognition only happens here.
