@@ -19,6 +19,31 @@ export type SttJobStatus = {
   [k: string]: unknown;
 };
 
+/**
+ * What the STT service says it runs on, for a job's record: the recogniser, the device, and
+ * the diarization backend. Empty when it cannot be asked — a missing figure is not a reason to
+ * fail the work it would have described.
+ */
+export async function sttRuntime(): Promise<{
+  backend?: string;
+  device?: string;
+  diarizationBackend?: string;
+}> {
+  try {
+    const res = await fetch(`${sttInternalUrl()}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return {};
+    const d = (await res.json()) as Record<string, unknown>;
+    const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+    return {
+      backend: str(d.backend),
+      device: str(d.device),
+      diarizationBackend: str(d.diarizationBackend),
+    };
+  } catch {
+    return {};
+  }
+}
+
 export async function sttPost(path: string, body?: unknown): Promise<SttJobStatus> {
   const res = await fetch(`${sttInternalUrl()}${path}`, {
     method: "POST",

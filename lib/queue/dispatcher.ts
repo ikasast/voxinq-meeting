@@ -162,12 +162,12 @@ async function run(job: {
         // An abort is not a failure of the job: it was stopped on purpose, and the meeting
         // already carries the reason. It does not go back in the queue on its own — whoever
         // stopped it decides whether it should run again.
-        await finish(job.id, r.aborted ? "cancelled" : r.reason ? "error" : "done", r.reason);
+        await finish(job.id, r.aborted ? "cancelled" : r.reason ? "error" : "done", r.reason, r.metrics);
         return;
       }
       case "transcribe": {
         const r = await runTranscribe(job, signals.get(job.id)?.signal);
-        await finish(job.id, "done", r.note);
+        await finish(job.id, "done", r.note, r.metrics);
         return;
       }
       case "encrypt": {
@@ -177,7 +177,7 @@ async function run(job: {
       }
       case "diarize": {
         const r = await runDiarize(job, signals.get(job.id)?.signal);
-        await finish(job.id, "done", r.note);
+        await finish(job.id, "done", r.note, r.metrics);
         return;
       }
       default:

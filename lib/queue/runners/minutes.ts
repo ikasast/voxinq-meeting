@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { requestSummary } from "@/lib/llm";
+import { loadedModel } from "@/lib/llm/ollama-models";
+import { emptyUsage } from "@/lib/llm/types";
 import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { resolveTemplate } from "@/lib/minutes-templates";
 import { getLlmConfig, readSettings } from "@/lib/settings";
 import { parseSpeakerLabels } from "@/lib/speakers";
+import type { JobMetrics } from "../metrics";
 import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
 
 // Writing the minutes, as a queued job.
@@ -72,6 +75,38 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
     }
   }
 
+  // Which provider and model will write it — mirrors how requestSummary resolves them: a valid
+  // override wins, otherwise the saved setting. Worked out before the run so that a failure
+  // records it too.
+  const cfg = await getLlmConfig();
+  const effProvider =
+    provider && ["ollama", "anthropic", "openai"].includes(provider)
+      ? (provider as typeof cfg.provider)
+      : cfg.provider;
+  const effModel =
+    effProvider === "ollama"
+      ? cfg.ollamaModel
+      : effProvider === "anthropic"
+        ? cfg.anthropicModel
+        : cfg.openaiModel;
+  const usage = emptyUsage();
+  // What the run cost, read back after it: the calls' own figures, and — for a local model —
+  // how much of it Ollama managed to hold on the GPU, which is the difference between a set of
+  // minutes that takes two minutes and one that takes twenty.
+  const measure = async (): Promise<JobMetrics> => {
+    const m: JobMetrics = { provider: effProvider, model: effModel };
+    if (usage.calls > 0) Object.assign(m, usage);
+    if (effProvider === "ollama") {
+      const held = await loadedModel(cfg.ollamaBaseUrl.replace(/\/+$/, ""), effModel);
+      if (held) {
+        m.loadedMb = held.sizeMb;
+        m.gpuMb = held.vramMb;
+        if (held.contextLength) m.numCtx = held.contextLength;
+      }
+    }
+    return m;
+  };
+
   const ac = beginGeneration(meetingId);
   try {
     const settings = await readSettings();
@@ -89,23 +124,10 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
           defaultId: settings.defaultMinutesTemplateId,
         }),
         previousMinutes,
+        usage,
       },
       ac.signal,
     );
-
-    // Which provider and model actually wrote it — mirrors how requestSummary resolves them:
-    // a valid override wins, otherwise the saved setting.
-    const cfg = await getLlmConfig();
-    const effProvider =
-      provider && ["ollama", "anthropic", "openai"].includes(provider)
-        ? (provider as typeof cfg.provider)
-        : cfg.provider;
-    const effModel =
-      effProvider === "ollama"
-        ? cfg.ollamaModel
-        : effProvider === "anthropic"
-          ? cfg.anthropicModel
-          : cfg.openaiModel;
 
     await prisma.meetingSummary.create({
       data: { meetingId, summaryText, provider: effProvider, model: effModel },
@@ -113,7 +135,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
     await prisma.meeting.update({ where: { id: meetingId }, data: { summaryStatus: "done" } });
     // Minutes are searched too, so the index has to include them.
     await reindexAfterWrite(meetingId);
-    return { aborted: false as const };
+    return { aborted: false as const, metrics: await measure() };
   } catch (e) {
     const aborted = ac.signal.aborted || (e instanceof Error && e.name === "AbortError");
     // Aborted on purpose — to free the GPU for a recording. Say that rather than "AbortError",
@@ -126,7 +148,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
         data: { summaryStatus: "error", summaryError: reason },
       })
       .catch(() => {});
-    return { aborted, reason };
+    return { aborted, reason, metrics: await measure() };
   } finally {
     endGeneration(meetingId, ac);
   }

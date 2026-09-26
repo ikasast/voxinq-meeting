@@ -14,7 +14,8 @@ import {
   withCurrentText,
 } from "@/lib/meetings/split";
 import { parseParams } from "../types";
-import { sttPost, sttWait } from "./stt-job";
+import type { JobMetrics } from "../metrics";
+import { sttPost, sttRuntime, sttWait } from "./stt-job";
 
 // Telling the speakers apart, as a queued job.
 //
@@ -63,6 +64,7 @@ export async function runDiarize(job: { meetingId: string | null; params: string
     spans ? { utterances: spans } : undefined,
   );
   const result = await sttWait(`/diarize/${encodeURIComponent(meetingId)}/status`, signal);
+  const runtime = await sttRuntime();
 
   if (result.status === "error") throw new Error(String(result.detail ?? "diarization failed"));
   const speakers = result.speakers;
@@ -125,7 +127,14 @@ export async function runDiarize(job: { meetingId: string | null; params: string
       : undefined;
   const note = [trouble, divisions].filter(Boolean).join(" ") || undefined;
 
-  return { note };
+  // pyannote runs on the service's device; sherpa-onnx always on the CPU.
+  const metrics: JobMetrics = {
+    backend: runtime.diarizationBackend,
+    device: runtime.diarizationBackend === "sherpa" ? "cpu" : runtime.device,
+    speakers: distinct,
+    divided: divided.split,
+  };
+  return { note, metrics };
 }
 
 /** Ask the service to stop a run. Only diarization can actually be stopped mid-flight. */

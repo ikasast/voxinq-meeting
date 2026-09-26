@@ -387,6 +387,22 @@ See [`vramBudgetMb`](configuration.md#settingsjson) for the budget and how it is
 A live recording holds the card too, and appears in the queue while it lasts — which is what
 stops a five-gigabyte job starting underneath a meeting in progress.
 
+**History**, below the queue, is what already ran — for the question "why was that one slow".
+Each row gives the meeting's length, how long the work waited and took, and what it ran on:
+
+- **Minutes:** the model; **how much of it Ollama held on the GPU**, measured when the job ended
+  (shown as *GPU 84% / CPU 16%* when part of it ran on the CPU, which is almost always why a set
+  of minutes took twenty minutes instead of two); tokens in and out, and tokens per second; the
+  model's load time; and *N passes* when a long meeting was condensed before it was written.
+- **Speaker separation:** the backend (pyannote or sherpa-onnx), GPU or CPU, the speakers found,
+  and how many lines were divided between two speakers.
+- **Re-transcription:** the model, and the endpoint when it ran somewhere else.
+
+A failed row shows why. You see your own history; an administrator sees the whole machine's,
+with other people's rows as the queue shows them — a kind of work, a person and the figures,
+never which meeting or what went wrong with it. Jobs from before this was recorded show only
+their times.
+
 **On a server with accounts, the queue is everybody's**, and it is the one place that is. There
 is one card, and "why has mine not started" cannot be answered by a list with other people's work
 missing from it. So somebody else's row shows **whose it is** — their picture and display name —

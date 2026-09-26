@@ -14,7 +14,7 @@ import { anthropicProvider } from "./anthropic";
 import { ollamaProvider } from "./ollama";
 import { openaiProvider } from "./openai";
 import { CONTEXT_BUDGET, ollamaContextBudget } from "./context";
-import type { ChatProvider, LlmConfig, LlmProviderName } from "./types";
+import type { ChatProvider, ChatUsage, LlmConfig, LlmProviderName } from "./types";
 
 // Budgets live in provider.ts; see the note there on why the Ollama one is a VRAM figure.
 
@@ -226,6 +226,8 @@ export async function requestSummary(
     format?: string;
     // Previous meeting's minutes when this meeting belongs to a series (reference-only).
     previousMinutes?: { title: string; date: string; text: string };
+    // Filled in with what the calls cost, for the job's record. Condensing counts too.
+    usage?: ChatUsage;
   },
   // Abort the whole generation (all LLM calls) — used to free the GPU for a recording.
   signal?: AbortSignal,
@@ -259,6 +261,7 @@ export async function requestSummary(
     cfg.provider = opts.provider as LlmProviderName;
   }
 
+  if (opts?.usage) cfg.usage = opts.usage;
   const provider = providerFor(cfg.provider);
   const maxTokens = DETAIL_MAX_TOKENS[detail] ?? DETAIL_MAX_TOKENS.standard;
 

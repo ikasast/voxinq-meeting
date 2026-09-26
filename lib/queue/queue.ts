@@ -1,6 +1,8 @@
 import { asSystem } from "@/lib/db/scope";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { estimateVramMb } from "./capacity";
+import type { JobMetrics } from "./metrics";
 import {
   type JobKind,
   type JobStatus,
@@ -125,10 +127,18 @@ export async function finish(
   id: string,
   status: Extract<JobStatus, "done" | "error" | "cancelled">,
   detail?: string,
+  metrics?: JobMetrics,
 ): Promise<void> {
   await prisma.job.update({
     where: { id },
-    data: { status, detail: detail?.slice(0, 500) ?? null, finishedAt: new Date() },
+    data: {
+      status,
+      detail: detail?.slice(0, 500) ?? null,
+      finishedAt: new Date(),
+      // Only when the run said something: a stop from the queue screen reports nothing, and
+      // must not wipe what the runner had already written for the same job.
+      ...(metrics ? { metrics: metrics as Prisma.InputJsonValue } : {}),
+    },
   });
 }
 
@@ -187,6 +197,77 @@ export async function openJobsAcrossUsers(viewerId: string | null) {
       title: mine ? (j.meeting?.title ?? null) : null,
       owner: owner
         ? { username: owner.username, name: owner.name, hasImage: owner.image !== null }
+        : null,
+    };
+  });
+}
+
+/** Kinds whose runs are worth looking back on. Recording holds and key work are not. */
+const HISTORY_KINDS = ["minutes", "diarize", "transcribe"];
+
+/**
+ * Finished work, newest first, for the queue screen's history: how long each piece took, on
+ * what, and whether the model fitted on the card.
+ *
+ * Narrower than the live queue on purpose. That one shows everybody's rows because "why has
+ * mine not started" needs them; looking back needs only your own. An administrator also sees
+ * everybody's, because the machine is theirs to tune — but as the live queue shows them: a kind,
+ * a person and the figures, never which meeting, how long it was, or what went wrong with it.
+ *
+ * With no accounts at all, every job is the one person's.
+ */
+export async function recentJobsAcrossUsers(
+  viewer: { id: string; isAdmin: boolean } | null,
+  limit = 40,
+) {
+  const rows = await asSystem("the queue's history explains what the shared GPU did", () =>
+    prisma.job.findMany({
+      where: {
+        status: { in: ["done", "error", "cancelled"] },
+        kind: { in: HISTORY_KINDS },
+        finishedAt: { not: null },
+        // Somebody who is not an administrator sees their own and nothing else.
+        ...(viewer && !viewer.isAdmin ? { ownerId: viewer.id } : {}),
+      },
+      orderBy: { finishedAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        kind: true,
+        status: true,
+        detail: true,
+        createdAt: true,
+        startedAt: true,
+        finishedAt: true,
+        metrics: true,
+        meetingId: true,
+        ownerId: true,
+        owner: { select: { username: true, name: true, image: true } },
+        meeting: { select: { title: true, recordedMs: true, startedAt: true, endedAt: true } },
+      },
+    }),
+  );
+
+  return rows.map((j) => {
+    const mine = viewer ? j.ownerId === viewer.id : j.ownerId === null;
+    const m = j.meeting;
+    const meetingMs =
+      m?.recordedMs ?? (m?.endedAt && m.startedAt ? m.endedAt.getTime() - m.startedAt.getTime() : null);
+    return {
+      id: j.id,
+      kind: j.kind,
+      status: j.status,
+      createdAt: j.createdAt,
+      startedAt: j.startedAt,
+      finishedAt: j.finishedAt,
+      metrics: (j.metrics ?? null) as JobMetrics | null,
+      mine,
+      meetingId: mine ? j.meetingId : null,
+      title: mine ? (m?.title ?? null) : null,
+      meetingMs: mine ? meetingMs : null,
+      detail: mine ? j.detail : null,
+      owner: j.owner
+        ? { username: j.owner.username, name: j.owner.name, hasImage: j.owner.image !== null }
         : null,
     };
   });

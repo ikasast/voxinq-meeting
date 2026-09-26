@@ -21,6 +21,51 @@ export interface LlmConfig {
    * cannot disagree -- which is exactly what happened when it was hardcoded in both places.
    */
   ollamaNumCtx?: number;
+  /**
+   * Where the calls made under this config add up what they cost, when the caller wants to know.
+   * On the config rather than on each call's arguments because a set of minutes can be several
+   * calls — condensing a long meeting first, then writing — and every one of them is handed the
+   * same config.
+   */
+  usage?: ChatUsage;
+}
+
+/** What a run of LLM calls cost, summed over the calls. Durations in milliseconds. */
+export interface ChatUsage {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  /** Reading the prompt (Ollama `prompt_eval_duration`). */
+  promptMs: number;
+  /** Writing the answer (Ollama `eval_duration`) — what tokens per second is measured over. */
+  generateMs: number;
+  /** Loading the model before the first call could start (Ollama `load_duration`). */
+  loadMs: number;
+  /** The largest context window asked for, in tokens. */
+  numCtx: number;
+}
+
+export function emptyUsage(): ChatUsage {
+  return { calls: 0, inputTokens: 0, outputTokens: 0, promptMs: 0, generateMs: 0, loadMs: 0, numCtx: 0 };
+}
+
+/** Fold Ollama's closing line of a streamed chat into the running totals. */
+export function addOllamaUsage(
+  usage: ChatUsage,
+  last: {
+    prompt_eval_count?: number;
+    eval_count?: number;
+    prompt_eval_duration?: number;
+    eval_duration?: number;
+    load_duration?: number;
+  },
+): void {
+  const ms = (ns?: number) => (typeof ns === "number" ? ns / 1e6 : 0);
+  usage.inputTokens += last.prompt_eval_count ?? 0;
+  usage.outputTokens += last.eval_count ?? 0;
+  usage.promptMs += ms(last.prompt_eval_duration);
+  usage.generateMs += ms(last.eval_duration);
+  usage.loadMs += ms(last.load_duration);
 }
 
 export interface ChatArgs {
