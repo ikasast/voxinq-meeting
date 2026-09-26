@@ -1,7 +1,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { asSystem } from "../lib/db/scope";
 import { prisma } from "../lib/prisma";
-import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "../lib/queue/queue";
+import {
+  claimNext,
+  enqueue,
+  finish,
+  openJobFor,
+  recoverInterrupted,
+  releaseAbandonedMinutes,
+} from "../lib/queue/queue";
 import { reorderQueue } from "../lib/queue/reorder";
 import {
   gpuContenders,
@@ -224,6 +231,52 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await reorderQueue(["a-job-that-finished-while-you-dragged", a]);
     expect((await prisma.job.findUniqueOrThrow({ where: { id: a } })).position).toBe(1);
     await finish(a, "done");
+  });
+
+  sysIt("frees a meeting whose minutes job was taken out of the queue", async () => {
+    // How 16 meetings got stuck: `summaryStatus` is written when the work is queued and only
+    // the runner clears it, so stopping a job that had not started left the meeting saying its
+    // minutes were on the way — and that is the state "Write them all" skips.
+    const meeting = await prisma.meeting.create({
+      data: { title: "queue test", startedAt: new Date(), summaryStatus: "processing" },
+      select: { id: true },
+    });
+    try {
+      const id = await job({ kind: "minutes", meetingId: meeting.id });
+      // While the job is there, the meeting is left alone: it really is waiting its turn.
+      expect(await releaseAbandonedMinutes()).toBe(0);
+      expect(
+        (await prisma.meeting.findUniqueOrThrow({ where: { id: meeting.id } })).summaryStatus,
+      ).toBe("processing");
+
+      await finish(id, "cancelled", "Stopped.");
+      expect(await releaseAbandonedMinutes()).toBeGreaterThanOrEqual(1);
+      const after = await prisma.meeting.findUniqueOrThrow({ where: { id: meeting.id } });
+      expect(after.summaryStatus).toBe("error");
+      // The reason matters: it is what the screen shows, and what says it can be asked for again.
+      expect(after.summaryError).toMatch(/stopped/i);
+
+      // Nothing left to do on a second pass.
+      expect(await releaseAbandonedMinutes()).toBe(0);
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: meeting.id } });
+      await prisma.meeting.delete({ where: { id: meeting.id } });
+    }
+  });
+
+  sysIt("leaves a meeting alone when its minutes are still running", async () => {
+    const meeting = await prisma.meeting.create({
+      data: { title: "queue test", startedAt: new Date(), summaryStatus: "processing" },
+      select: { id: true },
+    });
+    try {
+      const id = await job({ kind: "minutes", meetingId: meeting.id });
+      await prisma.job.update({ where: { id }, data: { status: "running" } });
+      expect(await releaseAbandonedMinutes()).toBe(0);
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: meeting.id } });
+      await prisma.meeting.delete({ where: { id: meeting.id } });
+    }
   });
 
   sysIt("knows when a meeting already has one, and when it no longer does", async () => {

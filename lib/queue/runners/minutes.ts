@@ -5,7 +5,7 @@ import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { resolveTemplate } from "@/lib/minutes-templates";
 import { getLlmConfig, readSettings } from "@/lib/settings";
 import { parseSpeakerLabels } from "@/lib/speakers";
-import { type MinutesParams, parseParams } from "../types";
+import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
 
 // Writing the minutes, as a queued job.
 //
@@ -118,9 +118,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
     const aborted = ac.signal.aborted || (e instanceof Error && e.name === "AbortError");
     // Aborted on purpose — to free the GPU for a recording. Say that rather than "AbortError",
     // and leave it regenerable.
-    const reason = aborted
-      ? "Minutes generation was stopped. You can regenerate them."
-      : summarise(e);
+    const reason = aborted ? STOPPED_REASON : summarise(e);
     if (!aborted) console.error("summary generation failed", e);
     await prisma.meeting
       .update({

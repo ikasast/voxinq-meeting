@@ -56,13 +56,14 @@ export async function POST(req: NextRequest) {
       skipped.push({ id, reason: "already queued" });
       continue;
     }
-    // Marked before the job starts, as the single-meeting route does: from here on something
-    // is under way for this meeting, and the list should say so while it waits its turn.
+    // Queued first, then said, as the single-meeting route does: the list should say so while
+    // it waits its turn, and a meeting saying it with no job behind it is what the sweep
+    // collects — so the job exists before the meeting claims it.
+    await enqueue({ kind: "minutes", meetingId: id, params: {} });
     await prisma.meeting.update({
       where: { id },
       data: { summaryStatus: "processing", summaryError: null },
     });
-    await enqueue({ kind: "minutes", meetingId: id, params: {} });
     queued.push(id);
   }
 

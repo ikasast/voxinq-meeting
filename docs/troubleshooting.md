@@ -157,6 +157,14 @@ an earlier version exists) plus a **Retry** button. Common causes:
   up to 3.8.0 a batch started all at once, and every request still waiting inside the model
   after five minutes was dropped. 3.8.1 writes them one at a time; send the batch again.
 
+## A meeting is stuck saying "Generating minutes…"
+
+The card says the minutes are on the way, the meeting's **Stop** does nothing, and **Write them
+all** leaves it out because it looks busy. Up to 3.8.1, stopping a minutes job that had not
+started yet left the meeting in that state for good — most of a batch is waiting rather than
+running, since minutes are written one at a time. Later versions reconcile it against the queue
+within half a minute of the server starting, and the meeting goes back to needing minutes.
+
 ## Minutes contain content that was never discussed
 
 Usually the business-background context leaking in, or the transcript being truncated. Voxinq Meeting

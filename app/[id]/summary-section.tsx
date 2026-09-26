@@ -203,16 +203,15 @@ export function SummarySection({
     }
   };
 
-  // Force-stop the in-flight generation (aborts the LLM call and frees the GPU). The meeting
-  // is left with the previous version; the reason is recorded so it can be regenerated.
+  // Stop the minutes for this meeting, whether they are being written or still waiting their
+  // turn — with minutes running one at a time, waiting is the usual state. The meeting keeps
+  // its previous version; the reason is recorded so it can be regenerated.
   const stopGeneration = async () => {
     setStopping(true);
     setError(null);
     try {
-      await fetch("/api/claude/summary/abort", {
+      await fetch(`/api/meetings/${encodeURIComponent(meetingId)}/minutes/stop`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId }),
       }).catch(() => {});
       router.refresh();
     } finally {

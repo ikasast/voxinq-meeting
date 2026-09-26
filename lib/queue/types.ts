@@ -22,6 +22,16 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 /** Still-to-happen work: what a queue view lists, and what capacity is measured against. */
 export const OPEN_STATUSES: JobStatus[] = ["queued", "running"];
 
+/**
+ * What a meeting says after its minutes were stopped.
+ *
+ * One string, because three paths write it -- the runner when the generation is aborted, the
+ * queue screen's Stop, and the sweep that finds a meeting nothing is writing any more -- and a
+ * meeting that reads differently depending on which of them got there is a meeting that looks
+ * like three different bugs.
+ */
+export const STOPPED_REASON = "Minutes generation was stopped. You can regenerate them.";
+
 export type MinutesParams = {
   /** "brief" | "standard" | "detailed" — absent uses the saved setting. */
   detail?: string;

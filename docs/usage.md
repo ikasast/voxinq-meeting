@@ -366,7 +366,8 @@ the server, not in the browser.
 
 - **↑ / ↓** move a waiting job up or down. The running one has no position and cannot be moved.
 - **Stop** ends the running job; **Remove** takes a waiting one out. Neither goes back in the
-  queue — ask again when you want it.
+  queue — ask again when you want it. A meeting whose minutes are stopped says so and counts as
+  having none again, so **Write them all** offers it next time.
 - Stopping a **re-transcription** removes it from the queue, but the recognition pass already
   running on the transcription service finishes anyway (there is no way to stop one); its
   result is discarded. Voxinq says so rather than letting it look instant.
