@@ -32,6 +32,89 @@ export type SplitPlan = {
 const sameText = (a: string, b: string) => a.replace(/\s+/g, "") === b.replace(/\s+/g, "");
 
 /**
+ * Scripts written without spaces between words: kana, CJK ideographs, and the full-width forms
+ * and punctuation that go with them. Between two of these, pieces join directly; anywhere else
+ * a space was there before the line was divided.
+ */
+const UNSPACED = /[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/;
+
+/**
+ * Put the pieces of a line back into one string.
+ *
+ * Each piece was trimmed when the line was divided, so the space an English line had between
+ * "the date?" and "Yes" went with it — joining with nothing turned it into "the date?Yes". A
+ * space goes back wherever neither side of the join is written without them; a Japanese line
+ * joins as it always did.
+ */
+export function joinPieces(parts: string[]): string {
+  let out = "";
+  for (const raw of parts) {
+    const part = raw.trim();
+    if (!part) continue;
+    if (!out) {
+      out = part;
+      continue;
+    }
+    const spaced = !UNSPACED.test(out.at(-1)!) && !UNSPACED.test(part[0]);
+    out += (spaced ? " " : "") + part;
+  }
+  return out;
+}
+
+/**
+ * The lines a run asked about, with the text each has now.
+ *
+ * Diarization reads the lines when it starts and answers minutes later. A line somebody
+ * corrected in between must be judged by the correction, not by what it said when the run
+ * began — otherwise the pieces match the old words and the division writes them back over the
+ * new ones. A line that is gone has no text, which nothing can match.
+ */
+export function withCurrentText<R extends RowToSplit>(asked: R[], now: { id: string; text: string }[]): R[] {
+  const current = new Map(now.map((r) => [r.id, r.text]));
+  return asked.map((r) => ({ ...r, text: current.get(r.id) ?? "" }));
+}
+
+type RowToMerge = { id: string; text: string; audioEndMs: number | null; splitOfId: string | null };
+
+export type MergePlan = { keepId: string; text: string; audioEndMs: number | null; removeIds: string[] };
+
+/**
+ * Which lines go back together, and into what.
+ *
+ * Every line cut from another sits just after the line it came from — a millisecond or two
+ * after it, and well before the next line — so a run of divided lines belongs to the undivided
+ * line in front of it. Walking the order, rather than following each line's pointer, also
+ * mends what a pointer cannot: a piece divided again points at another piece, and a piece whose
+ * line was merged away points at nothing, and both still belong to the line in front of them.
+ */
+export function planMerges(rows: RowToMerge[]): MergePlan[] {
+  const plans: MergePlan[] = [];
+  let root: RowToMerge | null = null;
+  let group: RowToMerge[] = [];
+  const close = () => {
+    if (root && group.length > 0) {
+      plans.push({
+        keepId: root.id,
+        text: joinPieces([root.text, ...group.map((g) => g.text)]),
+        audioEndMs: group.at(-1)!.audioEndMs ?? root.audioEndMs,
+        removeIds: group.map((g) => g.id),
+      });
+    }
+    group = [];
+  };
+  for (const row of rows) {
+    if (!row.splitOfId) {
+      close();
+      root = row;
+    } else if (root) {
+      group.push(row);
+    }
+  }
+  close();
+  return plans;
+}
+
+/**
  * Which lines can be divided, and into what.
  *
  * Refuses more than it accepts, because every refusal leaves a line exactly as it is while a
@@ -121,6 +204,25 @@ export async function applySplits(meetingId: string, rows: RowToSplit[], plans: 
 }
 
 /**
+ * The lines as they were recognised, from lines some of which an earlier run divided.
+ *
+ * Nothing is written: this is what a diarization asks about. Asked about the pieces instead, a
+ * second run would divide one of them again — a piece of a piece. The transcript itself only
+ * changes once the answer is in hand, so a run that fails leaves an earlier division alone.
+ */
+export function asRecognised<
+  R extends { id: string; text: string; audioEndMs: number | null; splitOfId: string | null },
+>(rows: R[]): R[] {
+  const merges = new Map(planMerges(rows).map((m) => [m.keepId, m]));
+  return rows
+    .filter((r) => !r.splitOfId)
+    .map((r) => {
+      const m = merges.get(r.id);
+      return m ? { ...r, text: m.text, audioEndMs: m.audioEndMs } : r;
+    });
+}
+
+/**
  * Put divided lines back together.
  *
  * The way back from a split anyone disagrees with. Each line that came out of another is
@@ -134,36 +236,22 @@ export async function undoSplits(meetingId: string) {
     orderBy: { createdAt: "asc" },
     select: { id: true, text: true, audioEndMs: true, splitOfId: true },
   });
-  const parents = new Map(rows.filter((r) => !r.splitOfId).map((r) => [r.id, r]));
-  const children = rows.filter((r) => r.splitOfId && parents.has(r.splitOfId));
-  if (children.length === 0) return { merged: 0, removed: 0 };
-
-  const grouped = new Map<string, typeof children>();
-  for (const child of children) {
-    const list = grouped.get(child.splitOfId!) ?? [];
-    list.push(child);
-    grouped.set(child.splitOfId!, list);
-  }
+  const plans = planMerges(rows);
+  if (plans.length === 0) return { merged: 0, removed: 0 };
 
   const writes = [];
-  for (const [parentId, list] of grouped) {
-    const parent = parents.get(parentId)!;
+  for (const plan of plans) {
     writes.push(
       prisma.transcript.update({
-        where: { id: parentId },
-        data: {
-          text: [parent.text, ...list.map((c) => c.text)].join(""),
-          audioEndMs: list.at(-1)?.audioEndMs ?? parent.audioEndMs,
-          translation: null,
-        },
+        where: { id: plan.keepId },
+        data: { text: plan.text, audioEndMs: plan.audioEndMs, translation: null },
       }),
     );
   }
-  writes.push(
-    prisma.transcript.deleteMany({ where: { id: { in: children.map((c) => c.id) } } }),
-  );
+  const removed = plans.flatMap((p) => p.removeIds);
+  writes.push(prisma.transcript.deleteMany({ where: { id: { in: removed } } }));
 
   await prisma.$transaction(writes);
   await reindexAfterWrite(meetingId);
-  return { merged: grouped.size, removed: children.length };
+  return { merged: plans.length, removed: removed.length };
 }

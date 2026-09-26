@@ -5,7 +5,14 @@ import {
   applySpeakersToRows,
   spansForDiarization,
 } from "@/lib/meetings/apply";
-import { type SplitPiece, applySplits, planSplits } from "@/lib/meetings/split";
+import {
+  type SplitPiece,
+  applySplits,
+  asRecognised,
+  planSplits,
+  undoSplits,
+  withCurrentText,
+} from "@/lib/meetings/split";
 import { parseParams } from "../types";
 import { sttPost, sttWait } from "./stt-job";
 
@@ -32,11 +39,23 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   // Which lines to ask about: the rows' own places in the recording, so each answer comes
   // back attached to the row it is about. Null means this recording has to be asked the old
   // way, about the boundaries the service saved, and answered by position.
-  const rows = await prisma.transcript.findMany({
+  //
+  // The lines as they were recognised, not the pieces an earlier run cut them into: asked about
+  // those, a second run would divide one again — a piece of a piece, which Undo split could not
+  // put back, stamped a millisecond after its parent where its siblings already were.
+  const stored = await prisma.transcript.findMany({
     where: { meetingId },
     orderBy: { createdAt: "asc" },
-    select: { id: true, text: true, createdAt: true, audioStartMs: true, audioEndMs: true },
+    select: {
+      id: true,
+      text: true,
+      createdAt: true,
+      audioStartMs: true,
+      audioEndMs: true,
+      splitOfId: true,
+    },
   });
+  const rows = asRecognised(stored);
   const spans = spansForDiarization(rows);
 
   await sttPost(
@@ -50,6 +69,10 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   if (!Array.isArray(speakers)) throw new Error("the diarizer returned no speakers");
 
   const labels = speakers as string[];
+  // Only now, with an answer in hand, does the transcript change: an earlier division goes back
+  // together, and this answer is applied to the lines it was about. A run that failed above
+  // left everything as it was.
+  if (rows.length !== stored.length) await undoSplits(meetingId);
   const applied = spans
     ? await applySpeakersToRows(
         meetingId,
@@ -60,14 +83,19 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   // A line is cut where the room goes quiet, so a quick exchange lands in one of them. Where
   // the words show the speaker changing inside a line, it is divided between them. Only on the
   // by-time path: the pieces are about the spans that were sent.
-  const divided =
-    spans && Array.isArray(result.pieces)
-      ? await applySplits(
-          meetingId,
-          rows,
-          planSplits(rows, result.pieces as (SplitPiece[] | null)[]),
-        )
-      : { split: 0, added: 0 };
+  //
+  // Judged against the lines as they are now, not as they were when the run began: somebody may
+  // have corrected one while the diarizer worked, and pieces of the old words must not be
+  // written back over the correction.
+  let divided = { split: 0, added: 0 };
+  if (spans && Array.isArray(result.pieces)) {
+    const now = await prisma.transcript.findMany({
+      where: { meetingId },
+      select: { id: true, text: true },
+    });
+    const current = withCurrentText(rows, now);
+    divided = await applySplits(meetingId, current, planSplits(current, result.pieces as (SplitPiece[] | null)[]));
+  }
 
   // Voiceprints are best-effort: the speakers are already attached, and failing the job here
   // would throw that away over the naming step.
