@@ -33,6 +33,11 @@ export const anthropicProvider: ChatProvider = {
       },
       { signal },
     );
+    if (cfg.usage) {
+      cfg.usage.calls += 1;
+      cfg.usage.inputTokens += res.usage?.input_tokens ?? 0;
+      cfg.usage.outputTokens += res.usage?.output_tokens ?? 0;
+    }
     return res.content
       .filter((b): b is Anthropic.Messages.TextBlock => b.type === "text")
       .map((b) => b.text)

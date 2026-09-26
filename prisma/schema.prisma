@@ -267,6 +267,9 @@ model Job {
   createdAt  DateTime  @default(now()) @map("created_at")
   startedAt  DateTime? @map("started_at")
   finishedAt DateTime? @map("finished_at")
+  /// How it ran, for looking back: model, tokens, how much sat on the GPU, backend and device.
+  /// See JobMetrics in lib/queue/metrics.ts. Null for jobs from before it was recorded.
+  metrics    Json?
 
   meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 

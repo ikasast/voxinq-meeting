@@ -1,5 +1,5 @@
 import { ollamaContextBudget } from "./context";
-import type { ChatArgs, ChatProvider, LlmConfig } from "./types";
+import { addOllamaUsage, type ChatArgs, type ChatProvider, type LlmConfig } from "./types";
 
 // Default on-prem provider. Calls a local Ollama.
 // Defaults to a Japanese model that fits in 8GB VRAM (qwen2.5:7b-instruct ≈4.7GB).
@@ -39,6 +39,10 @@ export const ollamaProvider: ChatProvider = {
     // FULL generation is done — and Node's fetch (undici) aborts requests whose headers
     // take more than 5 minutes (UND_ERR_HEADERS_TIMEOUT). Long meetings / "detailed"
     // runs regularly exceed that, so non-streaming caused hard generation failures.
+    if (cfg.usage) {
+      cfg.usage.calls += 1;
+      cfg.usage.numCtx = Math.max(cfg.usage.numCtx, numCtx);
+    }
     const res = await fetch(`${cfg.ollamaBaseUrl}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,9 +86,15 @@ export const ollamaProvider: ChatProvider = {
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
-          const chunk = JSON.parse(line) as { message?: { content?: string }; error?: string };
+          const chunk = JSON.parse(line) as {
+            message?: { content?: string };
+            error?: string;
+            done?: boolean;
+          } & Parameters<typeof addOllamaUsage>[1];
           if (chunk.error) throw new Error(`Ollama エラー: ${chunk.error.slice(0, 300)}`);
           content += chunk.message?.content ?? "";
+          // The last line carries what the call cost: tokens in and out, and the time spent on each.
+          if (chunk.done && cfg.usage) addOllamaUsage(cfg.usage, chunk);
         } catch (e) {
           if (e instanceof Error && e.message.startsWith("Ollama エラー")) throw e;
           // ignore malformed keep-alive lines
