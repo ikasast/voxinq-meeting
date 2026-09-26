@@ -38,17 +38,88 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 > variable in `.env.example` that is a note about another program rather than a setting Voxinq
 > reads.
 
-STT-side env (optional, read by `stt-service/server.py`): `WHISPER_MODEL`, `WHISPER_DEVICE`,
-`WHISPER_COMPUTE` (unset = int8_float16 on CUDA, int8 on CPU), `STT_BACKEND` (unset = choose by
-hardware: faster-whisper on CUDA, whisper.cpp everywhere else — GPU-accelerated only on Apple
-silicon, plain CPU on an AMD or Intel GPU), `STT_LIVE_TRANSCRIPTION`
-(unset = recognise during the meeting only where there is GPU acceleration; a host without it
-records and transcribes in one pass at the end), `STT_HOST`, `STT_PORT`,
-`STT_RECORDING_RETENTION_DAYS` (default 7),
-`STT_IDLE_RELEASE_SECONDS` (default 600), `STT_TRANSLATE_MODEL` / `STT_TRANSLATE_THREADS`
-(translation model repo and CPU threads), `STT_PARTIAL_MS` (default 1200 — how often a
-provisional "partial" transcription of the segment still being spoken is pushed to the
-recording screen; 0 disables partials), and VAD tuning (`VAD_*`).
+### Read by the STT service
+
+All optional. **Under Docker, the `stt` container receives only the variables
+`docker-compose.yml` names** — `HF_TOKEN`, `DIA_BACKEND`, `DIA_MIN_PIECE_S`, `WHISPER_MODEL`,
+`STT_ALLOWED_ORIGINS` and `TZ` — so putting any other one below in `.env` does nothing. To set
+it, add it to the `stt` service in a `docker-compose.override.yml` beside the compose file, which
+Compose reads on its own and git ignores:
+
+```yaml
+services:
+  stt:
+    environment:
+      VAD_SILENCE_MS: "900"
+```
+
+A native install and the `voxinq` launcher read them from the environment as they are.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `WHISPER_MODEL` | `large-v3-turbo` | The model when the app does not name one. The app normally does, from Settings; this is the fallback. |
+| `WHISPER_DEVICE` | `cuda` | faster-whisper's device, `cuda` or `cpu`. whisper.cpp picks its own. |
+| `WHISPER_COMPUTE` | from the device | The precision: `int8_float16` on CUDA, `int8` on a CPU. `int8_float16` fails to load without CUDA, which is why it is not a fixed default. |
+| `STT_BACKEND` | chosen from the hardware | `faster-whisper` on CUDA, `whisper.cpp` everywhere else — GPU-accelerated only on Apple silicon, plain CPU on an AMD or Intel GPU. Set to pin one. |
+| `STT_LIVE_TRANSCRIPTION` | chosen from the hardware | Recognise during the meeting only where there is GPU acceleration; a host without it records and transcribes in one pass at the end. |
+| `STT_HOST` / `STT_PORT` | `0.0.0.0` / `8000` | Where the service listens. |
+| `STT_PRELOAD` | `1` | Load the model when the service starts, so the first meeting does not wait for it. `0` loads it when a meeting first needs it instead. |
+| `STT_IDLE_RELEASE_SECONDS` | `600` | Release the model from VRAM after this long with nothing to recognise. |
+| `STT_RECORDING_RETENTION_DAYS` | `7` | Delete recordings (the WAV) this many days old, except protected ones. `0` or less keeps them. |
+| `STT_RECORDINGS_DIR` | `stt-service/recordings` | Where recordings and their `segments.json` live. The Docker image sets `/data/recordings`, on a volume. |
+| `STT_PARTIAL_MS` | `1200` | How often a provisional transcription of the line still being spoken is pushed to the recording screen. `0` turns partials off. |
+| `STT_TRANSLATE_MODEL` / `STT_TRANSLATE_THREADS` | — | The translation model's repository, and its CPU threads. |
+| `STT_CLOUD_TIMEOUT` | `600` | Seconds to wait for a remote recognition endpoint to answer one request. |
+| `STT_GEMINI_GAP` | `0.35` | Seconds of silence that start a new line in Gemini's answer. Gemini hears shorter pauses than an energy detector does, so this is lower than `VAD_SILENCE_MS`. |
+| `STT_GEMINI_MAX_SEGMENT` | `20` | The longest a line from Gemini may be, in seconds, for someone who does not pause. |
+
+**Where a line ends, and what counts as nothing** — the live side's voice detection. Change these
+only against a recording that came out wrong; they were set against real rooms.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `VAD_SILENCE_MS` | `700` | Silence that ends a line. |
+| `VAD_MAX_SEGMENT_MS` | `12000` | The longest a line may run before it is cut anyway. |
+| `VAD_MIN_SEGMENT_MS` | `300` | Lines shorter than this are dropped. |
+| `VAD_ENERGY_THRESH` | `0.012` | The level that counts as sound rather than silence. |
+| `VAD_MIN_SPEECH_MS` | `250` | A line with less voiced time than this is not sent to Whisper at all — the guard against the phrases it invents out of silence. |
+| `STT_NO_SPEECH_THRESH` / `STT_LOGPROB_THRESH` | `0.6` / `-1.0` | A recognised line is dropped when Whisper's no-speech probability is at least the first **and** its average log-probability at most the second: sure it heard nothing, and unsure of what it wrote. |
+
+### Speaker separation
+
+Read by `diarization/` when the STT service runs it — so under Docker, the same rule as above
+applies: anything but `DIA_BACKEND` and `DIA_MIN_PIECE_S` goes in the override file.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DIA_MODEL` | `pyannote/speaker-diarization-community-1` | The pyannote pipeline. `pyannote/speaker-diarization-3.1` is the one to fall back to. |
+| `DIA_DEVICE` | `cuda` where there is CUDA | Where pyannote runs. On a CPU it is roughly real time, which is why it is not the CPU backend. |
+| `DIA_MIN_SPEAKERS` / `DIA_MAX_SPEAKERS` | unset | Bounds for pyannote when the meeting does not say how many people spoke. |
+| `DIA_MODEL_DIR` | `diarization/models` | Where sherpa-onnx's models are kept. |
+| `DIA_THREADS` | half the CPU's threads | sherpa-onnx's CPU threads. |
+| `DIA_CLUSTER_THRESHOLD` | `0.5` | sherpa-onnx's first clustering pass. It is left to over-split on purpose — its clusters are merged afterwards by their centroids, which is where the speaker count is really decided — so this is rarely the setting to reach for. |
+
+`DIA_NUM_SPEAKERS` is not one to set: the service sets it for each meeting from the participants
+ticked as expected to speak, and a value in the environment would apply one count to every
+meeting that has none.
+
+### First-run values for `settings.json`
+
+Read by the **web app**, and only as the starting value of a setting that `settings.json` does not
+have yet. Once a setting is saved from the UI, the file wins, and changing the variable does
+nothing. They exist so an install configured entirely from `.env` works without opening Settings;
+the UI is the better place for anything, and especially for keys.
+
+| Variable | Setting it seeds | Default |
+| --- | --- | --- |
+| `WHISPER_LANGUAGE` | Transcription language | `auto` |
+| `LLM_PROVIDER` | Which LLM writes the minutes | `ollama` |
+| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Ollama's address and model | `http://127.0.0.1:11434` / `qwen2.5:7b-instruct` |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic's key and model (`CLAUDE_MODEL` is an older name for the second) | — / `claude-sonnet-4-6` |
+| `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL` | An OpenAI-compatible endpoint | `https://api.openai.com/v1` / — / `gpt-4o-mini` |
+| `SUMMARY_LANGUAGE` / `SUMMARY_DETAIL` | The minutes' language and length | `ja` / `standard` |
+
+Under Docker, `OLLAMA_BASE_URL` is set by the compose file to the bundled Ollama.
 
 > **Why `127.0.0.1` rather than `localhost` for same-host services.** The STT service and
 > Ollama bind IPv4, but on Windows `localhost` resolves to `::1` first. Any other process
