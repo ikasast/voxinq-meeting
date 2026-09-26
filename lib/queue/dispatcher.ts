@@ -4,7 +4,7 @@ import { asSystem, asUser } from "@/lib/db/scope";
 import { prismaRaw } from "@/lib/prisma-raw";
 import { runEncryptExisting } from "./runners/encrypt";
 import { sweepStaleRecordings } from "./recording";
-import { claimNext, finish, recoverInterrupted } from "./queue";
+import { claimNext, finish, recoverInterrupted, releaseAbandonedMinutes } from "./queue";
 import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
 import { runTranscribe } from "./runners/transcribe";
@@ -92,6 +92,10 @@ export async function tick(): Promise<void> {
       lastSweep = Date.now();
       const freed = await sweepStaleRecordings().catch(() => 0);
       if (freed > 0) console.log(`[queue] released ${freed} recording hold(s) nobody was using`);
+      // Same idea, for the other direction: a meeting still saying its minutes are on the way
+      // when nothing in the queue is writing them.
+      const released = await releaseAbandonedMinutes().catch(() => 0);
+      if (released > 0) console.log(`[queue] ${released} meeting(s) no longer waiting for minutes`);
     }
       // Whoever still has work keeps their key; everybody else loses theirs now. This is what
       // bounds how long a key is in memory at all — on an instance where nobody is working, the

@@ -4,7 +4,7 @@ import { asSystem } from "@/lib/db/scope";
 import { prisma } from "@/lib/prisma";
 import { abortJob } from "@/lib/queue/dispatcher";
 import { finish } from "@/lib/queue/queue";
-import { RECORDING_KIND } from "@/lib/queue/types";
+import { RECORDING_KIND, STOPPED_REASON } from "@/lib/queue/types";
 import { cancelDiarize } from "@/lib/queue/runners/diarize";
 import { abortGeneration } from "@/lib/llm/generation-registry";
 
@@ -61,5 +61,18 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
         finish(job.id, "cancelled", "Stopped by an administrator."),
       )
     : finish(job.id, "cancelled", "Stopped."));
+
+  // The meeting carries its own copy of "minutes are being written", and only the runner ever
+  // cleared it — so stopping a job that had not started left the card saying so for good, and
+  // **Write them all** skips a meeting that looks busy. The sweep would catch it within the
+  // half-minute; doing it here means the screen is right when it refreshes.
+  if (job.kind === "minutes" && job.meetingId) {
+    const put = () =>
+      prisma.meeting.updateMany({
+        where: { id: job.meetingId!, summaryStatus: "processing" },
+        data: { summaryStatus: "error", summaryError: STOPPED_REASON },
+      });
+    await (me?.isAdmin ? asSystem("an administrator clears the shared queue", put) : put());
+  }
   return NextResponse.json({ status: "cancelled", stopsImmediately: job.kind !== "transcribe" });
 }

@@ -1,7 +1,13 @@
 import { asSystem } from "@/lib/db/scope";
 import { prisma } from "@/lib/prisma";
 import { estimateVramMb } from "./capacity";
-import { type JobKind, type JobStatus, OPEN_STATUSES, RECORDING_KIND } from "./types";
+import {
+  type JobKind,
+  type JobStatus,
+  OPEN_STATUSES,
+  RECORDING_KIND,
+  STOPPED_REASON,
+} from "./types";
 
 // The queue's own operations. Everything that decides *what runs next* is here, so there is
 // one place to read when the answer is surprising.
@@ -213,6 +219,30 @@ export async function openJobs() {
  * half-written set of minutes is discarded, and the job begins again. The reason is recorded so
  * the person watching is not left wondering why it went back to the beginning.
  */
+/**
+ * Meetings that say their minutes are being written, with nothing left writing them.
+ *
+ * `summaryStatus` is set to `processing` when the work is queued and is only cleared by the
+ * runner, so any path that takes the job out without running it -- Stop on the queue screen, a
+ * row removed by hand -- leaves the meeting saying it for good. That state is the one nothing
+ * can move it out of: the card says the minutes are coming, the detail screen offers a Stop
+ * that stops nothing, and **Write them all** leaves the meeting out because it looks busy.
+ *
+ * So the queue is the truth and this reconciles against it. Written as an error rather than as
+ * "never asked for", because that is what the abort path already writes, it says what happened,
+ * and it puts the meeting back among the ones that still need minutes.
+ */
+export async function releaseAbandonedMinutes(): Promise<number> {
+  const { count } = await prisma.meeting.updateMany({
+    where: {
+      summaryStatus: "processing",
+      jobs: { none: { kind: "minutes", status: { in: OPEN_STATUSES } } },
+    },
+    data: { summaryStatus: "error", summaryError: STOPPED_REASON },
+  });
+  return count;
+}
+
 export async function recoverInterrupted(): Promise<number> {
   const { count } = await prisma.job.updateMany({
     // Not recordings. A recording is a browser talking straight to the STT service, and this
