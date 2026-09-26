@@ -342,6 +342,11 @@ from the calendar, a search. Open it to uncheck any you do not want, then send t
 into the queue and run one at a time, as everything that needs the GPU does; the cards say
 *Generating minutes…* while they wait their turn.
 
+**Format, detail and model…** under the list chooses those three for this batch alone, as
+**Regenerate** does for one meeting — a conference day written up as lecture notes by a cloud
+model, say, without making either the default. Left closed, each meeting is written as it
+would be on its own, its series' format included.
+
 A meeting already generating or already waiting is left out rather than queued twice, and so
 is one with nothing recorded. A meeting whose last attempt failed is offered again.
 

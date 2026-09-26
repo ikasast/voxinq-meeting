@@ -45,3 +45,32 @@ export function needsMinutes(row: MinutesCandidateRow): boolean {
     row.summaryStatus !== "processing"
   );
 }
+
+const DETAILS = new Set(["brief", "standard", "detailed"]);
+const PROVIDERS = new Set(["ollama", "anthropic", "openai"]);
+
+/**
+ * The per-batch overrides that are recognisable, and nothing else.
+ *
+ * Each one goes into every job's params and from there into the queue's pricing — a provider
+ * decides whether the job waits for the card — so one nobody offers is dropped here rather than
+ * stored two hundred times. A template id is taken as given: one that no longer exists falls
+ * back to the settings when the job runs, as it does for a single meeting.
+ */
+export function minutesOverrides(body: Record<string, unknown> | null): {
+  detail?: string;
+  provider?: string;
+  templateId?: string;
+} {
+  const out: { detail?: string; provider?: string; templateId?: string } = {};
+  if (typeof body?.detail === "string" && DETAILS.has(body.detail)) out.detail = body.detail;
+  if (typeof body?.provider === "string" && PROVIDERS.has(body.provider)) out.provider = body.provider;
+  if (
+    typeof body?.templateId === "string" &&
+    body.templateId.length > 0 &&
+    body.templateId.length <= 100
+  ) {
+    out.templateId = body.templateId;
+  }
+  return out;
+}
