@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { planSplits } from "@/lib/meetings/split";
+import { asRecognised, joinPieces, planMerges, planSplits, withCurrentText } from "@/lib/meetings/split";
 
 // Dividing a line between the people who spoke in it.
 //
@@ -82,10 +82,119 @@ describe("the diarize job", () => {
 
   it("divides lines only on the path where the pieces are about the rows it sent", () => {
     expect(src).toContain("spans && Array.isArray(result.pieces)");
-    expect(src).toContain("planSplits(rows, result.pieces");
+    // ...and judges the pieces against the text the lines have when the answer comes back.
+    expect(src).toContain("withCurrentText(rows, now)");
+    expect(src).toContain("planSplits(current, result.pieces");
+  });
+
+  it("asks about the lines as recognised, and changes nothing until it has an answer", () => {
+    expect(src).toContain("asRecognised(stored)");
+    // The earlier division is put back only after the diarizer has answered.
+    expect(src.indexOf("undoSplits(meetingId)")).toBeGreaterThan(src.indexOf("sttWait("));
   });
 
   it("says what it did, because the transcript now has more lines than it did", () => {
     expect(src).toContain("were divided, adding");
+  });
+});
+
+// Putting lines back together. The two ways this went wrong in 3.8.0 were found by running it:
+// an English line came back as "the date?Yes", and a meeting diarized twice ended with a piece
+// Undo split could not reach.
+
+const stored = (id: string, text: string, splitOfId: string | null = null, audioEndMs = 1000) => ({
+  id,
+  text,
+  audioEndMs,
+  splitOfId,
+});
+
+describe("joining the pieces of a line", () => {
+  it("puts back the space an English line had", () => {
+    expect(joinPieces(["Can we confirm the date?", "Yes we can."])).toBe("Can we confirm the date? Yes we can.");
+  });
+
+  it("joins Japanese the way it is written, without one", () => {
+    expect(joinPieces(["それでいいですか", "はい"])).toBe(
+      "それでいいですかはい",
+    );
+  });
+
+  it("does not put a space between Japanese and a word beside it", () => {
+    // Either side written without spaces is enough to join directly.
+    expect(joinPieces(["API の設計は", "OK"])).toBe("API の設計はOK");
+  });
+
+  it("ignores empty pieces and stray spacing", () => {
+    expect(joinPieces(["  first ", "", " second"])).toBe("first second");
+  });
+});
+
+describe("which lines go back together", () => {
+  it("merges each divided line into the line in front of it", () => {
+    const plans = planMerges([
+      stored("a", "Can we confirm the date?", null, 2000),
+      stored("a1", "Yes we can.", "a", 4000),
+      stored("b", "Next topic.", null, 8000),
+    ]);
+    expect(plans).toEqual([
+      { keepId: "a", text: "Can we confirm the date? Yes we can.", audioEndMs: 4000, removeIds: ["a1"] },
+    ]);
+  });
+
+  it("reaches a piece that was divided again", () => {
+    // The state a second diarization left behind in 3.8.0: "we can." points at "Yes", which is
+    // itself a piece. Following pointers never got there; the order does.
+    const plans = planMerges([
+      stored("a", "Can we confirm the date?", null),
+      stored("a1", "Yes", "a"),
+      stored("a2", "we can.", "a1", 4000),
+    ]);
+    expect(plans[0].text).toBe("Can we confirm the date? Yes we can.");
+    expect(plans[0].removeIds).toEqual(["a1", "a2"]);
+  });
+
+  it("reaches a piece whose own line was merged away", () => {
+    // What one press of Undo split left in that state: a piece pointing at nothing.
+    const plans = planMerges([stored("a", "Can we confirm the date? Yes", null), stored("a2", "we can.", "gone")]);
+    expect(plans[0].text).toBe("Can we confirm the date? Yes we can.");
+  });
+
+  it("has nothing to do when nothing was divided", () => {
+    expect(planMerges([stored("a", "One."), stored("b", "Two.")])).toEqual([]);
+  });
+});
+
+describe("what a second diarization asks about", () => {
+  it("is the lines as they were recognised, not the pieces", () => {
+    const rows = asRecognised([
+      stored("a", "Can we confirm the date?", null, 2000),
+      stored("a1", "Yes we can.", "a", 4000),
+      stored("b", "Next topic.", null, 8000),
+    ]);
+    expect(rows.map((r) => [r.id, r.text, r.audioEndMs])).toEqual([
+      ["a", "Can we confirm the date? Yes we can.", 4000],
+      ["b", "Next topic.", 8000],
+    ]);
+  });
+});
+
+describe("judging the answer", () => {
+  it("uses the text a line has now, so a correction made meanwhile is not written over", () => {
+    const asked = [row({ id: "r1", text: "Please send the report by Friday. Sure." })];
+    const now = withCurrentText(asked, [{ id: "r1", text: "Please send the report by Thursday. Sure." }]);
+    const answer = [
+      [
+        { speaker: "speaker0", text: "Please send the report by Friday.", start: 0, end: 2 },
+        { speaker: "speaker1", text: "Sure.", start: 2.1, end: 3 },
+      ],
+    ];
+    // Against the old words it would be divided -- and "Thursday" lost. Against the new, not.
+    expect(planSplits(asked, answer)).toHaveLength(1);
+    expect(planSplits(now, answer)).toHaveLength(0);
+  });
+
+  it("gives a line that has gone nothing to match", () => {
+    expect(withCurrentText([row({ id: "r9" })], [])[0].text).toBe("");
   });
 });
