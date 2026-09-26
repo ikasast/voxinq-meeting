@@ -42,6 +42,7 @@ A new meeting is created and the audio is transcribed on your server.</string>
     <string name="import_started">Importing…</string>
     <string name="import_preparing">Preparing…</string>
     <string name="import_sending">Sending %1$s</string>
+    <string name="import_waiting">%1$d waiting</string>
     <string name="import_queued">Sent — being transcribed on the server. Tap to open the meeting.</string>
     <string name="import_failed">Could not import: %1$s</string>
     <string name="import_no_server">Open Voxinq once and enter your server address first.</string>

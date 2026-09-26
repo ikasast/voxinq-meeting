@@ -135,7 +135,8 @@ Turn it off in the phone's notification settings for the app, under **Meeting re
 Share an audio file to Voxinq — from a voice recorder, a chat, a file manager — and it becomes a
 meeting: the app asks once, uploads it, and the transcription runs on the server as a queued job.
 The upload is the only part that needs the phone, so it can be pocketed afterwards; the
-notification that stays behind opens the meeting.
+notification that stays behind opens the meeting. Share several and they are sent one after
+another, each leaving a notification of its own.
 
 Minutes are not written automatically. The list says how many meetings have none and offers
 **Write them all**, which is the quicker way through a day of shared recordings.

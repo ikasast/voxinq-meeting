@@ -20,6 +20,9 @@ object Import {
      */
     const val MAX_BYTES = 512L * 1024 * 1024
 
+    /** The longest title the server takes (`TITLE_MAX` in app/api/meetings/route.ts), in UTF-16 units. */
+    const val TITLE_MAX = 200
+
     /** What the web app's own drop zone accepts, so both doors take the same files. */
     private val AUDIO_EXT =
         Regex("\\.(wav|mp3|m4a|aac|ogg|oga|flac|webm|mp4|mov|mkv|opus)$", RegexOption.IGNORE_CASE)
@@ -46,14 +49,20 @@ object Import {
      * Left otherwise as it is. A recorder app's `REC_20260926_101500` is not a title anybody
      * would choose, but it is what the person will recognise in the list, and it is one tap to
      * rename. Inventing something tidier would only hide which file this was.
+     *
+     * Cut to the length the server takes, though: it refuses a longer title outright, and a
+     * file name has no such limit -- so a long one would fail the whole import over its name.
      */
     fun titleFrom(displayName: String?): String {
         val name = displayName?.trim().orEmpty().substringAfterLast('/').substringAfterLast('\\')
         if (name.isEmpty()) return ""
         val dot = name.lastIndexOf('.')
         // A leading dot is the whole name of a hidden file, not an extension.
-        val stem = if (dot > 0) name.substring(0, dot) else name
-        return stem.trim()
+        val stem = (if (dot > 0) name.substring(0, dot) else name).trim()
+        if (stem.length <= TITLE_MAX) return stem
+        // Not through the middle of a character outside the BMP (an emoji, say).
+        val end = if (Character.isHighSurrogate(stem[TITLE_MAX - 1])) TITLE_MAX - 1 else TITLE_MAX
+        return stem.substring(0, end).trim()
     }
 
     /** Human-sized, for a confirmation that has to say how much is about to be sent. */

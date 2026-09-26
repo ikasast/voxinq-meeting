@@ -183,7 +183,10 @@ from a mis-tap, and the answer costs a meeting and a place in the transcription 
 **The upload is the app's only job.** It creates the meeting, sends the file, says the meeting is
 over, and asks for the recognition; the recognition itself is a **queued job on the server**, the
 same one a re-transcription uses. So the phone can be pocketed the moment the upload finishes, and
-what is left behind is a notification that opens the meeting when it is ready. Three of those four
+what is left behind is a notification that opens the meeting when it is ready. Shares that arrive
+while one is uploading wait their turn and go **one at a time**: side by side they shared one
+foreground service, and whichever finished first stopped it under the other, which then had no
+notification and could be frozen by the system halfway through its upload. Three of those four
 calls already existed. The fourth is new:
 
 - `POST /api/meetings/{id}/recording` takes the audio and hands it to the transcription service as

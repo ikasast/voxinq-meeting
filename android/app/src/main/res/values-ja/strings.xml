@@ -39,6 +39,7 @@
     <string name="import_started">取り込んでいます…</string>
     <string name="import_preparing">準備中…</string>
     <string name="import_sending">送信中 %1$s</string>
+    <string name="import_waiting">あと %1$d 件</string>
     <string name="import_queued">送信完了 — サーバーで文字起こし中です。タップして会議を開きます。</string>
     <string name="import_failed">取り込めませんでした: %1$s</string>
     <string name="import_no_server">最初に Voxinq を開いてサーバーのアドレスを入力してください。</string>
