@@ -281,6 +281,8 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d    # それ
 docker compose exec ollama ollama pull qwen2.5:7b-instruct
 ```
 
+このコマンドは省略して、**「設定」→「LLM」のモデル欄から管理者がダウンロード**することもできます。
+
 `http://localhost:3000` を開けば使えます。
 
 #### コマンドを使わずに入れる（Windows / Docker Desktop）
@@ -1155,7 +1157,14 @@ Tailscaleを入れられない端末（会社のPCなど）にも議事録を見
 
 #### いちばん簡単な方法: Ollamaでモデルを入れ替える
 
-コマンド1つでダウンロードし、「設定」→「LLM」でモデル名を書き換えるだけです。
+**「設定」→「LLM」のモデル欄**にモデル名（例: `qwen3:8b`）を入力するだけです。
+
+- Ollama に入っているモデルが候補として出て、入力したモデルが**インストール済みかどうか**、
+  この PC の GPU 予算に**収まるかどうか**も表示されます
+- 入っていなければ、**管理者は「ダウンロード」ボタン**で取得できます。サーバー側で進むので、
+  ページを閉じても続きます。管理者以外にはボタンは出ません
+
+コマンドで入れる場合は次のとおりです（Docker 版は `docker compose exec ollama` を前に付けます）。
 
 ```bash
 ollama pull qwen3:8b        # 例

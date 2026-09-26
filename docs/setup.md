@@ -261,6 +261,10 @@ docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the model that wr
 Open `http://localhost:3000` and you are ready. **Settings → LLM** already points at the
 bundled Ollama, because the compose file addresses it by service name.
 
+The second command can also be left out: **Settings → LLM** says whether the model named there
+is installed, and an administrator can download it from that field. The download runs on the
+server and carries on if the page is closed.
+
 Budget for the first run: the STT image carries the CUDA runtime for transcription, so it is a
 large pull. Model weights download separately on first use and are cached in a volume,
 so that happens once. The first recording of a session still takes tens of seconds to warm the

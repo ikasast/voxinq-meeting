@@ -79,4 +79,8 @@ export const SERVER_MESSAGES = [
   "Only a series with no meetings in it can be deleted.",
   // Settings a person may not change.
   "Only an administrator can change {keys} — they describe the machine, not you.",
+  // Fetching an Ollama model from the settings screen.
+  "Only an administrator can download models to this server.",
+  "That is not a model name Ollama would accept.",
+  "The Ollama address is not an http(s) address.",
 ] as const;

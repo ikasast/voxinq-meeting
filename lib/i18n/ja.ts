@@ -1228,4 +1228,17 @@ export const ja: Record<string, string> = {
   "Diarization failed: {error}": "話者分離に失敗しました: {error}",
   "Keep reading — at least {n} seconds are needed.": "もう少し読み続けてください。最低 {n} 秒必要です。",
   "Only an administrator can change {keys} — they describe the machine, not you.": "{keys} を変更できるのは管理者だけです。これはあなたではなく、このマシンについての設定です。",
+  "Only an administrator can download models to this server.":
+    "このサーバーにモデルをダウンロードできるのは管理者だけです。",
+  "That is not a model name Ollama would accept.": "Ollama が受け付けるモデル名ではありません。",
+  "The Ollama address is not an http(s) address.": "Ollama のアドレスが http(s) ではありません。",
+  "Cannot reach Ollama at this address.": "このアドレスの Ollama に接続できません。",
+  "Downloading {model}…": "{model} をダウンロード中…",
+  "It carries on if you close this page.": "このページを閉じてもダウンロードは続きます。",
+  "Installed · {size}": "インストール済み · {size}",
+  "Larger than this machine's GPU budget ({budget}). It will run partly on the CPU, which is much slower.":
+    "このマシンの GPU 予算（{budget}）より大きいモデルです。一部が CPU で動くため、かなり遅くなります。",
+  "Not installed on this Ollama.": "この Ollama にはインストールされていません。",
+  "An administrator can download it from this screen.": "管理者がこの画面からダウンロードできます。",
+  "The download failed: {reason}": "ダウンロードに失敗しました: {reason}",
 };

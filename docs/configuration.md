@@ -268,7 +268,10 @@ the household are different acts.
 
 **LLM**
 - `llmProvider` — `ollama` (default) / `anthropic` / `openai`
-- `ollamaBaseUrl`, `ollamaModel`
+- `ollamaBaseUrl`, `ollamaModel` — the screen offers the models that Ollama has installed,
+  says whether the one typed is among them and, where it is on this machine, whether it fits the
+  GPU budget. An administrator can download a model that is not there from the same field; the
+  download runs on the server, so closing the page does not stop it.
 - `anthropicModel`, `anthropicApiKey`
 - `openaiBaseUrl`, `openaiModel`, `openaiApiKey` — key optional for local servers
 
