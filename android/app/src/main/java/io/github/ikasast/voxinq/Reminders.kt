@@ -256,7 +256,11 @@ object Reminders {
      * Not while that meeting is the one being recorded: the phone would be telling the user to
      * start something it is already doing. (The server drops a meeting from the list as soon as
      * it has a line, so this only covers the first minute of one.)
+     *
+     * Synchronized because the alarm for the meeting and the 15-minute check can both land on
+     * it at once, each on its own thread: both would read "not told yet" and both would notify.
      */
+    @Synchronized
     fun announce(context: Context, meeting: Booked) {
         val state = RecorderBus.state
         if (state.recording && state.meetingId == meeting.id) return

@@ -46,6 +46,22 @@ class ImportTest {
     }
 
     @Test
+    fun a_long_file_name_is_cut_to_what_the_server_takes() {
+        val long = "a".repeat(250)
+        assertEquals("a".repeat(Import.TITLE_MAX), Import.titleFrom("$long.m4a"))
+        // Exactly the limit is left alone.
+        val exact = "b".repeat(Import.TITLE_MAX)
+        assertEquals(exact, Import.titleFrom("$exact.m4a"))
+        // An emoji straddling the limit is dropped whole rather than cut in half.
+        val emoji = String(Character.toChars(0x1F399))
+        val straddling = "c".repeat(Import.TITLE_MAX - 1) + emoji + "tail"
+        assertEquals("c".repeat(Import.TITLE_MAX - 1), Import.titleFrom("$straddling.m4a"))
+        // Nor does the cut leave a space at the end.
+        val spaced = "d".repeat(Import.TITLE_MAX - 1) + " more"
+        assertEquals("d".repeat(Import.TITLE_MAX - 1), Import.titleFrom("$spaced.m4a"))
+    }
+
+    @Test
     fun what_is_too_large_to_send() {
         assertFalse(Import.tooBig(0))
         assertFalse(Import.tooBig(Import.MAX_BYTES))

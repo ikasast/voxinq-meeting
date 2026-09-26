@@ -20,7 +20,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -55,7 +57,11 @@ class ImportService : Service() {
 
         private const val CHANNEL = "import"
         private const val NOTIFICATION = 2
-        private const val DONE_NOTIFICATION = 3
+        /**
+         * Each finished import keeps its own notice, so the second does not replace the first.
+         * Clear of the reminders' range (1000 plus a 16-bit hash), so neither replaces the other.
+         */
+        private const val DONE_BASE = 100_000
         private const val TAG = "VoxinqImport"
 
         /** How often the progress notification is allowed to move. */
@@ -88,44 +94,111 @@ class ImportService : Service() {
             .build()
     }
 
-    private var title = ""
+    /** One shared file, as it arrived. */
+    private data class Pending(val uri: Uri, val title: String, val bytes: Long)
+
+    /**
+     * Shares waiting their turn, oldest first.
+     *
+     * One at a time, because a day of recordings is shared one after another -- the next while
+     * the last is still uploading -- and they used to run side by side: whichever finished first
+     * stopped the service, which cancelled the other halfway through its upload and left its
+     * meeting empty on the server, with nothing on the phone to say so.
+     *
+     * Touched only on the main thread: onStartCommand runs there, and so does the loop between
+     * its uploads, and the upload's progress is handed back there to be shown -- so "nothing
+     * left, so stop" cannot miss one that has just arrived.
+     */
+    private val waiting = ArrayDeque<Pending>()
+    private var worker: Job? = null
+    private var current: Pending? = null
+
+    /** The newest start, so stopping does not throw away one the system has already sent. */
+    private var lastStart = 0
+
+    /** Where the import under way has got to, before the queue is added to it. */
+    private var stage = ""
+
+    /** How far through, or -1 for not known. */
+    private var percent = -1
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStart = startId
         if (intent?.action != ACTION_IMPORT) {
-            stopSelf()
+            stopIfIdle()
             return START_NOT_STICKY
         }
+        val title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { getString(R.string.import_untitled) }
         val uri = intent.data
-        val bytes = intent.getLongExtra(EXTRA_BYTES, 0L)
-        title = intent.getStringExtra(EXTRA_TITLE).orEmpty().ifBlank { getString(R.string.import_untitled) }
-        goForeground()
-        val origin = ServerAddress.load(this)
-        if (uri == null || origin == null) {
-            finish(getString(R.string.import_failed, getString(R.string.import_no_server)))
+        if (uri == null || ServerAddress.load(this) == null) {
+            goForeground(ongoing(current?.title ?: title))
+            tell(title, getString(R.string.import_failed, getString(R.string.import_no_server)), null)
+            stopIfIdle()
             return START_NOT_STICKY
         }
-        scope.launch { run(origin, uri, bytes) }
+        val job = Pending(uri, title, intent.getLongExtra(EXTRA_BYTES, 0L))
+        if (worker?.isActive == true) {
+            waiting.addLast(job)
+            // A foreground start is answered with a notification even when one is showing: the
+            // same one, now saying how many are waiting behind it. Only this one call, too --
+            // a second update straight after it can overtake it and be undone by it.
+            goForeground(ongoing(current?.title ?: title))
+        } else {
+            begin()
+            goForeground(ongoing(title))
+            waiting.addLast(job)
+            // Dispatched rather than run on the spot, so `worker` is set before the loop can end.
+            worker = scope.launch(Dispatchers.Main) { drain() }
+        }
         return START_NOT_STICKY
     }
 
-    private suspend fun run(origin: String, uri: Uri, bytes: Long) {
+    private suspend fun drain() {
+        while (true) {
+            val next = waiting.removeFirstOrNull() ?: break
+            current = next
+            begin()
+            show()
+            val origin = ServerAddress.load(this)
+            if (origin == null) {
+                tell(next.title, getString(R.string.import_failed, getString(R.string.import_no_server)), null)
+            } else {
+                run(origin, next)
+            }
+        }
+        current = null
+        worker = null
+        stopIfIdle()
+    }
+
+    private fun stopIfIdle() {
+        if (worker?.isActive == true || waiting.isNotEmpty()) return
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        // A share sent after this start but not yet delivered keeps the service alive: its
+        // onStartCommand is still on the way, and brings the notification back with it.
+        stopSelf(lastStart)
+    }
+
+    private suspend fun run(origin: String, job: Pending) {
         var meetingId: String? = null
         try {
             val cookie = CookieManager.getInstance().getCookie(origin)
             withContext(Dispatchers.IO) {
-                val id = createMeeting(origin, cookie)
+                val id = createMeeting(origin, cookie, job.title)
                 meetingId = id
-                upload(origin, cookie, id, uri, bytes)
+                upload(origin, cookie, id, job.uri, job.bytes)
                 // The meeting is over — it happened before the file existed. This is also what
                 // reads the recording's length back and winds the start time to match it.
                 post(origin, cookie, "/api/meetings/$id/end", "{}")
                 // Recognition is a queued job from here on. Nothing else to wait for.
                 post(origin, cookie, "/api/meetings/$id/transcribe", "{}")
             }
-            done(meetingId!!)
+            tell(job.title, getString(R.string.import_queued), meetingId)
         } catch (e: Exception) {
+            // The service going away is not the import failing; there is nothing left to tell.
+            if (e is CancellationException) throw e
             Log.w(TAG, "import", e)
             // A meeting with nothing in it is litter, and the next attempt will make another.
             // It goes to the trash rather than for good, in case the upload did land.
@@ -134,13 +207,13 @@ class ImportService : Service() {
                     runCatching { discard(origin, CookieManager.getInstance().getCookie(origin), id) }
                 }
             }
-            finish(getString(R.string.import_failed, e.message ?: e.javaClass.simpleName))
+            tell(job.title, getString(R.string.import_failed, e.message ?: e.javaClass.simpleName), null)
         }
     }
 
     // ---- The four calls ----
 
-    private fun createMeeting(origin: String, cookie: String?): String {
+    private fun createMeeting(origin: String, cookie: String?, title: String): String {
         val body = JSONObject().put("title", title).toString()
         val answer = post(origin, cookie, "/api/meetings", body)
         return JSONObject(answer).stringOrNull("id") ?: throw IOException("the server did not name the meeting")
@@ -223,44 +296,54 @@ class ImportService : Service() {
 
     // ---- What the person sees ----
 
+    /** From the upload's own thread; shown from the main one, where the queue lives. */
     private fun progress(sent: Long, total: Long) {
         val sentLabel = if (total > 0) {
             "${Import.sizeLabel(sent)} / ${Import.sizeLabel(total)}"
         } else {
             Import.sizeLabel(sent)
         }
-        val percent = if (total > 0) ((sent * 100) / total).toInt().coerceIn(0, 100) else 0
-        notify(NOTIFICATION, building(getString(R.string.import_sending, sentLabel), null).apply {
-            setProgress(100, percent, total <= 0)
-        }.build())
-    }
-
-    private fun done(meetingId: String) {
-        notify(
-            DONE_NOTIFICATION,
-            building(getString(R.string.import_queued), meetingId)
-                .setAutoCancel(true)
-                .build(),
-        )
-        finish(null)
-    }
-
-    /** The end of the service either way: the message, if there is one, outlives it. */
-    private fun finish(message: String?) {
-        if (message != null) {
-            notify(DONE_NOTIFICATION, building(message, null).setAutoCancel(true).build())
+        val done = if (total > 0) ((sent * 100) / total).toInt().coerceIn(0, 100) else -1
+        scope.launch {
+            stage = getString(R.string.import_sending, sentLabel)
+            percent = done
+            show()
         }
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
     }
 
-    private fun goForeground() {
+    private fun begin() {
+        stage = getString(R.string.import_preparing)
+        percent = -1
+    }
+
+    private fun show() {
+        val title = current?.title ?: return
+        notify(NOTIFICATION, ongoing(title))
+    }
+
+    /** The notice for the import under way, with how many are waiting behind it. */
+    private fun ongoing(title: String): Notification {
+        val stage = stage.ifEmpty { getString(R.string.import_preparing) }
+        val text = if (waiting.isEmpty()) stage else stage + " · " + getString(R.string.import_waiting, waiting.size)
+        return building(title, text, null).setProgress(100, percent.coerceAtLeast(0), percent < 0).build()
+    }
+
+    /**
+     * How one import ended, in a notice of its own that outlives the service. Keyed by the meeting
+     * when there is one -- so it opens that meeting -- and by the moment when there is not.
+     */
+    private fun tell(title: String, text: String, meetingId: String?) {
+        val key = (meetingId ?: (title + System.nanoTime())).hashCode() and 0xffff
+        notify(DONE_BASE + key, building(title, text, meetingId).setAutoCancel(true).build())
+    }
+
+    private fun goForeground(notification: Notification) {
         channel()
         try {
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION,
-                building(getString(R.string.import_preparing), null).setProgress(0, 0, true).build(),
+                notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } catch (e: Exception) {
@@ -278,7 +361,7 @@ class ImportService : Service() {
         )
     }
 
-    private fun building(text: String, meetingId: String?): NotificationCompat.Builder {
+    private fun building(title: String, text: String, meetingId: String?): NotificationCompat.Builder {
         val builder = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_recording)
             .setContentTitle(title)
