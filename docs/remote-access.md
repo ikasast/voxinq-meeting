@@ -125,6 +125,11 @@ a **downward-arrow icon** (no label — it reads as "Install app" to a screen re
 Safari that icon explains **Add to Home Screen** instead. The app is a PWA and runs full-screen
 from there. The icon is absent where the browser cannot install, and once it already has.
 
+**On Android, install [the app](../android/README.md) instead** — or as well. It asks for the same
+address (`https://myhost.tail1a2b3c.ts.net`), needs the same two ports served, and is the one way to
+keep recording with the screen off. Its signed build speaks HTTPS only, which is what `tailscale
+serve` gives you anyway.
+
 If the page loads but recording fails, the STT service is rejecting the browser's origin. It
 allows `localhost`, private LAN ranges and `*.ts.net` automatically; if you set
 `STT_ALLOWED_ORIGINS` yourself, your web address has to be in that list. See

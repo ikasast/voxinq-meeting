@@ -137,6 +137,24 @@ Tips:
 - Choose the source (mic / PC audio / both) from the top bar; you can switch mid-recording.
 - For "both", use headphones to avoid the mic double-capturing PC audio.
 
+### Recording with the Android app
+
+Everything above about keeping the screen on is the browser's limit, and **the Android app does
+not have it**. The recording screen is the same page; what changes is that pressing record hands
+the recording to the app, which holds the microphone in a service of its own. So:
+
+- **Turn the screen off, or switch to another app** — the recording carries on. A notification
+  shows the running time, and its **Stop and end** ends the meeting without opening anything.
+- **Losing the network costs nothing.** Audio is written to the phone before it is sent, and sent
+  when the connection comes back — an outage of twenty minutes included. If the system kills the
+  app mid-meeting, what it had recorded is sent the next time the app is opened.
+- The microphone check, Room mode and the level meter are the page's own and behave as they do in
+  a browser. The page reloads the transcript when you come back to it, rather than having missed
+  anything while it was hidden.
+
+The app also puts a notice on the phone at a booked meeting's time and takes recordings shared
+from other apps — both below. Installing and updating it: [Voxinq for Android](../android/README.md).
+
 ### Recording an online meeting you are attending on a phone
 
 "PC audio" does not appear on a phone, and cannot: `getDisplayMedia` is implemented by no
@@ -239,6 +257,22 @@ the button produced. Regenerate minutes to use the names.
 It reads the saved recording, so **the button is there only while the recording is** — once the
 WAV has expired there is nothing left to separate, and speakers can only be set per line.
 Re-transcribe disappears at the same moment, for the same reason.
+
+**A line that two people spoke in is divided between them.** Lines are cut where the room goes
+quiet, not where the speaker changes, so a quick exchange — a question and the "yes" that answers
+it — often lands in one line. Diarization uses the time of each word to find where the voice
+changed, and gives each person their own part; the pieces stay in place, in the order they were
+spoken. On a measured meeting that took the share of lines with the right speaker from 80% to 96%.
+
+- **Undo split**, beside **Diarize**, puts every divided line back together as it was. It appears
+  once something has been divided, and not before.
+- A line you have **edited** is never divided: the recogniser's words no longer match what is there,
+  and rewriting it from them would throw your edit away.
+- It needs the word times, which **faster-whisper** records (an NVIDIA GPU) and whisper.cpp and the
+  remote endpoints do not. Recognised there, lines stay whole and each goes to whoever spoke most
+  of it, as before. So do meetings recorded before 3.8.0.
+- A divided line loses its translation; the parts are new lines, and nothing translates them after
+  the fact.
 
 ## Voice profiles (auto-name recurring speakers)
 

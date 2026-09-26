@@ -302,6 +302,42 @@ Whisper (`large-v3` ≈ 3 GB) and the LLM (7B ≈ 5 GB) cannot both stay residen
 releases Whisper on meeting end. If needed, use a smaller Whisper model (`medium`) or
 `OLLAMA_KEEP_ALIVE=0`.
 
+## The Android app
+
+### An update will not install ("App not installed")
+
+`adb` says `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; the phone just says the app was not installed. The
+app on the phone was signed with a different key — the debug builds were — and Android refuses an
+update from anyone else. Uninstall it once, then install the signed APK from the release; updates
+install over it from then on. **Open the old app with the server reachable first**: uninstalling
+clears the server address, and anything a recording had not sent yet goes with it.
+
+### The app cannot reach the server, but the browser on the same phone can
+
+The signed app speaks **HTTPS only**. An `http://` address — a LAN IP, or `localhost` through
+`adb reverse` — works in a debug build and nowhere else. Use the `https://<host>.<tailnet>.ts.net`
+address, and check that Tailscale is connected on the phone.
+
+### No notice arrived at a booked meeting's time
+
+In order of likelihood:
+
+- **Notifications are off** for the app, or for its **Meeting reminders** channel alone.
+- **It was on its way.** The alarm is inexact — exact ones need a permission — so the notice can
+  arrive a couple of minutes after the hour.
+- **The meeting was booked minutes before it started**, while the phone was asleep. The app hears
+  about new bookings every quarter of an hour and whenever it is opened; anything booked earlier
+  has an alarm of its own.
+- **The server is older than 3.8.0**, which cannot say what is coming.
+
+### Sharing a recording to the app does nothing useful
+
+- **"A meeting is being recorded"** — by design: the recording owns the uplink, and it is the one
+  thing that cannot be done again. Share it once the meeting has ended.
+- **"Could not read the audio"** — the file is not something ffmpeg can decode, whatever its name
+  says. The meeting created for it has gone to the trash, so there is nothing to clean up.
+- **"HTTP 404"** — the server is older than 3.8.0, which has nowhere to put the file.
+
 ---
 
 [Docs index](README.md) · [← Architecture](architecture.md)

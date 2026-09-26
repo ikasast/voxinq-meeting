@@ -9,10 +9,11 @@ want to do:
 | **Reach it from a phone / share read-only** (Tailscale, in-app publish toggle, WireGuard, public URL) | 🌐 [Remote access](remote-access.md) |
 | **Change a setting** (every `.env` variable and `settings.json` option) | ⚙️ [Configuration](configuration.md) |
 | **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](llm-providers.md) |
-| **Learn the features** (record, upload, diarize, find & replace, export, archive) | 📖 [Usage & recipes](usage.md) |
+| **Learn the features** (record, upload, diarize, ask, a day's minutes at once, find & replace, export, archive) | 📖 [Usage & recipes](usage.md) |
 | **Understand how it works** (components, data flow, what is Voxinq and what is not) | 🏗 [Architecture](architecture.md) |
 | **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](design-decisions.md) |
-| **See where the Android app is going** (why a native app, its shape, the milestones) | 📱 [Android app](android-app.md) |
+| **Record on Android with the screen off** (install, updates, what the app adds) | 📱 [Voxinq for Android](../android/README.md) |
+| **Understand the Android app** (why a native app, its shape, what it was decided not to do) | 🧩 [Android app design](android-app.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
 
 > Voxinq Meeting is self-hosted: by default the audio, the transcripts and the minutes all stay
