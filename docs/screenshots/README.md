@@ -9,7 +9,7 @@ app is for, these say what it looks like.
 | Filename | What it shows | Retaken by |
 | --- | --- | --- |
 | `recording.png` | Recording screen: model state, live transcript, and the recording control at the bottom. | `shoot-screenshots.mjs` |
-| `minutes.png` | Meeting detail: minutes in the middle, and the column beside them — progress, agenda, who was there, what it was recorded with. | `shoot-screenshots.mjs` |
+| `minutes.png` | Meeting detail: minutes in the middle, the column beside them — progress, agenda, who was there, what it was recorded with — and the list, with one meeting still waiting for its minutes. | `shoot-screenshots.mjs` |
 | `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series), a band of what each kind of hardware does, and a strip on encryption, accounts, search and self-hosting. **Says more than any drawing can**, which is why it is the hero and not one. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
@@ -30,9 +30,10 @@ to be shown.
 
 They come from a **throwaway instance**, never from a real one — a production install has
 confidential meetings in it, and the settings page shows real API keys. The recipe below
-keeps every port clear of a running install (`3000` / `8000` / `5432`) and stubs the STT
-service, because the health indicator asks it to load Whisper and that would take the GPU
-from whatever is using it.
+keeps every port clear of a running install (`3000` / `8000` / `5432` / `11434`) and stands in
+for the STT service and Ollama (`scripts/shots-stubs.mjs`): the health indicator would ask the
+real STT service to load Whisper, taking the GPU from whatever is using it, and a missing
+Ollama is photographed as a red *Cannot reach Ollama* across the top of every shot.
 
 ```bash
 # 1. a database of its own
@@ -43,17 +44,20 @@ export DATABASE_URL="postgresql://voxinq:shots@127.0.0.1:55432/voxinq"
 npx prisma migrate deploy
 node scripts/seed-demo.mjs            # LOCALE=ja for the Japanese set
 
-# 2. the app, on a port nothing else wants, with auth off and its own settings file
+# 2. stand-ins for the STT service (8103) and Ollama (11435), in another terminal
+node scripts/shots-stubs.mjs
+
+# 3. the app, on a port nothing else wants, with auth off and its own settings file
 export VOXINQ_SETTINGS_PATH=/tmp/shots-settings.json   # not the real settings.json
-export NEXT_PUBLIC_STT_WS_URL="ws://127.0.0.1:58000/ws"
-export STT_URL="http://127.0.0.1:58000"                # a stub, not the real service
-export STT_INTERNAL_URL="http://127.0.0.1:58000"
+export STT_WS_URL="ws://127.0.0.1:8103/ws"             # read at runtime: no rebuild
+export STT_INTERNAL_URL="http://127.0.0.1:8103"
+export OLLAMA_BASE_URL="http://127.0.0.1:11435"
 export APP_PASSWORD="" NETWORK_MODE=lan
 export TZ="Asia/Tokyo"                                 # a container has none; without it the
                                                        # dates in the shots are UTC
 npm run build && npx next start -p 3100
 
-# 3. the photographs
+# 4. the photographs
 npm i -D playwright && npx playwright install chromium
 BASE_URL=http://127.0.0.1:3100 node scripts/shoot-screenshots.mjs
 BASE_URL=http://127.0.0.1:3100 node scripts/shoot-demo-gif.mjs   # needs ffmpeg on PATH
@@ -76,9 +80,14 @@ for `recording.png` and `minutes.png` because the README puts them side by side.
 is under that 1536 threshold, so the last frame — the one the slideshow travels towards — showed
 a stack of detail cards and no minutes.
 
-The STT service the recipe stubs is asked for its health, and the recording screen shows the
-answer. Report a configuration that exists (which model, which backend, whether live
-transcription is available) rather than letting a bare stub photograph its own fallback.
+The stand-ins are asked for their health, and the pages show the answer, so they report a
+configuration that exists — which model, which backend, live transcription available, Ollama
+up — rather than a bare stub photographing its own fallback. They also say every demo meeting's
+recording is still kept; without that, **Resume recording** is missing from `minutes.png`.
+
+The demo data includes one meeting that was recorded and not written up, so the list shows
+what the app does about that: **No minutes** on its card, and the bar that offers to write
+them all. The Japanese set is seeded in Japanese down to the meeting's recorded language.
 
 ## Doing it by hand
 
