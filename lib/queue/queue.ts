@@ -74,6 +74,13 @@ export async function enqueue(input: {
  *
  * Order is `position` then `createdAt`: with every position left at its default that is plain
  * FIFO, and reordering only has to write positions for the rows it moves.
+ *
+ * **Minutes go one at a time**, whatever the budget says. The memory is not the only thing they
+ * share: they all go to the same model, which answers one request at a time and keeps the rest
+ * waiting without a word -- and a request that hears nothing for five minutes is abandoned by
+ * the HTTP client. That is how a day's minutes sent together became one set of minutes and a
+ * page of "Headers Timeout Error". A cloud model would take them together, but its rate limit
+ * would not; one at a time is slower there and never wrong.
  */
 export async function claimNext(budget: number): Promise<ClaimedJob | null> {
   const rows = await prisma.$queryRaw<ClaimedJob[]>`
@@ -85,6 +92,10 @@ export async function claimNext(budget: number): Promise<ClaimedJob | null> {
           j."vram_mb" + COALESCE((SELECT sum(r."vram_mb") FROM "jobs" r WHERE r.status = 'running'), 0)
             <= ${budget}
           OR NOT EXISTS (SELECT 1 FROM "jobs" r2 WHERE r2.status = 'running')
+        )
+        AND (
+          j.kind <> 'minutes'
+          OR NOT EXISTS (SELECT 1 FROM "jobs" r3 WHERE r3.status = 'running' AND r3.kind = 'minutes')
         )
       ORDER BY j.position ASC, j."created_at" ASC
       FOR UPDATE SKIP LOCKED

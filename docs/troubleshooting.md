@@ -153,6 +153,9 @@ an earlier version exists) plus a **Retry** button. Common causes:
 - *HTTP 401 / API key not set* — a cloud provider is selected without a key.
 - A timeout on a very long meeting: responses are streamed, so slow local models no longer
   hit the old 5-minute limit; if it still fails, try a smaller detail level or a faster model.
+- *fetch failed (Headers Timeout Error)* on most of a batch sent with **Write them all**: the
+  up to 3.8.0 a batch started all at once, and every request still waiting inside the model
+  after five minutes was dropped. Later versions write them one at a time; send the batch again.
 
 ## Minutes contain content that was never discussed
 
