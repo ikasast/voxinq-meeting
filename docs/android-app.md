@@ -255,7 +255,7 @@ if a use for live media capture turns up later.
   3.8.0` and `versionCode 30800`. One number to bump.
 - **Distribution**: the signed APK attached to the release, at no cost, and the release is what an
   updater watches — [Obtainium](https://github.com/ImranR98/Obtainium) or anything else that
-  follows a repository's releases, with pre-releases included while 3.x is still cut that way.
+  follows a repository's releases.
   **There is no silent auto-update outside the Play Store**; what this gives is being told, and one
   tap. Google's developer verification for apps installed outside Play starts in four countries on
   30 September 2026 and reaches everywhere else in 2027; before then nothing changes, and after it

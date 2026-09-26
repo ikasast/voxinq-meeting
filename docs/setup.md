@@ -245,7 +245,7 @@ want the feature they belong to.
 | `VOXINQ_KEY_SECRET` | With accounts | A second long random string. It wraps the keys that are open while somebody is using the app, so a stolen database or a backup on its own reads nothing. **Keep it out of the backup** |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.8.1`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.8.2`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -709,11 +709,10 @@ release: the one GitHub marks *Latest*, the one the `latest` image tag resolves 
 long-lived maintenance branch, because a second pointer is a second thing to forget, and this
 branch has already been forgotten three times.
 
-**Today those three do not agree, deliberately.** *Latest* and `latest` are still `v2.3.2`,
-because no 3.x version has been published as a full release yet; `release` follows the newest 3.x tag
-— `v3.8.1` — so that a 3.x app's own documentation links, and the compose file the documentation
-hands out, resolve against 3.x files. They line up again on the release that ships 3.x — and
-moving `release` is part of cutting it.
+**From `v3.8.2` those three agree again.** Through the 3.x pre-releases they did not, on purpose:
+*Latest* and `latest` stayed on `v2.3.2` while `release` followed the newest 3.x tag, so that a
+3.x app's own documentation links resolved against 3.x files. `v3.8.2` is the first full 3.x
+release, and it is what all three name.
 
 > This was got wrong three times: the branch sat on `v2.3.0` through two releases, and then on
 > `v3.0.0` through eight, while the documentation handed people files from it. The first two
@@ -727,17 +726,39 @@ has nothing to pull. `v3.1.0` to `v3.7.0` *do* have images, built by hand from *
 publish-images** so one instance could run each of them before anybody else did; no release was
 published from any of them.
 
-**From `v3.8.0`, each 3.x version is a published pre-release.** Publishing it builds and pushes
-the images for its own tag — nothing to run by hand — and attaches the Android APK and the
-tarball, so there is one page a version can be fetched from. Being a pre-release, it moves
-neither `latest` nor the Homebrew tap and the Scoop bucket. The release that carries 3.x to
-everybody else, as a full release, has not been cut yet, which is why `latest` is still `v2.3.2`
-— see the note above.
+**`v3.8.0` and `v3.8.1` were published pre-releases.** Publishing built and pushed the images for
+their own tags and attached the Android APK and the tarball, but moved neither `latest` nor the
+Homebrew tap and the Scoop bucket. **`v3.8.2` is the full release** that carries 3.x to everybody
+following `latest` — see [Upgrading from 2.x](#upgrading-from-2x).
 
 The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
 `VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
-version changed. Development happens on 2.x, and 1.5 takes fixes only — hotfix it from a branch
-off its tag.
+version changed. The **2.x line ended at `v2.3.2`**, likewise still published. Development
+happens on 3.x; the older lines take fixes only — hotfix one from a branch off its tag.
+
+#### Upgrading from 2.x
+
+`v3.8.2` is the release that moves `latest` from 2.x to 3.x, so an install following `latest`
+takes it on its next pull. What that involves:
+
+- **Back up first.** The upgrade runs eighteen migrations. All but one only add, but
+  `series_per_person` rewrites existing rows: it gives every series an owner. **Going back to 2.x
+  afterwards is not supported** — take a backup before pulling: Settings → Data → Export, or
+  the database alone as in [Moving or rebuilding](#moving-or-rebuilding).
+- **Nothing to change in `.env`.** The migrations run on their own when the new version starts —
+  in the web container on Docker, and in `voxinq start` for the launcher. The compose file gained
+  three variables, all optional with defaults (`VOXINQ_SIGNUP`, `VOXINQ_KEY_SECRET`,
+  `DIA_MIN_PIECE_S`); an older copy of `docker-compose.yml` keeps working, and fetching the new
+  one from `release` gives you their comments.
+- **Accounts are opt-in.** Until somebody creates one, the app behaves as 2.x did: one shared
+  password, or none. The first account takes what is already there and becomes an administrator;
+  see [Accounts](usage.md#accounts). Encryption of transcripts and minutes comes with accounts.
+- To stay on 2.x instead, pin `VOXINQ_VERSION=v2.3.2`; for the launcher, do not update.
+
+| host runs | upgrade with |
+| --- | --- |
+| Docker | back up, then `docker compose pull && docker compose up -d` |
+| `voxinq` launcher | back up, then `brew upgrade` / `scoop update voxinq`, then `voxinq setup` |
 
 **Cutting a release**
 
@@ -761,7 +782,8 @@ gh release create v1.1.0 --title v1.1.0 --notes-file <file>   android/app/build/
 **Publish it — not as a pre-release — or `latest` stays where it is.** A pre-release is the right
 shape while a line is not official yet: it still builds and pushes the images for its own tag, and
 gives the APK a download address, but it leaves `latest`, the Homebrew tap and the Scoop bucket
-alone. That is how 3.x is cut from `v3.8.0` on, and `gh release create --prerelease` is how.
+alone. That is how 3.x was cut from `v3.8.0` until it shipped, and `gh release create --prerelease`
+is how.
 
 Publishing is what builds and pushes the container images, and the only thing that moves
 `latest`, so nothing can be deployed from Docker until it has run. The **Publish images**
