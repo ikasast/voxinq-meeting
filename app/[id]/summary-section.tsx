@@ -11,38 +11,9 @@ import { CopySummaryButton } from "./copy-summary-button";
 import { MinutesDownloadButton } from "./minutes-download-button";
 import { ShareButton } from "./share-button";
 import { useLocale, useT } from "@/app/locale-provider";
+import { MinutesChoiceFields, useMinutesChoice } from "@/app/minutes-options";
 
 export type SummaryVersion = { id: string; text: string; createdAt: string };
-
-// The labels are the keys, translated where they are rendered. A module-level constant has no
-// hook to reach the language with, and the same spelling-out the meeting list's bands needed:
-// a key that only exists at run time is one the table's test cannot see.
-const DETAILS: { id: string; label: string }[] = [
-  { id: "brief", label: "Brief (shorter)" },
-  { id: "standard", label: "Standard" },
-  { id: "detailed", label: "Detailed (fuller)" },
-];
-
-// Providers the user can pick for a one-off regeneration. Each provider uses the model
-// configured for it in Settings — the panel just shows which one that is.
-const PROVIDERS: { id: string; label: string }[] = [
-  { id: "ollama", label: "Ollama (local)" },
-  { id: "anthropic", label: "Anthropic" },
-  { id: "openai", label: "OpenAI-compatible" },
-];
-
-/** The six option labels, spelled out so the table's test can find them. */
-function optionLabel(t: (k: string) => string, label: string): string {
-  const table: Record<string, string> = {
-    "Brief (shorter)": t("Brief (shorter)"),
-    Standard: t("Standard"),
-    "Detailed (fuller)": t("Detailed (fuller)"),
-    "Ollama (local)": t("Ollama (local)"),
-    Anthropic: t("Anthropic"),
-    "OpenAI-compatible": t("OpenAI-compatible"),
-  };
-  return table[label] ?? label;
-}
 
 // Display / edit / regenerate the minutes, plus version history.
 // summaries is newest-first. Shows the not-generated state when empty.
@@ -92,35 +63,13 @@ export function SummarySection({
   const [genBusy, setGenBusy] = useState(false);
   const [stopping, setStopping] = useState(false);
 
-  // "Regenerate with options" panel: per-run detail level + provider, prefilled from saved settings.
+  // "Regenerate with options" panel: per-run format, detail level and provider, prefilled from
+  // the saved settings the first time it opens.
   const [showOptions, setShowOptions] = useState(false);
-  const [optDetail, setOptDetail] = useState("standard");
-  const [optTemplate, setOptTemplate] = useState("");
-  const [optTemplates, setOptTemplates] = useState<{ id: string; name: string }[]>([]);
-  const [optProvider, setOptProvider] = useState("ollama");
-  const [optModels, setOptModels] = useState<Record<string, string>>({});
-  const [optLoaded, setOptLoaded] = useState(false);
-
-  const toggleOptions = async () => {
+  const opts = useMinutesChoice();
+  const toggleOptions = () => {
     setShowOptions((v) => !v);
-    if (optLoaded) return;
-    try {
-      const res = await fetch("/api/settings");
-      if (!res.ok) return;
-      const s = await res.json();
-      setOptDetail(s.summaryDetail ?? "standard");
-      setOptProvider(s.llmProvider ?? "ollama");
-      setOptTemplates(Array.isArray(s.minutesTemplates) ? s.minutesTemplates : []);
-      setOptTemplate(s.defaultMinutesTemplateId ?? "");
-      setOptModels({
-        ollama: s.ollamaModel ?? "",
-        anthropic: s.anthropicModel ?? "",
-        openai: s.openaiModel ?? "",
-      });
-      setOptLoaded(true);
-    } catch {
-      // ignore — the user can still pick a provider / detail level
-    }
+    void opts.load();
   };
 
   const processing = summaryStatus === "processing";
@@ -310,70 +259,13 @@ export function SummarySection({
       {/* Regenerate options: one-off detail level + provider for this run (settings unchanged). */}
       {showOptions && !editing ? (
         <div className="mt-3 space-y-3 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3">
-          <div>
-            <label htmlFor="regen-template" className="label">
-              {t("Format")}
-            </label>
-            <select
-              id="regen-template"
-              value={optTemplate}
-              onChange={(e) => setOptTemplate(e.target.value)}
-              className="input mt-1"
-            >
-              {/* Empty means "whatever the settings and this series say", which is what the
-                  button did before this existed. "default" asks for the built-in explicitly,
-                  which is otherwise unreachable once a series has its own format. */}
-              <option value="">{t("Same as settings")}</option>
-              <option value="default">{t("Built-in default")}</option>
-              {optTemplates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor="regen-detail" className="label">
-                {t("Detail")}
-              </label>
-              <select
-                id="regen-detail"
-                value={optDetail}
-                onChange={(e) => setOptDetail(e.target.value)}
-                className="input mt-1"
-              >
-                {DETAILS.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {optionLabel(t, d.label)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="regen-provider" className="label">
-                {t("Provider")}
-              </label>
-              <select
-                id="regen-provider"
-                value={optProvider}
-                onChange={(e) => setOptProvider(e.target.value)}
-                className="input mt-1"
-              >
-                {PROVIDERS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {optionLabel(t, p.label)}
-                  </option>
-                ))}
-              </select>
-              {optModels[optProvider] ? (
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {t("Model: {model} (from Settings)", { model: optModels[optProvider] })}
-                </p>
-              ) : null}
-            </div>
-          </div>
+          <MinutesChoiceFields
+            idPrefix="regen"
+            choice={opts.choice}
+            onChange={opts.setChoice}
+            templates={opts.templates}
+            models={opts.models}
+          />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-[var(--text-muted)]">
               {t("Applies to this run only — saved settings are unchanged.")}
@@ -386,9 +278,9 @@ export function SummarySection({
                 type="button"
                 onClick={() =>
                   regenerate({
-                    detail: optDetail,
-                    provider: optProvider,
-                    templateId: optTemplate || undefined,
+                    detail: opts.choice.detail,
+                    provider: opts.choice.provider,
+                    templateId: opts.choice.templateId || undefined,
                   })
                 }
                 disabled={genBusy || processing}

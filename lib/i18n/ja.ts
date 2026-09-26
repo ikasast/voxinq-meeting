@@ -1161,6 +1161,10 @@ export const ja: Record<string, string> = {
   "Generating minutes in the background. They will appear automatically when done…": "バックグラウンドで議事録を作成しています。終わると自動で表示されます…",
   "Detail": "詳しさ",
   "Applies to this run only — saved settings are unchanged.": "今回だけに適用されます。保存済みの設定は変わりません。",
+  "Applies to this batch only — saved settings are unchanged.":
+    "今回のまとめて作成だけに適用されます。保存済みの設定は変わりません。",
+  "Format, detail and model…": "書式・詳細度・モデル…",
+  "Hide options": "オプションを閉じる",
   "This link cannot be used": "このリンクは使えません",
   "That link has expired or has already been used.": "このリンクは期限切れか、すでに使われています。",
   "Ask an administrator for another — they take a few seconds to make.": "管理者に新しいリンクを発行してもらってください。数秒で作れます。",

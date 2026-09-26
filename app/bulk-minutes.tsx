@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "./locale-provider";
+import { MinutesChoiceFields, useMinutesChoice } from "./minutes-options";
 
 // "Record now, write the minutes later" — which is how a day of meetings actually goes, and at
 // a conference how a week of them does. This is the later: the meetings in view that have no
@@ -10,6 +11,11 @@ import { useT } from "./locale-provider";
 //
 // It works on what the list is showing, so the filters above it are the selection: a series, a
 // day, a search. The queue decides what runs when; this only fills it.
+//
+// The format, the detail and the model can be chosen for this batch alone, as Regenerate does
+// for one meeting: a conference day written up as lectures, say, without making that the
+// default for everything after it. Left closed, each meeting is written as it would be on its
+// own — its series' format included.
 
 export type BulkCandidate = { id: string; title: string; when: string };
 
@@ -20,6 +26,8 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(() => new Set(candidates.map((c) => c.id)));
+  const [showOptions, setShowOptions] = useState(false);
+  const opts = useMinutesChoice();
 
   // The list changes under this when a filter does. Re-deriving during the render rather than
   // in an effect keeps the two from disagreeing for a frame — and keeps a meeting that has
@@ -48,7 +56,18 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
       const res = await fetch("/api/claude/summary/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingIds: [...chosen] }),
+        // The choice goes only when it was opened. Closed, nothing is overridden — which is not
+        // the same as sending the saved values: a series with its own format keeps it.
+        body: JSON.stringify({
+          meetingIds: [...chosen],
+          ...(showOptions && opts.loaded
+            ? {
+                detail: opts.choice.detail,
+                provider: opts.choice.provider,
+                templateId: opts.choice.templateId || undefined,
+              }
+            : {}),
+        }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -112,6 +131,32 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
               </li>
             ))}
           </ul>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowOptions((v) => !v);
+              void opts.load();
+            }}
+            aria-expanded={showOptions}
+            className="mt-2 text-xs text-[var(--accent-sub)] hover:underline"
+          >
+            {showOptions ? t("Hide options") : t("Format, detail and model…")}
+          </button>
+          {showOptions ? (
+            <div className="mt-2 space-y-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
+              <MinutesChoiceFields
+                idPrefix="bulk"
+                choice={opts.choice}
+                onChange={opts.setChoice}
+                templates={opts.templates}
+                models={opts.models}
+              />
+              <p className="text-xs text-[var(--text-muted)]">
+                {t("Applies to this batch only — saved settings are unchanged.")}
+              </p>
+            </div>
+          ) : null}
 
           {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
 

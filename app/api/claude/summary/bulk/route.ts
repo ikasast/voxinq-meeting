@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
+import { minutesOverrides } from "@/lib/meetings/bulk-minutes";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 
 export const runtime = "nodejs";
@@ -14,10 +15,16 @@ export const runtime = "nodejs";
 // question nobody asked. What comes back says how many went and how many did not.
 //
 // The queue decides what actually runs when. This only puts them in it.
+//
+// A format, a detail level and a provider can come with the batch, for this batch only — the
+// same three the single-meeting route takes, applied to every meeting in it and saved nowhere.
 const MAX_AT_ONCE = 200;
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) as { meetingIds?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as
+    | ({ meetingIds?: unknown } & Record<string, unknown>)
+    | null;
+  const params = minutesOverrides(body);
   const ids = Array.isArray(body?.meetingIds)
     ? [...new Set(body.meetingIds.filter((v): v is string => typeof v === "string" && v.length > 0))]
     : [];
@@ -59,7 +66,7 @@ export async function POST(req: NextRequest) {
     // Queued first, then said, as the single-meeting route does: the list should say so while
     // it waits its turn, and a meeting saying it with no job behind it is what the sweep
     // collects — so the job exists before the meeting claims it.
-    await enqueue({ kind: "minutes", meetingId: id, params: {} });
+    await enqueue({ kind: "minutes", meetingId: id, params });
     await prisma.meeting.update({
       where: { id },
       data: { summaryStatus: "processing", summaryError: null },
