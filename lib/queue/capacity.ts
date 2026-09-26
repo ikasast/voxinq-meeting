@@ -1,3 +1,4 @@
+import { loadedMb } from "@/lib/llm/ollama-models";
 import { whisperModel } from "@/lib/stt/models";
 import { sttInternalUrl } from "@/lib/stt/internal";
 import { readSettings } from "@/lib/settings";
@@ -102,9 +103,7 @@ async function ollamaModelMb(baseUrl: string, model: string): Promise<number> {
     const d = (await res.json()) as { models?: { name?: string; size?: number }[] };
     const hit = d.models?.find((m) => m.name === model || m.name?.split(":")[0] === model.split(":")[0]);
     if (!hit?.size) return LLM_FALLBACK_MB;
-    // On disk, quantised. What it occupies loaded is that plus the context, and the context is
-    // the part this cannot see — so a fifth is added rather than pretending the file size is it.
-    return Math.round((hit.size / 1024 / 1024) * 1.2);
+    return loadedMb(hit.size / 1024 / 1024);
   } catch {
     return LLM_FALLBACK_MB;
   }

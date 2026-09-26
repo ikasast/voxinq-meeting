@@ -8,6 +8,7 @@ import {
   findInstalled,
   foldProgress,
   isModelName,
+  loadedMb,
   ollamaBase,
   sameModel,
 } from "../lib/llm/ollama-models";
@@ -77,6 +78,26 @@ describe("two names for one model", () => {
     expect(sameModel("llama3:latest", " llama3 ")).toBe(true);
     expect(sameModel("qwen3:8b", "qwen3:14b")).toBe(false);
     expect(sameModel("qwen3", "qwen3:8b")).toBe(false);
+  });
+});
+
+describe("what a model occupies once loaded", () => {
+  it("is the file plus room for the context", () => {
+    // The Nemotron that prompted this: a 6.08 GiB file, 7.4 GB in `ollama ps` at a context of
+    // 24576, against an 8 GB card's budget of 7.0 GiB.
+    const file = Math.round(6.08 * 1024);
+    expect(loadedMb(file) / 1024).toBeCloseTo(7.3, 1);
+    expect(loadedMb(file)).toBeGreaterThan(8188 - 1024);
+  });
+
+  it("is the one figure the queue and the settings screen both use", () => {
+    const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
+    expect(read("lib/queue/capacity.ts")).toContain("loadedMb(");
+    const field = read("app/settings/ollama-model-field.tsx");
+    expect(field).toContain("loadedMb(hit.sizeMb)");
+    // Compared, and shown: a warning about a number it does not print reads as a mistake.
+    expect(field).toMatch(/need > budgetMb/);
+    expect(field).not.toMatch(/sizeMb \* 1\.2/);
   });
 });
 

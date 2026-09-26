@@ -1236,8 +1236,9 @@ export const ja: Record<string, string> = {
   "Downloading {model}…": "{model} をダウンロード中…",
   "It carries on if you close this page.": "このページを閉じてもダウンロードは続きます。",
   "Installed · {size}": "インストール済み · {size}",
-  "Larger than this machine's GPU budget ({budget}). It will run partly on the CPU, which is much slower.":
-    "このマシンの GPU 予算（{budget}）より大きいモデルです。一部が CPU で動くため、かなり遅くなります。",
+  "Installed · {size} file, about {need} once loaded": "インストール済み · ファイル {size}、読み込み時 約 {need}",
+  "Loaded, it needs about {need}, more than this machine's GPU budget of {budget}. Part of it will run on the CPU, which is much slower.":
+    "読み込むと約 {need} になり、このマシンの GPU 予算 {budget} を超えます。一部が CPU で動くため、かなり遅くなります。",
   "Not installed on this Ollama.": "この Ollama にはインストールされていません。",
   "An administrator can download it from this screen.": "管理者がこの画面からダウンロードできます。",
   "The download failed: {reason}": "ダウンロードに失敗しました: {reason}",
