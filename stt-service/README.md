@@ -83,8 +83,11 @@ sherpa-onnx（トークン不要・全OS）の2本立てで、これもハード
 | 録音 | `GET/POST/DELETE /recordings/{id}` とその `/audio` `/sidecars` `/protect` `/restore` `/segments/delete` |
 | 一括文字起こし | `POST /transcribe/{id}` → `GET /transcribe/{id}/status` |
 | ファイルからの取り込み | `POST /upload/{id}`（wav/mp3/m4a など ffmpeg が読める形式。`?transcribe=false` で保存のみ、文字起こしは Web のキューに任せる） |
-| 話者分離 | `POST /diarize/{id}` → `GET /diarize/{id}/status`、`POST /diarize/{id}/cancel` |
+| 話者分離 | `POST /diarize/{id}` → `GET /diarize/{id}/status`、`POST /diarize/{id}/cancel`。body の `{"utterances":[{"start","end"}]}` で行ごとの時刻を渡すと、答えはその行に対応して返る（無ければ保存済みの区切りに位置で対応）。status の `pieces` は、話者が変わった行をどこで分けるか |
 | 声紋 | `POST /voiceprint` |
+
+保存される `<id>.segments.json` の各区切りには、認識した単語とその時刻（`{"w","s","e"}`、録音の時計）が付く。
+単語時刻を出せるのは faster-whisper だけで、whisper.cpp とリモートのバックエンドは返さない。話者分離が行を分けるのはこれを使う。
 
 `/transcribe/{id}` の body に `remote` を入れるとリモートバックエンドが使われる。API キーはここに
 乗って来る（Web アプリがサーバー側で付ける）ので、**ブラウザには渡らない**。

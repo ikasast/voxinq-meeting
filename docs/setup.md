@@ -38,6 +38,7 @@ work, because the two are not the same thing and the second is the one that can 
 | **Apple silicon, native (Metal)** | ⚠️ chosen by the code and never run: the wheel's Metal was confirmed on a CI runner's virtual GPU, which is not a Mac |
 | **Apple silicon, Docker (CPU images)** | ⚠️ images built for arm64, not run on the hardware |
 | **AMD / Intel GPU** | ⚠️ falls back to the CPU by design; the fallback is measured, the machines are not owned |
+| **Android app, Pixel 9 (Android 17)** | ✅ five minutes of screen-off recording under forced deep Doze, every line saved; ⚠️ the hour-long run with real recognition and diarization is still to do, and the network queue, the meeting notice and sharing a recording were verified on the Android 16 emulator only |
 
 Nothing here is a promise that the ⚠️ rows are broken — they are the rows where a report from
 someone who has the hardware would be worth more than anything written here. Please open an
@@ -705,7 +706,7 @@ long-lived maintenance branch, because a second pointer is a second thing to for
 branch has already been forgotten three times.
 
 **Today those three do not agree, deliberately.** *Latest* and `latest` are still `v2.3.2`,
-because nothing in the 3.x line has been released yet; `release` follows the newest 3.x tag
+because no 3.x version has been published as a full release yet; `release` follows the newest 3.x tag
 — `v3.8.0` — so that a 3.x app's own documentation links, and the compose file the documentation
 hands out, resolve against 3.x files. They line up again on the release that ships 3.x — and
 moving `release` is part of cutting it.
@@ -716,15 +717,18 @@ moving `release` is part of cutting it.
 > `docker-compose.yml` and this page had both moved on. **If it is behind, fast-forward it** —
 > it is one command, and it is in the recipe below for a reason.
 
-**Every 3.x tag so far is a tag, not a release.** `v3.0.0` marks where 3.0 ended — the queue,
-the rebuilt list, the microphone check — and no image carries it at all, so
-`VOXINQ_VERSION=v3.0.0` has nothing to pull. `v3.1.0` onward *do* have images, built by hand
-from **Actions → publish-images** so one instance could run each of them before anybody else
-did; no release was published from any of them, so none moved `latest`.
+**Up to `v3.7.0`, a 3.x tag was only a tag.** `v3.0.0` marks where 3.0 ended — the queue, the
+rebuilt list, the microphone check — and no image carries it at all, so `VOXINQ_VERSION=v3.0.0`
+has nothing to pull. `v3.1.0` to `v3.7.0` *do* have images, built by hand from **Actions →
+publish-images** so one instance could run each of them before anybody else did; no release was
+published from any of them.
 
-That is a tag doing its own job: naming a point in the history, and giving the app's
-documentation links something to resolve against. The release that carries 3.x to everybody
-else has not been cut yet, which is why `latest` is still `v2.3.2` — see the note above.
+**From `v3.8.0`, each 3.x version is a published pre-release.** Publishing it builds and pushes
+the images for its own tag — nothing to run by hand — and attaches the Android APK and the
+tarball, so there is one page a version can be fetched from. Being a pre-release, it moves
+neither `latest` nor the Homebrew tap and the Scoop bucket. The release that carries 3.x to
+everybody else, as a full release, has not been cut yet, which is why `latest` is still `v2.3.2`
+— see the note above.
 
 The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
 `VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
@@ -753,7 +757,7 @@ gh release create v1.1.0 --title v1.1.0 --notes-file <file>   android/app/build/
 **Publish it — not as a pre-release — or `latest` stays where it is.** A pre-release is the right
 shape while a line is not official yet: it still builds and pushes the images for its own tag, and
 gives the APK a download address, but it leaves `latest`, the Homebrew tap and the Scoop bucket
-alone. That is what every 3.x tag is, and `gh release create --prerelease` is how.
+alone. That is how 3.x is cut from `v3.8.0` on, and `gh release create --prerelease` is how.
 
 Publishing is what builds and pushes the container images, and the only thing that moves
 `latest`, so nothing can be deployed from Docker until it has run. The **Publish images**

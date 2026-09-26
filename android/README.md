@@ -3,10 +3,15 @@
 The web app in a WebView, with a native recorder that keeps going with the screen off or another
 app in front. What it is for, and why it is shaped this way: [docs/android-app.md](../docs/android-app.md).
 
-Built so far: a recording that survives the screen, one that survives the network, the notice at a
-booked meeting's time, and importing a recording shared from another app. Nothing is published yet, and the server has to run a version of
-Voxinq that includes the page's side of the recorder (`lib/stt/native.ts`); an older server
-records in the page, as a browser does.
+What it does: a recording that survives the screen, one that survives the network, the notice at a
+booked meeting's time, and importing a recording shared from another app. The signed APK is attached
+to every release from `v3.8.0` — see [Install](#install-and-how-updates-arrive).
+
+**The server has to be new enough for what the app asks of it.** Recording through the app needs
+**3.7.0** or later, which is when the recording page learned to hand the recording over
+(`lib/stt/native.ts`); an older server records in the page, as a browser does. The meeting notice
+and sharing a recording need **3.8.0**: before it, the server cannot say what is coming or take a
+file from the phone.
 
 ## Build
 

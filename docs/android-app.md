@@ -1,9 +1,10 @@
 # The Android app
 
-A design, written before any of it existed. It says what the app is for, what shape it takes and
-why, how it talks to the parts that are already there, and what the first version has to prove.
-The first milestone is in `android/`; how to build and install it is in
-[android/README.md](../android/README.md).
+Written as the design before any of it existed, and kept as the record of why the app is shaped
+the way it is: what it is for, how it talks to the parts that were already there, and what each
+milestone had to prove. All three milestones are built — the third with one of its conveniences
+declined, for the reasons [below](#not-capturing-what-the-phone-plays). How to build, install and
+update the app is in [android/README.md](../android/README.md).
 
 ## What it is for
 
@@ -17,8 +18,11 @@ A native app can hold the microphone in a **foreground service** — the kind th
 notification for as long as it runs — and nothing about the screen touches it. That is the
 reason for the app. Two more things come nearly free once it exists:
 
-- **The notice at a booked meeting's time can start the recording**, from the notification,
-  without the app being open. The alarm is scheduled on the phone, so no push service is needed.
+- **The notice at a booked meeting's time leads straight to recording**, with nothing open
+  beforehand: **Record** in the notification opens that meeting's recording page, which starts by
+  itself. The alarm is scheduled on the phone, so no push service is needed. (It goes through the
+  page rather than starting the microphone from the notification itself — see
+  [the notice](#the-notice-at-a-booked-meetings-time) for why.)
 - **Audio can be kept on the phone when the connection drops**, and sent when it comes back,
   instead of the browser's five minutes held in memory.
 
@@ -28,7 +32,8 @@ What it does **not** bring:
   only reaches audio played as media, games or an unknown usage. Calls — the phone's own, and
   VoIP apps like Zoom, Teams and Meet — play as voice communication, which Android leaves out on
   purpose. A call is still recorded on speakerphone in Room mode. What playback capture could add
-  is *media* another app plays, such as a recorded webinar.
+  is *media* another app plays, such as a recorded webinar — which was built, and then
+  [declined](#not-capturing-what-the-phone-plays).
 - **iOS.** It would need ReplayKit and a paid developer account.
 
 ## Shape: the web app, and a native recorder
@@ -99,7 +104,9 @@ On the web side, one addition:
 
 - The service is started from the visible recording screen. Android 14 and later only let a
   `microphone` foreground service start while the app is visible, or from a tap on its
-  notification — which is also exactly how a booked meeting's notice will start one.
+  notification. A booked meeting's notice goes through the page too, rather than relying on the
+  second of those: the rule is one that has changed between versions, and a meeting silently not
+  being recorded is the failure this app exists to prevent.
 - While recording it holds a partial wake lock and a Wi-Fi lock, so neither the CPU nor the Wi-Fi
   sleeps with the screen.
 - Its notification shows the elapsed time and a **Stop** button. Stopping from there sends `end`,

@@ -135,6 +135,9 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
       # Unset means "choose from the hardware": pyannote on CUDA, sherpa-onnx without it.
       DIA_BACKEND: ${DIA_BACKEND:-}
+      # When a line is divided between two speakers, fold pieces shorter than this many seconds
+      # into a neighbour. Unset keeps every piece: a short one is usually a real "yes".
+      DIA_MIN_PIECE_S: ${DIA_MIN_PIECE_S:-}
       WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
       # The browser's origin must be allowed; it calls this service directly.
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}

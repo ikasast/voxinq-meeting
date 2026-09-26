@@ -4,6 +4,7 @@
 flowchart LR
   subgraph Browser["The device you are sitting at — phone, laptop, this PC"]
     UI["Voxinq UI<br/>Next.js"]
+    APP["Android app<br/>WebView + recorder"]
   end
   subgraph Host["The one machine that runs Voxinq — the server"]
     subgraph Vox["Voxinq — what this project is"]
@@ -18,6 +19,8 @@ flowchart LR
 
   UI -- "HTTPS: pages, minutes, edits" --> Web
   UI -- "WSS: live audio + upload" --> STT
+  APP -- "WSS: live audio" --> STT
+  APP -- "HTTPS: saved lines, shared files" --> Web
   Web -- "SQL (Prisma)" --> DB
   Web -- "generate minutes, ask questions" --> LLM
   STT -- "non-Japanese utterances" --> TR
@@ -25,7 +28,7 @@ flowchart LR
 
   classDef own fill:#0d9488,stroke:#0f766e,color:#fff
   classDef ext fill:#e5e7eb,stroke:#9ca3af,color:#111
-  class UI,Web,STT,TR,DIA own
+  class UI,APP,Web,STT,TR,DIA own
   class DB,LLM ext
 ```
 
@@ -34,7 +37,9 @@ control — the server. On the left is whatever you are actually using: a phone,
 same machine's own browser. They are often the same box on a desk, and the diagram separates
 them because the distinction is what makes phone recording work: audio goes from the browser
 **straight to the STT service**, never through the web app, so the only thing crossing the
-network is the recording itself. It stops there unless you have chosen an endpoint to recognise
+network is the recording itself. (One exception, and a deliberate one: a finished file shared from
+the Android app goes to the web app, which stores it with the STT service — so the phone needs one
+address, and the web app can refuse to replace a meeting's recording once it has a transcript.) It stops there unless you have chosen an endpoint to recognise
 with, in which case the STT service — not the browser — is what posts the audio on.
 
 The UI is shaded as Voxinq's code even though it sits on the left: it is this project's code,
@@ -53,6 +58,11 @@ and a native install expects both already there.
 
 ## Components
 
+- **Android app** (`android/`) — the web app in a WebView, plus a native recorder in a foreground
+  service that keeps going with the screen off or another app in front. It speaks the same STT
+  protocol as the page, writes audio to a file before sending it so a dropped connection costs
+  nothing, sets a notice for each booked meeting, and takes recordings shared from other apps. See
+  [the Android app](android-app.md).
 - **Web app** (`app/`, `lib/`) — Next.js 16 (React 19), Prisma. Serves pages and APIs;
   generates minutes via the LLM. Auth is handled by `proxy.ts` (Next.js 16 "proxy").
 - **STT service** (`stt-service/server.py`) — FastAPI, with **two local recognition backends
@@ -164,7 +174,8 @@ recording survives the web app restarting.
 ## Data flow (recording)
 
 1. Browser captures mic/PC audio → 16 kHz mono PCM via an AudioWorklet → **WebSocket to STT**
-   (direct, lowest latency; the web app never proxies audio).
+   (direct, lowest latency; the web app never proxies live audio). In the Android app a native
+   recorder does this instead, with the same processing, and writes each frame to a file first.
 2. STT segments the stream with an **energy-based VAD** (`VAD_*` settings) to find utterance
    boundaries, then recognizes each segment with Whisper — which applies its own **Silero VAD**
    (`vad_filter`) inside the segment to suppress silence hallucinations. Provisional text is
@@ -172,8 +183,9 @@ recording survives the web app restarting.
 3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization. Each
    boundary carries the words it was recognised from (`{"w","s","e"}`, on the recording's own
    clock) where the backend can align them — an utterance is cut at silences, not at speaker
-   changes, so these are what will let a line holding two people be split between them rather
-   than given whole to whoever spoke most of it.
+   changes, so these are what let a line holding two people be split between them rather than
+   given whole to whoever spoke most of it (below). faster-whisper aligns them; whisper.cpp and the
+   remote endpoints do not, so a meeting recognised there keeps its lines whole.
 4. The web app calls the LLM with the transcript to produce the minutes.
 
 Re-transcription takes the same path from step 3: the web app posts the job to STT, attaching

@@ -38,6 +38,9 @@ included. Or just **drop an existing recording** (`wav`/`mp3`/`m4a`).
 
 Record from a **phone**: install as a PWA and reach it over [Tailscale](https://tailscale.com).
 On a phone the record button is the one at the bottom of the screen, where a thumb reaches it.
+On **Android**, [the app](android/README.md) goes further: the recording carries on with the
+screen off or another app in front, survives the network dropping, and a recording from any other
+app can be shared straight into a new meeting.
 
 **Check the microphone first** — one button, before the meeting starts. The one failure nothing
 can repair afterwards is a meeting nobody recorded.
@@ -49,6 +52,10 @@ Assign speakers after the meeting — [pyannote](https://github.com/pyannote/pya
 CUDA, [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) everywhere else, and no Hugging Face
 token needed on that path. **Enrol a voice once** and it is named automatically in every future
 meeting.
+
+**A line two people spoke in is divided between them**, at the word where the voice changed — a
+question and the "yes" that answers it no longer land on one person. On a measured meeting, lines
+with the right speaker went from 80% to 96%.
 
 **Participants feed the separation.** List who was there and tick who is expected to speak: the
 count becomes the number of voices to look for, and the names narrow which enrolled voiceprints
@@ -67,7 +74,11 @@ too. Formats are saved with names and picked when the minutes are written — a 
 meeting, and the same headings leave a lecture with empty sections.
 
 **Ask your minutes.** "What were the TODOs from last time?", answered from a series' minutes,
-grounded in them and told to say when something is not recorded.
+grounded in them and told to say when something is not recorded. A single meeting can also be asked
+about **what was actually said** — its whole transcript, including before any minutes exist.
+
+**Write up a day at once.** Record back to back, and let the list do the rest: it says how many
+meetings have no minutes yet and sends them all to the queue in one go.
 
 **Live Japanese translation** (optional) puts a translation under each non-Japanese utterance,
 produced on the CPU so it never competes with transcription for the GPU.
@@ -82,7 +93,8 @@ glossary. A series is its owner's: two people who both keep a *Weekly sync* have
 
 **Book a meeting before it happens** — title, agenda, series and participants entered ahead of
 time; it waits under **Upcoming** until you press record, and when its time comes the app says so —
-a banner with a record button and, if you allow it, an OS notification. The calendar over the
+a banner with a record button and, if you allow it, an OS notification. The Android app puts the
+notice on the phone itself, with nothing open, and **Record** in it. The calendar over the
 list turns a half-remembered date into a place to click.
 
 **Search, tags, archive and trash** — find meetings fast, soft-delete with 30-day restore. Search
@@ -116,7 +128,7 @@ Cloud transcription SaaS means uploading confidential meetings — research, leg
 | **Privacy** | Runs entirely on your own hardware; every route off it is opt-in and named on screen | Audio uploaded to a third party |
 | **Who can read it** | Encrypted per account — not even the administrator of the machine | Whoever holds the vendor's keys |
 | **Cost** | Free — a consumer GPU (8 GB VRAM) is plenty, and it runs without one | Per-user / per-minute subscription |
-| **Record anywhere** | Any browser incl. phone (PWA + Tailscale) | Any browser — via their cloud |
+| **Record anywhere** | Any browser incl. phone (PWA + Tailscale); an Android app that keeps recording with the screen off | Any browser — via their cloud |
 | **Models** | Choose the Whisper model and the LLM; swap or upgrade anytime | Fixed, vendor-chosen |
 
 ## 🚀 Get started
