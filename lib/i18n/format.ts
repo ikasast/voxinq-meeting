@@ -54,6 +54,25 @@ export function formatDurationIn(locale: Locale, ms: number | null | undefined):
   return h > 0 ? `${h} hr${m > 0 ? ` ${m} min` : ""}` : `${m} min`;
 }
 
+/**
+ * "48 sec" / "1 min 48 sec" / "1 hr 5 min", and the same in Japanese. For how long a piece of
+ * work took, where the seconds matter until it runs into hours — unlike a meeting's length,
+ * which formatDurationIn rounds to the minute.
+ */
+export function formatSpanIn(locale: Locale, ms: number | null | undefined): string | null {
+  if (ms == null || !(ms >= 0)) return null;
+  const s = Math.round(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (locale === "ja") {
+    if (h > 0) return `${h}時間${m}分`;
+    return m > 0 ? `${m}分${sec}秒` : `${sec}秒`;
+  }
+  if (h > 0) return `${h} hr ${m} min`;
+  return m > 0 ? `${m} min ${sec} sec` : `${sec} sec`;
+}
+
 /** "September 2026" / "2026年9月", above the calendar grid. */
 export function monthLabelIn(locale: Locale, m: { year: number; month: number }): string {
   return locale === "ja"

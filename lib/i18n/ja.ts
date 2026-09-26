@@ -1242,6 +1242,33 @@ export const ja: Record<string, string> = {
   "Not installed on this Ollama.": "この Ollama にはインストールされていません。",
   "An administrator can download it from this screen.": "管理者がこの画面からダウンロードできます。",
   "The download failed: {reason}": "ダウンロードに失敗しました: {reason}",
+  // The queue's history.
+  History: "履歴",
+  "Finished work on this machine, newest first (up to {n}).": "このマシンで終わった処理（新しい順、最大 {n} 件）",
+  "Your finished work, newest first (up to {n}).": "あなたの終わった処理（新しい順、最大 {n} 件）",
+  "Nothing has finished yet.": "終わった処理はまだありません。",
+  Failed: "失敗",
+  "Stopped before it finished": "途中で停止",
+  "meeting {d}": "会議 {d}",
+  "waited {d}": "待ち {d}",
+  "took {d}": "処理 {d}",
+  "all on the GPU": "すべて GPU",
+  "{gb} GB loaded": "読み込み {gb} GB",
+  "GPU {gpu}% / CPU {cpu}%": "GPU {gpu}% / CPU {cpu}%",
+  "{gb} GB loaded, {vram} GB of it on the GPU. The rest ran on the CPU, which is much slower.":
+    "読み込み {gb} GB のうち GPU に載ったのは {vram} GB。残りは CPU で動いたため、かなり遅くなっています。",
+  "on the GPU": "GPU",
+  "on the CPU": "CPU",
+  "via {where}": "{where} 経由",
+  "{in} in / {out} out tokens": "入力 {in} / 出力 {out} トークン",
+  "context {n} tokens": "コンテキスト {n} トークン",
+  "{n} tokens/s": "{n} トークン/秒",
+  "model load {d}": "モデル読み込み {d}",
+  "{n} passes": "{n} 回に分けて生成",
+  "Long enough to be condensed first, then written from the condensed notes.":
+    "長い会議のため、先に要点を抽出してから議事録を書いています。",
+  "{n} speaker(s)": "話者 {n} 人",
+  "{n} line(s) divided": "{n} 行を分割",
   "Only an administrator can delete models from this server.":
     "このサーバーからモデルを削除できるのは管理者だけです。",
   "{model} is what minutes are written with, for this machine or for somebody on it. Choose another model there first.":

@@ -1,7 +1,8 @@
 import { applyTranscript, type Utterance } from "@/lib/meetings/apply";
 import { readSettings } from "@/lib/settings";
 import { parseParams } from "../types";
-import { sttPost, sttWait } from "./stt-job";
+import type { JobMetrics } from "../metrics";
+import { sttPost, sttRuntime, sttWait } from "./stt-job";
 
 // Recognising a saved recording again, as a queued job.
 //
@@ -81,7 +82,7 @@ export async function runTranscribe(
   const meetingId = job.meetingId;
   if (!meetingId) throw new Error("a transcribe job needs a meeting");
   const params = parseParams<TranscribeParams>(job.params);
-  const { payload, usedModel } = await resolveDestination(params);
+  const { payload, usedModel, external } = await resolveDestination(params);
 
   await sttPost(`/transcribe/${encodeURIComponent(meetingId)}`, payload);
   const result = await sttWait(`/transcribe/${encodeURIComponent(meetingId)}/status`, signal);
@@ -94,5 +95,13 @@ export async function runTranscribe(
 
   // Whatever the backend wanted said about the run — so far, that an endpoint answered without
   // word timings, which is why the whole meeting arrived as one utterance.
-  return { note: typeof result.note === "string" ? result.note : undefined };
+  // Sent to an endpoint, the service's own device and recogniser are not what did the work.
+  const runtime = external ? {} : await sttRuntime();
+  const metrics: JobMetrics = {
+    model: usedModel || undefined,
+    where: external ? usedModel.replace(/^.*\((.*)\)$/, "$1") : "local",
+    backend: runtime.backend,
+    device: runtime.device,
+  };
+  return { note: typeof result.note === "string" ? result.note : undefined, metrics };
 }

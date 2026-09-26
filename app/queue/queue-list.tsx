@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { JOB_LABEL, type JobKind, RECORDING_KIND, isJobKind } from "@/lib/queue/types";
+import { jobLabel } from "@/lib/queue/job-label";
+import { RECORDING_KIND, isJobKind } from "@/lib/queue/types";
 import { Avatar } from "../avatar";
 import { useT } from "../locale-provider";
 
@@ -157,7 +158,7 @@ export function QueueList({
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium text-[var(--text-strong)]">
                   {isJobKind(job.kind)
-                    ? jobLabel(t, JOB_LABEL[job.kind as JobKind])
+                    ? jobLabel(t, job.kind)
                     : isRecording
                       ? t("Recording")
                       : job.kind}
@@ -262,16 +263,6 @@ export function QueueList({
  * `JOB_LABEL` is a module-level map shared with the server, so it has no hook to reach the
  * language with — the strings are spelled out here where the key scanner can see them.
  */
-function jobLabel(t: (k: string) => string, label: string): string {
-  const table: Record<string, string> = {
-    Minutes: t("Minutes"),
-    "Re-transcribe": t("Re-transcribe"),
-    Diarize: t("Diarize"),
-    "Encrypting your older meetings": t("Encrypting your older meetings"),
-  };
-  return table[label] ?? label;
-}
-
 /** How long the running one has been going. Cheap reassurance that it has not wedged. */
 function Elapsed({ since }: { since: string | null }) {
   const t = useT();

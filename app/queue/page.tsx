@@ -1,6 +1,7 @@
 import { currentUser } from "@/lib/auth/session";
-import { serverT } from "@/lib/i18n/server";
-import { openJobsAcrossUsers } from "@/lib/queue/queue";
+import { currentLocale, serverT } from "@/lib/i18n/server";
+import { openJobsAcrossUsers, recentJobsAcrossUsers } from "@/lib/queue/queue";
+import { QueueHistory } from "./queue-history";
 import { QueueList, type QueueJob } from "./queue-list";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,11 @@ export const dynamic = "force-dynamic";
 export default async function QueuePage() {
   const me = await currentUser();
   const t = await serverT();
-  const jobs = await openJobsAcrossUsers(me?.id ?? null);
+  const [jobs, history, locale] = await Promise.all([
+    openJobsAcrossUsers(me?.id ?? null),
+    recentJobsAcrossUsers(me ? { id: me.id, isAdmin: me.isAdmin } : null),
+    currentLocale(),
+  ]);
   const initial: QueueJob[] = jobs.map((j) => ({
     id: j.id,
     kind: j.kind,
@@ -37,6 +42,20 @@ export default async function QueuePage() {
         </p>
       </div>
       <QueueList initial={initial} isAdmin={me?.isAdmin ?? false} />
+
+      {/* What already ran: how long it took, on what, and whether the model fitted on the card.
+          Refreshes with the page rather than polling — it only changes when something ends. */}
+      <section className="space-y-2 pt-4">
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--text-strong)]">{t("History")}</h2>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            {me?.isAdmin
+              ? t("Finished work on this machine, newest first (up to {n}).", { n: 40 })
+              : t("Your finished work, newest first (up to {n}).", { n: 40 })}
+          </p>
+        </div>
+        <QueueHistory rows={history} t={t} locale={locale} />
+      </section>
     </div>
   );
 }

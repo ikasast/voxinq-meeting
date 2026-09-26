@@ -17,6 +17,9 @@ export const openaiProvider: ChatProvider = {
     // Stream (SSE): slow local servers may take >5 min to produce a full answer, and
     // Node's fetch aborts requests whose response headers take that long
     // (UND_ERR_HEADERS_TIMEOUT). Streaming sends headers immediately.
+    // Counted, not measured: usage in a stream needs `stream_options`, which not every
+    // compatible server accepts, and a run that fails over a statistic is worse than a missing one.
+    if (cfg.usage) cfg.usage.calls += 1;
     const res = await fetch(`${cfg.openaiBaseUrl}/chat/completions`, {
       method: "POST",
       headers,

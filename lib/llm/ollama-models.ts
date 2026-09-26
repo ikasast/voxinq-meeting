@@ -96,6 +96,34 @@ export async function deleteModel(base: string, model: string): Promise<"deleted
   return "deleted";
 }
 
+/**
+ * What Ollama holds for a model it has loaded: the whole of it, and how much is on the GPU.
+ * Null when the model is not loaded (it unloads a few minutes after its last use) or Ollama
+ * cannot be asked. The difference between the two is what ran on the CPU.
+ */
+export async function loadedModel(
+  base: string,
+  model: string,
+): Promise<{ sizeMb: number; vramMb: number; contextLength: number | null } | null> {
+  try {
+    const res = await fetch(`${base}/api/ps`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const d = (await res.json()) as {
+      models?: { name?: string; model?: string; size?: number; size_vram?: number; context_length?: number }[];
+    };
+    const hit = d.models?.find((m) => sameModel(m.name ?? m.model ?? "", model));
+    if (!hit || typeof hit.size !== "number") return null;
+    const mb = (b: number) => Math.round(b / 1024 / 1024);
+    return {
+      sizeMb: mb(hit.size),
+      vramMb: mb(hit.size_vram ?? 0),
+      contextLength: typeof hit.context_length === "number" ? hit.context_length : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ---- Pulling ----
 
 export type PullState = {
