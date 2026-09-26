@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { TITLE_FORMATS } from "@/lib/meeting-title";
 import { HouseDefaults } from "./house-defaults";
+import { OllamaModelField } from "./ollama-model-field";
 import { MachineNote } from "./machine-note";
 import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import {
@@ -612,19 +613,14 @@ export default function SettingsPage() {
                 className={inputClass}
               />
             </div>
-            <div>
-              <label htmlFor="ollamaModel" className={labelClass}>
-                {t("Model")}
-              </label>
-              <input
-                id="ollamaModel"
-                type="text"
-                value={settings.ollamaModel}
-                onChange={(e) => update("ollamaModel", e.target.value)}
-                placeholder="qwen2.5:7b-instruct"
-                className={inputClass}
-              />
-            </div>
+            <OllamaModelField
+              baseUrl={settings.ollamaBaseUrl}
+              model={settings.ollamaModel}
+              onChange={(v) => update("ollamaModel", v)}
+              isAdmin={settings.isAdmin}
+              inputClass={inputClass}
+              labelClass={labelClass}
+            />
           </fieldset>
 
           {/* Anthropic */}
