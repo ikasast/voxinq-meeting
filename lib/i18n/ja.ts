@@ -1241,4 +1241,17 @@ export const ja: Record<string, string> = {
   "Not installed on this Ollama.": "この Ollama にはインストールされていません。",
   "An administrator can download it from this screen.": "管理者がこの画面からダウンロードできます。",
   "The download failed: {reason}": "ダウンロードに失敗しました: {reason}",
+  "Only an administrator can delete models from this server.":
+    "このサーバーからモデルを削除できるのは管理者だけです。",
+  "{model} is what minutes are written with, for this machine or for somebody on it. Choose another model there first.":
+    "{model} は、このマシンまたは誰かの議事録の生成に使われています。先にそちらで別のモデルを選んでください。",
+  "{model} is still downloading.": "{model} はまだダウンロード中です。",
+  "Ollama could not delete it: {reason}": "Ollama が削除できませんでした: {reason}",
+  "Installed models ({n})": "インストール済みのモデル（{n}）",
+  "Use this model": "このモデルを使う",
+  "Minutes are written with this model, for this machine or for somebody on it.":
+    "このマシンまたは誰かの議事録の生成に使われているモデルです。",
+  "In use": "使用中",
+  "Deleting…": "削除中…",
+  "Delete {size}": "削除する（{size}）",
 };

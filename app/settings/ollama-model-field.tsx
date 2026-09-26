@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
-import { findInstalled, type InstalledModel } from "@/lib/llm/ollama-models";
+import { findInstalled, sameModel, type InstalledModel } from "@/lib/llm/ollama-models";
 
 // The Ollama model field, with what the Ollama at that address actually has.
 //
@@ -49,6 +49,11 @@ export function OllamaModelField({
   const [budgetMb, setBudgetMb] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Administrators only: which installed models somebody's minutes depend on, the one waiting
+  // for "yes, delete it", and the one being deleted.
+  const [inUse, setInUse] = useState<string[]>([]);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -61,10 +66,12 @@ export function OllamaModelField({
         reachable: boolean;
         models: Installed[];
         budgetMb: number | null;
+        inUse?: string[];
       };
       setReachable(d.reachable);
       setInstalled(d.models);
       setBudgetMb(d.budgetMb);
+      setInUse(d.inUse ?? []);
     } catch {
       setReachable(false);
     }
@@ -137,6 +144,26 @@ export function OllamaModelField({
       setError((e as Error).message);
     } finally {
       setStarting(false);
+    }
+  };
+
+  const remove = async (target: string) => {
+    setDeleting(target);
+    setError(null);
+    try {
+      const res = await fetch("/api/ollama/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: target, baseUrl }),
+      });
+      const d = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(null);
+      setConfirming(null);
     }
   };
 
@@ -232,6 +259,71 @@ export function OllamaModelField({
         ) : null}
         {error ? <p className="text-[var(--error)]">{error}</p> : null}
       </div>
+
+      {/* What is on the disk, to give some of it back. Only for whoever can delete; for
+          everybody else the suggestions in the field are the list. */}
+      {isAdmin && installed.length > 0 ? (
+        <details className="mt-3 text-xs">
+          <summary className="cursor-pointer text-[var(--text-secondary)]">
+            {t("Installed models ({n})", { n: installed.length })}
+          </summary>
+          <ul className="mt-2 divide-y divide-[var(--border)] rounded-md border border-[var(--border)] bg-[var(--surface)]">
+            {installed.map((m) => {
+              const used = inUse.some((u) => sameModel(u, m.name));
+              return (
+                <li key={m.name} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                  {/* Picking it is the other thing somebody looking at this list wants. */}
+                  <button
+                    type="button"
+                    onClick={() => onChange(m.name)}
+                    className="min-w-0 flex-1 truncate text-left text-[var(--foreground)] hover:underline"
+                    title={t("Use this model")}
+                  >
+                    {m.name}
+                  </button>
+                  <span className="shrink-0 text-[var(--text-muted)]">{gb(m.sizeMb, "mb")}</span>
+                  {used ? (
+                    <span
+                      className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-muted)]"
+                      title={t("Minutes are written with this model, for this machine or for somebody on it.")}
+                    >
+                      {t("In use")}
+                    </span>
+                  ) : confirming === m.name ? (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void remove(m.name)}
+                        disabled={deleting !== null}
+                        className="rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-2 py-0.5 font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                      >
+                        {deleting === m.name ? t("Deleting…") : t("Delete {size}", { size: gb(m.sizeMb, "mb") })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirming(null)}
+                        disabled={deleting !== null}
+                        className="text-[var(--text-muted)] hover:underline"
+                      >
+                        {t("Cancel")}
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(m.name)}
+                      disabled={deleting !== null}
+                      className="shrink-0 text-[var(--text-muted)] hover:text-[var(--error)] disabled:opacity-50"
+                    >
+                      {t("Delete")}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </details>
+      ) : null}
     </div>
   );
 }

@@ -50,9 +50,35 @@ export async function listModels(base: string): Promise<InstalledModel[] | null>
  * tag means `:latest`.
  */
 export function findInstalled(installed: InstalledModel[], wanted: string): InstalledModel | null {
-  const withTag = (n: string) => (n.includes(":") && !n.endsWith(":") ? n : `${n.replace(/:$/, "")}:latest`);
-  const want = withTag(wanted.trim());
-  return installed.find((m) => withTag(m.name) === want) ?? null;
+  return installed.find((m) => sameModel(m.name, wanted)) ?? null;
+}
+
+/** Two names for the same model: `qwen3` and `qwen3:latest` are one. */
+export function sameModel(a: string, b: string): boolean {
+  const withTag = (n: string) => {
+    const s = n.trim();
+    return s.includes(":") && !s.endsWith(":") ? s : `${s.replace(/:$/, "")}:latest`;
+  };
+  return withTag(a) === withTag(b);
+}
+
+/**
+ * Remove a model from the Ollama at `base`. "missing" when Ollama does not have it — somebody
+ * else removed it first, or the list on screen was old.
+ */
+export async function deleteModel(base: string, model: string): Promise<"deleted" | "missing"> {
+  const res = await fetch(`${base}/api/delete`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (res.status === 404) return "missing";
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(ollamaError(text) ?? `HTTP ${res.status}`);
+  }
+  return "deleted";
 }
 
 // ---- Pulling ----
