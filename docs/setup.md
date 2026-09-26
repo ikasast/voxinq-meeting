@@ -245,7 +245,7 @@ want the feature they belong to.
 | `VOXINQ_KEY_SECRET` | With accounts | A second long random string. It wraps the keys that are open while somebody is using the app, so a stolen database or a backup on its own reads nothing. **Keep it out of the backup** |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.8.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.8.1`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -707,7 +707,7 @@ branch has already been forgotten three times.
 
 **Today those three do not agree, deliberately.** *Latest* and `latest` are still `v2.3.2`,
 because no 3.x version has been published as a full release yet; `release` follows the newest 3.x tag
-— `v3.8.0` — so that a 3.x app's own documentation links, and the compose file the documentation
+— `v3.8.1` — so that a 3.x app's own documentation links, and the compose file the documentation
 hands out, resolve against 3.x files. They line up again on the release that ships 3.x — and
 moving `release` is part of cutting it.
 
