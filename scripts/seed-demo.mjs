@@ -18,6 +18,9 @@ const IDS = {
   live: "demo-live-recording",
   design: "demo-design-review",
   research: "demo-research-sync",
+  // Recorded and not written up yet — the case the list's "No minutes" and "Write them all"
+  // are for. Without one, the screenshots show a list with nothing waiting.
+  pending: "demo-partner-call",
 };
 
 // English or Japanese demo content.
@@ -208,7 +211,9 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
       endedAt,
       recordedMs,
       speakerLabels: labels ?? null,
-      sttLanguage: "en",
+      // The language the meeting was held in — a Japanese demo meeting reading "en" in the
+      // screenshot is the kind of wrong detail a reader notices first.
+      sttLanguage: JA ? "ja" : "en",
       summaryStatus: minutes ? "done" : null,
       tags: tags?.length
         ? { connectOrCreate: tags.map((name) => ({ where: { name }, create: { name } })) }
@@ -329,6 +334,35 @@ async function main() {
     minutes: JA ? RESEARCH_MINUTES_JA : RESEARCH_MINUTES,
     tags: JA ? ["調査"] : ["Research"],
     people: [PEOPLE[0], PEOPLE[2]],
+  });
+
+  const pStart = new Date(now - 1 * day);
+  await makeMeeting({
+    id: IDS.pending,
+    title: JA ? "取引先との打ち合わせ — 納期確認" : "Partner call — delivery dates",
+    description: JA ? "パイロット導入分の納期を確かめる。" : "Confirm the delivery dates for the pilot.",
+    startedAt: pStart,
+    endedAt: minutesAt(pStart, 14),
+    recordedMs: 14 * 60_000,
+    labels: JSON.stringify(
+      JA
+        ? { self: "田中 悠", "partner-0": "鈴木 千夏" }
+        : { self: "Sam Chen", "partner-0": "Jordan Lee" },
+    ),
+    lines: JA
+      ? [
+          ["self", "パイロットの納期を確認させてください。"],
+          ["partner-0", "初回分は 12 日に出荷、残りはその 1 週間後です。"],
+          ["self", "ありがとうございます。議事録は明日まとめます。"],
+        ]
+      : [
+          ["self", "Can we confirm the delivery dates for the pilot?"],
+          ["partner-0", "The first batch ships on the twelfth, the rest a week later."],
+          ["self", "Thanks — I'll write it up tomorrow."],
+        ],
+    minutes: null,
+    tags: JA ? ["取引先"] : ["Partners"],
+    people: [PEOPLE[1], PEOPLE[2]],
   });
 
   console.log("Seeded demo meetings:");
