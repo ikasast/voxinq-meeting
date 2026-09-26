@@ -260,6 +260,13 @@ export const ja: Record<string, string> = {
   "Failed to delete": "削除に失敗しました",
 
   // ---- The minutes panel ----
+  "Failed to generate minutes.": "議事録を作成できませんでした。",
+  "Reason: {reason}": "理由: {reason}",
+  Retry: "再試行",
+  "The last regeneration failed: {reason}": "前回の作り直しに失敗しました: {reason}",
+  "The last regeneration failed.": "前回の作り直しに失敗しました。",
+  "Showing the previous version — use the ↻ button to retry.":
+    "以前の版を表示しています。↻ ボタンでやり直せます。",
   "No minutes generated yet.": "まだ議事録が作られていません。",
   "No transcript, so minutes cannot be generated.": "発言が無いため、議事録は作れません。",
   "Generating new minutes. A new version will be added below when done…":
