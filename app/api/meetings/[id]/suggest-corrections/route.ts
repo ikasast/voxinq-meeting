@@ -2,6 +2,7 @@ import { correctionGlossary } from "@/lib/correction-terms";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { suggestCorrections, type UtteranceForCorrection } from "@/lib/llm/correct";
+import { minutesInFlight } from "@/lib/meetings/minutes-state";
 import { prisma } from "@/lib/prisma";
 import { getSttGlossary } from "@/lib/settings";
 
@@ -16,10 +17,7 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[
 
   // Uses the same GPU as minutes generation, so refuse rather than contend with it
   // (identical to the ask route).
-  const inFlight = await prisma.meeting.findFirst({
-    where: { summaryStatus: "processing" },
-    select: { title: true },
-  });
+  const inFlight = await minutesInFlight();
   if (inFlight) {
     return apiError(
       `Busy: minutes are being generated for "${inFlight.title}". Please wait until it finishes.`,

@@ -22,7 +22,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     where: { id },
     select: {
       endedAt: true,
-      summaryStatus: true,
       speakerLabels: true,
       transcripts: {
         orderBy: { createdAt: "asc" },
@@ -43,7 +42,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json(
     {
       endedAt: meeting.endedAt,
-      summaryStatus: meeting.summaryStatus,
       speakerLabels: meeting.speakerLabels,
       transcripts: meeting.transcripts,
     },

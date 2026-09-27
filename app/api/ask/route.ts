@@ -3,6 +3,7 @@ import { apiError, readJson } from "@/lib/api";
 import { conversationText } from "@/lib/llm";
 import { askMinutes, askTranscript, type MeetingForAsk } from "@/lib/llm/ask";
 import { parseSpeakerLabels } from "@/lib/speakers";
+import { minutesInFlight } from "@/lib/meetings/minutes-state";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -34,10 +35,7 @@ export async function POST(req: NextRequest) {
   if (!seriesId && !meetingId) return apiError("seriesId or meetingId is required", 400);
 
   // Answering uses the same GPU as minutes generation, so refuse rather than contend with it.
-  const inFlight = await prisma.meeting.findFirst({
-    where: { summaryStatus: "processing" },
-    select: { title: true },
-  });
+  const inFlight = await minutesInFlight();
   if (inFlight) {
     return apiError(
       `Busy: minutes are being generated for "${inFlight.title}". Please wait until it finishes.`,

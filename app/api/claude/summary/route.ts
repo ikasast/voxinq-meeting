@@ -58,15 +58,10 @@ export async function POST(req: NextRequest) {
     return apiError("No utterances recorded", 400);
   }
 
-  // Queued first, then said: from here on something is under way for this meeting, and the
-  // screen should say so whether the job is running or waiting its turn. In that order because
-  // a meeting that says `processing` with no job is what the sweep collects, and between these
-  // two statements the job already exists.
+  // The job is the whole record that this was asked for: the screens read it, so there is
+  // nothing to write on the meeting. What the meeting keeps is how the last attempt ended, and
+  // that is written when this one does.
   await enqueue({ kind: "minutes", meetingId, params: { detail, provider, templateId } });
-  await prisma.meeting.update({
-    where: { id: meetingId },
-    data: { summaryStatus: "processing", summaryError: null },
-  });
   // Nudge the loop so a queue that is empty does not wait out a tick before starting.
   void tick();
 

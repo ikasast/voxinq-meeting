@@ -39,7 +39,7 @@ export async function ProgressCard({
   separated,
   speakerCount,
   summaryCount,
-  summaryStatus,
+  minutesRunning,
 }: {
   ended: boolean;
   recordedMs: number | null;
@@ -51,7 +51,8 @@ export async function ProgressCard({
   /** Distinct speakers on the transcript. */
   speakerCount: number;
   summaryCount: number;
-  summaryStatus: string | null;
+  /** Minutes queued or running, from the queue rather than from the meeting. */
+  minutesRunning: boolean;
 }) {
   const t = await serverT();
   const locale = await currentLocale();
@@ -79,11 +80,11 @@ export async function ProgressCard({
           : undefined,
     },
     {
-      label: summaryStatus === "processing" ? t("Writing minutes…") : t("Minutes"),
+      label: minutesRunning ? t("Writing minutes…") : t("Minutes"),
       state:
-        summaryStatus === "processing" ? "running" : summaryCount > 0 ? "done" : "not-run",
+        minutesRunning ? "running" : summaryCount > 0 ? "done" : "not-run",
       detail:
-        summaryStatus !== "processing" && summaryCount > 1 ? `${summaryCount} versions` : undefined,
+        !minutesRunning && summaryCount > 1 ? `${summaryCount} versions` : undefined,
     },
   ];
 

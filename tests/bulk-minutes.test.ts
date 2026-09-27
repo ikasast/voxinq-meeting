@@ -13,7 +13,7 @@ const meeting = (over: Partial<Parameters<typeof needsMinutes>[0]> = {}) => ({
   title: "Session 1",
   startedAt: new Date("2026-09-25T01:00:00.000Z"),
   endedAt: new Date("2026-09-25T02:00:00.000Z"),
-  summaryStatus: null,
+  running: false,
   _count: { transcripts: 40, summaries: 0 },
   ...over,
 });
@@ -37,11 +37,13 @@ describe("meetings waiting to be written up", () => {
   });
 
   it("is not a meeting already generating or waiting its turn", () => {
-    expect(needsMinutes(meeting({ summaryStatus: "processing" }))).toBe(false);
+    // Asked of the queue by the caller, not read off the meeting: the column that used to
+    // carry this drifted, and sixteen meetings were stuck saying it.
+    expect(needsMinutes(meeting({ running: true }))).toBe(false);
   });
 
   it("is a meeting whose last attempt failed — that is a retry", () => {
-    expect(needsMinutes(meeting({ summaryStatus: "error" }))).toBe(true);
+    expect(needsMinutes(meeting({ running: false }))).toBe(true);
   });
 
   it("keeps the list's own order, and carries what the panel shows", () => {
@@ -67,8 +69,10 @@ describe("queueing several at once", () => {
     expect(route).toContain('skipped.push({ id, reason: "already queued" })');
   });
 
-  it("marks each meeting before its job starts, so the list says so while it waits", () => {
-    expect(route).toContain('data: { summaryStatus: "processing", summaryError: null }');
+  it("leaves the meeting alone: the job is what says minutes were asked for", () => {
+    // Nothing is written on the meeting: the job is the record that this was asked for.
+    expect(route).not.toContain('summaryStatus: "processing"');
+    expect(route).toContain('await enqueue({ kind: "minutes", meetingId: id, params });');
   });
 
   it("has a ceiling, and nudges the queue once", () => {
