@@ -172,7 +172,7 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 # edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
 docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the minutes model (see below)
+docker compose exec ollama ollama pull qwen3:8b   # the minutes model (see below)
 ```
 
 The first pull is about 7.5 GB and unpacks to about 21 GB on disk — nearly all of it CUDA and

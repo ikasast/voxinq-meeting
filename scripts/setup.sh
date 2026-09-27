@@ -93,8 +93,8 @@ fi
 
 step "Default LLM model (ollama pull)"
 if command -v ollama >/dev/null 2>&1; then
-  ollama pull qwen2.5:7b-instruct
-  ok "qwen2.5:7b-instruct ready"
+  ollama pull qwen3:8b
+  ok "qwen3:8b ready"
 else
   warn "skipped — ollama not installed"
 fi

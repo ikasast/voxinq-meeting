@@ -99,8 +99,8 @@ if ($Diarization) {
 
 Step "Default LLM model (ollama pull)"
 if (Have ollama) {
-  ollama pull qwen2.5:7b-instruct
-  Ok "qwen2.5:7b-instruct ready"
+  ollama pull qwen3:8b
+  Ok "qwen3:8b ready"
 } else {
   Warn "skipped - ollama not installed"
 }

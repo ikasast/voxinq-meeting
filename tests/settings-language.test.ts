@@ -19,7 +19,7 @@ const DIR = "app/settings";
 // Content that is deliberately not prose. A model name is an identifier, and a sample of a
 // date format is the answer to "which of these reads as a date to you".
 const NOT_PROSE = [
-  "qwen2.5:7b-instruct",
+  "qwen3:8b",
   "gemini-3.5-transcribe",
   "gemini-3.5-flash",
   "Jul 11, 2026",

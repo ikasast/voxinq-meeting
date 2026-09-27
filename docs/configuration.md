@@ -114,7 +114,7 @@ the UI is the better place for anything, and especially for keys.
 | --- | --- | --- |
 | `WHISPER_LANGUAGE` | Transcription language | `auto` |
 | `LLM_PROVIDER` | Which LLM writes the minutes | `ollama` |
-| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Ollama's address and model | `http://127.0.0.1:11434` / `qwen2.5:7b-instruct` |
+| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Ollama's address and model | `http://127.0.0.1:11434` / `qwen3:8b` |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic's key and model (`CLAUDE_MODEL` is an older name for the second) | — / `claude-sonnet-4-6` |
 | `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL` | An OpenAI-compatible endpoint | `https://api.openai.com/v1` / — / `gpt-4o-mini` |
 | `SUMMARY_LANGUAGE` / `SUMMARY_DETAIL` | The minutes' language and length | `ja` / `standard` |
@@ -289,7 +289,7 @@ the household are different acts.
 - `voiceprintThreshold` — cosine similarity needed for voice-profile auto-naming, default `0.5`
 - `ollamaNumCtx` — Ollama context window in tokens. `0` (default) uses the built-in budget of
   24576, which is what fits beside a 7B model on 8 GB of VRAM. **This is a VRAM figure, not a
-  model limit** — qwen2.5 itself accepts 32k. Raise it on a bigger card; asking for more than
+  model limit** — qwen3:8b itself accepts 40k. Raise it on a bigger card; asking for more than
   the card holds does not fail, it makes Ollama spill to the CPU, where generation goes from
   minutes to tens of minutes with nothing to say why. The same number decides when a long
   transcript is condensed before being sent, so there is only one to change.
