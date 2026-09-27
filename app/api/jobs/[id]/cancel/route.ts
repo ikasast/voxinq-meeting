@@ -62,14 +62,12 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
       )
     : finish(job.id, "cancelled", "Stopped."));
 
-  // The meeting carries its own copy of "minutes are being written", and only the runner ever
-  // cleared it — so stopping a job that had not started left the card saying so for good, and
-  // **Write them all** skips a meeting that looks busy. The sweep would catch it within the
-  // half-minute; doing it here means the screen is right when it refreshes.
+  // How this attempt ended, which is the one thing the meeting keeps that the queue does not:
+  // its own screen says "stopped, and you can ask again" rather than falling silent.
   if (job.kind === "minutes" && job.meetingId) {
     const put = () =>
       prisma.meeting.updateMany({
-        where: { id: job.meetingId!, summaryStatus: "processing" },
+        where: { id: job.meetingId! },
         data: { summaryStatus: "error", summaryError: STOPPED_REASON },
       });
     await (me?.isAdmin ? asSystem("an administrator clears the shared queue", put) : put());

@@ -63,14 +63,9 @@ export async function POST(req: NextRequest) {
       skipped.push({ id, reason: "already queued" });
       continue;
     }
-    // Queued first, then said, as the single-meeting route does: the list should say so while
-    // it waits its turn, and a meeting saying it with no job behind it is what the sweep
-    // collects — so the job exists before the meeting claims it.
+    // Nothing is written on the meeting: the job is what says this was asked for, and the
+    // list reads the jobs. See lib/meetings/minutes-state.ts.
     await enqueue({ kind: "minutes", meetingId: id, params });
-    await prisma.meeting.update({
-      where: { id },
-      data: { summaryStatus: "processing", summaryError: null },
-    });
     queued.push(id);
   }
 

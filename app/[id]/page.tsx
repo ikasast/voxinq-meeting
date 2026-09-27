@@ -4,6 +4,7 @@ import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { getSttGlossary, getWhisperModel } from "@/lib/settings";
 import { correctionTerms } from "@/lib/correction-terms";
+import { minutesRunningFor } from "@/lib/meetings/minutes-state";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
@@ -58,6 +59,10 @@ export default async function MeetingDetailPage({
     },
   });
   if (!meeting) notFound();
+
+  // Whether minutes are on the way is the queue's to answer, not the meeting's: the two used to
+  // be written down separately and drifted. See lib/meetings/minutes-state.ts.
+  const minutesRunning = await minutesRunningFor(meeting.id);
 
   const external = await isExternalRequest();
   // Enrolled voice profiles, offered as suggestions when typing a participant. A name that
@@ -195,7 +200,8 @@ export default async function MeetingDetailPage({
         <SummarySection
           meetingId={meeting.id}
           meetingTitle={meeting.title}
-          summaryStatus={meeting.summaryStatus}
+          minutesRunning={minutesRunning}
+          lastOutcome={meeting.summaryStatus}
           summaryError={meeting.summaryError}
           canGenerate={meeting.transcripts.length > 0}
           readOnly={external}
@@ -274,7 +280,7 @@ export default async function MeetingDetailPage({
           separated={meeting.diarizationEmbeddings !== null}
           speakerCount={new Set(meeting.transcripts.map((t) => t.speakerType)).size}
           summaryCount={meeting.summaries.length}
-          summaryStatus={meeting.summaryStatus}
+          minutesRunning={minutesRunning}
         />
         <MeetingMeta
           id={meeting.id}

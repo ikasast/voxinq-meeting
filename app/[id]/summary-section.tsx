@@ -21,7 +21,8 @@ export function SummarySection({
   meetingId,
   meetingTitle,
   summaries,
-  summaryStatus,
+  minutesRunning,
+  lastOutcome,
   summaryError,
   canGenerate,
   readOnly = false,
@@ -29,7 +30,10 @@ export function SummarySection({
   meetingId: string;
   meetingTitle: string;
   summaries: SummaryVersion[];
-  summaryStatus: string | null;
+  /** Minutes queued or running for this meeting, asked of the queue. */
+  minutesRunning: boolean;
+  /** How the last attempt ended: "done", "error", or nothing asked for yet. */
+  lastOutcome: string | null;
   summaryError: string | null;
   canGenerate: boolean;
   // External (read-only) access can view/copy/share/download but not edit or regenerate.
@@ -72,7 +76,7 @@ export function SummarySection({
     void opts.load();
   };
 
-  const processing = summaryStatus === "processing";
+  const processing = minutesRunning;
 
   // Another GPU task running elsewhere (another meeting's minutes, or an STT job) blocks
   // starting a new generation here. This meeting's own "processing" is handled separately.
@@ -227,7 +231,7 @@ export function SummarySection({
             </div>
             {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
           </div>
-        ) : summaryStatus === "error" ? (
+        ) : lastOutcome === "error" && !minutesRunning ? (
           <>
             <p className="mt-4 text-sm text-[var(--error)]">
               {t("Failed to generate minutes.")}
@@ -304,7 +308,7 @@ export function SummarySection({
           <span className="mr-auto">{t("Generating new minutes. A new version will be added below when done…")}</span>
           {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
         </div>
-      ) : summaryStatus === "error" ? (
+      ) : lastOutcome === "error" && !minutesRunning ? (
         <div className="mt-3 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
           {summaryError
             ? t("The last regeneration failed: {reason}", { reason: summaryError })

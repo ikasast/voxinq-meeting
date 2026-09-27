@@ -25,10 +25,7 @@ export const runtime = "nodejs";
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // Somebody else's meeting is not found, as on every other route.
-  const meeting = await prisma.meeting.findUnique({
-    where: { id },
-    select: { id: true, summaryStatus: true },
-  });
+  const meeting = await prisma.meeting.findUnique({ where: { id }, select: { id: true } });
   if (!meeting) return apiError("meeting not found", 404);
 
   const job = await openJobFor("minutes", id);
@@ -42,15 +39,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     await finish(job.id, "cancelled", "Stopped.");
   }
 
-  // Written even when there was no job: a meeting left saying `processing` with nothing behind
-  // it is exactly what this screen's Stop is being pressed for.
-  const stopped = Boolean(job) || meeting.summaryStatus === "processing";
-  if (stopped) {
+  // Recorded as how this attempt ended, so the screen says "stopped, and you can ask again".
+  if (job) {
     await prisma.meeting.update({
       where: { id },
       data: { summaryStatus: "error", summaryError: STOPPED_REASON },
     });
   }
+  const stopped = Boolean(job);
 
   // Only when something was actually generating: unloading costs the next run its model load,
   // and there is nothing to free when the job was only waiting.

@@ -10,7 +10,8 @@ export type MinutesCandidateRow = {
   title: string;
   startedAt: Date;
   endedAt: Date | null;
-  summaryStatus: string | null;
+  /** Minutes queued or running for it, from the queue — see lib/meetings/minutes-state.ts. */
+  running: boolean;
   _count: { transcripts: number; summaries: number };
 };
 
@@ -26,13 +27,7 @@ export type MinutesCandidate = { id: string; title: string; startedAt: string };
  */
 export function minutesCandidates(rows: MinutesCandidateRow[]): MinutesCandidate[] {
   return rows
-    .filter(
-      (m) =>
-        m.endedAt !== null &&
-        m._count.transcripts > 0 &&
-        m._count.summaries === 0 &&
-        m.summaryStatus !== "processing",
-    )
+    .filter(needsMinutes)
     .map((m) => ({ id: m.id, title: m.title, startedAt: m.startedAt.toISOString() }));
 }
 
@@ -42,7 +37,7 @@ export function needsMinutes(row: MinutesCandidateRow): boolean {
     row.endedAt !== null &&
     row._count.transcripts > 0 &&
     row._count.summaries === 0 &&
-    row.summaryStatus !== "processing"
+    !row.running
   );
 }
 

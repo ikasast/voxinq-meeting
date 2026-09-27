@@ -15,6 +15,7 @@ import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { minutesCandidates, needsMinutes } from "@/lib/meetings/bulk-minutes";
+import { minutesRunningIn } from "@/lib/meetings/minutes-state";
 import { BulkMinutes } from "./bulk-minutes";
 import { MinutesWatcher } from "./minutes-watcher";
 import { ArchiveIcon, SeriesIcon, TrashIcon } from "./icons";
@@ -34,7 +35,8 @@ type MeetingCardData = {
   archivedAt: Date | null;
   // Actual recording length (ms): the stored recorded_ms, else the transcript time span.
   durationMs: number | null;
-  summaryStatus: string | null;
+  /** Minutes queued or running, asked of the queue when this page was built. */
+  running: boolean;
   /** Booked ahead and not recorded yet. Shown above the rest, soonest first. */
   upcoming?: boolean;
   seriesName: string | null;
@@ -181,11 +183,16 @@ export async function MeetingListPane({
   // has been said into it, or it has been ended, it is an ordinary meeting whatever the diary
   // said -- so a booking somebody forgot to record does not sit at the top of the list forever
   // once it is used.
+  // One question for the whole page: which of these have minutes on the way. The meeting used
+  // to carry that answer itself, and the two drifted -- see lib/meetings/minutes-state.ts.
+  const running = await minutesRunningIn(ids);
+
   let meetings: MeetingCardData[] = meetingsRaw.map((m) => ({
     ...m,
     seriesName: m.series?.name ?? null,
     seriesId: m.series?.id ?? null,
     durationMs: m.recordedMs ?? spanMs.get(m.id) ?? null,
+    running: running.has(m.id),
     upcoming: m.scheduledAt !== null && m.endedAt === null && m._count.transcripts === 0,
   }));
 
@@ -264,7 +271,7 @@ export async function MeetingListPane({
 
   // The meeting currently generating minutes (first-time OR regeneration), if any — used to
   // seed the live watcher so it only refreshes the list when that changes.
-  const generatingId = meetings.find((m) => m.summaryStatus === "processing")?.id ?? "";
+  const generatingId = meetings.find((m) => m.running)?.id ?? "";
   const filtering = Boolean(query || activeTag || activeSeries || activeDate);
   const base = activeId ? `/${activeId}` : "/";
 
@@ -336,7 +343,7 @@ export async function MeetingListPane({
                 LiveStatus refines it from STT to Recording…/Transcribing…/Diarizing…/Waiting…. */}
             {(() => {
               const base =
-                m.summaryStatus === "processing"
+                m.running
                   ? t("Generating minutes…")
                   : m.endedAt
                     ? ""
