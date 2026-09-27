@@ -142,7 +142,3 @@ export async function cancelDiarize(meetingId: string) {
   await sttPost(`/diarize/${encodeURIComponent(meetingId)}/cancel`).catch(() => {});
 }
 
-/** The recording a diarize job needs. Checked before queueing, so the refusal is immediate. */
-export async function meetingHasTranscript(meetingId: string) {
-  return (await prisma.transcript.count({ where: { meetingId } })) > 0;
-}

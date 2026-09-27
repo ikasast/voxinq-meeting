@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MeetingsIcon, MicIcon, QueueIcon, SeriesIcon } from "./icons";
 import { isAuthPath } from "./auth-paths";
-import { useMyQueueCount } from "./queue-header-link";
+import { useMyQueueCount } from "./use-my-queue-count";
 import { useT } from "./locale-provider";
 
 // Recording, within reach of a thumb.

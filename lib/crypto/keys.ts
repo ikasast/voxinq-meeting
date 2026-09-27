@@ -4,7 +4,6 @@ import {
   createHash,
   randomBytes,
   scrypt as scryptCb,
-  timingSafeEqual,
 } from "node:crypto";
 import { promisify } from "node:util";
 
@@ -127,7 +126,3 @@ export function unwrapKey(blob: string | null, wrapping: Buffer): Buffer | null 
   }
 }
 
-/** For comparing two keys without leaking where they differ. */
-export function sameKey(a: Buffer, b: Buffer): boolean {
-  return a.length === b.length && timingSafeEqual(a, b);
-}

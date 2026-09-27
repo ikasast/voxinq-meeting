@@ -82,14 +82,3 @@ export function buildGrid(m: MonthRef): DayCell[][] {
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
 }
-
-export const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-export function monthLabel(m: MonthRef): string {
-  return `${MONTH_NAMES[m.month - 1]} ${m.year}`;
-}

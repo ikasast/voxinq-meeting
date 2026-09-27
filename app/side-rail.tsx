@@ -14,7 +14,7 @@ import {
   SeriesIcon,
 } from "./icons";
 import { isAuthPath } from "./auth-paths";
-import { useMyQueueCount } from "./queue-header-link";
+import { useMyQueueCount } from "./use-my-queue-count";
 import { useT } from "./locale-provider";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.

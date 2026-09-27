@@ -114,15 +114,6 @@ export async function claimNext(budget: number): Promise<ClaimedJob | null> {
   return rows[0] ?? null;
 }
 
-/** What the running jobs are holding, for the queue screen and for deciding what fits. */
-export async function runningVramMb(): Promise<number> {
-  const r = await prisma.job.aggregate({
-    where: { status: "running" },
-    _sum: { vramMb: true },
-  });
-  return r._sum.vramMb ?? 0;
-}
-
 export async function finish(
   id: string,
   status: Extract<JobStatus, "done" | "error" | "cancelled">,
@@ -270,22 +261,6 @@ export async function recentJobsAcrossUsers(
         ? { username: j.owner.username, name: j.owner.name, hasImage: j.owner.image !== null }
         : null,
     };
-  });
-}
-
-export async function openJobs() {
-  return prisma.job.findMany({
-    where: { status: { in: OPEN_STATUSES } },
-    orderBy: [{ status: "desc" }, { position: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      kind: true,
-      status: true,
-      meetingId: true,
-      startedAt: true,
-      vramMb: true,
-      meeting: { select: { title: true } },
-    },
   });
 }
 

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TITLE_FORMAT, TITLE_FORMATS, defaultMeetingTitle, isTitleFormat } from "../lib/meeting-title";
+import { DEFAULT_TITLE_FORMAT, TITLE_FORMATS, defaultMeetingTitle } from "../lib/meeting-title";
 import { dayFromKey } from "../lib/utils";
 
 // A default title is what somebody reads in a list months later, and it is the one piece of a
@@ -125,7 +125,7 @@ describe("the shapes on offer", () => {
     // settings.json is hand-editable, and a typo there should cost a default rather than every
     // screen that names a meeting.
     expect(defaultMeetingTitle(day, "yyyy/MM/dd")).toBe("20260711");
-    expect(isTitleFormat("yyyy/MM/dd")).toBe(false);
-    expect(isTitleFormat("ja")).toBe(true);
+    // And one that is a shape is used as itself, rather than falling back with it.
+    expect(defaultMeetingTitle(day, "ja")).toBe("2026年7月11日");
   });
 });

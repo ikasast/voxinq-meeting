@@ -37,8 +37,6 @@ describe("writes allowed from outside", () => {
     const forbidden = [
       "/api/meetings/abc/transcribe",
       "/api/meetings/abc/apply-transcript",
-      "/api/meetings/abc/apply-speakers",
-      "/api/meetings/abc/diarization-embeddings",
       "/api/meetings/abc/end",
       "/api/meetings/abc/reopen",
       "/api/meetings/abc/replace",

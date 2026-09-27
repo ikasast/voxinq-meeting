@@ -4,7 +4,6 @@ import {
   dayKey,
   dayRange,
   monthKey,
-  monthLabel,
   monthRange,
   parseDay,
   parseMonth,
@@ -120,8 +119,7 @@ describe("the grid", () => {
 });
 
 describe("labels", () => {
-  it("names the month and pads the key", () => {
-    expect(monthLabel({ year: 2026, month: 9 })).toBe("September 2026");
+  it("pads the key", () => {
     expect(monthKey({ year: 2026, month: 9 })).toBe("2026-09");
     expect(monthKey({ year: 2026, month: 12 })).toBe("2026-12");
   });

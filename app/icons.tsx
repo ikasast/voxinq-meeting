@@ -81,11 +81,6 @@ export const CheckIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
-export const XIcon = (p: SVGProps<SVGSVGElement>) => (
-  <Base {...p}>
-    <path d="M18 6 6 18M6 6l12 12" />
-  </Base>
-);
 
 export const RestoreIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
@@ -125,12 +120,6 @@ export const DotsIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
-export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
-  <Base {...p}>
-    <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" />
-    <path d="M2 14h4M10 8h4M18 16h4" />
-  </Base>
-);
 
 // A stack of meeting cards — the list, as the rail's own icon for it.
 // Meetings and Series are Tabler Icons' `messages` and `folders` (MIT, © Paweł Kuna,

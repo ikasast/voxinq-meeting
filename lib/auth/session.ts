@@ -25,11 +25,6 @@ export type CurrentUser = {
   via: "session" | "tailnet";
 };
 
-/** Has anybody signed up yet? Until then the app behaves exactly as it did before v3.1. */
-export async function hasUsers(): Promise<boolean> {
-  return (await prisma.user.count()) > 0;
-}
-
 /**
  * Resolve the request to a person, or null.
  *

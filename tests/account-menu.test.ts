@@ -36,7 +36,7 @@ describe("the corner of the screen", () => {
 
 describe("reaching the queue from a phone", () => {
   const layout = read("app/layout.tsx");
-  const header = read("app/queue-header-link.tsx");
+  const counter = read("app/use-my-queue-count.ts");
   const rail = read("app/side-rail.tsx");
 
   it("has a way in that is not the address bar", () => {
@@ -53,13 +53,13 @@ describe("reaching the queue from a phone", () => {
   it("counts your own work, not the machine's", () => {
     // The queue lists everybody now. A badge reading 3 when none of the three are yours is not
     // a notification; it is a wrong answer to the question a badge is asked.
-    expect(header).toContain("d.jobs.filter((j) => j.mine).length");
+    expect(counter).toContain("d.jobs.filter((j) => j.mine).length");
   });
 
   it("uses one count for both badges", () => {
     // Two implementations of "how many" eventually disagree in front of somebody.
     expect(rail).toContain("useMyQueueCount()");
-    expect(header).toContain("export function useMyQueueCount()");
+    expect(counter).toContain("export function useMyQueueCount()");
     expect(rail).not.toContain("fetch(\"/api/jobs\"");
   });
 });
