@@ -1,4 +1,4 @@
-import { loadedMb } from "@/lib/llm/ollama-models";
+import { findInstalled, listModels, loadedMb, ollamaBase } from "@/lib/llm/ollama-models";
 import { whisperModel } from "@/lib/stt/models";
 import { sttInternalUrl } from "@/lib/stt/internal";
 import { readSettings } from "@/lib/settings";
@@ -93,20 +93,21 @@ export function isLocalUrl(url: string): boolean {
   }
 }
 
-/** What an Ollama model occupies, asked of Ollama. Its own report beats any table here. */
+/**
+ * What an Ollama model occupies, asked of Ollama. Its own report beats any table here.
+ *
+ * Matched the way Ollama resolves a name, which means the tag counts. It used to fall back to
+ * comparing the part before the colon, so two quantisations of one model -- `…-gguf:IQ4_XS` at
+ * 5.3 GB and `…-gguf:Q4_K_M` at 6.5 GB, both installed here -- were the same model to it, and
+ * whichever the list happened to hold first priced the job.
+ */
 async function ollamaModelMb(baseUrl: string, model: string): Promise<number> {
-  try {
-    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/tags`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return LLM_FALLBACK_MB;
-    const d = (await res.json()) as { models?: { name?: string; size?: number }[] };
-    const hit = d.models?.find((m) => m.name === model || m.name?.split(":")[0] === model.split(":")[0]);
-    if (!hit?.size) return LLM_FALLBACK_MB;
-    return loadedMb(hit.size / 1024 / 1024);
-  } catch {
-    return LLM_FALLBACK_MB;
-  }
+  const base = ollamaBase(baseUrl);
+  if (!base) return LLM_FALLBACK_MB;
+  const installed = await listModels(base);
+  const hit = installed && findInstalled(installed, model);
+  if (!hit?.sizeMb) return LLM_FALLBACK_MB;
+  return loadedMb(hit.sizeMb);
 }
 
 /**

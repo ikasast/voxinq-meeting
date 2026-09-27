@@ -9,7 +9,7 @@ let _client: Anthropic | null = null;
 let _clientKey: string | null = null;
 
 function client(apiKey: string | undefined): Anthropic {
-  if (!apiKey) throw new Error("Anthropic API キーが設定されていません");
+  if (!apiKey) throw new Error("Anthropic API key not set");
   if (!_client || _clientKey !== apiKey) {
     _client = new Anthropic({ apiKey });
     _clientKey = apiKey;

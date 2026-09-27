@@ -69,7 +69,7 @@ export const ollamaProvider: ChatProvider = {
     });
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");
-      throw new Error(`Ollama 呼び出しに失敗 (${res.status}): ${detail.slice(0, 300)}`);
+      throw new Error(`Ollama call failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
     }
 
     // NDJSON stream: one {"message":{"content":"…"},"done":false} object per line.
@@ -91,7 +91,7 @@ export const ollamaProvider: ChatProvider = {
             error?: string;
             done?: boolean;
           } & Parameters<typeof addOllamaUsage>[1];
-          if (chunk.error) throw new Error(`Ollama エラー: ${chunk.error.slice(0, 300)}`);
+          if (chunk.error) throw new Error(`Ollama error: ${chunk.error.slice(0, 300)}`);
           content += chunk.message?.content ?? "";
           // The last line carries what the call cost: tokens in and out, and the time spent on each.
           if (chunk.done && cfg.usage) addOllamaUsage(cfg.usage, chunk);

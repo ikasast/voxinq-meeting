@@ -152,7 +152,7 @@ export async function startMic(
   } catch (e) {
     streams.forEach((s) => s.getTracks().forEach((t) => t.stop()));
     await ctx.close().catch(() => {});
-    throw new Error(`AudioWorklet を読み込めませんでした: ${(e as Error).message}`);
+    throw new Error(`Could not load the audio worklet: ${(e as Error).message}`);
   }
   // Multiple sources (mic + PC audio) connect to the same node and mix to mono.
   const node = new AudioWorkletNode(ctx, "pcm-worklet", {

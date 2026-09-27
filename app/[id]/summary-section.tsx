@@ -230,12 +230,17 @@ export function SummarySection({
         ) : summaryStatus === "error" ? (
           <>
             <p className="mt-4 text-sm text-[var(--error)]">
-              Failed to generate minutes.
+              {t("Failed to generate minutes.")}
+              {/* The reason comes from the provider and is passed through as it was given. */}
               {summaryError ? (
-                <span className="mt-1 block text-xs opacity-90">Reason: {summaryError}</span>
+                <span className="mt-1 block text-xs opacity-90">
+                  {t("Reason: {reason}", { reason: summaryError })}
+                </span>
               ) : null}
             </p>
-            {canGenerate && !readOnly ? <GenButton onClick={() => regenerate()} busy={genBusy} label="Retry" /> : null}
+            {canGenerate && !readOnly ? (
+              <GenButton onClick={() => regenerate()} busy={genBusy} label={t("Retry")} />
+            ) : null}
           </>
         ) : (
           <>
@@ -301,8 +306,10 @@ export function SummarySection({
         </div>
       ) : summaryStatus === "error" ? (
         <div className="mt-3 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
-          The last regeneration failed{summaryError ? `: ${summaryError}` : "."} Showing the
-          previous version — use the ↻ button to retry.
+          {summaryError
+            ? t("The last regeneration failed: {reason}", { reason: summaryError })
+            : t("The last regeneration failed.")}{" "}
+          {t("Showing the previous version — use the ↻ button to retry.")}
         </div>
       ) : null}
 
@@ -343,7 +350,7 @@ export function SummarySection({
               {t("Cancel")}
             </button>
             <button type="button" onClick={save} disabled={pending} className="btn-ink">
-              {pending ? t("Saving…") : "Save"}
+              {pending ? t("Saving…") : t("Save")}
             </button>
           </div>
         </div>

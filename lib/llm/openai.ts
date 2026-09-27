@@ -36,7 +36,7 @@ export const openaiProvider: ChatProvider = {
     });
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");
-      throw new Error(`OpenAI 呼び出しに失敗 (${res.status}): ${detail.slice(0, 300)}`);
+      throw new Error(`OpenAI call failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
     }
 
     // SSE stream: lines like `data: {"choices":[{"delta":{"content":"…"}}]}`, ending with `data: [DONE]`.
@@ -61,7 +61,7 @@ export const openaiProvider: ChatProvider = {
             error?: { message?: string };
           };
           if (chunk.error?.message) {
-            throw new Error(`OpenAI エラー: ${chunk.error.message.slice(0, 300)}`);
+            throw new Error(`OpenAI error: ${chunk.error.message.slice(0, 300)}`);
           }
           content += chunk.choices?.[0]?.delta?.content ?? "";
         } catch (e) {

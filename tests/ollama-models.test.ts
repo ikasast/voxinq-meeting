@@ -101,6 +101,33 @@ describe("what a model occupies once loaded", () => {
   });
 });
 
+describe("pricing a minutes job", () => {
+  const read = (f: string) => readFileSync(join(__dirname, "..", f), "utf8");
+
+  it("matches the model by its whole tag, so two quantisations are not one model", () => {
+    // Both of these are installed on the 8 GB machine, and they differ by 1.2 GB -- enough to
+    // decide whether the model fits on the card. Compared by the part before the colon they
+    // were the same model, and whichever /api/tags happened to list first priced the job.
+    const iq = "hf.co/mmnga-o/NVIDIA-Nemotron-Nano-9B-v2-Japanese-gguf:IQ4_XS";
+    const q4 = "hf.co/mmnga-o/NVIDIA-Nemotron-Nano-9B-v2-Japanese-gguf:Q4_K_M";
+    expect(sameModel(iq, q4)).toBe(false);
+    const installed = [
+      { name: iq, sizeMb: 5060 },
+      { name: q4, sizeMb: 6223 },
+    ];
+    expect(findInstalled(installed, q4)?.sizeMb).toBe(6223);
+    expect(findInstalled(installed, iq)?.sizeMb).toBe(5060);
+  });
+
+  it("asks the same lookup the settings screen does", () => {
+    const capacity = read("lib/queue/capacity.ts");
+    expect(capacity).toContain("findInstalled(installed, model)");
+    expect(capacity).toContain("loadedMb(hit.sizeMb)");
+    // The old comparison, which stopped at the colon.
+    expect(capacity).not.toContain('split(":")[0]');
+  });
+});
+
 describe("download progress", () => {
   it("adds up the layers rather than jumping back at each one", () => {
     const layers = new Map<string, { completed: number; total: number }>();
