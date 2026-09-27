@@ -6,7 +6,7 @@ always local; only the minutes step uses this provider.
 ## Ollama (default, local)
 
 - Easiest: model management built in, auto GPU/CPU.
-- Best for the single-box setup. Default model `qwen2.5:7b-instruct` fits 8 GB VRAM.
+- Best for the single-box setup. Default model `qwen3:8b` fits 8 GB VRAM.
 - Set `Base URL` (`http://localhost:11434`) and `Model` in Settings.
 
 ### Using an Ollama you already have (Docker installs)

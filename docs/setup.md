@@ -219,7 +219,7 @@ Everything above assumes a terminal. On Windows it can be done almost entirely w
    click the `ollama` container, open its **Exec** tab and run:
 
    ```
-   ollama pull qwen2.5:7b-instruct
+   ollama pull qwen3:8b
    ```
 
 7. **Open it.** Still in **Containers**, the `web` row shows `3000:3000` as a link — click it,
@@ -255,7 +255,7 @@ Then start it:
 
 ```bash
 docker compose up -d
-docker compose exec ollama ollama pull qwen2.5:7b-instruct   # the model that writes minutes
+docker compose exec ollama ollama pull qwen3:8b   # the model that writes minutes
 ```
 
 Open `http://localhost:3000` and you are ready. **Settings → LLM** already points at the
@@ -414,7 +414,7 @@ The script is **idempotent** (safe to re-run) and does, in order:
 3. Creates `.env` from `.env.example` and asks for your `DATABASE_URL`.
 4. `npx prisma migrate deploy` — creates/updates the DB schema.
 5. Creates the STT venv (`stt-service/.venv`) and installs its requirements.
-6. Pulls the default LLM (`ollama pull qwen2.5:7b-instruct`).
+6. Pulls the default LLM (`ollama pull qwen3:8b`).
 
 For speaker diarization (optional), add the flag:
 
@@ -459,7 +459,7 @@ npx prisma migrate deploy   # create/update the DB schema
 #### 2. LLM (Ollama, default)
 
 ```bash
-ollama pull qwen2.5:7b-instruct   # fits 8 GB VRAM
+ollama pull qwen3:8b   # fits 8 GB VRAM
 ```
 
 Prefer a bigger model or an external GPU? See **[LLM providers](llm-providers.md)**.

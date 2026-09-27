@@ -233,7 +233,7 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
       ...(minutes
         ? {
             summaries: {
-              create: { summaryText: minutes, provider: "ollama", model: "qwen2.5:7b-instruct" },
+              create: { summaryText: minutes, provider: "ollama", model: "qwen3:8b" },
             },
           }
         : {}),

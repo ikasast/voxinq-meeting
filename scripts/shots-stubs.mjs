@@ -60,7 +60,7 @@ serve(STT_PORT, (method, path) => {
 serve(LLM_PORT, (_method, path) => {
   if (path === "/api/version") return { version: "0.12.3" };
   if (path === "/api/tags") {
-    return { models: [{ name: "qwen2.5:7b-instruct", model: "qwen2.5:7b-instruct", size: 4_683_087_332 }] };
+    return { models: [{ name: "qwen3:8b", model: "qwen3:8b", size: 5_225_374_496 }] };
   }
   if (path === "/api/ps") return { models: [] };
   return {};

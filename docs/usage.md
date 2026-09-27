@@ -474,10 +474,11 @@ replacement for each line.
   recognition. It also catches terms `large-v3-turbo` missed.
 - It uses the GPU, so it is refused while minutes are generating. Nothing is stored.
 
-> **The model matters here.** Measured on a small Japanese sample: `qwen3:8b` found every
-> planted term with no false positives; `qwen2.5:7b-instruct` (the setup script's default)
-> found none at all and simply reports nothing to fix. If you get no suggestions on a
-> transcript you know contains misheard terms, try a larger model in Settings → LLM.
+> **The model matters here.** Measured on a small Japanese sample: `qwen3:8b` (the default)
+> found every planted term with no false positives, while `qwen2.5:7b-instruct` — the default
+> before it — found none at all and simply reported nothing to fix. That result is why the
+> default changed. If you get no suggestions on a transcript you know contains misheard terms,
+> try a larger model in Settings → LLM.
 
 ## Ask the minutes
 
