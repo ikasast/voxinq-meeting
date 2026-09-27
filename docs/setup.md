@@ -577,24 +577,45 @@ tailnet, and the WireGuard alternative are all in **[Remote access](remote-acces
 
 ### Running in the background
 
-#### Windows (primary host)
+**Docker** does it already: the compose file marks every service `restart: unless-stopped`, so
+they come back with the machine.
 
-Helper scripts register Task Scheduler tasks that start at logon and self-restart on crash:
+**The `voxinq` launcher** registers itself with whatever the OS already uses for this — a Task
+Scheduler task on Windows, a launchd agent on macOS, a systemd user service on Linux:
 
-```powershell
-scripts\windows\install-db-task.ps1        # PostgreSQL
-scripts\windows\install-web-task.ps1       # Web app
-stt-service\install-startup-task.ps1       # STT service
-scripts\windows\install-backup-task.ps1    # nightly DB backup (03:00, pg_dump + rotation)
+```bash
+voxinq autostart on       # `off` and `status` too
 ```
 
-Backups land in `~\voxinq-backups` (daily kept 14 days, 1st-of-month kept a year — a dump is
-only a few hundred KB). Restore with `pg_restore -d "<DATABASE_URL>" --clean --if-exists <file>.dump`.
+There is no daemon of Voxinq's own to supervise, and `off` removes exactly what `on` created.
 
-> **The nightly dump is the database only.** Restoring from it alone leaves every meeting
-> present but silent: the audio lives on disk, not in PostgreSQL, and without it playback,
-> re-transcription, diarization and voiceprint enrolment are all unavailable. For a rebuild
-> or a move to another machine, use the full export below.
+> **A native checkout is for working on the code**, and is run in the foreground with
+> `scripts/start` (or `npm run build && npm start`). To have a machine *run* Voxinq, use Docker
+> or the launcher. There were Task Scheduler scripts under `scripts\windows\` for it; the
+> launcher does the same on three platforms, so removing them left one way to do this rather
+> than two that drift apart.
+
+### Backups
+
+**Take one before upgrading, and on a schedule if the meetings matter.**
+
+The whole instance — database, recordings and settings — is **Settings → Data → Export**, which
+writes one encrypted `.voxbak` file that **Import** reads back. That is the route for a rebuild
+or a move to another machine, and it works the same on every install.
+
+For a scheduled database-only dump on Docker there is no script to install; it is one command,
+in whatever your machine already uses to run things nightly:
+
+```bash
+docker compose exec -T db pg_dump -U voxinq -Fc voxinq > voxinq-$(date +%Y%m%d).dump
+```
+
+Read it back with `docker compose exec -T db pg_restore -U voxinq -d voxinq --clean --if-exists`.
+
+> **A database dump is not the recording.** Restoring from one leaves every meeting present but
+> silent: the audio lives in the `recordings` volume, not in PostgreSQL, and without it
+> playback, re-transcription, diarization and voiceprint enrolment are all unavailable. For
+> anything but "the database broke", export the whole instance instead.
 
 ### Moving or rebuilding
 
@@ -656,37 +677,18 @@ the container itself.
 
 #### Native
 
-```powershell
-scripts\windows\export-all.ps1                      # -> ~\voxinq-backups\voxinq-full-<timestamp>\
-scripts\windows\export-all.ps1 -NoRecordings        # database + config only, much smaller
-```
+**Settings → Data → Export** is the route here too, and the only one that carries the
+recordings. A checkout has no bundle script of its own any more: `export-all.ps1` and
+`import-all.ps1` did what the screen does, for Windows only, and a second implementation of
+"everything this instance is" is a second one to keep correct.
 
-To restore into a fresh install — after `setup.ps1` has created `.env` and the database:
+Updating a checkout after a pull is `voxinq setup`, which is also how the launcher upgrades:
+dependencies, the database schema and a production build, in that order. Then restart it —
+`scripts/start`, or the autostart registration if you made one.
 
-```powershell
-# stop the web app and the STT service first
-scripts\windows\import-all.ps1 -From <bundle directory>
-npx prisma migrate deploy    # no-op when the dump is current
-```
-
-The import refuses to run while anything is listening on 3000 or 8000, asks for confirmation
-before dropping the target database, and leaves `.env` alone — `DATABASE_URL` and the baked-in
-STT URL belong to the machine, not to the data.
-
-> The bundle contains **every meeting transcript, your API keys and the database password**.
-> It is as sensitive as the database itself; keep it local or encrypt it before it moves.
-
-- Redeploy the web app after code changes: `scripts\windows\redeploy-web.ps1`
-- Redeploy **web + STT together** (use this when a pull also touched `stt-service/`):
-  `scripts\windows\redeploy-all.ps1`
-- Restarting the STT service on its own: kill the process owning port 8000 — the `run-stt.bat`
-  loop relaunches it with the new code in ~15s. (`Stop-ScheduledTask` can leave the process running.)
-
-#### Linux
-
-- Web app: `scripts/redeploy.sh`
-- STT service: install the provided `stt-service/voxinq-stt.service` systemd unit, then
-  `sudo systemctl enable --now voxinq-stt`.
+> `redeploy-web.ps1`, `redeploy-all.ps1` and `redeploy.sh` used to do that and restart the
+> services behind it. They built a git checkout in place, which is not how any of the install
+> routes above run, and each was one platform's own version of the same four commands.
 
 ### Branches & releases
 
@@ -796,7 +798,7 @@ Deploying comes **after** publishing, and depends on how the host runs:
 | --- | --- |
 | Docker | `docker compose pull && docker compose up -d` (set `VOXINQ_VERSION` to pin, or leave it unset to follow `latest`) |
 | `voxinq` launcher | `brew upgrade` / `scoop update voxinq`, then `voxinq setup` |
-| native (legacy) | `scripts\windows\redeploy-all.ps1`, or `scripts/redeploy.sh` on Linux — these build a git checkout in place, which is not how anything is run now |
+| native checkout | `git pull`, then `voxinq setup` — for working on the code, not for running a machine |
 
 Publishing also builds the release tarball the package managers install from, and — for a full
 release, not a prerelease — points the Scoop manifest and Homebrew formula at it and pushes

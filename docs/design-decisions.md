@@ -922,8 +922,16 @@ hand-placed PostgreSQL and redeploy scripts that each host had to be talked thro
 August 2026 the author's own machine moved to Docker too, and the native path is now maintained
 for people who install that way rather than because it is what production runs.
 
-The native scripts stay: `setup.ps1`/`setup.sh` still work, and someone who would rather not run
-containers is not worse off. What changed is which one gets exercised daily.
+Installing natively stays: `setup.ps1`/`setup.sh` still work, and someone who would rather not
+run containers is not worse off. What changed is which one gets exercised daily.
+
+**The operation scripts did not stay.** A year on, `scripts/windows/` still held the Task
+Scheduler registrations, the redeploy scripts and a Windows-only export/import bundle — three
+jobs that the rest of the project had since learned to do once each, for every platform: the
+`voxinq` launcher registers autostart on Windows, macOS and Linux and upgrades a checkout with
+`voxinq setup`, and Settings -> Data exports the whole instance from the screen. Keeping the
+older set meant two answers to each question, only one of which anybody ran. They were removed
+in September 2026, and the documentation says what replaced each.
 
 Desktop installers (`.exe` / `.dmg`) are out of scope: macOS has no CUDA, so a `.dmg` would mean
 reimplementing the STT and diarization stack on Metal — a different project.
