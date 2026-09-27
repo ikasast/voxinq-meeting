@@ -515,24 +515,24 @@ cd voxinq-meeting
 
 #### PCの起動時に自動で立ち上げたい場合
 
-**Windows** — タスクスケジューラに常駐登録するスクリプトを用意しています。
+**Docker なら何もしなくて大丈夫です。**`restart: unless-stopped` が付いているので、PC の起動と
+ともに戻ってきます。
 
-```powershell
-scripts\windows\install-db-task.ps1        # PostgreSQL
-scripts\windows\install-web-task.ps1       # Webアプリ
-stt-service\install-startup-task.ps1       # 文字起こしサービス
-scripts\windows\install-backup-task.ps1    # DBの自動バックアップ（毎晩3時）
-```
-
-**Linux** — Webアプリはコード更新時に `scripts/redeploy.sh` で再起動できます。文字起こしサービスは
-同梱の systemd ユニットを登録してください。
+**`voxinq` ランチャー**を使っている場合は、次の 1 行です。Windows はタスクスケジューラ、macOS は
+launchd、Linux は systemd のユーザーサービスと、**OS が元々持っている仕組み**にそのまま登録します
+（`voxinq autostart off` で解除、`status` で確認できます）。
 
 ```bash
-sudo cp stt-service/voxinq-stt.service /etc/systemd/system/
-sudo systemctl enable --now voxinq-stt
+voxinq autostart on
 ```
 
-詳しい手順は [docs/setup.md](docs/setup.md)（英語）にあります。
+> ソースを直接動かす導入（C）は**コードを触るための方法**なので、`scripts/start` で前面に起動します。
+> 常駐させたいときは Docker かランチャーを使ってください。以前は `scripts\windows\` に
+> タスクスケジューラ登録用のスクリプトがありましたが、ランチャーが 3 つの OS で同じことを
+> するので整理しました。
+
+バックアップは **設定 → データ → エクスポート**（会議・録音・設定をまとめた暗号化ファイル）が
+基本です。詳しい手順は [docs/setup.md](docs/setup.md)（英語）にあります。
 
 ## 5. 基本的な使い方
 

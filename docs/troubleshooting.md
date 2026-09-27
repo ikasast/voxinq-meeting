@@ -57,20 +57,22 @@ Check in order:
 4. `stt-service/stt.log` for `[translate] unavailable:` — a failed load is not retried for the
    life of the process, so restart the service after fixing the cause.
 
-## The site is down after a redeploy
+## The site is down after an update
 
-Check whether the build actually produced anything:
+On Docker this is a pull that did not finish; `docker compose ps` says which service is not up,
+and `docker compose logs web` says why.
+
+On a checkout, check whether the build actually produced anything:
 
 ```powershell
 Test-Path .next\BUILD_ID    # False = the build failed; `next start` cannot run
 ```
 
-`redeploy-web.ps1` now stops before touching the running server if any step fails, so this
-should not happen again. If you hit it on an older copy of the script, rebuild by hand and the
-`run-web.bat` watch loop picks the new build up within ~15 seconds:
+A failed build leaves the previous one in place, so rebuild and start again:
 
 ```powershell
 npm run build
+scripts\start.ps1
 ```
 
 ### The build fails on fonts (404s from fonts.gstatic.com)
@@ -132,8 +134,9 @@ Stop the other service, or point `STT_INTERNAL_URL` at `http://127.0.0.1:8000` e
 
 ## STT won't reflect new code after a restart
 
-`Stop-ScheduledTask` can leave the Python process running. Instead, kill the process owning
-port 8000 — the `run-stt.bat` loop relaunches with the new code in ~15s:
+The old Python process is still holding port 8000. On Docker, `docker compose up -d stt`
+replaces it; with the launcher, `voxinq stop` then `voxinq start`. On a checkout you started by
+hand, kill whatever owns the port and start it again:
 
 ```powershell
 Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000 -State Listen).OwningProcess -Force
