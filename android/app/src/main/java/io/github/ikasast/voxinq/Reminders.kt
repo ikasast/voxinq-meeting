@@ -194,15 +194,22 @@ object Reminders {
     /**
      * Set the next backstop check.
      *
-     * Deliberately a plain alarm, not one that wakes a sleeping phone: its only job is to hear
-     * about meetings booked since the last check, and waking the phone for a network request every
-     * quarter of an hour, all day, is a battery cost out of proportion to that. Deferred to the
-     * next maintenance window, it is still a backstop. The meetings themselves have exact alarms.
+     * **Allowed to run while the phone sleeps.** It used to be a plain alarm, on the reasoning
+     * that a backstop deferred to the next maintenance window was still a backstop. It was not:
+     * the check is the only way the phone hears about a meeting booked since the app was last in
+     * front — on the laptop, or in the app itself after it had opened — and a sleeping phone put
+     * it off for hours. A meeting nobody had told the phone about got no alarm of its own, and its
+     * notice appeared when the app was next opened. One short request a quarter of an hour is the
+     * price of hearing about it in time.
+     *
+     * Still inexact, so the system can fold it into other work: a meeting booked from elsewhere
+     * a few minutes before it starts can be late by up to the check's interval and its window.
+     * Anything booked further ahead gets an exact alarm from the check that hears about it.
      */
     fun arm(context: Context, delayMs: Long = CHECK_EVERY_MS) {
         if (ServerAddress.load(context) == null) return // nothing to ask yet
         val alarms = context.getSystemService(AlarmManager::class.java) ?: return
-        alarms.set(
+        alarms.setAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
             System.currentTimeMillis() + delayMs,
             broadcast(context, 0, Intent(context, ReminderReceiver::class.java).setAction(ACTION_CHECK)),

@@ -161,11 +161,15 @@ An alarm whose meeting the server still has *coming* within two minutes is there
 anyway; one the server has moved later waits for its new alarm, and one the server no longer lists
 (recorded, ended, deleted) stays quiet.
 
-The quarter-hourly check is a plain alarm, deliberately: its only job is to hear about meetings
-booked since the last one, and waking a sleeping phone for a network request every fifteen minutes
-all day costs more than that is worth. What is left late is one case — a meeting booked minutes
-before it starts while the phone is asleep, which waits for the next maintenance window or for the
-app to be opened. Anything booked earlier has an alarm of its own.
+**The phone has to hear about a meeting before it can set that meeting's alarm**, and until 3.8.6
+it rarely did in time. It asked when the app came to the front and every quarter of an hour after,
+but the quarter-hourly check was a plain alarm, which a sleeping phone defers for hours. A meeting
+booked on the laptop, or in the app after it had opened, therefore had no alarm of its own, and its
+notice appeared when the app was next opened. Now the app also asks as it leaves the front, which
+covers a meeting booked in it, and the quarter-hourly check is allowed to run while the phone
+sleeps (`setAndAllowWhileIdle`), which covers one booked elsewhere: one short request every fifteen
+minutes. What is left late is a meeting booked elsewhere minutes before it starts, which can wait
+for the next check and its window. Anything booked earlier has an exact alarm of its own.
 
 **Record opens the recording page, which starts by itself** (`?autostart=1`, which the web app
 already uses for its own one-tap links). Not because a notification cannot start work, but because
