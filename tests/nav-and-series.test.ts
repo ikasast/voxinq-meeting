@@ -83,7 +83,7 @@ describe("ending a meeting", () => {
     // `?permanent=1` would take the recording with it and leave nothing to undo.
     expect(body).not.toContain("permanent=1");
     // Not transcribed on the way out: that spends the GPU on something being thrown away.
-    expect(body).not.toContain("transcribeIfDeferred");
+    expect(body).not.toContain("transcribeAfterRecording");
     expect(page).toContain("onClick={discardAndEnd}");
   });
 });

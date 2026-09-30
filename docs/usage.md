@@ -118,6 +118,11 @@ recording starts immediately.
      can be restored for 30 days; nothing is transcribed on the way out, and the recording is
      not protected, so it expires on its own.
 
+   When nothing was transcribed during the meeting — on a machine that transcribes at the end,
+   or after **Record only** — ending it puts the transcription in the [queue](#the-queue), and
+   **Generate minutes** and **Diarize** follow once it is done. The meeting page opens straight
+   away and shows the transcription waiting its turn; it can be closed.
+
 The first three land on the meeting itself, where the minutes appear as they finish;
 **End without saving** goes back to the list.
 
