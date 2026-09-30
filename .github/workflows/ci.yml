@@ -5,44 +5,100 @@ on:
     branches: [main]
   pull_request:
 
+# The web app's checks are four jobs rather than one. Lint, types, the build and the tests do not
+# depend on one another, and run in a row they were most of the wait: about 110 s, of which the
+# tests themselves were 9. Nothing is checked less than before; the same commands run, side by
+# side. The repository is public, so the extra runners cost nothing.
 jobs:
-  web:
+  lint:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: voxinq
-          POSTGRES_PASSWORD: voxinq
-          POSTGRES_DB: voxinq
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U voxinq"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/node-setup
+      # ESLint's own cache, keyed on content rather than timestamps: a checkout gives every file
+      # a new mtime, which would make the default strategy miss on everything. A changed file,
+      # rule or plugin is linted again; an unchanged one is not.
+      - uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          key: eslint-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-${{ github.sha }}
+          restore-keys: eslint-${{ hashFiles('package-lock.json', 'eslint.config.mjs') }}-
+      - run: npm run lint -- --cache --cache-strategy content --cache-location .eslintcache
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/node-setup
+      # The route types (RouteContext, the route validator) used to come from running the whole
+      # build first. `next typegen` writes the same files in a couple of seconds, so the types
+      # no longer wait for the build.
+      - run: npx next typegen
+      - run: npm run typecheck
+
+  build:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_STT_WS_URL: ws://localhost:8000/ws
+      # Not connected during a build; the value only has to parse.
+      DATABASE_URL: postgresql://build:build@localhost:5432/build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/node-setup
+      - run: npm run build
+
+  test:
+    runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://voxinq:voxinq@localhost:5432/voxinq
-      NEXT_PUBLIC_STT_WS_URL: ws://localhost:8000/ws
       # The queue's tests write to the database and claim whatever is queued, so they only run
       # where the database is disposable. Here it is a container that dies with the job.
       VOXINQ_QUEUE_DB_TESTS: "1"
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
+      # Started by hand rather than as a service container. A service is pulled and health-checked
+      # before the first step, which put 18 s in front of everything; started in the background
+      # here, it comes up while the dependencies are restored.
+      #
+      # The image production runs, and with durability off: fsync and the rest protect data from
+      # a power cut, and this database is thrown away when the job ends.
+      - name: Start PostgreSQL
+        run: |
+          nohup docker run -d --name pg -p 5432:5432 \
+            -e POSTGRES_USER=voxinq -e POSTGRES_PASSWORD=voxinq -e POSTGRES_DB=voxinq \
+            postgres:17-alpine -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
+            > "$RUNNER_TEMP/postgres-start.log" 2>&1 &
+      - uses: ./.github/actions/node-setup
+      # Over TCP on purpose: while the image initialises, it runs a temporary server on the socket
+      # only, and a socket check would pass just before that server is stopped and restarted.
+      - name: Wait for PostgreSQL
+        run: |
+          for _ in $(seq 1 90); do
+            docker exec pg pg_isready -h 127.0.0.1 -U voxinq >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/postgres-start.log"
+          docker logs pg || true
+          exit 1
       # Also validates that the migration history builds a working schema.
       - run: npx prisma migrate deploy
-      - run: npm run lint
-      # Build first: it generates the Next.js route types (RouteContext etc.)
-      # that `tsc --noEmit` needs.
-      - run: npm run build
-      - run: npm run typecheck
       - run: npm test
+
+  # The name the branch ruleset requires, kept so that splitting the job did not mean changing
+  # the repository's settings. It passes only when all four did.
+  #
+  # `if: always()` is load-bearing. Without it this job is skipped when one of the four fails,
+  # and a skipped job reports success to a required check -- a red lint would have been mergeable.
+  web:
+    if: always()
+    needs: [lint, typecheck, build, test]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "lint, typecheck, build, test: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || exit 1; done
 
   python-services:
     runs-on: ubuntu-latest
@@ -89,5 +145,9 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.build.yml config --quiet
         env:
           POSTGRES_PASSWORD: ci-only
+      # Deliberately without a layer cache. Measured on this workflow: restoring the cached
+      # `npm ci` layer from the Actions cache took 32-40 s against 21 s for running `npm ci`, and
+      # writing the cache on main took four minutes. It only won when no source had changed,
+      # which is not what a pull request is.
       - name: Build the web image
         run: docker build -t voxinq-web:ci .
