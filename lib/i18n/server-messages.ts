@@ -57,6 +57,9 @@ export const SERVER_MESSAGES = [
 
   // Moving a booked meeting.
   "Only a booked meeting that has not been recorded yet can be moved.",
+  // Starting a recording from a notice, with no page open.
+  "STT_WS_URL is not set on the server.",
+
   // Reached from outside the private network.
   "This server is read-only from outside your private network.",
   "backups are only available from inside your private network",

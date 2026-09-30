@@ -36,6 +36,7 @@ describe("writes allowed from outside", () => {
   it("touches nothing that runs on the GPU or cannot be undone", () => {
     const forbidden = [
       "/api/meetings/abc/transcribe",
+      "/api/meetings/abc/record",
       "/api/meetings/abc/apply-transcript",
       "/api/meetings/abc/end",
       "/api/meetings/abc/reopen",

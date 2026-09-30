@@ -26,7 +26,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -41,6 +43,14 @@ class RecorderService : Service() {
         const val ACTION_START = "io.github.ikasast.voxinq.action.START"
         const val ACTION_STOP = "io.github.ikasast.voxinq.action.STOP"
         const val ACTION_END = "io.github.ikasast.voxinq.action.END"
+
+        /** Record a booked meeting from its notice, with no page open. See [recordIntent]. */
+        const val ACTION_RECORD_BOOKED = "io.github.ikasast.voxinq.action.RECORD_BOOKED"
+        private const val EXTRA_MEETING = "meetingId"
+        private const val EXTRA_TITLE = "title"
+
+        /** How long after starting to look again at whether the microphone is really listening. */
+        private const val SILENCE_CHECK_MS = 2_000L
 
         /** Deliver what an earlier run left behind. No microphone; see deliverLeftovers. */
         const val ACTION_DELIVER = "io.github.ikasast.voxinq.action.DELIVER"
@@ -77,6 +87,27 @@ class RecorderService : Service() {
             )
         }
 
+        /**
+         * The notice's **Record**: start this service straight from the button, so the recording
+         * begins where it is pressed — the lock screen, or a watch — with nothing opened.
+         *
+         * A foreground-service intent, not a broadcast or an activity: Android lets a microphone
+         * service start from the user's press on a notification's button, and that permission
+         * does not survive being passed on to anything else.
+         */
+        fun recordIntent(context: Context, meeting: Reminders.Booked): PendingIntent {
+            val intent = Intent(context, RecorderService::class.java)
+                .setAction(ACTION_RECORD_BOOKED)
+                .putExtra(EXTRA_MEETING, meeting.id)
+                .putExtra(EXTRA_TITLE, meeting.title)
+            val code = (meeting.id.hashCode() shl 1) or 1
+            return if (Build.VERSION.SDK_INT >= 26) {
+                PendingIntent.getForegroundService(context, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            } else {
+                PendingIntent.getService(context, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            }
+        }
+
         /** The page's Stop: the recording ends, the meeting does not — the page does that. */
         fun stop(context: Context) {
             context.startService(Intent(context, RecorderService::class.java).setAction(ACTION_STOP))
@@ -103,6 +134,8 @@ class RecorderService : Service() {
     private var deliverJob: kotlinx.coroutines.Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    /** The meeting's name while a recording started from a notice is still being prepared. */
+    private var preparingTitle: String? = null
 
     private fun userAgent() =
         "VoxinqAndroid/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
@@ -115,6 +148,7 @@ class RecorderService : Service() {
             ACTION_STOP -> finish(endMeeting = false)
             ACTION_END -> finish(endMeeting = true)
             ACTION_DELIVER -> deliver()
+            ACTION_RECORD_BOOKED -> recordBooked(intent.getStringExtra(EXTRA_MEETING), intent.getStringExtra(EXTRA_TITLE))
             else -> if (session == null) stopSelf()
         }
         return START_NOT_STICKY
@@ -181,6 +215,85 @@ class RecorderService : Service() {
             return
         }
         session = s
+    }
+
+    /**
+     * Record a booked meeting from its notice: no page, so the settings come from the server
+     * (`POST /api/meetings/{id}/record`, which decides them as the recording page would), and
+     * any refusal is said in a notice, since there is no screen to say it on.
+     */
+    private fun recordBooked(meetingId: String?, title: String?) {
+        if (config != null || session != null) {
+            // Already recording. The press is not lost silently: the running recording's
+            // notification is refreshed, and the page, if open, says why.
+            goForeground(config)
+            RecorderBus.post(message("error", "message" to getString(R.string.another_recording)))
+            return
+        }
+        preparingTitle = title
+        // Answered first, as a foreground start must be. It is also the moment Android decides
+        // whether this app may use the microphone from here.
+        if (!goForeground(null)) {
+            if (meetingId != null) Reminders.notifyRecordFailed(this, meetingId, title, getString(R.string.record_failed_background))
+            stopEverything()
+            return
+        }
+        val origin = ServerAddress.load(this)
+        if (meetingId == null || origin == null) {
+            stopEverything()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            Reminders.notifyRecordFailed(this, meetingId, title, getString(R.string.mic_permission_denied))
+            stopEverything()
+            return
+        }
+        Reminders.cancel(this, meetingId)
+        main.launch {
+            val cookie = runCatching { CookieManager.getInstance().getCookie(origin) }.getOrNull()
+            val planned = withContext(Dispatchers.IO) { fetchPlan(origin, meetingId, cookie) }
+            planned.onFailure { e ->
+                Log.w(TAG, "recording plan", e)
+                Reminders.notifyRecordFailed(this@RecorderService, meetingId, title, getString(R.string.record_failed_server, e.message ?: e.javaClass.simpleName))
+                preparingTitle = null
+                stopEverything()
+            }
+            planned.onSuccess { cfg ->
+                preparingTitle = null
+                begin(cfg)
+                if (session == null) {
+                    Reminders.notifyRecordFailed(this@RecorderService, meetingId, title, getString(R.string.record_failed_microphone))
+                    return@onSuccess
+                }
+                // Android can accept the start and still hand over silence. Look once the
+                // recording has settled, and stop rather than record nothing for an hour.
+                kotlinx.coroutines.delay(SILENCE_CHECK_MS)
+                if (session?.silenced() == true) {
+                    Log.w(TAG, "the microphone is silenced for a recording started from a notice")
+                    Reminders.notifyRecordFailed(this@RecorderService, meetingId, title, getString(R.string.record_failed_background))
+                    finish(endMeeting = false)
+                }
+            }
+        }
+    }
+
+    /** What the server says this meeting should be recorded with. */
+    private fun fetchPlan(origin: String, meetingId: String, cookie: String?): Result<RecorderConfig> = runCatching {
+        val request = okhttp3.Request.Builder()
+            .url("$origin/api/meetings/${java.net.URLEncoder.encode(meetingId, "UTF-8")}/record")
+            .post("{}".toByteArray().toRequestBody("application/json".toMediaType()))
+            .header("Accept", "application/json")
+            .header("User-Agent", userAgent())
+            .apply { cookie?.let { header("Cookie", it) } }
+            .build()
+        http.newCall(request).execute().use { res ->
+            val body = res.body?.string().orEmpty()
+            val json = runCatching { JSONObject(body) }.getOrNull()
+            if (!res.isSuccessful) throw IllegalStateException(json?.stringOrNull("error") ?: "HTTP ${res.code}")
+            json ?: throw IllegalStateException("HTTP ${res.code}")
+            json.put("meetingId", meetingId)
+            RecorderConfig.from(json, origin) ?: throw IllegalStateException("unreadable answer")
+        }
     }
 
     /**
@@ -325,7 +438,8 @@ class RecorderService : Service() {
 
     // ---- The notification ----
 
-    private fun goForeground(cfg: RecorderConfig?, delivering: Boolean = false) {
+    /** False when Android refused: then there is no foreground service, and no microphone. */
+    private fun goForeground(cfg: RecorderConfig?, delivering: Boolean = false): Boolean {
         // Default importance, but silent. A low-importance channel files the notification under
         // "Silent", collapsed, where its Stop is a tap further away than it should be.
         NotificationManagerCompat.from(this).createNotificationChannel(
@@ -350,7 +464,9 @@ class RecorderService : Service() {
             )
         } catch (e: Exception) {
             Log.w(TAG, "startForeground", e)
+            return false
         }
+        return true
     }
 
     @SuppressLint("MissingPermission") // checked just above the call
@@ -373,6 +489,7 @@ class RecorderService : Service() {
         val title = when {
             delivering -> getString(R.string.app_name)
             cfg?.title != null -> getString(R.string.notification_title, cfg.title)
+            preparingTitle != null -> getString(R.string.notification_title, preparingTitle)
             else -> getString(R.string.notification_title_untitled)
         }
         val text = if (delivering) getString(R.string.sending_leftovers) else getString(

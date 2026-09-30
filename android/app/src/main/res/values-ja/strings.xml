@@ -26,6 +26,10 @@
     <string name="reminder_untitled">予約した会議</string>
     <string name="reminder_text">会議の時間です（予約 %1$s）。</string>
     <string name="reminder_record">録音</string>
+    <string name="record_failed_title">録音していません: %1$s</string>
+    <string name="record_failed_background">Android がこの場所からのマイクの使用を許可しませんでした。Voxinq を開いて会議から録音してください。</string>
+    <string name="record_failed_microphone">マイクを開始できませんでした。Voxinq を開いて会議から録音してください。</string>
+    <string name="record_failed_server">録音の準備ができませんでした: %1$s</string>
 
     <string name="channel_import">取り込み</string>
     <string name="channel_import_description">共有された録音の送信中に表示されます</string>

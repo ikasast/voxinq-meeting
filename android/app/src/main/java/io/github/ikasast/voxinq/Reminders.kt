@@ -354,12 +354,16 @@ object Reminders {
     }
 
     /**
-     * **Record** opens the app on that meeting's recording page, which starts by itself.
+     * **Record** starts the recording where it is pressed, without opening anything: on the
+     * phone's lock screen, or on a watch the notice was forwarded to. Tapping the notice itself
+     * still opens the meeting's recording page.
      *
-     * Not because a notification cannot start work — it can — but because a microphone service
-     * started with nothing on screen is at the mercy of a rule that has changed with every
-     * other Android version, and a meeting silently not being recorded is the one failure this
-     * whole feature exists to prevent.
+     * It used to open the page, on the grounds that a microphone started with nothing on screen
+     * is at the mercy of rules that change with every Android version. Pressed on a watch, that
+     * meant nothing happened until the phone was unlocked. Android does let a microphone start
+     * from a notice's button; what the rules can still do is refuse it or hand over silence, and
+     * RecorderService checks for both and says so in a notice of its own — so the failure this
+     * feature exists to prevent, a meeting silently not recorded, is not the one it risks.
      */
     private fun build(context: Context, meeting: Booked): Notification {
         val at = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(meeting.at))
@@ -368,10 +372,32 @@ object Reminders {
             .setContentTitle(meeting.title.ifBlank { context.getString(R.string.reminder_untitled) })
             .setContentText(context.getString(R.string.reminder_text, at))
             .setContentIntent(open(context, meeting, autostart = false))
-            .addAction(0, context.getString(R.string.reminder_record), open(context, meeting, autostart = true))
+            .addAction(0, context.getString(R.string.reminder_record), RecorderService.recordIntent(context, meeting))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
+    }
+
+    /**
+     * Say that pressing **Record** did not start a recording, and why — in the notice's place,
+     * so it is where the person who pressed it is looking, the watch included.
+     */
+    fun notifyRecordFailed(context: Context, meetingId: String, title: String?, reason: String) {
+        val manager = NotificationManagerCompat.from(context)
+        val allowed = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!allowed || !manager.areNotificationsEnabled()) return
+        val meeting = Booked(meetingId, title.orEmpty(), 0L)
+        val notice = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_recording)
+            .setContentTitle(context.getString(R.string.record_failed_title, meeting.title.ifBlank { context.getString(R.string.reminder_untitled) }))
+            .setContentText(reason)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(reason))
+            .setContentIntent(open(context, meeting, autostart = false))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_ERROR)
+            .build()
+        manager.notify(NOTIFICATION_BASE + (meetingId.hashCode() and 0xffff), notice)
     }
 
     private fun open(context: Context, meeting: Booked, autostart: Boolean): PendingIntent =

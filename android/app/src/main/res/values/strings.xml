@@ -29,6 +29,10 @@
     <string name="reminder_untitled">A booked meeting</string>
     <string name="reminder_text">It is time for this meeting (booked for %1$s).</string>
     <string name="reminder_record">Record</string>
+    <string name="record_failed_title">Not recording: %1$s</string>
+    <string name="record_failed_background">Android did not let the app use the microphone from here. Open Voxinq and record from the meeting.</string>
+    <string name="record_failed_microphone">The microphone could not be started. Open Voxinq and record from the meeting.</string>
+    <string name="record_failed_server">Could not get the recording ready: %1$s</string>
 
     <string name="channel_import">Imports</string>
     <string name="channel_import_description">Shown while a shared recording is being sent</string>
