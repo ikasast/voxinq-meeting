@@ -181,7 +181,7 @@ export function TranscriptList({
         | { saved?: string[]; error?: string }
         | null;
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
-      setProfileMsg(`Saved voice profiles: ${(d?.saved ?? []).join(", ")}`);
+      setProfileMsg(t("Saved voice profiles: {names}", { names: (d?.saved ?? []).join(", ") }));
       const list = (await fetch("/api/speaker-profiles").then((r) => r.json())) as {
         name: string;
       }[];
@@ -191,7 +191,7 @@ export function TranscriptList({
     } finally {
       setProfileBusy(false);
     }
-  }, [meetingId]);
+  }, [meetingId, t]);
 
   const deleteProfile = useCallback(async (name: string) => {
     try {
@@ -357,12 +357,12 @@ export function TranscriptList({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setReplacePreview(await res.json());
     } catch (e) {
-      setReplaceMsg(`Preview failed: ${(e as Error).message}`);
+      setReplaceMsg(t("Preview failed: {error}", { error: (e as Error).message }));
       setReplacePreview(null);
     } finally {
       setReplaceBusy(false);
     }
-  }, [meetingId, findText, replaceText, replaceCase]);
+  }, [meetingId, findText, replaceText, replaceCase, t]);
 
   const applyReplace = useCallback(async () => {
     setReplaceBusy(true);
@@ -380,15 +380,18 @@ export function TranscriptList({
       setTranscripts((list) =>
         list.map((t) => (applied.has(t.id) ? { ...t, text: applied.get(t.id)! } : t)),
       );
-      const skippedNote = d.skipped.length > 0 ? `, ${d.skipped.length} skipped` : "";
-      setReplaceMsg(`Replaced in ${d.updated} utterance${d.updated === 1 ? "" : "s"}${skippedNote}.`);
+      const replaced = t(d.updated === 1 ? "Replaced in 1 utterance." : "Replaced in {n} utterances.", {
+        n: d.updated,
+      });
+      const skipped = d.skipped.length > 0 ? ` ${t("{n} skipped.", { n: d.skipped.length })}` : "";
+      setReplaceMsg(replaced + skipped);
       setReplacePreview(null);
     } catch (e) {
-      setReplaceMsg(`Replace failed: ${(e as Error).message}`);
+      setReplaceMsg(t("Replace failed: {error}", { error: (e as Error).message }));
     } finally {
       setReplaceBusy(false);
     }
-  }, [meetingId, findText, replaceText, replaceCase, replacePreview]);
+  }, [meetingId, findText, replaceText, replaceCase, replacePreview, t]);
 
   // Correct the wording of one utterance. Unlike deleting, this changes no positions, so the
   // recording's utterance boundaries (which diarization maps speakers onto) stay valid.
@@ -472,8 +475,9 @@ export function TranscriptList({
     async (transcriptId: string) => {
       const ok = await confirm({
         title: t("Delete this utterance?"),
-        message:
+        message: t(
           "It is removed from the transcript and will no longer be used when generating minutes. The audio itself is kept.",
+        ),
         confirmLabel: t("Delete"),
         danger: true,
       });
@@ -615,9 +619,11 @@ export function TranscriptList({
     const ok = await confirm({
       title: t("Re-transcribe from the recording"),
       message:
-        "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward." +
+        t(
+          "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward.",
+        ) +
         (uploadTo
-          ? `\n\nThe recording will be uploaded to ${uploadTo}, which recognises it and bills you for the length of the audio.`
+          ? `\n\n${t("The recording will be uploaded to {host}, which recognises it and bills you for the length of the audio.", { host: uploadTo })}`
           : ""),
       confirmLabel: t("Re-transcribe"),
       danger: true,
@@ -676,7 +682,7 @@ export function TranscriptList({
       // Whatever the backend wanted said about this run — an endpoint that answered without
       // timings, so far.
       setRetransWarn(job.detail ?? null);
-      setRetransStatus('Done. Run "Diarize" to distinguish speakers.');
+      setRetransStatus(t('Done. Run "Diarize" to distinguish speakers.'));
     } catch (e) {
       setError(t("Re-transcription failed: {error}", { error: (e as Error).message }));
       setRetransStatus(null);

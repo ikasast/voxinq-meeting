@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
+import { useT } from "./locale-provider";
 
 type State = { exists: boolean; protected?: boolean };
 
 // Recording/protection badges on list cards. Queries STT for the meeting IDs in bulk
 // and injects the badge for each meeting. Shows nothing if STT is unreachable.
 export function RecordingBadges({ ids }: { ids: string[] }) {
+  const t = useT();
   const [states, setStates] = useState<Record<string, State>>({});
 
   useEffect(() => {
@@ -42,11 +44,11 @@ export function RecordingBadges({ ids }: { ids: string[] }) {
       // Icon-only: 🔒 = recording protected, 🎙 = recording available (details on hover).
       el.textContent = st.protected ? "🔒" : "🎙";
       el.title = st.protected
-        ? "Recording protected (not auto-deleted)"
-        : "Recording available (auto-deletes after the retention period)";
+        ? t("Recording protected (not auto-deleted)")
+        : t("Recording available (auto-deletes after the retention period)");
       el.className = "text-[11px] leading-none";
     }
-  }, [states]);
+  }, [states, t]);
 
   return null;
 }

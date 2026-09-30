@@ -152,7 +152,7 @@ export function VoiceProfiles() {
         if (secondsRef.current >= MAX_SECONDS) void finish();
       }, 1000);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not access the microphone");
+      setError(e instanceof Error ? e.message : t("Could not access the microphone"));
     }
   };
 
@@ -174,7 +174,7 @@ export function VoiceProfiles() {
       const res = await fetch(`${sttHttpBase()}/voiceprint`, { method: "POST", body: wav });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.detail ?? `Extraction failed (HTTP ${res.status})`);
+        throw new Error(d?.detail ?? t("Extraction failed (HTTP {status})", { status: res.status }));
       }
       const { embedding, embeddingModel } = (await res.json()) as {
         embedding: number[];
@@ -189,12 +189,12 @@ export function VoiceProfiles() {
       });
       if (!save.ok) {
         const d = await save.json().catch(() => null);
-        throw new Error(d?.error ?? `Save failed (HTTP ${save.status})`);
+        throw new Error(d?.error ?? t("Save failed (HTTP {status})", { status: save.status }));
       }
-      setDone(`Voice profile "${name.trim()}" saved. Diarized meetings will now auto-name this voice.`);
+      setDone(t('Voice profile "{name}" saved. Diarized meetings will now auto-name this voice.', { name: name.trim() }));
       loadProfiles();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Enrollment failed");
+      setError(e instanceof Error ? e.message : t("Enrollment failed"));
     } finally {
       setPhase("idle");
     }
@@ -243,12 +243,17 @@ export function VoiceProfiles() {
                 }`}
                 title={
                   p.stale
-                    ? "Built by a different speaker-recognition model than this machine runs, so it can no longer be matched. Record this person again to restore automatic naming."
-                    : `${
+                    ? t(
+                        "Built by a different speaker-recognition model than this machine runs, so it can no longer be matched. Record this person again to restore automatic naming.",
+                      )
+                    : `${t(
                         p.sourceMeetingId
                           ? "Last enrolled from a meeting"
-                          : "Last enrolled from guided recording"
-                      } · averaged over ${p.sampleCount} recording(s)`
+                          : "Last enrolled from guided recording",
+                      )} · ${t(
+                        p.sampleCount === 1 ? "averaged over 1 recording" : "averaged over {n} recordings",
+                        { n: p.sampleCount },
+                      )}`
                 }
               >
                 {p.name}

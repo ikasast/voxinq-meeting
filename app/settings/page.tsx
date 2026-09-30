@@ -206,8 +206,8 @@ export default function SettingsPage() {
         setDraftProfiles(data.sttProfiles);
         setDraftTemplates(data.minutesTemplates);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load"));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t("Failed to load")));
+  }, [t]);
 
   const sttDest = settings ? sttDestination(settings) : null;
   const defaultProfile = settings?.sttProfiles.find((p) => p.id === settings.sttDefaultProfileId);
@@ -262,7 +262,7 @@ export default function SettingsPage() {
       setClearOpenaiApiKey(false);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save");
+      setError(err instanceof Error ? err.message : t("Failed to save"));
     } finally {
       setSaving(false);
     }

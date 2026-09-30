@@ -91,11 +91,12 @@ export function PeopleList({ meId }: { meId: string }) {
   const toggleDisabled = async (p: Person) => {
     if (!p.disabled) {
       const ok = await confirm({
-        title: `Disable ${p.name || p.username}?`,
-        message:
-          "They are signed out everywhere and cannot sign in again until this is undone. Their" +
-          " meetings, recordings and minutes are untouched and stay theirs.",
-        confirmLabel: "Disable",
+        title: t("Disable {name}?", { name: p.name || p.username }),
+        // One key, not two literals joined: the sentence is translated whole.
+        message: t(
+          "They are signed out everywhere and cannot sign in again until this is undone. Their meetings, recordings and minutes are untouched and stay theirs.",
+        ),
+        confirmLabel: t("Disable"),
         danger: true,
       });
       if (!ok) return;
