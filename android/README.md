@@ -122,8 +122,11 @@ and checks with the server every quarter of an hour for anything new.
 
 The notice is on time: each meeting's alarm is exact, with a permission Android grants at install
 to calendars and alarm clocks, so nothing is asked. (Before 3.8.4 it was inexact, and could be up
-to an hour late.) What is still late is one case: a meeting booked minutes before it starts, while
-the phone is asleep, waits for the next check — anything booked earlier has an alarm of its own. A meeting already being recorded, or
+to an hour late.) The phone learns of a meeting when the app comes to the front or leaves it, and
+every quarter of an hour while it sleeps. (Before 3.8.6 that last check did not run while the phone
+slept, so a meeting booked elsewhere was often only announced when the app was next opened.) What is
+still late is one case: a meeting booked on another device minutes before it starts can wait for
+the next check — anything booked earlier has an exact alarm of its own. A meeting already being recorded, or
 recorded from somewhere else, is not announced — the server is asked at the moment the alarm goes
 off, and it is the server's answer that decides.
 

@@ -170,6 +170,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         RecorderBus.setVisible(false)
         web?.onPause()
+        // And again on the way out. A meeting booked in the app was booked after onStart asked,
+        // so without this the phone did not know about it until the app was next opened — which
+        // is when its notice then appeared.
+        if (server != null) ReminderReceiver.checkNow(this)
         super.onStop()
     }
 
