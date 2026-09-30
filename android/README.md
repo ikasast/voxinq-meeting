@@ -115,9 +115,13 @@ an empty directory means nothing is owed.
 
 ## A meeting you booked
 
-When a meeting has a time, the phone says so at that time, with **Record** in the notice — which
-opens that meeting's recording page and starts it. It works with nothing open, and it needs no
-push service: the app sets an alarm for each meeting it knows about, within a day or so ahead,
+When a meeting has a time, the phone says so at that time, with **Record** in the notice. Pressing
+it starts recording there and then — on the lock screen, or on a watch the notice is forwarded to —
+with nothing opened; **Stop and end** in the recording's notification finishes the meeting. If
+Android does not let the microphone start that way, a notice says so and the meeting is recorded
+from the app instead. (This needs the server at 3.8.7 or later, which works out the recording's
+settings.) Tapping the notice itself opens the meeting's recording page. It works with nothing open,
+and it needs no push service: the app sets an alarm for each meeting it knows about, within a day or so ahead,
 and checks with the server every quarter of an hour for anything new.
 
 The notice is on time: each meeting's alarm is exact, with a permission Android grants at install

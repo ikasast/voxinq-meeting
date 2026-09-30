@@ -106,6 +106,7 @@ export const ja: Record<string, string> = {
   "End the meeting and assign speakers automatically; generate minutes after reviewing them":
     "会議を終了し、話者を自動で割り当てます。議事録は内容を確認してから作成します",
   "Recording is not available from an external network": "外部ネットワークからは録音できません",
+  "STT_WS_URL is not set on the server.": "サーバーに STT_WS_URL が設定されていません。",
   "This meeting has ended": "この会議は終了しています",
   "This meeting has already ended. Recording cannot be restarted.":
     "この会議は終了済みです。録音は再開できません。",

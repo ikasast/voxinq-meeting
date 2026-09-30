@@ -225,8 +225,25 @@ class RecordingSession(
     }
 
     /** What the page's "End only" does once its recording has stopped. */
+    /**
+     * Whether Android is handing this recording silence instead of the microphone — what it does,
+     * without an error, to an app it has decided may not listen from where it is. Only a recording
+     * started with nothing on screen (a notice's Record) is at risk of it.
+     */
+    fun silenced(): Boolean = recorder?.activeRecordingConfiguration?.isClientSilenced == true
+
     suspend fun endMeeting() {
         runCatching { call("POST", "/api/meetings/${config.meetingId}/end", "{}") }
+        // Recorded without live recognition — on a host that transcribes at the end, or because
+        // something else had the card — so the transcript is still to be made. The recording page
+        // queues it when the meeting is ended there; ended from the notification, it is here.
+        if (config.liveTranscript == false) {
+            val body = JSONObject().apply {
+                config.model?.let { put("model", it) }
+                config.language?.let { put("language", it) }
+            }
+            runCatching { call("POST", "/api/meetings/${config.meetingId}/transcribe", body.toString()) }
+        }
         val id = URLEncoder.encode(config.meetingId, "UTF-8")
         runCatching { call("DELETE", "/api/queue/recording?meetingId=$id", null) }
     }

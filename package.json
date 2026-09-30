@@ -1,6 +1,6 @@
 {
   "name": "voxinq",
-  "version": "3.8.6",
+  "version": "3.8.7",
   "private": true,
   "scripts": {
     "dev": "next dev",

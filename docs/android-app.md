@@ -171,11 +171,27 @@ sleeps (`setAndAllowWhileIdle`), which covers one booked elsewhere: one short re
 minutes. What is left late is a meeting booked elsewhere minutes before it starts, which can wait
 for the next check and its window. Anything booked earlier has an exact alarm of its own.
 
-**Record opens the recording page, which starts by itself** (`?autostart=1`, which the web app
-already uses for its own one-tap links). Not because a notification cannot start work, but because
-a microphone service started with nothing on screen is at the mercy of a rule that has changed with
-every other Android version, and a meeting silently not being recorded is the failure this feature
-exists to prevent.
+**Record starts the recording where it is pressed** — on the lock screen, or on a watch the notice
+was forwarded to — with nothing opened. (Tapping the notice itself still opens the recording page.)
+Until 3.8.7 it opened the page instead, on the grounds that a microphone started with nothing on
+screen is at the mercy of rules that change with every Android version; pressed on a watch, that
+meant nothing happened until the phone was unlocked.
+
+What made the switch safe is saying so when it does not work, since a meeting silently not recorded
+is the failure this feature exists to prevent:
+
+- The button starts the recorder service directly (`PendingIntent.getForegroundService`). Android
+  lets a microphone service start from the user's press on a notification's button; whether a press
+  relayed from a watch counts the same depends on the watch's app, which is why the next two exist.
+- With no page, the settings come from the server: `POST /api/meetings/{id}/record` decides the
+  model, language, glossary, microphone mode and where to connect exactly as the recording page
+  would (`lib/recording/plan.ts`). The one thing it cannot do is ask about a GPU something else is
+  using, so it records only — the audio is transcribed after the meeting — rather than take the card.
+- If Android refuses the start, or accepts it and hands over silence (`isClientSilenced`, checked two
+  seconds in), the recording stops and a notice says so, telling the person to record from the app.
+
+**Stop and end**, in the recording's own notification, ends the meeting. A recording made without
+live text is then queued for transcription, as the recording page does when it ends one.
 
 On the server, one addition: `/api/meetings/due` takes `?soon=<minutes>` and answers with a second
 list of what is coming, so the phone can set its alarms. Without the parameter it answers exactly
