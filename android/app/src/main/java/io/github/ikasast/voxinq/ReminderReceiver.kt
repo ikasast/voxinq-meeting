@@ -62,8 +62,12 @@ class ReminderReceiver : BroadcastReceiver() {
                 }
                 background {
                     // The server has the last word on whether this meeting is still worth a
-                    // notice. Only when it says nothing at all does the alarm speak for itself.
-                    if (!Reminders.check(app) && knew != null) Reminders.announce(app, knew)
+                    // notice; see Reminders.dueAtAlarm for what the alarm adds to its answer.
+                    val reply = Reminders.check(app)
+                    if (knew != null) {
+                        Reminders.dueAtAlarm(knew, reply, System.currentTimeMillis())
+                            ?.let { Reminders.announce(app, it) }
+                    }
                 }
             }
         }

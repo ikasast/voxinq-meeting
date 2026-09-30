@@ -146,14 +146,26 @@ speak for itself, from the title and time it was given — better a notice that 
 silence about a meeting that is starting. Each meeting is announced once; a record of what has been
 mentioned, kept for six hours, is what stops the quarter-hourly check repeating itself.
 
-**No permission is asked for to be on time.** A meeting's alarm is inexact and allowed to fire in
-Doze (`setAndAllowWhileIdle`), which needs nothing from the user — an exact alarm would mean a
-permission prompt for a convenience. Inexact is worth about two minutes: the system gives such an
-alarm a window and tends to use it. The quarter-hourly check is a plain alarm, deliberately: the
-system allows an app one allow-while-idle alarm every nine minutes or so in Doze, and those are
-wanted for the meetings themselves. What is left late by all this is one case — a meeting booked
-minutes before it starts while the phone is asleep, which waits for the next maintenance window or
-for the app to be opened. Anything booked earlier has an alarm of its own.
+**A meeting's alarm is exact, and allowed to fire in Doze** (`setExactAndAllowWhileIdle`). It
+was inexact until 3.8.4, on the belief that the system would be a couple of minutes late with it.
+It is late by up to three quarters of the time left when the alarm was set, capped at an hour:
+`dumpsys alarm` on one set 24 minutes ahead showed a window of 18, and the notice arrived when the
+app was opened instead. The permission for exact alarms is `USE_EXACT_ALARM`, which Android grants
+at install to calendars and alarm clocks and never asks the user about (Android 12 grants
+`SCHEDULE_EXACT_ALARM` by default instead; before it there is no permission). If exact alarms are
+unavailable anyway, the app falls back to the inexact one.
+
+Going off on the second exposes a small gap: the phone decides by its clock and the server by its
+own, so a phone a few seconds ahead would hear "not yet" and then say nothing until the next check.
+An alarm whose meeting the server still has *coming* within two minutes is therefore announced
+anyway; one the server has moved later waits for its new alarm, and one the server no longer lists
+(recorded, ended, deleted) stays quiet.
+
+The quarter-hourly check is a plain alarm, deliberately: its only job is to hear about meetings
+booked since the last one, and waking a sleeping phone for a network request every fifteen minutes
+all day costs more than that is worth. What is left late is one case — a meeting booked minutes
+before it starts while the phone is asleep, which waits for the next maintenance window or for the
+app to be opened. Anything booked earlier has an alarm of its own.
 
 **Record opens the recording page, which starts by itself** (`?autostart=1`, which the web app
 already uses for its own one-tap links). Not because a notification cannot start work, but because

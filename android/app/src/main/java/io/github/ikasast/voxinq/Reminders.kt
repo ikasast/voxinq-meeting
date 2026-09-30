@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import android.webkit.CookieManager
 import androidx.core.app.NotificationChannelCompat
@@ -64,6 +65,16 @@ object Reminders {
      */
     const val CHECK_EVERY_MS = 15L * 60 * 1000
 
+    /**
+     * How close to its time a meeting counts as starting, when its alarm reaches a server that
+     * does not call it due yet.
+     *
+     * The alarm is exact, so it goes off at the booked second by the phone's clock, and the
+     * server decides by its own. A phone a few seconds ahead would be told "not yet" and, the
+     * alarm spent, say nothing until the next check a quarter of an hour later.
+     */
+    const val EARLY_MS = 2L * 60 * 1000
+
     /** How long a meeting stays "already mentioned", comfortably past the endpoint's window. */
     private const val TOLD_FOR_MS = 6L * 60 * 60 * 1000
     private const val TOLD_MAX = 50
@@ -102,6 +113,24 @@ object Reminders {
      */
     fun toSchedule(now: Long, soon: List<Booked>, horizonMs: Long = HORIZON_MS): List<Booked> =
         soon.filter { it.at > now && it.at <= now + horizonMs }.sortedBy { it.at }
+
+    /**
+     * What a meeting's own alarm announces, given what the server said when it went off.
+     *
+     * - The server could not be reached: what the alarm was set with. Better a notice that may be
+     *   stale than silence about a meeting that is starting.
+     * - The server calls it due: nothing here, because [check] has already announced it.
+     * - The server still has it coming, within [EARLY_MS]: it is starting, and only the two clocks
+     *   disagree. Announced with the server's own time for it.
+     * - Anything else — coming later (it was moved, and [check] has moved its alarm), or not
+     *   listed at all (recorded, ended, deleted): nothing.
+     */
+    fun dueAtAlarm(knew: Booked, reply: Reply?, now: Long, earlyMs: Long = EARLY_MS): Booked? {
+        if (reply == null) return knew
+        if (reply.due.any { it.id == knew.id }) return null
+        val coming = reply.soon.firstOrNull { it.id == knew.id } ?: return null
+        return coming.takeIf { it.at <= now + earlyMs }
+    }
 
     /**
      * What `/api/meetings/due` answered.
@@ -165,10 +194,10 @@ object Reminders {
     /**
      * Set the next backstop check.
      *
-     * Deliberately not an allow-while-idle alarm: in Doze the system lets an app have one of
-     * those about every nine minutes, and they are wanted for the meetings themselves. A
-     * backstop deferred to the next maintenance window is still a backstop; a meeting notice
-     * deferred by nine minutes is nine minutes of the meeting.
+     * Deliberately a plain alarm, not one that wakes a sleeping phone: its only job is to hear
+     * about meetings booked since the last check, and waking the phone for a network request every
+     * quarter of an hour, all day, is a battery cost out of proportion to that. Deferred to the
+     * next maintenance window, it is still a backstop. The meetings themselves have exact alarms.
      */
     fun arm(context: Context, delayMs: Long = CHECK_EVERY_MS) {
         if (ServerAddress.load(context) == null) return // nothing to ask yet
@@ -180,28 +209,41 @@ object Reminders {
         )
     }
 
+    /**
+     * Set each meeting's own alarm, at its own time, and allowed to fire in Doze — the phone's
+     * usual state before a meeting.
+     *
+     * **Exact.** These used to be inexact, on the belief that the system would be late by a
+     * couple of minutes. It is late by up to three quarters of the time left when the alarm was
+     * set, capped at an hour: an alarm set this morning for an afternoon meeting could go off
+     * an hour into it. `dumpsys alarm` on one set 24 minutes ahead showed a window of 18.
+     *
+     * The permission this needs is `USE_EXACT_ALARM`, granted at install and never asked for:
+     * Android reserves it for calendars and alarm clocks, which is exactly what a notice at a
+     * booked meeting's time is. (Android 12 before 13 grants `SCHEDULE_EXACT_ALARM` by default;
+     * before 12 no permission exists.) If exact alarms are unavailable anyway, the old inexact
+     * alarm is still better than none.
+     *
+     * The request code is derived from the meeting id, so re-running the check replaces a
+     * meeting's own alarm instead of adding another, and a meeting moved to a new time moves its
+     * alarm. Two ids that happen to share a hash cost one alarm; the check still catches that
+     * meeting.
+     */
     fun schedule(context: Context, booked: List<Booked>) {
         val alarms = context.getSystemService(AlarmManager::class.java) ?: return
+        val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
         for (meeting in booked) {
-            // Allowed in Doze, which is the phone's usual state before a meeting, and inexact,
-            // which needs no permission the user would have to be asked for. Inexact is worth
-            // about two minutes in practice, and a notice two minutes into a meeting is still a
-            // notice; the alternative is an exact-alarm permission prompt for a convenience.
-            //
-            // The request code is derived from the meeting id, so re-running the check replaces
-            // a meeting's own alarm instead of adding another, and a meeting moved to a new time
-            // moves its alarm. Two ids that happen to share a hash cost one alarm; the check
-            // still catches that meeting.
             val intent = Intent(context, ReminderReceiver::class.java)
                 .setAction(ACTION_DUE)
                 .putExtra(EXTRA_ID, meeting.id)
                 .putExtra(EXTRA_TITLE, meeting.title)
                 .putExtra(EXTRA_AT, meeting.at)
-            alarms.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                meeting.at,
-                broadcast(context, meeting.id.hashCode(), intent),
-            )
+            val pending = broadcast(context, meeting.id.hashCode(), intent)
+            if (exact) {
+                alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, meeting.at, pending)
+            } else {
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, meeting.at, pending)
+            }
         }
     }
 
@@ -218,11 +260,11 @@ object Reminders {
     /**
      * Ask what is due and what is coming, announce the first and set alarms for the second.
      *
-     * Returns whether the server answered. A caller woken by a meeting's own alarm uses that to
-     * decide whether it may fall back to what it knew when the alarm was set.
+     * Returns the answer, or null when there was none. A caller woken by a meeting's own alarm
+     * reads it to decide what to say about that meeting ([dueAtAlarm]).
      */
-    suspend fun check(context: Context): Boolean {
-        val origin = ServerAddress.load(context) ?: return false
+    suspend fun check(context: Context): Reply? {
+        val origin = ServerAddress.load(context) ?: return null
         val minutes = (HORIZON_MS / 60_000).toInt()
         val cookie = withContext(Dispatchers.Main) {
             runCatching { CookieManager.getInstance().getCookie(origin) }.getOrNull()
@@ -242,12 +284,12 @@ object Reminders {
                 Log.d(TAG, "cannot reach the server: ${e.javaClass.simpleName}")
                 null
             }
-        } ?: return false
-        val reply = parse(body) ?: return false
+        } ?: return null
+        val reply = parse(body) ?: return null
 
         schedule(context, toSchedule(System.currentTimeMillis(), reply.soon))
         for (meeting in reply.due) announce(context, meeting)
-        return true
+        return reply
     }
 
     /**
