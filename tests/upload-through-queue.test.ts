@@ -58,7 +58,7 @@ describe("minutes after a recognition", () => {
     // on their way, not a moment where neither is.
     const branch = dispatcher.slice(dispatcher.indexOf('case "transcribe"'));
     const chained = branch.indexOf("queueMinutesAfter(job.meetingId)");
-    const done = branch.indexOf('finish(job.id, "done"');
+    const done = branch.indexOf('finishRun(job.id, "done"');
     expect(chained).toBeGreaterThan(-1);
     expect(done).toBeGreaterThan(chained);
   });

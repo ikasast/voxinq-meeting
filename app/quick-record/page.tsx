@@ -3,29 +3,27 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "../locale-provider";
-import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
-import { preloadStt, sttWarmupFromSettings } from "@/lib/stt/preload";
+import { preloadSttIfIdle, sttWarmupFromSettings } from "@/lib/stt/preload";
 
 // Landing point for the home-screen shortcut "new recording".
 // Creates a meeting the server names after the day, and jumps straight to the recording
-// page (one-tap recording). Like the New meeting screen, it first checks whether minutes
-// are generating — recording needs that GPU — and offers to interrupt them before creating
-// the meeting (so cancelling leaves no empty meeting behind).
+// page (one-tap recording).
+//
+// It used to ask first whether to stop minutes that were being written, and stopping them
+// here threw them away. The recording page asks instead, as recording starts, about whatever
+// is using the card -- and what it interrupts goes back to the front of the queue.
 export default function QuickRecordPage() {
   const t = useT();
   const router = useRouter();
   const started = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmMeetingId, setConfirmMeetingId] = useState<string | undefined>(undefined);
-  const [phase, setPhase] = useState<"checking" | "confirm" | "starting">("checking");
 
   const start = async () => {
-    setPhase("starting");
-    // Warm the Whisper model while the meeting is being created — the caller has already
-    // established that minutes generation isn't holding the GPU. This path records with the
-    // settings model (it creates the meeting without a per-meeting override), so the settings
-    // value is the right thing to warm.
-    void sttWarmupFromSettings().then((s) => preloadStt(s.model, s.translate));
+    // Warm the Whisper model while the meeting is being created, unless minutes are being
+    // written: a load now would only contend with them, and the recording page is about to ask
+    // about them anyway. This path records with the settings model (it creates the meeting
+    // without a per-meeting override), so the settings value is the right thing to warm.
+    void sttWarmupFromSettings().then((s) => preloadSttIfIdle(s.model, s.translate));
     try {
       const res = await fetch("/api/meetings", {
         method: "POST",
@@ -44,24 +42,10 @@ export default function QuickRecordPage() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void (async () => {
-      const mb = await currentMinutesBusy();
-      if (mb.busy) {
-        setConfirmMeetingId(mb.meetingId);
-        setPhase("confirm");
-      } else {
-        await start();
-      }
-    })();
+    void start();
     // start/router are stable for this one-shot effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const interruptAndStart = async () => {
-    setPhase("starting");
-    await abortMinutesAndSettle(confirmMeetingId);
-    await start();
-  };
 
   if (error) {
     return (
@@ -72,31 +56,6 @@ export default function QuickRecordPage() {
         <button type="button" onClick={() => router.push("/new")} className="btn-ink mt-4">
           {t("Go to New meeting")}
         </button>
-      </div>
-    );
-  }
-
-  if (phase === "confirm") {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-        <div className="card w-full max-w-sm space-y-4 p-6">
-          <h2 className="text-lg font-semibold text-[var(--text-strong)]">
-            {t("Minutes are being generated")}
-          </h2>
-          <p className="text-sm text-[var(--text-secondary)]">
-            {t(
-              "Recording uses the GPU that minutes generation is running on. Interrupt the in-progress minutes and start recording now? You can regenerate those minutes afterward.",
-            )}
-          </p>
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => router.push("/")} className="btn-outline">
-              {t("Keep generating")}
-            </button>
-            <button type="button" onClick={() => void interruptAndStart()} className="btn-ink">
-              {t("Interrupt & record")}
-            </button>
-          </div>
-        </div>
       </div>
     );
   }

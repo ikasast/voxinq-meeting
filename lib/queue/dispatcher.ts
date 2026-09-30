@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { prismaRaw } from "@/lib/prisma-raw";
 import { runEncryptExisting } from "./runners/encrypt";
 import { sweepStaleRecordings } from "./recording";
-import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "./queue";
+import { claimNext, enqueue, finishRun, openJobFor, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
 import { runTranscribe } from "./runners/transcribe";
@@ -150,7 +150,7 @@ async function run(job: {
         // An abort is not a failure of the job: it was stopped on purpose, and the meeting
         // already carries the reason. It does not go back in the queue on its own — whoever
         // stopped it decides whether it should run again.
-        await finish(job.id, r.aborted ? "cancelled" : r.reason ? "error" : "done", r.reason, r.metrics);
+        await finishRun(job.id, r.aborted ? "cancelled" : r.reason ? "error" : "done", r.reason, r.metrics);
         return;
       }
       case "transcribe": {
@@ -160,28 +160,28 @@ async function run(job: {
         // before this one is marked done, so a page that sees the recognition finish and looks
         // again finds the minutes already on their way rather than a gap between the two.
         if (r.thenMinutes && job.meetingId) await queueMinutesAfter(job.meetingId);
-        await finish(job.id, "done", r.note, r.metrics);
+        await finishRun(job.id, "done", r.note, r.metrics);
         return;
       }
       case "encrypt": {
         const r = await runEncryptExisting(job, signals.get(job.id)?.signal, job.ownerId);
-        await finish(job.id, "done", r.note);
+        await finishRun(job.id, "done", r.note);
         return;
       }
       case "diarize": {
         const r = await runDiarize(job, signals.get(job.id)?.signal);
-        await finish(job.id, "done", r.note, r.metrics);
+        await finishRun(job.id, "done", r.note, r.metrics);
         return;
       }
       default:
         // A kind this build does not know. Failing it is better than leaving it queued
         // forever, where it would sit at the front and block everything behind it.
-        await finish(job.id, "error", `unknown job kind: ${job.kind}`);
+        await finishRun(job.id, "error", `unknown job kind: ${job.kind}`);
     }
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     console.error(`[queue] ${job.kind} failed`, e);
-    await finish(job.id, "error", reason).catch(() => {});
+    await finishRun(job.id, "error", reason).catch(() => {});
   }
 }
 

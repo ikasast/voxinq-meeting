@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { sttInternalUrl } from "@/lib/stt/internal";
-import { readSettings } from "@/lib/settings";
+import { getLlmConfig, readSettings } from "@/lib/settings";
 import { whisperModel } from "@/lib/stt/models";
 import { abortGeneration } from "@/lib/llm/generation-registry";
+import { unloadOllama } from "@/lib/llm/ollama";
 import { abortJob } from "./dispatcher";
 import { RECORDING_KIND } from "./types";
 import { cancelDiarize } from "./runners/diarize";
@@ -64,15 +65,25 @@ export async function preemptForRecording(): Promise<number> {
     if (c.kind === "minutes" && c.meetingId) abortGeneration(c.meetingId);
   }
   if (contenders.length === 0) return 0;
+  // Back in the queue before anything else is awaited: the run finds out it was stopped when
+  // its work comes back aborted, and by then the row should already say what happens next.
+  // `finishedAt` is cleared too, for a run that got there first and recorded an ending.
   const { count } = await prisma.job.updateMany({
     where: { id: { in: contenders.map((c) => c.id) } },
     data: {
       status: "queued",
       startedAt: null,
+      finishedAt: null,
       position: 0,
       detail: "Interrupted so a recording could start. It runs again once the meeting ends.",
     },
   });
+  // Minutes on this card are a model resident in Ollama's memory (anything written elsewhere
+  // is priced at nothing and is never a contender), and aborting the request does not unload
+  // it: it would stay for Ollama's keep-alive, five minutes by default, while the recording's
+  // Whisper loads beside it. The "interrupt the minutes?" dialog in front of New meeting used
+  // to do this itself. It belongs here, where the card is actually taken.
+  if (contenders.some((c) => c.kind === "minutes")) await unloadOllama(await getLlmConfig());
   return count;
 }
 

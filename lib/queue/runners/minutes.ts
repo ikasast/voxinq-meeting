@@ -17,8 +17,8 @@ import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
 // Here it is read when the job runs. That is the more correct of the two: a job can now wait
 // behind something, and an utterance corrected while it waited should be in the minutes.
 //
-// What is deliberately kept: the abort registry. `/api/claude/summary/abort` uses it to free
-// the GPU for a recording that has to start now, without taking the rest of the queue with it.
+// What is deliberately kept: the abort registry. A recording that has to start now uses it
+// (lib/queue/recording.ts) to free the GPU without taking the rest of the queue with it.
 
 export async function runMinutes(job: { id: string; meetingId: string | null; params: string }) {
   const meetingId = job.meetingId;
