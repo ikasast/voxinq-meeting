@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
 
 // Publish / unpublish the app to the internet via Tailscale Funnel, from within
@@ -35,15 +35,18 @@ export function RemoteAccess() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = () =>
-    fetch("/api/funnel")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d: FunnelInfo) => setInfo(d))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
+  const load = useCallback(
+    () =>
+      fetch("/api/funnel")
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+        .then((d: FunnelInfo) => setInfo(d))
+        .catch((e) => setError(e instanceof Error ? e.message : t("Failed to load"))),
+    [t],
+  );
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   const toggle = async (next: boolean) => {
     if (
@@ -71,7 +74,7 @@ export function RemoteAccess() {
       }
       setInfo((await res.json()) as FunnelInfo);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update");
+      setError(e instanceof Error ? e.message : t("Failed to update"));
     } finally {
       setBusy(false);
     }

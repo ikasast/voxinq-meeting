@@ -45,6 +45,41 @@ function Wrap({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * A backup's progress, in the reader's language.
+ *
+ * The server reports where it has got to in a few fixed phrases (lib/backup/export.ts and
+ * import.ts), two of them with a count. Each is a key here; anything it says that is not is
+ * shown as it came, which is still better than nothing.
+ */
+function phaseLabel(t: (key: string, vars?: Record<string, string | number>) => string, phase: string): string {
+  const counted = /^(recordings|meetings) (\d+)\/(\d+)$/.exec(phase);
+  if (counted) {
+    const vars = { done: counted[2], total: counted[3] };
+    return counted[1] === "recordings" ? t("Recordings {done}/{total}", vars) : t("Meetings {done}/{total}", vars);
+  }
+  switch (phase) {
+    case "starting":
+      return t("Starting…");
+    case "reading the file":
+      return t("Reading the file…");
+    case "reading the database":
+      return t("Reading the database…");
+    case "packing":
+      return t("Packing…");
+    case "checking what is already here":
+      return t("Checking what is already here…");
+    case "series and tags":
+      return t("Series and tags…");
+    case "voice profiles":
+      return t("Voice profiles…");
+    case "settings":
+      return t("Settings…");
+    default:
+      return phase;
+  }
+}
+
 export function DataBackup() {
   const confirm = useConfirm();
 
@@ -113,12 +148,17 @@ export function DataBackup() {
       a.click();
       URL.revokeObjectURL(url);
       setPhase(
-        `Saved ${name} (${(blob.size / 1048576).toFixed(1)} MB, ${res.headers.get("X-Voxinq-Meetings") ?? "?"} meetings, ${res.headers.get("X-Voxinq-Recordings") ?? "0"} recordings)`,
+        t("Saved {name} ({size} MB, {meetings} meetings, {recordings} recordings)", {
+          name,
+          size: (blob.size / 1048576).toFixed(1),
+          meetings: res.headers.get("X-Voxinq-Meetings") ?? "?",
+          recordings: res.headers.get("X-Voxinq-Recordings") ?? "0",
+        }),
       );
       setExportPassword("");
       setExportConfirm("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Export failed");
+      setError(e instanceof Error ? e.message : t("Export failed"));
       setPhase(null);
     } finally {
       running = false;
@@ -140,12 +180,14 @@ export function DataBackup() {
     }
 
     const ok = await confirm({
-      title: "Restore from this backup?",
-      message:
-        `Meetings in ${file.name} that are not already here will be added. Nothing existing is ` +
-        `deleted or overwritten` +
-        (restoreSettings ? ", except your settings, which will be replaced." : "."),
-      confirmLabel: "Restore",
+      title: t("Restore from this backup?"),
+      message: t(
+        restoreSettings
+          ? "Meetings in {file} that are not already here will be added. Nothing existing is deleted or overwritten, except your settings, which will be replaced."
+          : "Meetings in {file} that are not already here will be added. Nothing existing is deleted or overwritten.",
+        { file: file.name },
+      ),
+      confirmLabel: t("Restore"),
     });
     if (!ok) return;
 
@@ -167,7 +209,7 @@ export function DataBackup() {
       setImportPassword("");
       if (fileRef.current) fileRef.current.value = "";
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Import failed");
+      setError(e instanceof Error ? e.message : t("Import failed"));
       setPhase(null);
     } finally {
       running = false;
@@ -294,7 +336,7 @@ export function DataBackup() {
         </button>
       </div>
 
-      {phase ? <p className="text-sm text-[var(--text-muted)]">{phase}</p> : null}
+      {phase ? <p className="text-sm text-[var(--text-muted)]">{phaseLabel(t, phase)}</p> : null}
 
       {result ? (
         <div className="space-y-1 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-4 text-sm">

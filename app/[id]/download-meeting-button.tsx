@@ -79,7 +79,7 @@ export function DownloadMeetingButton({
       }
       if (wantRecording) {
         const res = await fetch(`${sttHttpBase()}/recordings/${meetingId}/audio`);
-        if (!res.ok) throw new Error(`Recording download failed (HTTP ${res.status})`);
+        if (!res.ok) throw new Error(t("Recording download failed (HTTP {status})", { status: res.status }));
         saveBlob(await res.blob(), `${title}.wav`);
       }
       setOpen(false);
