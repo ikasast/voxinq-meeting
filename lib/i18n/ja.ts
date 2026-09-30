@@ -269,6 +269,7 @@ export const ja: Record<string, string> = {
     "以前の版を表示しています。↻ ボタンでやり直せます。",
   "No minutes generated yet.": "まだ議事録が作られていません。",
   "No transcript, so minutes cannot be generated.": "発言が無いため、議事録は作れません。",
+  "They will be written once the transcription is done.": "文字起こしが終わると、続けて作ります。",
   "Generating new minutes. A new version will be added below when done…":
     "新しい議事録を作成中です。完成すると下に新しい版が追加されます…",
   Regenerate: "作り直す",
@@ -382,8 +383,7 @@ export const ja: Record<string, string> = {
     "音声ファイルをここにドロップすると、文字起こしと議事録を作ります（録音はしません）。",
   "Please drop an audio file (wav, mp3, m4a, ...).":
     "音声ファイルをドロップしてください（wav, mp3, m4a など）。",
-  "Transcribing the audio… (this can take a few minutes)": "音声を文字起こし中…（数分かかることがあります）",
-  "Transcription failed.": "文字起こしに失敗しました。",
+  "Uploading the recording…": "録音をアップロード中…",
   "Failed to process the file.": "ファイルを処理できませんでした。",
   "This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead.":
     "このモデルは日本語専用です — 英語の会議は文字起こしできません。large-v3-turbo を選んでください。",
@@ -1210,6 +1210,7 @@ export const ja: Record<string, string> = {
   "Failed to delete ({reason})": "削除できませんでした（{reason}）",
   "Failed to save speaker name ({reason})": "話者名を保存できませんでした（{reason}）",
   "Re-transcription failed: {error}": "文字起こしのやり直しに失敗しました: {error}",
+  "Transcription failed: {error}": "文字起こしに失敗しました: {error}",
   "Undo split": "分割を元に戻す",
   "No minutes": "議事録なし",
   "Ask about this meeting": "この会議について質問",

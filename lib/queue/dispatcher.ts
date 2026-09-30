@@ -1,10 +1,11 @@
 import { budgetMb } from "./capacity";
 import { dropIdleKeys, hasKey } from "@/lib/crypto/key-cache";
 import { asSystem, asUser } from "@/lib/db/scope";
+import { prisma } from "@/lib/prisma";
 import { prismaRaw } from "@/lib/prisma-raw";
 import { runEncryptExisting } from "./runners/encrypt";
 import { sweepStaleRecordings } from "./recording";
-import { claimNext, finish, recoverInterrupted } from "./queue";
+import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
 import { runTranscribe } from "./runners/transcribe";
@@ -154,6 +155,11 @@ async function run(job: {
       }
       case "transcribe": {
         const r = await runTranscribe(job, signals.get(job.id)?.signal);
+        // "…and then write it up", asked for when the recognition was queued. Not queued
+        // alongside it, because a minutes job with no transcript to read fails; and queued
+        // before this one is marked done, so a page that sees the recognition finish and looks
+        // again finds the minutes already on their way rather than a gap between the two.
+        if (r.thenMinutes && job.meetingId) await queueMinutesAfter(job.meetingId);
         await finish(job.id, "done", r.note, r.metrics);
         return;
       }
@@ -176,6 +182,26 @@ async function run(job: {
     const reason = e instanceof Error ? e.message : String(e);
     console.error(`[queue] ${job.kind} failed`, e);
     await finish(job.id, "error", reason).catch(() => {});
+  }
+}
+
+/**
+ * Write the minutes for a meeting a recognition has just finished.
+ *
+ * Best effort on purpose: the recognition succeeded, and its transcript is saved whatever
+ * happens here. A meeting that ended up with no lines gets nothing rather than a failed job
+ * that says "No utterances recorded" about a file somebody dropped a minute ago.
+ */
+async function queueMinutesAfter(meetingId: string): Promise<void> {
+  try {
+    // Scoped: this runs as the meeting's owner, like the recognition before it, so the minutes
+    // job is theirs too.
+    const lines = await prisma.transcript.count({ where: { meetingId } });
+    if (lines === 0) return;
+    if (await openJobFor("minutes", meetingId)) return;
+    await enqueue({ kind: "minutes", meetingId, params: {} });
+  } catch (e) {
+    console.error("[queue] could not queue the minutes after recognition", e);
   }
 }
 

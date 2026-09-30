@@ -44,6 +44,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       language: typeof body.language === "string" ? body.language : undefined,
       initialPrompt: typeof body.initialPrompt === "string" ? body.initialPrompt : undefined,
       translate: typeof body.translate === "boolean" ? body.translate : undefined,
+      thenMinutes: body.thenMinutes === true,
     },
     {
       model: settings.whisperModel,

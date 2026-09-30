@@ -57,6 +57,13 @@ describe("what to recognise a recording with", () => {
   it("keeps a saved endpoint's id, which only the caller can know", () => {
     expect(withDefaults({ profileId: "p1" }, settings).profileId).toBe("p1");
   });
+
+  it("carries a request for minutes afterwards, and adds none nobody asked for", () => {
+    // For the queue rather than the recogniser; a setting cannot ask for it on anyone's behalf.
+    expect(withDefaults({ thenMinutes: true }, settings).thenMinutes).toBe(true);
+    expect("thenMinutes" in withDefaults({}, settings)).toBe(false);
+    expect("thenMinutes" in withDefaults({ thenMinutes: false }, settings)).toBe(false);
+  });
 });
 
 describe("the glossary", () => {

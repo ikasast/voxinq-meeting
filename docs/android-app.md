@@ -204,8 +204,9 @@ calls already existed. The fourth is new:
   pages always said; the app, handed a file and nothing else, cannot. So a meeting recognised from
   the phone is primed with exactly what the same meeting recognised from a browser would have been.
 
-Minutes are not written automatically, unlike the web app's drop zone. A day of recordings shared
-from a phone is exactly the case the list's **Write them all** was built for.
+Minutes are not written automatically, unlike the web app's drop zone (which takes the same path
+through the server, and asks the queue to write the minutes once the recognition is done). A day of
+recordings shared from a phone is exactly the case the list's **Write them all** was built for.
 
 What the app refuses, and says so: a file that is not audio (by the type the sharing app declares
 or the name), one larger than half a gigabyte (the service decodes it in memory), and anything at
