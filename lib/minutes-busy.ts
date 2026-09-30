@@ -1,9 +1,10 @@
-// Shared client helpers for the "interrupt minutes to record" gate. Used by every entry
-// point that starts a live recording (New meeting, quick-record) so the check is identical.
+// Whether minutes are being written right now, asked freshly -- for the things that would
+// load a speech model and should not do it into a card the minutes are using (the warm-up
+// before recording, and the header's "load it now" control).
 //
-// Recording needs the single GPU that minutes generation (Ollama) may be holding, so before
-// starting we check freshly and, if the user confirms, abort the in-flight generation and let
-// the VRAM free.
+// It used to also stop them: New meeting and quick-record asked "interrupt the minutes?" and
+// aborted the generation for good. Taking the card for a recording is the recording page's
+// question now (/api/queue/recording), which puts what it interrupts back in the queue.
 
 export type MinutesBusy = { busy: boolean; meetingId?: string };
 
@@ -17,15 +18,4 @@ export async function currentMinutesBusy(): Promise<MinutesBusy> {
   } catch {
     return { busy: false };
   }
-}
-
-// Abort the running minutes generation and wait briefly so the model's VRAM is released
-// before Whisper loads for the recording (avoids a transient out-of-memory).
-export async function abortMinutesAndSettle(meetingId?: string): Promise<void> {
-  await fetch("/api/claude/summary/abort", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ meetingId }),
-  }).catch(() => {});
-  await new Promise((r) => setTimeout(r, 1200));
 }

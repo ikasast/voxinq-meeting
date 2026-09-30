@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
 import { dayFromKey } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
-import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
 import {
   WHISPER_MODELS,
   effectiveSttLanguage,
@@ -14,7 +13,6 @@ import {
   isKnownWhisperModel,
 } from "@/lib/stt/models";
 import { preloadSttIfIdle } from "@/lib/stt/preload";
-import { useGpuBusy } from "../use-gpu-busy";
 
 // The labels are keys, translated where the lists are rendered — a module-level constant has
 // no hook to reach the language with. The same shape as the meeting list's bands.
@@ -70,7 +68,6 @@ export default function NewMeetingForm({
   titleFormat?: string;
 }) {
   const router = useRouter();
-  const gpu = useGpuBusy();
   // The day this meeting is for, which is not always today. Arriving from the calendar's
   // "+ Add a meeting on this day" and being handed today's date as the title is the click
   // appearing to have been ignored — the whole point of that link was to say which day.
@@ -90,9 +87,6 @@ export default function NewMeetingForm({
   const [error, setError] = useState<string | null>(null);
   // Shown when the user starts a recording while minutes are still generating: recording
   // needs the GPU, so we offer to interrupt the in-progress minutes first.
-  const [showInterrupt, setShowInterrupt] = useState(false);
-  const [interrupting, setInterrupting] = useState(false);
-  const [interruptMeetingId, setInterruptMeetingId] = useState<string | undefined>(undefined);
 
   // Recording settings for this meeting only; not saved to the settings file.
   const [sttLanguage, setSttLanguage] = useState("auto"); // saved on the meeting
@@ -255,31 +249,10 @@ export default function NewMeetingForm({
       setError(t("Please enter a title."));
       return;
     }
-    // Recording needs the GPU. If minutes are still generating (Ollama holds the GPU),
-    // ask whether to interrupt them first instead of contending for VRAM. Check freshly at
-    // click time — the polled `gpu.minutesBusy` lags and starts false. Fall back to it if
-    // the fresh check fails.
-    setSubmitting(true);
-    const mb = await currentMinutesBusy();
-    if (mb.busy || gpu.minutesBusy) {
-      setInterruptMeetingId(mb.meetingId ?? gpu.minutesMeetingId);
-      setShowInterrupt(true);
-      setSubmitting(false);
-      return;
-    }
-    await startRecording();
-  };
-
-  // Confirmed from the popup: interrupt the running minutes generation (frees the GPU),
-  // then start the recording.
-  const interruptAndStart = async () => {
-    setInterrupting(true);
-    try {
-      await abortMinutesAndSettle(interruptMeetingId);
-    } finally {
-      setInterrupting(false);
-      setShowInterrupt(false);
-    }
+    // Nothing is asked about the GPU here. The recording screen asks, when record is pressed,
+    // about whatever is using the card at that moment -- and interrupting there puts the work
+    // back in the queue to run after the meeting. A question here used to stop running minutes
+    // for good, before anything was being recorded, and knew about minutes alone.
     await startRecording();
   };
 
@@ -376,7 +349,7 @@ export default function NewMeetingForm({
           dragOver
             ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
             : "border-[var(--border-strong)]"
-        } ${busy || gpu.busy ? "opacity-60" : ""}`}
+        } ${busy ? "opacity-60" : ""}`}
       >
         {phase ? (
           <p className="flex items-center justify-center gap-2 text-sm text-[var(--accent-sub)]">
@@ -392,15 +365,11 @@ export default function NewMeetingForm({
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              disabled={busy || gpu.busy}
+              disabled={busy}
               className="btn-outline mt-3"
-              title={gpu.busy ? t("Busy: {what}", { what: gpu.label ?? t("another GPU task is running") }) : undefined}
             >
               {t("Choose file")}
             </button>
-            {gpu.busy ? (
-              <p className="mt-2 text-xs text-[var(--warning)]">{t("{what} — please wait.", { what: gpu.label ?? "" })}</p>
-            ) : null}
             <input
               ref={fileInput}
               type="file"
@@ -625,41 +594,6 @@ export default function NewMeetingForm({
           </button>
         </div>
       </form>
-
-      {/* Interrupt-minutes confirmation. Recording needs the GPU that minutes generation
-          (Ollama) is currently using, so offer to stop it and record now. */}
-      {showInterrupt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card w-full max-w-sm space-y-4 p-6">
-            <h2 className="text-lg font-semibold text-[var(--text-strong)]">
-              {t("Minutes are being generated")}
-            </h2>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {t(
-                "Recording uses the GPU that minutes generation is running on. Interrupt the in-progress minutes so the meeting is ready to record? You can regenerate those minutes afterward.",
-              )}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowInterrupt(false)}
-                disabled={interrupting}
-                className="btn-outline"
-              >
-                {t("Keep generating")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void interruptAndStart()}
-                disabled={interrupting}
-                className="btn-ink"
-              >
-                {interrupting ? t("Interrupting…") : t("Interrupt & set up")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

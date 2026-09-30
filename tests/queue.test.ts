@@ -1,7 +1,14 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { asSystem } from "../lib/db/scope";
 import { prisma } from "../lib/prisma";
-import { claimNext, enqueue, finish, openJobFor, recoverInterrupted } from "../lib/queue/queue";
+import {
+  claimNext,
+  enqueue,
+  finish,
+  finishRun,
+  openJobFor,
+  recoverInterrupted,
+} from "../lib/queue/queue";
 import { reorderQueue } from "../lib/queue/reorder";
 import {
   gpuContenders,
@@ -23,6 +30,16 @@ import { RECORDING_KIND } from "../lib/queue/types";
 // database is a container that lives for the length of the run.
 
 const ENABLED = process.env.VOXINQ_QUEUE_DB_TESTS === "1";
+
+// Taking the card for a recording unloads the local model. Nothing here may reach a real
+// Ollama: on a developer's machine the saved settings point at the one they actually use.
+const unloads = vi.hoisted(() => ({ count: 0 }));
+vi.mock("../lib/llm/ollama", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/llm/ollama")>()),
+  unloadOllama: async () => {
+    unloads.count++;
+  },
+}));
 
 // Capacity is measured in MB now, so the tests price their jobs. SLOT is what a job "costs"
 // when a test wants one to fill the card.
@@ -226,6 +243,35 @@ describe.skipIf(!ENABLED)("the queue", () => {
     await finish(a, "done");
   });
 
+  sysIt("ends a run that is still running, with what it reports", async () => {
+    const id = await job({ kind: "diarize" });
+    await prisma.job.update({ where: { id }, data: { status: "running" } });
+    expect(await finishRun(id, "done", "fine", { device: "cuda" })).toBe(true);
+    const row = await prisma.job.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe("done");
+    expect(row.metrics).toEqual({ device: "cuda" });
+  });
+
+  sysIt("keeps a person's stop, and the figures of the part that ran", async () => {
+    const id = await job({ kind: "minutes" });
+    await prisma.job.update({ where: { id }, data: { status: "running" } });
+    expect(await finish(id, "cancelled", "Stopped.")).toBe(true);
+    // The run comes back afterwards, aborted, with its figures.
+    expect(await finishRun(id, "cancelled", "aborted", { generateMs: 1200 })).toBe(false);
+    const row = await prisma.job.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe("cancelled");
+    expect(row.detail).toBe("Stopped.");
+    expect(row.metrics).toEqual({ generateMs: 1200 });
+  });
+
+  sysIt("does not let a stop overwrite a job that finished first", async () => {
+    const id = await job({ kind: "minutes" });
+    await prisma.job.update({ where: { id }, data: { status: "running" } });
+    await finishRun(id, "done");
+    expect(await finish(id, "cancelled", "Stopped.")).toBe(false);
+    expect((await prisma.job.findUniqueOrThrow({ where: { id } })).status).toBe("done");
+  });
+
   sysIt("knows when a meeting already has one, and when it no longer does", async () => {
     const meeting = await prisma.meeting.create({
       data: { title: "queue test", startedAt: new Date() },
@@ -285,6 +331,48 @@ describe.skipIf(!ENABLED)("a recording's claim on the card", () => {
       expect(back.startedAt).toBeNull();
       expect(back.position).toBe(0);
       expect(back.detail).toContain("Interrupted so a recording could start");
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m } });
+      await prisma.meeting.delete({ where: { id: m } });
+    }
+  });
+
+  sysIt("unloads the model the minutes were using, and only for minutes", async () => {
+    // Aborting the request leaves the model resident for Ollama's keep-alive, while the
+    // recording's Whisper tries to load beside it.
+    const m = await meeting("recording test");
+    try {
+      const d = await job({ kind: "diarize", meetingId: m, vramMb: SLOT });
+      await prisma.job.update({ where: { id: d }, data: { status: "running" } });
+      const before = unloads.count;
+      await preemptForRecording();
+      expect(unloads.count, "nothing of Ollama's was in the way").toBe(before);
+
+      const heavy = await job({ kind: "minutes", meetingId: m, vramMb: SLOT });
+      await prisma.job.update({ where: { id: heavy }, data: { status: "running" } });
+      await preemptForRecording();
+      expect(unloads.count).toBe(before + 1);
+    } finally {
+      await prisma.job.deleteMany({ where: { meetingId: m } });
+      await prisma.meeting.delete({ where: { id: m } });
+    }
+  });
+
+  sysIt("stays queued when the interrupted run comes back and reports", async () => {
+    // The run finds out it was stopped only when its work comes back aborted, after the job is
+    // already back in the queue. Reporting "cancelled" then used to overwrite that, and the
+    // minutes a recording interrupted never ran again.
+    const m = await meeting("recording test");
+    try {
+      const heavy = await job({ kind: "minutes", meetingId: m, vramMb: SLOT });
+      await prisma.job.update({ where: { id: heavy }, data: { status: "running" } });
+      await preemptForRecording();
+
+      expect(await finishRun(heavy, "cancelled", "Minutes generation was stopped.")).toBe(false);
+      const back = await prisma.job.findUniqueOrThrow({ where: { id: heavy } });
+      expect(back.status).toBe("queued");
+      expect(back.detail).toContain("Interrupted so a recording could start");
+      expect(back.finishedAt).toBeNull();
     } finally {
       await prisma.job.deleteMany({ where: { meetingId: m } });
       await prisma.meeting.delete({ where: { id: m } });

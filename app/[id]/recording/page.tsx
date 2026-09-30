@@ -612,12 +612,18 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           const { ok: takeIt } = await confirm({
             title: t("Something else is using the GPU"),
             // Plain text: the dialog does not render markdown, and asterisks in a sentence
-            // read as a mistake rather than as emphasis.
-            message: `${what} is running.
-
-Interrupting it transcribes this meeting as you speak. What was running goes back to the front of the queue and starts again once the meeting ends.
-
-Recording only leaves it alone. The audio is kept and transcribed after the meeting — nothing is lost, but no text appears while you talk.`,
+            // read as a mistake rather than as emphasis. One paragraph per string, so each is
+            // translated whole -- this was the one dialog left in English, and since New
+            // meeting stopped asking first it is the only place this question is asked.
+            message: [
+              t("{what} is running.", { what }),
+              t(
+                "Interrupting it transcribes this meeting as you speak. What was running goes back to the front of the queue and starts again once the meeting ends.",
+              ),
+              t(
+                "Recording only leaves it alone. The audio is kept and transcribed after the meeting — nothing is lost, but no text appears while you talk.",
+              ),
+            ].join("\n\n"),
             confirmLabel: t("Interrupt and transcribe live"),
             cancelLabel: t("Record only"),
           });

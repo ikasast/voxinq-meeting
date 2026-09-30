@@ -12,10 +12,10 @@ export const runtime = "nodejs";
 
 // Stop the minutes for one meeting, from that meeting's own screen.
 //
-// Separate from `/api/claude/summary/abort`, which only ever interrupts a generation that is
-// *running* — it is what a recording calls to take the GPU back, and it must leave the rest of
-// the queue alone. This is the other question: "stop what I asked for on this meeting", whose
-// answer has to cover the job that has not started yet. That is now the common case, because
+// Separate from a recording taking the card (lib/queue/recording.ts), which only ever
+// interrupts what is *running*, puts it back in the queue, and must leave the rest alone.
+// This is the other question: "stop what I asked for on this meeting", whose answer has to
+// cover the job that has not started yet. That is now the common case, because
 // minutes run one at a time: send a day's worth and all but one of them are waiting.
 //
 // Stopping one that never started is also how a meeting got stuck. The status is set when the

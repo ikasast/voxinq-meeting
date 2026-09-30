@@ -108,23 +108,67 @@ export async function claimNext(budget: number): Promise<ClaimedJob | null> {
   return rows[0] ?? null;
 }
 
+type Ending = Extract<JobStatus, "done" | "error" | "cancelled">;
+
+function ending(status: Ending, detail?: string, metrics?: JobMetrics) {
+  return {
+    status,
+    detail: detail?.slice(0, 500) ?? null,
+    finishedAt: new Date(),
+    // Only when the run said something: a stop from the queue screen reports nothing, and
+    // must not wipe what the runner had already written for the same job.
+    ...(metrics ? { metrics: metrics as Prisma.InputJsonValue } : {}),
+  };
+}
+
+/**
+ * End a job that has not ended yet: a stop from a screen, whether it was waiting or running.
+ *
+ * One that already ended is left as it is. Between reading a job and stopping it, it can
+ * finish on its own, and "done" is not something a stop should overwrite.
+ */
 export async function finish(
   id: string,
-  status: Extract<JobStatus, "done" | "error" | "cancelled">,
+  status: Ending,
   detail?: string,
   metrics?: JobMetrics,
-): Promise<void> {
-  await prisma.job.update({
-    where: { id },
-    data: {
-      status,
-      detail: detail?.slice(0, 500) ?? null,
-      finishedAt: new Date(),
-      // Only when the run said something: a stop from the queue screen reports nothing, and
-      // must not wipe what the runner had already written for the same job.
-      ...(metrics ? { metrics: metrics as Prisma.InputJsonValue } : {}),
-    },
+): Promise<boolean> {
+  const { count } = await prisma.job.updateMany({
+    where: { id, status: { in: OPEN_STATUSES } },
+    data: ending(status, detail, metrics),
   });
+  return count > 0;
+}
+
+/**
+ * Record how a run ended -- if nothing else decided while it was running.
+ *
+ * Two things can. A person stopping it: the stop routes end the job themselves, straight away,
+ * and the run only finds out when its work comes back aborted. And a recording taking the card,
+ * which puts the job back at the front of the queue to run again after the meeting. The run
+ * used to report "cancelled" over either answer -- over the second one, badly: minutes a
+ * recording interrupted were meant to come back once the meeting ended, and were marked
+ * cancelled instead, so they never did.
+ *
+ * The figures from a run somebody stopped are still kept: the part that ran used the card.
+ */
+export async function finishRun(
+  id: string,
+  status: Ending,
+  detail?: string,
+  metrics?: JobMetrics,
+): Promise<boolean> {
+  const { count } = await prisma.job.updateMany({
+    where: { id, status: "running" },
+    data: ending(status, detail, metrics),
+  });
+  if (count === 0 && metrics) {
+    await prisma.job.updateMany({
+      where: { id, status: "cancelled" },
+      data: { metrics: metrics as Prisma.InputJsonValue },
+    });
+  }
+  return count > 0;
 }
 
 /** Is there already a job of this kind for this meeting that has not finished? */

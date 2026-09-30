@@ -139,6 +139,11 @@ export const ja: Record<string, string> = {
   "Something else is using the GPU": "GPU を他の処理が使っています",
   "Interrupt and transcribe live": "中断して会議中に文字起こし",
   "Record only": "録音だけする",
+  "{what} is running.": "{what} が実行中です。",
+  "Interrupting it transcribes this meeting as you speak. What was running goes back to the front of the queue and starts again once the meeting ends.":
+    "中断すると、この会議を話しながら文字起こしします。中断した処理はキューの先頭に戻り、会議が終わると最初からやり直します。",
+  "Recording only leaves it alone. The audio is kept and transcribed after the meeting — nothing is lost, but no text appears while you talk.":
+    "「録音だけする」なら、動いている処理はそのままです。音声は保存され、会議の後に文字起こしされるので失われるものはありませんが、話している間は文字が出ません。",
   "Model:": "モデル:",
   "Language:": "言語:",
   "Mic mode:": "マイクモード:",
@@ -366,8 +371,6 @@ export const ja: Record<string, string> = {
   "Setting up…": "準備中…",
   "Add to Upcoming": "予定に追加",
   "Adding…": "追加中…",
-  "Interrupt & set up": "中断して準備する",
-  "Interrupting…": "中断中…",
   "Creating meeting…": "会議を作成中…",
   "Could not create the meeting": "会議を作成できませんでした",
   "Failed to create meeting.": "会議の作成に失敗しました。",
@@ -1015,11 +1018,6 @@ export const ja: Record<string, string> = {
   // ---- Record NOW ----
   "Failed to start recording: {error}": "録音を開始できませんでした: {error}",
   "Go to New meeting": "「新しい会議」へ",
-  "Minutes are being generated": "議事録を生成中です",
-  "Recording uses the GPU that minutes generation is running on. Interrupt the in-progress minutes and start recording now? You can regenerate those minutes afterward.":
-    "録音は、いま議事録の生成が使っている GPU を必要とします。生成中の議事録を中断して、すぐ録音を始めますか？　その議事録は後から作り直せます。",
-  "Keep generating": "生成を続ける",
-  "Interrupt & record": "中断して録音する",
   "Preparing to record…": "録音の準備中…",
 
   // ---- Printing ----
@@ -1158,11 +1156,7 @@ export const ja: Record<string, string> = {
   "Only a series with no meetings in it can be deleted.": "会議が1件も無いシリーズだけ削除できます。",
   "Only you can see this, but it is not encrypted. Anything confidential belongs on the meeting instead.": "あなた以外には見えませんが、暗号化はされません。機密は会議の側に書いてください。",
   "Add {name} to this series": "{name} をこのシリーズに追加",
-  "Busy: {what}": "処理中: {what}",
-  "another GPU task is running": "別のGPU処理が動いています",
-  "{what} — please wait.": "{what} — しばらくお待ちください。",
   "The transcription language is saved on the meeting. Microphone mode and source apply to live recording only (source can also be switched while recording).": "文字起こしの言語は会議に保存されます。マイクモードと音声ソースはリアルタイム録音にだけ使われます（音声ソースは録音中にも切り替えられます）。",
-  "Recording uses the GPU that minutes generation is running on. Interrupt the in-progress minutes so the meeting is ready to record? You can regenerate those minutes afterward.": "録音には、いま議事録の作成が使っているGPUが必要です。作成中の議事録を中断して、録音できる状態にしますか？中断した議事録はあとで作り直せます。",
   "Generating minutes in the background. They will appear automatically when done…": "バックグラウンドで議事録を作成しています。終わると自動で表示されます…",
   "Detail": "詳しさ",
   "Applies to this run only — saved settings are unchanged.": "今回だけに適用されます。保存済みの設定は変わりません。",
