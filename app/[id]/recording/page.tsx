@@ -14,7 +14,6 @@ import {
 } from "@/lib/stt/native";
 import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
-import { applyTranscript, transcribeRecording } from "@/lib/stt/transcribe-recording";
 import { useConfirmEx } from "../../confirm-dialog";
 import { PreflightCheck } from "./preflight-check";
 import { useT } from "@/app/locale-provider";
@@ -121,10 +120,14 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // null until /health answers. True = this host records now and transcribes at the end,
   // because recognition here is slower than speech (see lib/stt/preload.ts).
   const [deferred, setDeferred] = useState<boolean | null>(null);
-  const [deferredStatus, setDeferredStatus] = useState<string | null>(null);
   // Chosen for this meeting rather than decided by the hardware: something else was using the
   // card and the answer was to leave it alone. Recording happens; the text arrives at the end.
   const [recordOnly, setRecordOnly] = useState(false);
+  // Audio was recorded here that nothing recognised as it came in -- on a host that transcribes
+  // at the end, or in a record-only session. The transcript on screen is empty, which is not
+  // the same as there being nothing to end the meeting with: minutes and speakers can still be
+  // asked for, and the queue does them once the recognition has made a transcript.
+  const [awaitingTranscript, setAwaitingTranscript] = useState(false);
   // Folded away when recording starts: they are advice about setting up, and once you are set
   // up the transcript should have the room. Re-openable, and it stays open if you re-open it.
   const [tipsOpen, setTipsOpen] = useState(true);
@@ -659,6 +662,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           source: sourceRef.current,
         });
       }
+      if (!live) setAwaitingTranscript(true);
     } catch (e) {
       showToast(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
       setStatus("error");
@@ -714,44 +718,58 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
     }
   }, [meetingId]);
 
-  // On a host that cannot keep up with speech, the transcript is produced here: the meeting
-  // was only recorded, and the whole file is recognised once, now. It runs before the meeting
-  // is marked ended so that minutes generation -- which reads the transcript -- has something
-  // to read.
+  // Where the transcript comes from when nothing was recognised during the meeting: on a host
+  // that cannot keep up with speech, or when the recording was left to run beside something
+  // else that had the card ("Record only"). The whole file is recognised once, at the end.
   //
-  // A failure is reported and swallowed. The audio is saved either way, and "Re-transcribe" on
-  // the meeting page runs exactly this again; losing the meeting because recognition failed
-  // would be far worse than ending it without a transcript.
-  const transcribeIfDeferred = useCallback(async () => {
-    if (!deferred) return;
-    try {
-      const settings = (await fetch("/api/settings")
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null)) as {
-        whisperModel?: string;
-        sttLanguage?: string;
-        sttGlossary?: string;
-        sttTranslate?: boolean;
-      } | null;
-      const { utterances, usedModel } = await transcribeRecording(meetingId, {
-        model: settings?.whisperModel,
-        language: settings?.sttLanguage,
-        initialPrompt: settings?.sttGlossary || undefined,
-        translate: Boolean(settings?.sttTranslate),
-        onProgress: setDeferredStatus,
-      });
-      setDeferredStatus(t("Saving the transcript…"));
-      await applyTranscript(meetingId, utterances, usedModel);
-      setDeferredStatus(null);
-    } catch (e) {
-      setDeferredStatus(null);
-      showToast(
-        t('Transcription failed: {error}. The recording is saved — use "Re-transcribe" on the meeting page.', {
-          error: (e as Error).message,
-        }),
-      );
-    }
-  }, [deferred, meetingId, showToast, t]);
+  // As a queued job, like every other recognition. It used to run here: the page started it,
+  // sat on the service's status endpoint and posted the lines back, holding "End" open for as
+  // long as recognition took -- and it went on doing that after the route it started it through
+  // began answering "queued", at which point it reported a failure for work that was, in fact,
+  // under way. Record-only meetings were never recognised at the end at all: this only ever
+  // looked at the hardware, not at the choice made when recording started.
+  //
+  // A failure to queue is reported and swallowed. The audio is saved either way, and
+  // "Re-transcribe" on the meeting page does exactly this; losing the meeting because recognition
+  // could not be queued would be far worse than ending it without a transcript.
+  //
+  // `thenMinutes` hands the minutes to the queue as well, to be written once there is a
+  // transcript to write them from. The answer tells the caller which case it is in: "live" when
+  // the transcript already exists and nothing was queued.
+  const transcribeAfterRecording = useCallback(
+    async (thenMinutes: boolean): Promise<"live" | "queued" | "failed"> => {
+      // Recorded here without recognition, or on a host that only ever transcribes at the end
+      // and has no transcript yet -- which also covers audio recorded before a reload.
+      if (!awaitingTranscript && !(deferred && transcripts.length === 0)) return "live";
+      try {
+        const model = activeModel;
+        // The model and language this meeting was recorded with, as shown on this page. The
+        // glossary and the translation setting are filled in on the server, as for any caller.
+        const res = await fetch(`/api/meetings/${meetingId}/transcribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            language: effectiveSttLanguage(model, meetingLangRef.current ?? sttLanguageRef.current),
+            thenMinutes,
+          }),
+        });
+        if (!res.ok) {
+          const d = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(d?.error ?? `HTTP ${res.status}`);
+        }
+        return "queued";
+      } catch (e) {
+        showToast(
+          t('Transcription failed: {error}. The recording is saved — use "Re-transcribe" on the meeting page.', {
+            error: (e as Error).message,
+          }),
+        );
+        return "failed";
+      }
+    },
+    [awaitingTranscript, deferred, transcripts.length, activeModel, meetingId, showToast, t],
+  );
 
   const generateSummaryAndEnd = useCallback(async () => {
     if (busy !== "none") return;
@@ -772,17 +790,22 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
     try {
       await stopRecording();
       if (checked) await protectRecording();
-      await transcribeIfDeferred();
       await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
-      // Minutes generation runs in the background (202 returns immediately). Go to the list without waiting.
-      const sumRes = await fetch("/api/claude/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId }),
-      });
-      if (!sumRes.ok && sumRes.status !== 202) {
-        const sumData = await sumRes.json().catch(() => null);
-        throw new Error(sumData?.error ?? `HTTP ${sumRes.status}`);
+      // With no transcript yet, the queue writes the minutes once the recognition has made one.
+      // If it could not even be queued, there is nothing to write minutes from; the meeting
+      // page, where "Re-transcribe" is, is the place to land.
+      const later = await transcribeAfterRecording(true);
+      if (later === "live") {
+        // Minutes generation runs in the background (202 returns immediately).
+        const sumRes = await fetch("/api/claude/summary", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ meetingId }),
+        });
+        if (!sumRes.ok && sumRes.status !== 202) {
+          const sumData = await sumRes.json().catch(() => null);
+          throw new Error(sumData?.error ?? `HTTP ${sumRes.status}`);
+        }
       }
       // Land on the meeting just recorded, where the minutes will appear as they finish —
       // the list gives no sign of which meeting the generation belongs to.
@@ -793,7 +816,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       showToast(t("Failed to start minutes generation: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred, t]);
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
 
   // End the meeting and kick off speaker diarization: the detail page opens with
   // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
@@ -819,15 +842,17 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
       // boundaries — diarization needs both.
       await stopRecording();
       if (checked) await protectRecording();
-      await transcribeIfDeferred();
       await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
+      // A transcript still to be made is followed by the meeting page, which starts
+      // diarization once the lines have landed.
+      await transcribeAfterRecording(false);
       // replace() so back navigation cannot return here and restart the meeting.
       router.replace(`/${meetingId}?autodiarize=1`);
     } catch (e) {
       showToast(t("Failed to end the meeting: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeIfDeferred, t]);
+  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
 
   const endWithoutSummary = useCallback(async () => {
     if (busy !== "none") return;
@@ -845,11 +870,11 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
     setEnded(true);
     await stopRecording();
     if (checked) await protectRecording();
-    await transcribeIfDeferred();
     await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
+    await transcribeAfterRecording(false);
     // replace() so back navigation cannot return to this recording page.
     router.replace(`/${meetingId}`);
-  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording, transcribeIfDeferred, t]);
+  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording, transcribeAfterRecording, t]);
 
   // Started by mistake, or not worth keeping. The meeting goes to the trash rather than away:
   // "I did not mean to record that" is sometimes wrong, and the trash keeps it restorable for 30
@@ -1331,7 +1356,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           <button
             type="button"
             onClick={generateSummaryAndEnd}
-            disabled={busy !== "none" || transcripts.length === 0}
+            disabled={busy !== "none" || (transcripts.length === 0 && !awaitingTranscript)}
             className="btn-outline !px-3 !py-1.5 !text-xs"
             title={t("End the meeting and start generating minutes in the background")}
           >
@@ -1340,7 +1365,7 @@ Recording only leaves it alone. The audio is kept and transcribed after the meet
           <button
             type="button"
             onClick={diarizeAndEnd}
-            disabled={busy !== "none" || transcripts.length === 0}
+            disabled={busy !== "none" || (transcripts.length === 0 && !awaitingTranscript)}
             className="btn-outline !px-3 !py-1.5 !text-xs"
             title={t("End the meeting and assign speakers automatically; generate minutes after reviewing them")}
           >

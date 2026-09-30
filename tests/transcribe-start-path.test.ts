@@ -5,20 +5,20 @@ import { describe, expect, it } from "vitest";
 // Starting a transcription must go through the app's own server, never straight to the STT
 // service, because that request is the one that carries the API key for a remote endpoint.
 //
-// This exists because the rule was applied to one caller and not the other. lib/stt/
-// transcribe-recording.ts was moved to the server route; app/[id]/transcript-list.tsx has its
-// own copy of start-and-poll and kept calling the service directly, so **Re-transcribe never
-// reached a configured remote endpoint at all** -- it silently used whatever the service had
-// loaded, and no error said so. Grepping for the shared function's callers does not find a
-// caller that reimplements it.
+// This exists because the rule was applied to one caller and not the other. A shared helper
+// (since removed: every caller now queues a job) was moved to the server route;
+// app/[id]/transcript-list.tsx had its own copy of start-and-poll and kept calling the service
+// directly, so **Re-transcribe never reached a configured remote endpoint at all** -- it
+// silently used whatever the service had loaded, and no error said so. Grepping for the shared
+// function's callers does not find a caller that reimplements it.
 //
 // Polling and every other STT call may stay direct: none of them carry a credential.
 
 const root = join(__dirname, "..");
 const CALLERS = [
-  "lib/stt/transcribe-recording.ts",
   "app/[id]/transcript-list.tsx",
   "app/[id]/recording/page.tsx",
+  "app/new/new-meeting-form.tsx",
 ];
 
 describe("starting a transcription", () => {

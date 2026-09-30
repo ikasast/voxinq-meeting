@@ -136,7 +136,6 @@ export const ja: Record<string, string> = {
     "下の「録音を開始」を押してください。文字は会議終了後にまとめて出ます。",
   'Press "Start recording" below to begin transcription.':
     "下の「録音を開始」を押すと文字起こしが始まります。",
-  "Saving the transcript…": "発言を保存しています…",
   "Something else is using the GPU": "GPU を他の処理が使っています",
   "Interrupt and transcribe live": "中断して会議中に文字起こし",
   "Record only": "録音だけする",
