@@ -17,6 +17,7 @@ import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
 import { PencilIcon, TrashIcon } from "../icons";
+import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
 import { ShareButton } from "./share-button";
@@ -803,7 +804,7 @@ export function TranscriptList({
   // add to while it is busy is a disabled button with extra steps. The one thing still refused
   // is asking twice for the same meeting, which the routes answer with a 409.
   const busy = diarizing || retransing;
-  const elsewhere = gpu.busy && !diarizing && !retransing ? gpu.label : null;
+  const elsewhere = gpu.busy && !diarizing && !retransing ? busyLabel(t, gpu.kind) : null;
 
   // --- Following a meeting that is being recorded elsewhere ---------------------------------
   //
@@ -1414,11 +1415,10 @@ export function TranscriptList({
       {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
       {elsewhere ? (
         <p className="mt-2 text-xs text-[var(--text-muted)]">
-          {elsewhere} — anything started now waits its turn. See the{" "}
+          {t("{task} — anything started now waits its turn.", { task: elsewhere })}{" "}
           <Link href="/queue" className="underline">
-            queue
+            {t("See the queue")}
           </Link>
-          .
         </p>
       ) : null}
 

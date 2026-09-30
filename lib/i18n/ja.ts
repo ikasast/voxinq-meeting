@@ -647,8 +647,6 @@ export const ja: Record<string, string> = {
     "STT に接続できません — 録音は使えません（{reason}）",
   "check failed": "確認できませんでした",
   "Could not reach STT.": "STT に接続できませんでした。",
-  "Minutes are being generated — the GPU is busy. Try again once they finish.":
-    "議事録を生成中で GPU が使われています。終わってからもう一度お試しください。",
   "Model load is taking longer than expected.": "モデルの読み込みに時間がかかっています。",
   "Accessing from outside your private network — read-only.":
     "プライベートネットワークの外からアクセスしています — 閲覧のみです。",
@@ -959,6 +957,10 @@ export const ja: Record<string, string> = {
   "Summarise the decisions so far": "これまでの決定事項をまとめて",
   "{task} — you can ask once it finishes.": "{task} — 終わったら質問できます。",
   "A GPU task is running": "GPU の処理が実行中です",
+  "{task} — the GPU is busy. Try again once it finishes.": "{task} — GPU が使用中です。終わってからもう一度試してください。",
+  "{task} — this will wait its turn in the queue.": "{task} — キューで順番を待ちます。",
+  "{task} — anything started now waits its turn.": "{task} — 今から始める処理は順番を待ちます。",
+  "See the queue": "順番待ちを見る",
   "Recording in progress…": "録音中…",
   "Transcribing…": "文字起こし中…",
   "Diarizing…": "話者を分離中…",

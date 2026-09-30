@@ -8,10 +8,16 @@ import { sttHttpBase } from "@/lib/stt/client";
 // to disable "start another task" actions while one is in progress.
 export type GpuBusy = {
   busy: boolean;
-  minutesBusy: boolean; // minutes generation (Ollama) is running — interruptible
+  /** Minutes generation (Ollama) is what holds the queue. */
+  minutesBusy: boolean;
   sttBusy: boolean; // STT is recording / transcribing / diarizing
-  label: string | null; // human-readable current task, e.g. "Generating minutes…"
-  minutesMeetingId?: string; // meeting whose minutes are being generated (if any)
+  /**
+   * What is running, as a job kind (`minutes`, `diarize`, `transcribe`, `recording`, `encrypt`),
+   * or null. Turned into words with `busyLabel` from lib/queue/job-label.ts.
+   */
+  kind: string | null;
+  /** Whose meeting the job at the front of the queue belongs to, if any. */
+  minutesMeetingId?: string;
 };
 
 export function useGpuBusy(pollMs = 4000): GpuBusy {
@@ -19,13 +25,15 @@ export function useGpuBusy(pollMs = 4000): GpuBusy {
     busy: false,
     minutesBusy: false,
     sttBusy: false,
-    label: null,
+    kind: null,
   });
 
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
-      let minutes: { minutes?: { busy?: boolean; meetingId?: string; title?: string } } | null = null;
+      let minutes: {
+        minutes?: { busy?: boolean; meetingId?: string; title?: string; kind?: string };
+      } | null = null;
       let stt: { busy?: boolean; busyKind?: string } | null = null;
       try {
         minutes = await fetch("/api/busy", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null));
@@ -41,22 +49,21 @@ export function useGpuBusy(pollMs = 4000): GpuBusy {
         /* ignore (external access / STT unreachable) */
       }
       if (cancelled) return;
+      // The queue's answer covers every kind of job, not only minutes — the field is called
+      // `minutes` for history's sake — so the kind it names is what is said. Saying "Generating
+      // minutes" whatever was running is how a diarization came to be reported as minutes.
       const mBusy = Boolean(minutes?.minutes?.busy);
       const sBusy = Boolean(stt?.busy);
-      let label: string | null = null;
-      if (mBusy) label = "Generating minutes…";
+      let kind: string | null = null;
+      if (mBusy) kind = minutes?.minutes?.kind ?? null;
       else if (sBusy)
-        label =
-          stt?.busyKind === "recording"
-            ? "Recording in progress…"
-            : stt?.busyKind === "transcribe"
-              ? "Transcribing…"
-              : "Diarizing…";
+        kind =
+          stt?.busyKind === "recording" ? "recording" : stt?.busyKind === "transcribe" ? "transcribe" : "diarize";
       setState({
         busy: mBusy || sBusy,
-        minutesBusy: mBusy,
+        minutesBusy: mBusy && kind === "minutes",
         sttBusy: sBusy,
-        label,
+        kind,
         minutesMeetingId: minutes?.minutes?.meetingId,
       });
     };
