@@ -60,8 +60,7 @@ jobs:
           # publish arm64 builds, so nothing here needs a second Dockerfile.
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.list }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # No gha cache, for the reason given on the CPU STT image below.
           # No NEXT_PUBLIC_STT_WS_URL here on purpose: baking one into a published image
           # would fix it for everyone. The container reads STT_WS_URL at runtime instead.
 
@@ -119,8 +118,7 @@ jobs:
     # for pyannote -- linux/amd64 only, ~21 GB, and none of it usable without a CUDA device,
     # which left Apple silicon with no way to run Voxinq in Docker at all.
     #
-    # Its own job rather than a second step in `stt`: it shares no layers with the CUDA build,
-    # and this one is small enough to want the gha cache the other cannot use.
+    # Its own job rather than a second step in `stt`: it shares no layers with the CUDA build.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -156,5 +154,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.tags.outputs.list }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # No gha cache, here or on the web image. A cache written by a release belongs to its
+          # tag, and a run for any other tag cannot read it, so every release wrote its layers
+          # for nothing: 2.7 GB of a 10 GB repository limit per version, and the upload alone took
+          # 195 s of the web image's job and about a minute of this one. Only a re-run of the
+          # same release could have used it.
