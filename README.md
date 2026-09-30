@@ -2,346 +2,283 @@
 
 # Voxinq Meeting
 
-**Self-hosted meeting minutes — record in the browser, transcribe and summarize on your own machine. By default nothing leaves it, and every route off it is one you choose.**
+**Record meetings on your phone. Transcribe them, tell the speakers apart and write the minutes on your own PC. By default nothing leaves it.**
 
-[**日本語の解説はこちら →**](README.ja.md)
+[**日本語ガイド →**](README.ja.md)
 
 ![Six steps — record, transcribe, separate speakers, write minutes, ask, series — with an example under each, over a band showing what an NVIDIA GPU, Apple silicon and a CPU-only machine each do, and a strip on encryption, several people sharing one machine, search, and self-hosting](docs/screenshots/workflow.png)
 
-![Next.js](https://img.shields.io/badge/Next.js-16-black)
-![React](https://img.shields.io/badge/React-19-149eca)
-![Python](https://img.shields.io/badge/Python-3.11-3776ab)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791)
 ![Runs on](https://img.shields.io/badge/runs%20on-NVIDIA%20%C2%B7%20Apple%20silicon%20%C2%B7%20CPU-76b900)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-local--first-2ea44f)
+![Android app](https://img.shields.io/badge/Android-app-3ddc84)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 </div>
 
 ---
 
-## ✨ What it does
+## Why Voxinq Meeting
 
-### Record, and it becomes words
+Meeting-notes services ask you to upload the meeting to someone else's servers. Voxinq Meeting is
+the same idea on hardware you own: **the phone records, your PC does the work**, and nothing is sent
+anywhere unless you choose to send it.
 
-![A phone, a laptop and an audio file feeding Whisper on your own machine, and a transcript coming out of it with each line under its speaker — Sato, David and You — one voice matched to an enrolled voiceprint, and a misheard word, Boxinq, offered as a one-click fix to Voxinq](docs/illustrations/capture.png)
-Stream the microphone (or PC audio) to a Whisper server on your own machine over WebSocket:
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper) on CUDA,
-[whisper.cpp](https://github.com/ggerganov/whisper.cpp) elsewhere, chosen for you. **Words appear
-as you speak** on an NVIDIA GPU or Apple silicon; other machines transcribe in one pass when the
-meeting ends.
-
-That pass can also be sent to a saved endpoint — anything OpenAI-compatible (Groq, OpenAI, **a
-whisper server of your own**) or Google Gemini — which turns a three-hour wait on a CPU-only box
-into minutes. Several can be saved and **the one to use is picked per run**, this machine
-included. Or just **drop an existing recording** (`wav`/`mp3`/`m4a`).
-
-Record from a **phone**: install as a PWA and reach it over [Tailscale](https://tailscale.com).
-On a phone the record button is the one at the bottom of the screen, where a thumb reaches it.
-On **Android**, [the app](android/README.md) goes further: the recording carries on with the
-screen off or another app in front, survives the network dropping, and a recording from any other
-app can be shared straight into a new meeting.
-
-**Check the microphone first** — one button, before the meeting starts. The one failure nothing
-can repair afterwards is a meeting nobody recorded.
-
-### Who said what
-
-
-Assign speakers after the meeting — [pyannote](https://github.com/pyannote/pyannote-audio) on
-CUDA, [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) everywhere else, and no Hugging Face
-token needed on that path. **Enrol a voice once** and it is named automatically in every future
-meeting.
-
-**A line two people spoke in is divided between them**, at the word where the voice changed — a
-question and the "yes" that answers it no longer land on one person. On a measured meeting, lines
-with the right speaker went from 80% to 96%.
-
-**Participants feed the separation.** List who was there and tick who is expected to speak: the
-count becomes the number of voices to look for, and the names narrow which enrolled voiceprints
-can be matched. Someone who attended in silence stays on the list and off the count.
-
-**Fix what was misheard.** **Suggest fixes** checks the transcript against your glossary, the
-series' name and its regular members, and offers each correction to accept or refuse; **Find &
-replace** fixes a word misheard the same way throughout, with a preview before anything changes.
-
-### Minutes, written for you
-
-![A transcript passing through a local LLM into minutes with decisions and action items, a question asked of past minutes with its answer, and below them a weekly series whose meetings hand the previous minutes forward, ending in an upcoming meeting with a bell and a Record button](docs/illustrations/minutes-memory.png)
-A topic-grouped summary with **decisions and action items**, written by the model you choose:
-Ollama (default, local), vLLM, LM Studio, or any OpenAI-compatible endpoint; Anthropic and OpenAI
-too. Formats are saved with names and picked when the minutes are written — a talk is not a
-meeting, and the same headings leave a lecture with empty sections.
-
-**Ask your minutes.** "What were the TODOs from last time?", answered from a series' minutes,
-grounded in them and told to say when something is not recorded. A single meeting can also be asked
-about **what was actually said** — its whole transcript, including before any minutes exist.
-
-**Write up a day at once.** Record back to back, and let the list do the rest: it says how many
-meetings have no minutes yet and sends them all to the queue in one go.
-
-**Live Japanese translation** (optional) puts a translation under each non-Japanese utterance,
-produced on the CPU so it never competes with transcription for the GPU.
-
-### It adds up over time
-
-
-**Recurring series** link meetings together: the previous minutes are fed to the LLM as context.
-Each series carries a **shared background** — standing context, given to the LLM apart from what
-was said — its **regular members**, copied onto every new meeting, and its own minutes format and
-glossary. A series is its owner's: two people who both keep a *Weekly sync* have two.
-
-**Book a meeting before it happens** — title, agenda, series and participants entered ahead of
-time; it waits under **Upcoming** until you press record, and when its time comes the app says so —
-a banner with a record button and, if you allow it, an OS notification. The Android app puts the
-notice on the phone itself, with nothing open, and **Record** in it. The calendar over the
-list turns a half-remembered date into a place to click.
-
-**Search, tags, archive and trash** — find meetings fast, soft-delete with 30-day restore. Search
-keeps working after encryption, through an index of keyed hashes rather than by reading.
-
-### Yours alone
-
-![Your machine drawn as a house: inside, two people's meetings, each encrypted with their own key, and an administrator who runs the machine but cannot read minutes; outside, a laptop that can set meetings up but not record, and a crossed-out cloud — nothing leaves unless you choose](docs/illustrations/private.png)
-**Accounts, if you want them.** One person needs nothing. The moment somebody creates an account
-the server becomes multi-user, and each person's meetings, voiceprints and settings are their own.
-**An administrator runs the machine and cannot read what is on it** — the shared queue shows whose
-work is waiting and never what it is about.
-
-**Encrypted at rest.** Transcripts and minutes are encrypted under a key belonging to the account,
-unwrapped by your password and by a **recovery code shown once**. A stolen disk, a database dump
-or a backup on its own reads nothing.
-
-**Sharing outside the tailnet.** One click in **Settings → Remote access** publishes a
-password-protected public link for people outside your tailnet: they can read and download
-minutes and set a meeting up beforehand, while recording, editing the transcript and the
-transcription service stay private.
-
-## 💡 Why Voxinq Meeting?
-
-Cloud transcription SaaS means uploading confidential meetings — research, legal, HR, strategy — to someone else's servers. Voxinq Meeting keeps everything on hardware you control.
-
-**Everything runs on your machine, and every route off it is one you choose.** By default nothing leaves: the browser streams audio straight to the transcription service you are running, minutes are written by a local Ollama, and the app fetches no external URL at runtime. Recognition *can* be sent to a saved endpoint (Groq, OpenAI, Google Gemini, or a whisper server of your own), and the LLM *can* be pointed at Anthropic or OpenAI — both are off until you turn them on, chosen per run rather than once and forgotten, and the destination host is named on screen wherever it is in force. Voiceprints and the database never leave regardless. Nothing is phoned home either way.
-
-| | **Voxinq Meeting** | Cloud SaaS |
+| | **Voxinq Meeting** | A typical cloud notes service |
 | --- | --- | --- |
-| **Privacy** | Runs entirely on your own hardware; every route off it is opt-in and named on screen | Audio uploaded to a third party |
-| **Who can read it** | Encrypted per account — not even the administrator of the machine | Whoever holds the vendor's keys |
-| **Cost** | Free — a consumer GPU (8 GB VRAM) is plenty, and it runs without one | Per-user / per-minute subscription |
-| **Record anywhere** | Any browser incl. phone (PWA + Tailscale); an Android app that keeps recording with the screen off | Any browser — via their cloud |
-| **Models** | Choose the Whisper model and the LLM; swap or upgrade anytime | Fixed, vendor-chosen |
+| **Where the audio goes** | To your own PC, over your own private network. Sending recognition or minutes to an outside service is opt-in, per run, and the destination is named on screen | Uploaded to the vendor |
+| **Who can read it** | Transcripts and minutes are encrypted per account — not even the machine's administrator can read them | Whoever holds the vendor's keys |
+| **Cost** | Free. A consumer GPU (8 GB) is plenty, and it runs without one | Per user, per minute |
+| **Models** | Your choice of Whisper model and LLM, local or remote, swapped at any time | Chosen by the vendor |
 
-## 🚀 Get started
+What else sets it apart:
 
-**Which install for which machine** — ⭐ marks the one to pick:
+- **The phone is a real recorder.** The Android app keeps recording with the screen off or another
+  app in front, holds the audio through a dropped connection, rings at a booked meeting's time with
+  **Record** in the notice, and turns a recording shared from any other app into a meeting.
+- **Words while you speak**, on an NVIDIA GPU or Apple silicon — and it still works without either:
+  the text arrives when the meeting ends.
+- **Speakers, told apart and named.** Separation after the meeting, voices enrolled once and named
+  in every meeting after, and a line two people spoke in divided at the word where the voice changed
+  (80% → 96% of lines on the right speaker, on a measured meeting).
+- **Minutes that remember.** A recurring series hands the previous minutes and a standing
+  background to the next; you can ask a series "what were the TODOs from last time?", or ask a single
+  meeting what was actually said.
+- **One machine, several people.** Accounts, per-person encryption, and a queue that shares one GPU
+  fairly — recording never waits for it.
 
-| your machine | install with | also works | text appears |
-| --- | --- | --- | --- |
-| **Windows + NVIDIA GPU** | ⭐ **[Docker](docs/setup.md#a-docker)**, GPU images | [`voxinq`](docs/setup.md#b-without-docker-voxinq) via Scoop · [native](docs/setup.md#c-native-install) | as you speak |
-| **Linux + NVIDIA GPU** | ⭐ **[Docker](docs/setup.md#a-docker)**, GPU images | [native](docs/setup.md#c-native-install) | as you speak |
-| **Mac, Apple silicon** | ⭐ **[`voxinq`](docs/setup.md#b-without-docker-voxinq) via Homebrew** — Docker cannot reach the Mac's GPU | Docker, CPU images | as you speak — with Docker, when the meeting ends |
-| **No NVIDIA GPU** — CPU only, AMD or Intel GPU, Intel Mac | ⭐ **[Docker](docs/setup.md#a-docker)**, CPU images | [`voxinq`](docs/setup.md#b-without-docker-voxinq) via Scoop or Homebrew | when the meeting ends |
-| **Working on the code** | [native](docs/setup.md#c-native-install) | — | as your hardware allows |
+## How it fits together
 
-**An NVIDIA GPU is the best experience, not a requirement.** What changes without one is
-*when* you see the text, not whether you get it. Neither Mac route has been run on a real Mac
-yet — see [what has actually been run](docs/setup.md#what-has-actually-been-run).
-
-A machine with no GPU acceleration recognises speech slower than people produce it, so instead
-of falling behind for the whole meeting it records and transcribes the file in one pass at the
-end. Same model — though not the same weights: the CPU path runs GGML-quantised ones, and on a
-measured meeting its transcript diverges from the CUDA transcript by about **14% of
-characters**. Neither is ground truth, so read that as a difference rather than a defect — but
-it is not nothing. See [what runs on what](docs/setup.md#what-runs-on-what).
-
-**Writing the minutes is slower without a GPU too**, and by more. Measured on a 16-core x86 CPU
-with an 8B model: 31 tokens/second reading the transcript, 6.5 writing — about **a quarter of an
-hour** for a meeting that fills the context budget, against under a minute on an 8 GB card. It
-runs unattended in the background, and a smaller model or an LLM endpoint on another machine
-brings it back down — `Settings → LLM`, see
-[the minutes on a CPU](docs/setup.md#and-the-minutes).
-
-**With Docker** — brings up the database, web app, transcription service and Ollama together.
-On an NVIDIA machine it also needs the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) (on Windows, Docker Desktop with WSL2).
-The images are published, so there is no clone and no Node or Python on the host — two files
-are the whole install:
-
-```bash
-mkdir voxinq && cd voxinq
-curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
-# edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
-docker compose up -d
-docker compose exec ollama ollama pull qwen3:8b   # the minutes model (see below)
+```mermaid
+flowchart LR
+    phone["📱 Phone<br/>records, reviews"]
+    pc["🖥 Your PC<br/>transcribe → separate speakers → write minutes<br/>keeps the audio and the data"]
+    phone -- "Tailscale (a private, encrypted network)" --> pc
 ```
 
-The first pull is about 7.5 GB and unpacks to about 21 GB on disk — nearly all of it CUDA and
-PyTorch. **Without an NVIDIA GPU, use the CPU images instead** — they are multi-arch, so they
-also run on Apple silicon, and take under 0.5 GB to pull and 1.8 GB on disk:
+The PC stays on during meetings; the phone connects to it. You can also use it from the PC's own
+browser.
+
+**Recommended:** a PC with an NVIDIA GPU, an Android phone, and Tailscale.
+
+---
+
+## Contents
+
+1. [What you need](#1-what-you-need)
+2. [Quick start](#2-quick-start)
+3. [Check that it works](#3-check-that-it-works)
+4. [Everyday use](#4-everyday-use)
+5. [Features at a glance](#5-features-at-a-glance)
+6. [When something is wrong](#6-when-something-is-wrong)
+7. [Documentation](#7-documentation)
+
+---
+
+## 1. What you need
+
+| | |
+| --- | --- |
+| **PC** | Windows, Linux or macOS, on during meetings |
+| **GPU** | **Recommended:** NVIDIA, 8 GB VRAM or more. **Not required** (below) |
+| **Disk** | About 40 GB free (about 20 GB without a GPU). The first run downloads a dozen or so GB of images and models |
+| **Docker Desktop** | On the PC. Free |
+| **Phone** | Android recommended — the app records with the screen off. An iPhone works through the browser (below) |
+| **Tailscale** | On the PC and the phone. Free for personal use |
+
+**Without an NVIDIA GPU** it runs on a Mac or any PC. What changes is **when** the text appears —
+when the meeting ends instead of as you speak — and that writing the minutes takes longer (around a
+quarter of an hour each on a CPU). See [what runs on what](docs/setup.md#what-runs-on-what). Neither
+Mac route has been run on a real Mac yet ([what has actually been run](docs/setup.md#what-has-actually-been-run)).
+
+**On an iPhone** the recording happens in the browser, and **can stop if the screen goes off**. Keep
+the screen on (the page stops it from sleeping while recording), or use Android for long meetings.
+
+---
+
+## 2. Quick start
+
+For a Windows PC with an NVIDIA GPU. Other machines, installing without the command line, and the
+two installs that do not use Docker are in [Setup](docs/setup.md).
+
+**① Install Docker Desktop and Tailscale on the PC, and Tailscale on the phone**
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — on an NVIDIA machine keep the
+  default WSL2 backend
+- [Tailscale](https://tailscale.com/download) — sign in with **the same account** on both
+
+**② Turn on HTTPS in Tailscale, and find the PC's address**
+
+In the admin console's [DNS page](https://login.tailscale.com/admin/dns), enable **MagicDNS** and
+**HTTPS Certificates**. The PC's address has the form `<host>.<tailnet>.ts.net`; copy it from the
+[machines list](https://login.tailscale.com/admin/machines).
+
+**③ Fetch the two files**
 
 ```bash
+mkdir voxinq
+cd voxinq
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
+```
+
+**④ Set four values in `.env`**
+
+```env
+POSTGRES_PASSWORD="a password you choose"
+DATABASE_URL="postgresql://voxinq:the-same-password@db:5432/voxinq"
+TZ="Europe/London"
+STT_WS_URL="wss://<host>.<tailnet>.ts.net:8443/ws"
+```
+
+- `STT_WS_URL` is where the phone reaches the transcription service. **Required to record from a phone.**
+- Everything else can wait until you want it — [every variable](docs/configuration.md).
+
+**⑤ Start it**
+
+```bash
+docker compose up -d
+```
+
+Without an NVIDIA GPU, fetch the CPU override and start with both files:
+
+```bash
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
 docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 ```
 
-Speaker separation on an NVIDIA GPU uses pyannote: accept the terms for
-[speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
-and put your token in `.env` as `HF_TOKEN`. Everywhere else it runs on ungated ONNX models and
-needs no token — see [Speaker separation](docs/setup.md#speaker-separation).
-
-**Without Docker** — one command brings up a bundled PostgreSQL, the transcription service and
-the web app. Node and Python come from the package manager; nothing else to install.
+**⑥ Fetch the model that writes the minutes**
 
 ```bash
-brew install ikasast/voxinq/voxinq                             # macOS, Linux
-scoop bucket add voxinq https://github.com/ikasast/scoop-voxinq   # Windows
-scoop install voxinq
-
-voxinq setup      # dependencies, build, speech models — a few minutes
-voxinq start      # and it opens in your browser
+docker compose exec ollama ollama pull qwen3:8b
 ```
 
-The Scoop route is verified end to end; the Homebrew formula is written but has not been
-installed from, for want of a Mac. From a clone, `cd cli && npm install && npm link` gives you
-the same `voxinq` command.
+An administrator can also download it from **Settings → LLM**.
 
-Then open `http://localhost:3000` → **New meeting → Set up meeting**, press **Start recording**
-on the next screen once it says *Model ready*, talk, and finish with **Generate minutes**.
-(Or just **drop an audio file** on the New meeting screen.)
+**⑦ Make it reachable from the phone**
 
-The interface is in **English or Japanese** — it follows your browser, or the language chosen
-in **Settings**. An empty meeting list offers a **sample meeting** with a numbered guide to what
-to press: the real features acting on invented data, deleted like any meeting when you are done.
+```bash
+tailscale serve --bg --https=443 localhost:3000
+tailscale serve --bg --https=8443 localhost:8000
+```
 
-📖 Docker details, manual install and background services: **[docs/setup.md](docs/setup.md)**.
-To record from your phone, you need an HTTPS address it can reach — the Tailscale walkthrough
-is **[here](docs/remote-access.md#step-by-step-including-the-phone)**.
+> ⚠️ Port 8443, the transcription service, has no authentication. **Never publish it outside your
+> tailnet** (Funnel or otherwise).
 
-> ⚡ Always serve a production build (`scripts/start` does). `npm run dev` breaks hydration when accessed cross-origin (e.g. over Tailscale).
+**⑧ Open it on the phone**
 
-## 📖 Usage
+- **Android:** install `voxinq-<version>.apk` from [the latest release](https://github.com/ikasast/voxinq-meeting/releases/latest)
+  and enter `https://<host>.<tailnet>.ts.net` when it asks
+- **iPhone:** open `https://<host>.<tailnet>.ts.net/` in Safari, then add it to the home screen from
+  the ⤓ icon at the top right
 
-- **Record a meeting:** New meeting → *Set up meeting* → *Start recording* (the wide button at the bottom, where a thumb reaches it) → speak → *Generate minutes*. Minutes generate in the background while you land on the meeting.
-- **Summarize an existing file:** drag a recording onto the New meeting screen → it transcribes, then summarizes.
-- **Ask about past meetings:** open a series (↻ chip) → *Ask about these minutes* → “前回までのTODOを教えて”.
-- **Record a room, not a handset:** Settings → **Mic mode → Room**. It turns the browser's
-  processing off *and* raises the level, which is what makes a voice from across a table loud
-  enough to be recognised — a phone's automatic gain is tuned for a handset held to the ear.
-  Press **Check the microphone** first: it shows the loudest level it heard against the level
-  speech needs, so "it cannot hear me from over there" becomes a number.
-- **Improve speaker labels:** open a meeting → *Diarize* above the transcript → rename speakers; regenerate minutes.
-- **Fix or drop a line:** hover an utterance → ✎ to correct a misheard name, 🗑 to remove it. Minutes are then built from the right words.
-- **Fix the same mishearing everywhere:** *Find & replace*, below the speaker names — preview the matches, then replace across the transcript in one go.
-- **Fix a bad transcript:** *Re-transcribe* with a larger model (e.g. `large-v3`) or a saved endpoint, then regenerate.
-- **Send the minutes on:** the ⬇ on the Minutes card saves them as Markdown, **Word (`.docx`)** with real formatting, or **PDF** through your browser's print view. The meeting's own ⬇ bundles transcript, metadata and recording alongside.
-- **Tune the output:** Settings → Minutes → set language, detail level (brief / standard / detailed), and save formats to pick from when writing.
-- **Share the machine:** create the first account (**Create an account**, linked from the login screen) — you become the administrator, and everything already on the server becomes yours. Everyone else signs in, or is recognised by their tailnet identity. **Keep the recovery code you are shown**; it is the only way back into your own meetings if you forget the password.
-- **Use a bigger model on an external GPU:** run vLLM/Ollama on a rented GPU, then set Settings → LLM to that endpoint.
+That is the install. After a restart, Voxinq comes back up with Docker Desktop (which starts at
+sign-in by default).
+
+---
+
+## 3. Check that it works
+
+Installed and usable in a meeting are not the same thing, so run one short meeting through from the
+phone:
+
+- [ ] Voxinq opens on the phone
+- [ ] **New meeting** → **Set up meeting** → **Check the microphone** shows the level moving
+- [ ] **Start recording** and speak — text appears (without a GPU, it appears after you stop)
+- [ ] Finish with **Generate minutes** — the minutes appear on the meeting's page
+- [ ] **Diarize** on the meeting's page — the lines are split by speaker
+
+If separating speakers fails on an NVIDIA PC, it needs a Hugging Face token (`HF_TOKEN`) —
+see [Speaker separation](docs/setup.md#speaker-separation). Without an NVIDIA GPU no token is needed.
+
+Anything else: [When something is wrong](#6-when-something-is-wrong).
+
+---
+
+## 4. Everyday use
 
 ![Voxinq Meeting in action](docs/screenshots/demo.gif)
+
+**Before the meeting.** Make sure the PC is on and open Voxinq on the phone. **New meeting** — an
+agenda written in *Purpose & agenda* makes better minutes. A meeting booked for later waits under
+**Upcoming**, and the Android app rings at its time.
+
+**During it.** **Set up meeting** → **Check the microphone** → **Start recording**. The one failure
+nothing can repair afterwards is a meeting nobody recorded, and the check takes ten seconds. When
+recording in a browser, stay on the recording screen — leaving it stops the recording.
+
+**After it.** Three ways to finish. Each lands on the meeting's page, and the work carries on on the
+PC, so **the phone can be put away**.
+
+| | |
+| --- | --- |
+| **Generate minutes** | finish and write the minutes (the usual choice) |
+| **Diarize** | finish and separate the speakers first |
+| **End only** | finish; do the rest later |
+
+**Review.** Read and fix on the phone or the PC: correct a misheard line, fix a word misheard the
+same way everywhere with **Find & replace**, regenerate the minutes in another format or level of
+detail, and **ask** the minutes a question.
 
 | Recording | Minutes |
 | --- | --- |
 | ![Recording screen](docs/screenshots/recording.png) | ![Minutes](docs/screenshots/minutes.png) |
 
-## 📚 Documentation
+---
+
+## 5. Features at a glance
+
+| | |
+| --- | --- |
+| **Named speakers** | Enrol a voice once; it is named in every meeting after |
+| **Series** | Recurring meetings share a background, regular members and the previous minutes |
+| **Upcoming** | Book a meeting ahead; a banner (and the Android app) tells you when it starts |
+| **Write them all** | Minutes for every meeting that has none, queued in one go |
+| **From a file** | Drop a recording on New meeting — or share one to the Android app |
+| **Suggest fixes** | Checks the transcript against your glossary, series name and members |
+| **Translation** | A Japanese translation under each non-Japanese line, on the CPU |
+| **Accounts** | Several people on one machine, each encrypted under their own key |
+| **Export & backup** | Minutes as Markdown, Word or PDF; the whole instance to one file and back |
+| **Read-only sharing** | One click publishes a password-protected link outside your tailnet |
+
+The interface is in **English or Japanese**, following your browser or **Settings**. An empty meeting
+list offers a **sample meeting** to learn on. More: [Usage & recipes](docs/usage.md).
+
+---
+
+## 6. When something is wrong
+
+| Symptom | Check first |
+| --- | --- |
+| The phone cannot open it, or shows a blank page | Is Tailscale connected on the phone? Is the address `https://`? |
+| No text while recording | Is `STT_WS_URL` right? Without a GPU, text arriving after you stop is normal |
+| No minutes | Has `ollama pull` finished? **Settings → LLM** shows it |
+| Separating speakers fails | On an NVIDIA PC, `HF_TOKEN` |
+| No notice at a booked meeting's time | The Android app's notification permission, and that its battery setting is not *Restricted* |
+
+More: [Troubleshooting](docs/troubleshooting.md).
+
+---
+
+## 7. Documentation
 
 | I want to… | Read |
 | --- | --- |
-| **Install it** (all three routes, background services, phone access) | 📦 [Setup](docs/setup.md) |
+| **Install it** (every route, background services, phone access) | 📦 [Setup](docs/setup.md) |
 | **Reach it from a phone / share read-only** (Tailscale, publish toggle, WireGuard) | 🌐 [Remote access](docs/remote-access.md) |
 | **Change a setting** (every `.env` variable and `settings.json` option) | ⚙️ [Configuration](docs/configuration.md) |
 | **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](docs/llm-providers.md) |
 | **Learn the features** (record, upload, diarize, find & replace, export, archive) | 📖 [Usage & recipes](docs/usage.md) |
+| **Use the Android app** (install, updates, what it does) | 📱 [Android app](android/README.md) |
 | **Understand how it works** (components, data flow, what is Voxinq and what is not) | 🏗 [Architecture](docs/architecture.md) |
 | **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](docs/design-decisions.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](docs/troubleshooting.md) |
 
-日本語で読む方は **[日本語ガイド](README.ja.md)** をどうぞ — 導入から日常運用まで一通り解説しています。
+Similar open-source projects: [Meetily](https://github.com/Zackriya-Solutions/meeting-minutes),
+[Transcription Stream](https://github.com/transcriptionstream/transcriptionstream).
 
-## 🏗 Architecture
+## License
 
-```mermaid
-flowchart LR
-  subgraph Browser["The device you are sitting at — phone, laptop, this PC"]
-    UI["Voxinq UI<br/>Next.js"]
-  end
-  subgraph Host["The one machine that runs Voxinq — the server"]
-    subgraph Vox["Voxinq — what this project is"]
-      Web["Web app<br/>Next.js + Prisma"]
-      STT["STT service<br/>FastAPI"]
-      TR["Translation<br/>optional"]
-      DIA["Speaker separation"]
-    end
-    DB[("PostgreSQL")]
-    LLM["LLM<br/>Ollama, or any<br/>OpenAI-compatible"]
-  end
-
-  UI -- "HTTPS: pages, minutes, edits" --> Web
-  UI -- "WSS: live audio + upload" --> STT
-  Web -- "SQL (Prisma)" --> DB
-  Web -- "generate minutes, ask questions" --> LLM
-  STT -- "non-Japanese utterances" --> TR
-  STT -- "after meeting: WAV + segments" --> DIA
-
-  classDef own fill:#0d9488,stroke:#0f766e,color:#fff
-  classDef ext fill:#e5e7eb,stroke:#9ca3af,color:#111
-  class UI,Web,STT,TR,DIA own
-  class DB,LLM ext
-```
-
-**The two outer boxes are two different computers.** Everything on the right runs on one machine
-you control — the server. On the left is whatever you open it on: a phone, a laptop, or that
-same machine's own browser.
-
-- Shaded is **Voxinq's own code**; grey is software it runs but does not replace. The
-  recognition engine is third-party too — the STT service picks between faster-whisper and
-  whisper.cpp, and speaker separation between pyannote and sherpa-onnx, from what the machine
-  can run.
-- The browser talks to the STT service **directly** — the web app never proxies audio. That is
-  what makes recording from a phone work, and why the recording never travels further than the
-  one machine.
-- On a single 8 GB NVIDIA card the GPU is **time-shared**: Whisper runs during the meeting, the
-  LLM after it ends. With more VRAM, or none at all, there is nothing to take turns over.
-- The meeting list is banded by how long ago things happened, a **calendar** over it turns a
-  half-remembered date into a place to click, and a recurring series lists its meetings
-  individually rather than folding them behind a disclosure — its chip filters the list instead.
-- **The microphone can be checked before recording**, and the microphone the check opens is the
-  one the recording uses. A meeting nobody recorded is the one failure here that cannot be
-  undone.
-- **Several people can share one instance.** Each person's meetings, minutes, voiceprints and
-  settings are their own; an administrator runs the machine and cannot read what is on it.
-  Ownership is enforced inside the database client rather than on each route, so a route that
-  forgets cannot leak.
-- **Transcripts and minutes are encrypted at rest** under a key belonging to the account, opened
-  by signing in and forgotten when nothing needs it. Titles and dates stay readable — they are
-  what the list and the calendar are made of. Search still works, through an index of keyed
-  hashes, so the server matches without holding the words. What that protects, and what it does
-  not, is written down in [design decisions](docs/design-decisions.md).
-- Minutes, speaker separation and re-transcription are a **server-side queue**, so closing the
-  tab does not abandon them. How many run at once is worked out from what each expects to need
-  and what the card has — work sent to a cloud model or an endpoint costs nothing here and
-  never waits. **Recording never waits**: if something else holds the card it asks whether to
-  interrupt it or to record without live text, and the audio is kept either way.
-
-📖 Full detail, component by component: **[docs/architecture.md](docs/architecture.md)**.
-
-## ⚙ Configuration
-
-- **`.env`** (copy from [`.env.example`](.env.example)) — `DATABASE_URL`, the STT WebSocket URL, optional password auth, whether accounts can be created (`VOXINQ_SIGNUP`), and the secret that wraps unlocked keys (`VOXINQ_KEY_SECRET`).
-- **`settings.json`** (edit in the UI under **Settings**, no restart) — Whisper model, LLM provider/model (Ollama / vLLM / LM Studio / Anthropic / OpenAI), minutes language, detail level, custom format, API keys. With accounts, some of these belong to the machine and some to each person; an administrator sets the defaults everyone starts from.
-- **Retention** — recordings auto-delete after 7 days (protect to keep); trashed meetings purge after 30 days.
-
-Full reference: **[docs/configuration.md](docs/configuration.md)**.
-
-## 🤝 Notes
-
-- Whisper and the LLM cannot both stay resident on 8 GB — the app releases Whisper on meeting end.
-- Similar open-source projects: [Meetily](https://github.com/Zackriya-Solutions/meeting-minutes), [Transcription Stream](https://github.com/transcriptionstream/transcriptionstream).
-
-## 📄 License
-
-Released under the [MIT License](LICENSE) — © 2026 ikasast.
-
-You are free to use, modify, and distribute this software, including commercially, provided the copyright and license notice are retained. The software is provided "as is", without warranty of any kind.
-
-> **Third-party components** ship under their own licenses. [pyannote.audio](https://github.com/pyannote/pyannote-audio) models require accepting the terms on Hugging Face — that path is used only on an NVIDIA GPU; elsewhere speaker separation runs on ungated ONNX models. Whisper and your chosen LLM (Ollama models, etc.) are subject to their respective licenses. Review these before deploying.
+Released under the [MIT License](LICENSE) — © 2026 ikasast. Third-party components ship under their
+own licenses: [pyannote.audio](https://github.com/pyannote/pyannote-audio) models require accepting
+their terms on Hugging Face (used only on an NVIDIA GPU), and Whisper and your chosen LLM are subject
+to theirs.
