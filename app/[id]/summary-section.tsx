@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDateTimeIn } from "@/lib/i18n/format";
 import { PencilIcon, RefreshIcon } from "../icons";
+import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopySummaryButton } from "./copy-summary-button";
 import { MinutesDownloadButton } from "./minutes-download-button";
@@ -87,7 +88,7 @@ export function SummarySection({
   // Another meeting's work used to block this button. Minutes are a queued job now, so asking
   // while something else runs puts it in line instead of being refused — the wait is real, it
   // is just no longer a wall. What is left is something to say, not something to disable.
-  const waitingOn = gpu.busy && gpu.minutesMeetingId !== meetingId ? gpu.label : null;
+  const waitingOn = gpu.busy && gpu.minutesMeetingId !== meetingId ? busyLabel(t, gpu.kind) : null;
 
   // While processing, refresh the server periodically to pick up completion.
   useEffect(() => {
@@ -206,7 +207,7 @@ export function SummarySection({
                 className="btn-icon-accent"
                 title={
                   waitingOn
-                    ? `${waitingOn} — this will wait its turn in the queue.`
+                    ? t("{task} — this will wait its turn in the queue.", { task: waitingOn })
                     : t("Regenerate the minutes (choose detail & provider)")
                 }
                 aria-label={t("Regenerate")}

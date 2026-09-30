@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentMinutesBusy } from "@/lib/minutes-busy";
+import { busyLabel } from "@/lib/queue/job-label";
 import { sttHttpBase } from "@/lib/stt/client";
 import { preloadStt, sttHealth, sttWarmupFromSettings } from "@/lib/stt/preload";
 import { useT } from "./locale-provider";
@@ -114,9 +115,7 @@ export function HealthStatus({ showStt }: { showStt: boolean }) {
     const mb = await currentMinutesBusy();
     if (mb.busy) {
       setWarming(false);
-      setWarmMsg(
-        t("Minutes are being generated — the GPU is busy. Try again once they finish."),
-      );
+      setWarmMsg(t("{task} — the GPU is busy. Try again once it finishes.", { task: busyLabel(t, mb.kind) }));
       return;
     }
     const { model, translate } = await sttWarmupFromSettings();

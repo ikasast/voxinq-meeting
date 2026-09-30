@@ -4,6 +4,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useT } from "./locale-provider";
+import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "./use-gpu-busy";
 
 type Answer = {
@@ -19,17 +20,6 @@ type Source = "minutes" | "transcript";
 
 // Ask a question against the minutes of a series (or of a single meeting that has no
 // series — a one-off is just a series of one). The answer is read once and not stored.
-/** What `useGpuBusy` reports, in the reader's language. */
-function busyLabel(t: (k: string) => string, label: string): string {
-  const table: Record<string, string> = {
-    "Generating minutes…": t("Generating minutes…"),
-    "Recording in progress…": t("Recording in progress…"),
-    "Transcribing…": t("Transcribing…"),
-    "Diarizing…": t("Diarizing…"),
-  };
-  return table[label] ?? label;
-}
-
 export function AskMinutes({
   seriesId,
   meetingId,
@@ -149,7 +139,7 @@ export function AskMinutes({
       {blocked ? (
         <p className="text-xs text-[var(--warning)]">
           {t("{task} — you can ask once it finishes.", {
-            task: gpu.label ? busyLabel(t, gpu.label) : t("A GPU task is running"),
+            task: busyLabel(t, gpu.kind),
           })}
         </p>
       ) : (
