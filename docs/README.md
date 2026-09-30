@@ -19,4 +19,4 @@ want to do:
 > Voxinq Meeting is self-hosted: by default the audio, the transcripts and the minutes all stay
 > on your own machine, and every route off it is one you choose and can see.
 
-日本語で読みたい方は **[日本語ガイド](../README.ja.md)** をどうぞ（導入から日常運用まで一通り解説しています）。
+日本語で読みたい方は **[日本語ガイド](../README.ja.md)** をどうぞ（最短の導入手順と基本の使い方）。詳しい導入・機能・セキュリティ・困ったときは [docs/ja](ja/) にあります。
