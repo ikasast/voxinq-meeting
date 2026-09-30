@@ -1,0 +1,36 @@
+name: Node and dependencies
+description: >-
+  Node 20 and node_modules, restored whole while the lockfile and the Prisma schema are
+  unchanged, and installed with `npm ci` when either has changed.
+
+# Shared by every job in CI that needs the app's dependencies.
+#
+# node_modules itself is cached rather than npm's download cache. Restoring the download cache
+# still leaves `npm ci` to unpack and link every package, which was 15 of the 23 seconds each job
+# spent getting ready; restoring the finished directory is a single archive.
+#
+# The Prisma schema is part of the key because the generated client lives in node_modules
+# (@prisma/client generates it on install). A schema change with the same lockfile would
+# otherwise restore a client generated from the old schema.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - id: modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'prisma/schema.prisma') }}
+    # The client is generated explicitly rather than left to @prisma/client's install hook. That
+    # hook reads prisma.config.ts, which needs DATABASE_URL; in a job without one it failed with
+    # only a warning, and whichever job saved the cache decided whether the cached node_modules
+    # had a client in it at all. The URL is never connected to here, so a placeholder will do.
+    - if: steps.modules.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        DATABASE_URL: ${{ env.DATABASE_URL || 'postgresql://ci:ci@localhost:5432/ci' }}
+      run: |
+        npm ci
+        npx prisma generate
