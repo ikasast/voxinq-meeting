@@ -6,6 +6,7 @@ import { isValidSpeakerKey } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
 import { applySeriesMembers, pruneOrphanSeries, seriesIdForName } from "@/lib/series";
 import { pruneOrphanTags } from "@/lib/tags";
+import { RECORDING_KIND } from "@/lib/queue/types";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     series?: unknown;
     speakerLabels?: unknown;
     archived?: unknown;
+    scheduledAt?: unknown;
   }>(req);
 
   // From outside the private network this route is open so a meeting can be *set up* — its
@@ -59,6 +61,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     archivedAt?: Date | null;
     tags?: { set: []; connectOrCreate: { where: { name: string }; create: { name: string } }[] };
     series?: { connect: { id: string } } | { disconnect: true };
+    scheduledAt?: Date;
+    startedAt?: Date;
   } = {};
 
   if (body?.archived !== undefined) {
@@ -117,6 +121,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
     data.speakerLabels = JSON.stringify(cleaned);
+  }
+
+  // Moving a booked meeting to another time. Only while it is still only a booking: once it has
+  // been recorded, its times come from the recording, and a line's time is reconstructed as
+  // "meeting start + its offset", so moving the start would move every line with it. A meeting
+  // that is being recorded right now has no lines yet and no end, and is refused by its hold on
+  // the card. Open from outside like the rest of setting a meeting up, as booking it is.
+  //
+  // `startedAt` moves too: a booked meeting carries its diary time there until it is recorded,
+  // which is what the list and the page show (see POST /api/meetings).
+  if (body?.scheduledAt !== undefined) {
+    if (typeof body.scheduledAt !== "string" || !body.scheduledAt.trim()) {
+      return apiError("scheduledAt is not a date", 400);
+    }
+    const at = new Date(body.scheduledAt);
+    if (Number.isNaN(at.getTime())) return apiError("scheduledAt is not a date", 400);
+    const current = await prisma.meeting.findUnique({
+      where: { id },
+      select: { scheduledAt: true, endedAt: true, _count: { select: { transcripts: true } } },
+    });
+    if (!current) return apiError("not found", 404);
+    const recording = await prisma.job.findFirst({
+      where: { kind: RECORDING_KIND, meetingId: id, status: "running" },
+      select: { id: true },
+    });
+    if (
+      current.scheduledAt === null ||
+      current.endedAt !== null ||
+      current._count.transcripts > 0 ||
+      recording
+    ) {
+      return apiError("Only a booked meeting that has not been recorded yet can be moved.", 409);
+    }
+    data.scheduledAt = at;
+    data.startedAt = at;
   }
 
   if (Object.keys(data).length === 0) return apiError("no valid fields", 400);

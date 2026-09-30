@@ -55,6 +55,8 @@ export const SERVER_MESSAGES = [
   "No utterances recorded",
   "Stored embeddings are corrupted. Re-run Diarize.",
 
+  // Moving a booked meeting.
+  "Only a booked meeting that has not been recorded yet can be moved.",
   // Reached from outside the private network.
   "This server is read-only from outside your private network.",
   "backups are only available from inside your private network",

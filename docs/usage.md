@@ -65,6 +65,10 @@ The date shown is the one it is booked for. Once it has been recorded, the start
 corrected to when the recording actually began — a meeting booked for Tuesday and recorded on
 Wednesday would otherwise read "Tue 14:00 – Wed 15:20".
 
+**The time can be changed** with ✎ beside it on the meeting's page, for as long as the meeting has
+not been recorded. The list and the phone's notice follow it. Once it has been recorded the times
+come from the recording, and the pencil is gone.
+
 Leave **When** empty and everything behaves as it always has: the meeting is created and
 recording starts immediately.
 

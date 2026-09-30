@@ -231,6 +231,8 @@ export const ja: Record<string, string> = {
 
   // ---- The buttons along the top of the meeting ----
   "Edit meeting title": "タイトルを編集",
+  "Change the booked time": "予定の日時を変更",
+  "Only a booked meeting that has not been recorded yet can be moved.": "日時を変更できるのは、まだ録音していない予定の会議だけです。",
   "Failed to save": "保存に失敗しました",
   "Saving…": "保存中…",
   "Could not save": "保存できませんでした",

@@ -12,6 +12,7 @@ import { AskMinutes } from "../ask-minutes";
 import { MeetingListPane } from "../meeting-list-pane";
 import { PageHeader } from "../page-header";
 import { ArchiveButton } from "./archive-button";
+import { BookedTime } from "./booked-time";
 import { CloneMeetingButton } from "./clone-meeting-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 import { DownloadMeetingButton } from "./download-meeting-button";
@@ -144,7 +145,15 @@ export default async function MeetingDetailPage({
               not allow. */}
           <MeetingTitle id={meeting.id} title={meeting.title} />
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {formatDateTimeIn(locale, meeting.startedAt)}
+            {upcoming && meeting.scheduledAt ? (
+              <BookedTime
+                id={meeting.id}
+                at={meeting.scheduledAt.toISOString()}
+                label={formatDateTimeIn(locale, meeting.scheduledAt)}
+              />
+            ) : (
+              formatDateTimeIn(locale, meeting.startedAt)
+            )}
             {meeting.endedAt ? (
               <> – {formatDateTimeIn(locale, meeting.endedAt)}</>
             ) : upcoming ? (
