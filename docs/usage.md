@@ -186,7 +186,9 @@ account.
 ## Summarize an existing recording (no live capture)
 
 Drag an audio file (`wav`/`mp3`/`m4a`/…) onto the **New meeting** screen. Voxinq Meeting creates the
-meeting, transcribes the file, and generates minutes automatically.
+meeting, sends the file to your server and opens the meeting. The recognition and then the minutes
+run there as [queued jobs](#the-queue), one after the other, so once the upload has finished you
+can close the tab; the meeting page shows where they have got to.
 
 **On Android, share it to the app instead.** A recording made by a voice recorder app, or one
 somebody sent in a chat, goes to Voxinq from the share sheet: the app asks once, sends the file,

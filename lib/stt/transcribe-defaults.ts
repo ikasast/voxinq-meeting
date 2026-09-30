@@ -14,6 +14,8 @@ export type TranscribeRequest = {
   language?: string;
   initialPrompt?: string;
   translate?: boolean;
+  /** Carried through untouched: it is for the queue, not for the recogniser. */
+  thenMinutes?: boolean;
 };
 
 /** The settings, plus the one thing that belongs to this meeting rather than the host. */
@@ -50,5 +52,7 @@ export function withDefaults(asked: TranscribeRequest, ctx: TranscribeContext): 
     language: asked.language ?? effectiveSttLanguage(model, ctx.language),
     initialPrompt: asked.initialPrompt ?? (glossary || undefined),
     translate: asked.translate ?? ctx.translate === true,
+    // Not a recognition setting, so there is nothing to fill in for it.
+    ...(asked.thenMinutes ? { thenMinutes: true } : {}),
   };
 }

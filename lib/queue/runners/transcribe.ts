@@ -19,6 +19,15 @@ export type TranscribeParams = {
   language?: string;
   initialPrompt?: string;
   translate?: boolean;
+  /**
+   * Write the minutes once this has produced a transcript.
+   *
+   * For the one case that used to be a browser holding the whole chain open: a file dropped on
+   * New meeting, which is "here is a recording, give me the minutes" in one gesture. The
+   * minutes cannot be queued alongside, because a minutes job with nothing to read from fails;
+   * so the queue chains them, and the tab is free to go.
+   */
+  thenMinutes?: boolean;
 };
 
 /**
@@ -103,5 +112,9 @@ export async function runTranscribe(
     backend: runtime.backend,
     device: runtime.device,
   };
-  return { note: typeof result.note === "string" ? result.note : undefined, metrics };
+  return {
+    note: typeof result.note === "string" ? result.note : undefined,
+    metrics,
+    thenMinutes: params.thenMinutes === true,
+  };
 }

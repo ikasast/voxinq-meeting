@@ -69,6 +69,7 @@ export function TranscriptList({
   seriesGlossary,
   hasCorrectionTerms,
   readOnly = false,
+  transcribeJobId = null,
 }: {
   meetingId: string;
   meetingTitle: string;
@@ -90,6 +91,8 @@ export function TranscriptList({
   hasCorrectionTerms: boolean;
   // External (read-only) access can view/play/share but not diarize, re-transcribe or reassign.
   readOnly?: boolean;
+  /** A recognition already queued or running for this meeting when the page was rendered. */
+  transcribeJobId?: string | null;
 }) {
   const t = useT();
   const [transcripts, setTranscripts] = useState<Item[]>(initialTranscripts);
@@ -122,8 +125,12 @@ export function TranscriptList({
   const [diarWarn, setDiarWarn] = useState<string | null>(null);
   const [recInfo, setRecInfo] = useState<RecordingInfo | null>(null);
   const [recBusy, setRecBusy] = useState(false);
-  const [retransing, setRetransing] = useState(false);
-  const [retransStatus, setRetransStatus] = useState<string | null>(null);
+  // Busy from the first frame when the page opened on a recognition already in the queue (see
+  // the effect that follows it), so the button is never briefly offered for one on its way.
+  const [retransing, setRetransing] = useState(Boolean(transcribeJobId));
+  const [retransStatus, setRetransStatus] = useState<string | null>(
+    transcribeJobId ? t("Waiting for the GPU to be free…") : null,
+  );
   const [retransWarn, setRetransWarn] = useState<string | null>(null);
   // Re-transcription changes things this component does not own: t("Transcribed with") on the
   // meeting is rendered on the server, so replacing the transcript here left it showing the
@@ -567,6 +574,42 @@ export function TranscriptList({
     setSpeakerLabels(parseSpeakerLabels(d.speakerLabels ?? null));
     listRouter.refresh();
   }, [meetingId, listRouter]);
+
+  // A recognition that was already in the queue when the page opened: a file dropped on New
+  // meeting, an import from the phone, a re-transcription from before a reload. Followed the
+  // same way as one started from here, so the page says where it has got to -- and picks up the
+  // transcript when it lands -- instead of saying there is none.
+  useEffect(() => {
+    if (!transcribeJobId) return;
+    let stopped = false;
+    // Also marks the list busy, for a job that turns up on a later render rather than the first.
+    const report = (s: string) => {
+      setRetransing(true);
+      setRetransStatus(s);
+    };
+    void (async () => {
+      try {
+        const job = await awaitJob(transcribeJobId, report, () => stopped);
+        if (!job) return;
+        if (job.status === "error") throw new Error(job.detail ?? job.status);
+        if (job.status === "cancelled") {
+          setRetransStatus(t("Cancelled."));
+          return;
+        }
+        await reloadTranscript();
+        setRetransWarn(job.detail ?? null);
+        setRetransStatus(null);
+      } catch (e) {
+        setError(t("Transcription failed: {error}", { error: (e as Error).message }));
+        setRetransStatus(null);
+      } finally {
+        if (!stopped) setRetransing(false);
+      }
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, [transcribeJobId, awaitJob, reloadTranscript, t]);
 
   const retranscribe = useCallback(async () => {
     const ok = await confirm({
@@ -1211,7 +1254,7 @@ export function TranscriptList({
           open={retransOpen}
           onToggle={() => setRetransOpen((v) => !v)}
         >
-          {transcripts.length === 0 ? (
+          {transcripts.length === 0 && !retransing ? (
             <p className="mb-2 text-xs text-[var(--text-muted)]">
               {t(
                 "There is no transcript, but the recording remains. You can restore it from here.",
@@ -1374,7 +1417,10 @@ export function TranscriptList({
       ) : null}
 
       {transcripts.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--text-muted)]">{t("No transcript.")}</p>
+        <p className="mt-4 text-sm text-[var(--text-muted)]">
+          {/* One being made is not the same as none. */}
+          {retransing && retransStatus ? retransStatus : t("No transcript.")}
+        </p>
       ) : (
         <ul className="mt-4 space-y-2">
           {transcripts.map((t, i) => (

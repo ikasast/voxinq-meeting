@@ -13,9 +13,9 @@ import { serverT } from "@/lib/i18n/server";
 // "not run" rather than "pending". A tick list that marks a step someone never intends to take
 // as incomplete is nagging, not informing.
 //
-// Only minutes shows a running state. The STT service reports that it is diarizing, but not
-// *which* meeting it is diarizing, and this card sits on one particular meeting -- claiming a
-// different meeting's work as this one's would be worse than saying nothing.
+// Transcription and minutes show a running state, read from the queue, which knows which
+// meeting each job is for. Separating speakers does not: it is started from this page, and the
+// button that started it is where its progress is reported.
 
 type Step = {
   label: string;
@@ -40,6 +40,7 @@ export async function ProgressCard({
   speakerCount,
   summaryCount,
   minutesRunning,
+  transcribing = false,
 }: {
   ended: boolean;
   recordedMs: number | null;
@@ -53,6 +54,8 @@ export async function ProgressCard({
   summaryCount: number;
   /** Minutes queued or running, from the queue rather than from the meeting. */
   minutesRunning: boolean;
+  /** A recognition queued or running for this meeting — a first one, or one replacing it. */
+  transcribing?: boolean;
 }) {
   const t = await serverT();
   const locale = await currentLocale();
@@ -64,10 +67,10 @@ export async function ProgressCard({
       detail: recordedMs ? (formatDurationIn(locale, recordedMs) ?? undefined) : undefined,
     },
     {
-      label: t("Transcribed"),
-      state: transcriptCount > 0 ? "done" : "not-run",
+      label: transcribing ? t("Transcribing…") : t("Transcribed"),
+      state: transcribing ? "running" : transcriptCount > 0 ? "done" : "not-run",
       detail:
-        transcriptCount > 0
+        !transcribing && transcriptCount > 0
           ? t(transcriptCount === 1 ? "1 utterance" : "{n} utterances", { n: transcriptCount })
           : undefined,
     },

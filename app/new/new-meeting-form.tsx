@@ -7,7 +7,6 @@ import { defaultMeetingTitle } from "@/lib/meeting-title";
 import { dayFromKey } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
 import { abortMinutesAndSettle, currentMinutesBusy } from "@/lib/minutes-busy";
-import { sttHttpBase } from "@/lib/stt/client";
 import {
   WHISPER_MODELS,
   effectiveSttLanguage,
@@ -49,7 +48,7 @@ function choiceLabel(t: (k: string) => string, label: string): string {
 
 const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|oga|flac|webm|mp4|mov|mkv|opus)$/i;
 
-type Phase = null | "creating" | "transcribing" | "summarizing";
+type Phase = null | "creating" | "uploading";
 
 /**
  * @param external Reached from outside the private network. The transcription service is not
@@ -109,7 +108,6 @@ export default function NewMeetingForm({
   const [phase, setPhase] = useState<Phase>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const glossaryRef = useRef<string | undefined>(undefined);
   const translateRef = useRef(false);
 
   useEffect(() => {
@@ -143,7 +141,6 @@ export default function NewMeetingForm({
           s: {
             whisperModel?: string;
             micMode?: string;
-            sttGlossary?: string;
             sttTranslate?: boolean;
           } | null,
         ) => {
@@ -153,7 +150,6 @@ export default function NewMeetingForm({
         // silently reverting a chosen model would send the recording to the wrong one.
         if (s.whisperModel && !touched.current.has("model")) setModel(s.whisperModel);
         if (s.micMode && !touched.current.has("micMode")) setMicMode(s.micMode);
-        if (s.sttGlossary) glossaryRef.current = s.sttGlossary;
         translateRef.current = Boolean(s.sttTranslate);
         setSettingsLoaded(true);
         },
@@ -287,7 +283,17 @@ export default function NewMeetingForm({
     await startRecording();
   };
 
-  // Upload flow: create meeting -> upload audio -> transcribe -> minutes -> open detail.
+  // A dropped recording: create the meeting, hand the server the file, and let the queue do the
+  // rest — recognise it, then write it up.
+  //
+  // The browser used to do all of it: upload straight to the transcription service, sit on the
+  // status endpoint until it finished, post the lines back, then ask for minutes. Three things
+  // were wrong with that. Closing the tab lost the result of work that had already run; the
+  // recognition started immediately rather than taking its turn, so a file dropped during a
+  // recording fought it for the card; and none of it worked from outside the private network,
+  // where the transcription service is not reachable at all.
+  //
+  // What the tab waits for now is the upload, which is the only part it holds.
   const handleFile = async (file: File) => {
     if (phase || submitting) return;
     setError(null);
@@ -298,64 +304,38 @@ export default function NewMeetingForm({
     setPhase("creating");
     try {
       const meeting = await createMeeting(file.name);
-      const base = sttHttpBase();
 
-      setPhase("transcribing");
-      // Glossary = global setting + the series' glossary (if the meeting joined one).
-      let glossary = glossaryRef.current ?? "";
-      try {
-        const detail = (await fetch(`/api/meetings/${meeting.id}`).then((r) =>
-          r.ok ? r.json() : null,
-        )) as { series?: { sttGlossary?: string | null } | null } | null;
-        glossary = [glossaryRef.current, detail?.series?.sttGlossary]
-          .filter(Boolean)
-          .join("、");
-      } catch {
-        // best-effort — the global glossary alone is fine
-      }
-      const qs = new URLSearchParams({
-        language: effectiveSttLanguage(model, sttLanguage) ?? sttLanguage,
-        model,
-      });
-      if (glossary) qs.set("initialPrompt", glossary);
-      if (translateRef.current) qs.set("translate", "true");
-      const up = await fetch(`${base}/upload/${meeting.id}?${qs}`, { method: "POST", body: file });
-      if (!up.ok) {
-        const d = await up.json().catch(() => null);
-        throw new Error(d?.detail ?? `Upload failed (HTTP ${up.status})`);
-      }
-      let job = (await up.json()) as {
-        status: string;
-        utterances?: { start: number; end: number; text: string }[];
-        detail?: string;
-      };
-      while (job.status === "running") {
-        await new Promise((r) => setTimeout(r, 4000));
-        job = (await fetch(`${base}/transcribe/${meeting.id}/status`).then((r) => r.json())) as typeof job;
-      }
-      if (job.status !== "done" || !Array.isArray(job.utterances)) {
-        throw new Error(job.detail ?? t("Transcription failed."));
-      }
-
-      const apply = await fetch(`/api/meetings/${meeting.id}/apply-transcript`, {
+      setPhase("uploading");
+      const up = await fetch(`/api/meetings/${meeting.id}/recording`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ utterances: job.utterances }),
+        headers: { "Content-Type": "application/octet-stream" },
+        body: file,
       });
-      if (!apply.ok) {
-        const d = await apply.json().catch(() => null);
-        throw new Error(d?.error ?? `Failed to save transcript (HTTP ${apply.status})`);
+      if (!up.ok) {
+        const d = (await up.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? `Upload failed (HTTP ${up.status})`);
       }
+      // The meeting is over: it happened before the file existed. (Storing the file has already
+      // wound its start back by the recording's length; ending it records that length.)
       await fetch(`/api/meetings/${meeting.id}/end`, { method: "POST" }).catch(() => {});
 
-      setPhase("summarizing");
-      // Best-effort: if another minutes generation is in progress (409), just open the detail
-      // page — the user can generate later.
-      await fetch("/api/claude/summary", {
+      // The model and language are this form's own choice. Everything else -- the glossary,
+      // joined from the host's terms and the series' own, and whether to translate -- the
+      // server fills in from the settings, which is where this page was reading them from.
+      // It cannot lose a race with a settings response that has not arrived yet.
+      const queued = await fetch(`/api/meetings/${meeting.id}/transcribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meetingId: meeting.id }),
-      }).catch(() => {});
+        body: JSON.stringify({
+          model,
+          language: effectiveSttLanguage(model, sttLanguage) ?? sttLanguage,
+          thenMinutes: true,
+        }),
+      });
+      if (!queued.ok) {
+        const d = (await queued.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? `Could not queue the transcription (HTTP ${queued.status})`);
+      }
       router.push(`/${meeting.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Failed to process the file."));
@@ -368,11 +348,9 @@ export default function NewMeetingForm({
   const phaseLabel =
     phase === "creating"
       ? t("Creating meeting…")
-      : phase === "transcribing"
-        ? t("Transcribing the audio… (this can take a few minutes)")
-        : phase === "summarizing"
-          ? t("Generating minutes…")
-          : null;
+      : phase === "uploading"
+        ? t("Uploading the recording…")
+        : null;
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

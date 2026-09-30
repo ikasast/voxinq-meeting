@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getSttGlossary, getWhisperModel } from "@/lib/settings";
 import { correctionTerms } from "@/lib/correction-terms";
 import { minutesRunningFor } from "@/lib/meetings/minutes-state";
+import { parseParams } from "@/lib/queue/types";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
@@ -63,6 +64,18 @@ export default async function MeetingDetailPage({
   // Whether minutes are on the way is the queue's to answer, not the meeting's: the two used to
   // be written down separately and drifted. See lib/meetings/minutes-state.ts.
   const minutesRunning = await minutesRunningFor(meeting.id);
+  // Likewise a recognition on its way: a file dropped on New meeting, an import from the phone,
+  // or a re-transcription that was started before this page was reloaded. Without asking, the
+  // page would say "No transcript" and offer to restore one that is already being made.
+  const transcribing = await prisma.job.findFirst({
+    where: { kind: "transcribe", meetingId: meeting.id, status: { in: ["queued", "running"] } },
+    select: { id: true, params: true },
+  });
+  // Whether the minutes follow on their own (a dropped file asks for that), so the minutes card
+  // can say so instead of that there is nothing to write them from.
+  const minutesAfter =
+    transcribing !== null &&
+    parseParams<{ thenMinutes?: boolean }>(transcribing.params).thenMinutes === true;
 
   const external = await isExternalRequest();
   // Enrolled voice profiles, offered as suggestions when typing a participant. A name that
@@ -204,6 +217,7 @@ export default async function MeetingDetailPage({
           lastOutcome={meeting.summaryStatus}
           summaryError={meeting.summaryError}
           canGenerate={meeting.transcripts.length > 0}
+          minutesAfterTranscript={minutesAfter}
           readOnly={external}
           summaries={meeting.summaries.map((s) => ({
             id: s.id,
@@ -255,6 +269,7 @@ export default async function MeetingDetailPage({
             }).length > 0
           }
           readOnly={external}
+          transcribeJobId={external ? null : (transcribing?.id ?? null)}
           initialTranscripts={meeting.transcripts.map((t) => ({
             id: t.id,
             speakerType: t.speakerType,
@@ -281,6 +296,7 @@ export default async function MeetingDetailPage({
           speakerCount={new Set(meeting.transcripts.map((t) => t.speakerType)).size}
           summaryCount={meeting.summaries.length}
           minutesRunning={minutesRunning}
+          transcribing={transcribing !== null}
         />
         <MeetingMeta
           id={meeting.id}

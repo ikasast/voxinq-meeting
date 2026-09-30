@@ -25,6 +25,7 @@ export function SummarySection({
   lastOutcome,
   summaryError,
   canGenerate,
+  minutesAfterTranscript = false,
   readOnly = false,
 }: {
   meetingId: string;
@@ -36,6 +37,8 @@ export function SummarySection({
   lastOutcome: string | null;
   summaryError: string | null;
   canGenerate: boolean;
+  /** A recognition is on its way, and the queue will write the minutes once it lands. */
+  minutesAfterTranscript?: boolean;
   // External (read-only) access can view/copy/share/download but not edit or regenerate.
   readOnly?: boolean;
 }) {
@@ -251,7 +254,12 @@ export function SummarySection({
             <p className="mt-4 text-sm text-[var(--text-muted)]">{t("No minutes generated yet.")}</p>
             {canGenerate && !readOnly ? (
               <GenButton onClick={() => regenerate()} busy={genBusy} label={t("Generate minutes")} />
-            ) : readOnly ? null : (
+            ) : readOnly ? null : minutesAfterTranscript ? (
+              // Not "cannot be generated": nothing needs doing, they are coming.
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                {t("They will be written once the transcription is done.")}
+              </p>
+            ) : (
               <p className="mt-2 text-xs text-[var(--text-muted)]">{t("No transcript, so minutes cannot be generated.")}</p>
             )}
           </>
