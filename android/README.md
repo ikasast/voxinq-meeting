@@ -120,10 +120,10 @@ opens that meeting's recording page and starts it. It works with nothing open, a
 push service: the app sets an alarm for each meeting it knows about, within a day or so ahead,
 and checks with the server every quarter of an hour for anything new.
 
-What is late, and honestly: the notice can arrive a couple of minutes after the hour, because
-being exact to the second would mean asking for a permission. And a meeting booked minutes before
-it starts, while the phone is asleep, waits for the next check; anything booked earlier has an
-alarm of its own. A meeting already being recorded, or
+The notice is on time: each meeting's alarm is exact, with a permission Android grants at install
+to calendars and alarm clocks, so nothing is asked. (Before 3.8.4 it was inexact, and could be up
+to an hour late.) What is still late is one case: a meeting booked minutes before it starts, while
+the phone is asleep, waits for the next check — anything booked earlier has an alarm of its own. A meeting already being recorded, or
 recorded from somewhere else, is not announced — the server is asked at the moment the alarm goes
 off, and it is the server's answer that decides.
 

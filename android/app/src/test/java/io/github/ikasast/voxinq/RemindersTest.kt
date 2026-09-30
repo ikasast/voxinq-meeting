@@ -7,9 +7,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// The phone decides three things on its own: which meetings are worth an alarm, what the
-// server's answer actually said, and which meetings it has already mentioned. Everything else
-// is the server's word or the platform's. These are those three.
+// The phone decides four things on its own: which meetings are worth an alarm, what the
+// server's answer actually said, which meetings it has already mentioned, and what a meeting's
+// alarm says once it has heard the server. Everything else is the server's word or the
+// platform's. These are those four.
 
 class RemindersTest {
     private val now = 1_780_000_000_000L // a fixed "now"; the arithmetic is what is being read
@@ -115,5 +116,41 @@ class RemindersTest {
         // The newest are the ones that matter: those are the meetings still being announced.
         assertTrue(kept.has("m1"))
         assertFalse(kept.has("m120"))
+    }
+    // ---- When a meeting's own alarm goes off ----
+
+    private val standup = Reminders.Booked("m-standup", "Invented standup", at(0))
+
+    @Test
+    fun a_server_out_of_reach_leaves_the_alarm_to_speak_for_itself() {
+        assertEquals(standup, Reminders.dueAtAlarm(standup, null, now))
+    }
+
+    @Test
+    fun a_meeting_the_server_calls_due_is_left_to_the_check_that_announced_it() {
+        val reply = Reminders.Reply(due = listOf(standup), soon = emptyList())
+        assertNull(Reminders.dueAtAlarm(standup, reply, now))
+    }
+
+    @Test
+    fun a_server_a_few_seconds_behind_does_not_silence_an_exact_alarm() {
+        // The phone's clock says it is time; the server's says 20 seconds to go. Before this, the
+        // alarm was spent on "not yet" and the next word came from the check, up to 15 min later.
+        val serverSays = standup.copy(at = at(20_000))
+        val reply = Reminders.Reply(due = emptyList(), soon = listOf(serverSays))
+        assertEquals(serverSays, Reminders.dueAtAlarm(standup, reply, now))
+    }
+
+    @Test
+    fun a_meeting_moved_later_waits_for_its_new_alarm() {
+        val moved = standup.copy(at = at(hour))
+        val reply = Reminders.Reply(due = emptyList(), soon = listOf(moved))
+        assertNull(Reminders.dueAtAlarm(standup, reply, now))
+    }
+
+    @Test
+    fun a_meeting_recorded_or_deleted_since_is_not_announced() {
+        val reply = Reminders.Reply(due = emptyList(), soon = emptyList())
+        assertNull(Reminders.dueAtAlarm(standup, reply, now))
     }
 }
