@@ -242,4 +242,5 @@ tailscale serve --bg --https=8443 localhost:8000
 ## ライセンス
 
 [MIT ライセンス](LICENSE) — © 2026 ikasast。使っている AI モデルには、それぞれ別のライセンスが
-あります（pyannote のモデルは Hugging Face での規約同意が必要です）。
+あります（pyannote のモデルは Hugging Face での規約同意が必要です）。個別の表示は
+[NOTICE.md](NOTICE.md) に、イメージに含まれる全パッケージとそのライセンスは各リリースの添付ファイルにあります。
