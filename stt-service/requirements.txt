@@ -8,10 +8,10 @@ pywhispercpp>=1.5.1
 # Reached directly by translator.py and by the audio decoder, but until now they arrived only
 # as faster-whisper's own dependencies. Named here so that dropping or swapping a backend
 # cannot silently take them away.
-ctranslate2>=4.8.1
-tokenizers>=0.23.1
-huggingface_hub>=1.29.0
+ctranslate2>=4.8.2
+tokenizers>=0.23.2
+huggingface_hub>=1.33.0
 
 fastapi>=0.141.1
-uvicorn[standard]>=0.52.4
+uvicorn[standard]>=0.54.0
 numpy>=2.4.6
