@@ -38,7 +38,7 @@ export type AppSettings = {
   sttGlossary: string; // terms/proper nouns for Whisper initial_prompt (short text)
   micMode: string; // "standard" | "room" (room = tuned to pick up distant voices in a meeting room)
   // Translate non-Japanese utterances into Japanese alongside the transcript. Off by default:
-  // it downloads a ~600MB CC-BY-NC translation model to the STT host on first use.
+  // it downloads a ~1.2GB translation model (M2M100, MIT) to the STT host on first use.
   sttTranslate: boolean;
   // Where speech is recognised. "local" runs it on the STT host, picking an engine from the
   // hardware. "remote" posts the audio to an OpenAI-compatible /v1/audio/transcriptions --

@@ -75,7 +75,7 @@ and a native install expects both already there.
   over WebSocket, saves the meeting WAV + utterance boundaries, and runs re-transcription and
   file-upload jobs. Sends provisional text while a sentence is still being spoken, then the
   final wording; recognition runs on a worker thread so the service stays responsive.
-- **Translation** (`stt-service/translator.py`, optional) — NLLB-200 distilled via
+- **Translation** (`stt-service/translator.py`, optional) — M2M100 1.2B via
   CTranslate2, **on the CPU**, so a Japanese translation of non-Japanese utterances can be
   produced while Whisper has the GPU. Off unless `sttTranslate` is enabled.
 - **Diarization** (`diarization/diarize.py`) — **two backends, also chosen from the hardware**:

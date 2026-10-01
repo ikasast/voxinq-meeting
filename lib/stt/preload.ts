@@ -63,7 +63,7 @@ export async function sttWarmupFromSettings(): Promise<{ model?: string; transla
 // thread there ("loading"), or reports "ready" when the model is already resident.
 //
 // `translate` also warms the translation model. It runs on the CPU, so it does not compete
-// with Whisper — and leaving it cold means the first non-Japanese utterance starts a ~600MB
+// with Whisper — and leaving it cold means the first non-Japanese utterance starts a ~1.2GB
 // download whose result lands after the meeting has ended.
 export async function preloadStt(
   model?: string,
