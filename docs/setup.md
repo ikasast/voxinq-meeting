@@ -366,7 +366,7 @@ a LaunchAgent on macOS, a systemd user service on Linux — and `off` removes it
 elevation needed on any of them.
 
 `voxinq setup` is the cross-platform equivalent of the shell scripts above, and is also how you
-upgrade after pulling new code. It needs Node 20+ and Python 3.11+ on the machine; everything
+upgrade after pulling new code. It needs Node 22+ and Python 3.11+ on the machine; everything
 else it installs itself.
 
 Two things to know on **Windows**:

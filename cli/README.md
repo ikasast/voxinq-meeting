@@ -90,7 +90,7 @@ client, silently.
 
 ## Requirements
 
-Node 20+ and Python 3.11+. `voxinq setup` does the rest: web dependencies, the production
+Node 22+ and Python 3.11+. `voxinq setup` does the rest: web dependencies, the production
 build, both service virtualenvs, and the diarization models. On a machine with an NVIDIA GPU it
 also installs the pyannote backend, which is several gigabytes and is not chosen anywhere else.
 
