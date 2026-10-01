@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   migrateMinutesTemplates,
   normalizeTemplates,
+  resolveInstructions,
   resolveTemplate,
 } from "../lib/minutes-templates";
 
@@ -101,3 +102,35 @@ describe("a default that no longer exists", () => {
     expect(resolveTemplate([meeting], { chosenId: "deleted", defaultId: "m" })).toBe(meeting.body);
   });
 });
+
+describe("resolveInstructions", () => {
+  const plain = { id: "p", name: "Plain", body: "## A" };
+  const polite = { id: "k", name: "Polite", body: "## B", instructions: "- 敬体で書く。" };
+
+  it("uses the chosen template's, then the default template's", () => {
+    expect(resolveInstructions([plain, polite], { chosenId: "k" })).toBe("- 敬体で書く。");
+    expect(resolveInstructions([plain, polite], { defaultId: "k" })).toBe("- 敬体で書く。");
+  });
+
+  it("is the built-in (undefined) for a template without its own, or when asked for", () => {
+    expect(resolveInstructions([plain, polite], { chosenId: "p", defaultId: "k" })).toBeUndefined();
+    expect(resolveInstructions([plain, polite], { chosenId: "default", defaultId: "k" })).toBeUndefined();
+    expect(resolveInstructions([], {})).toBeUndefined();
+  });
+
+  it("falls back to the default template when the chosen one is gone", () => {
+    expect(resolveInstructions([polite], { chosenId: "gone", defaultId: "k" })).toBe("- 敬体で書く。");
+  });
+});
+
+describe("normalizeTemplates and instructions", () => {
+  it("keeps a template's instructions, and drops empty ones", () => {
+    const [a, b] = normalizeTemplates([
+      { id: "a", name: "A", body: "## A", instructions: "- 短く" },
+      { id: "b", name: "B", body: "## B", instructions: "   " },
+    ]);
+    expect(a.instructions).toBe("- 短く");
+    expect("instructions" in b).toBe(false);
+  });
+});
+

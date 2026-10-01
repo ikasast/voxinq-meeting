@@ -224,6 +224,8 @@ export async function requestSummary(
     provider?: string;
     // Minutes format override (e.g. the meeting's series format). Wins over the saved setting.
     format?: string;
+    /** How to write, from the template. Absent uses the built-in instructions. */
+    instructions?: string;
     // Previous meeting's minutes when this meeting belongs to a series (reference-only).
     previousMinutes?: { title: string; date: string; text: string };
     // Filled in with what the calls cost, for the job's record. Condensing counts too.
@@ -275,6 +277,7 @@ export async function requestSummary(
         format,
         detail,
         seriesBackground: opts?.seriesBackground,
+        instructions: opts?.instructions,
       }),
       opts?.previousMinutes,
     ),

@@ -42,6 +42,20 @@ export const DEFAULT_SUMMARY_FORMAT = `## 会議概要
 ## 次回へのTODO
 次回までにやるべきことを箇条書きで。わかる場合は担当者も添える（例:「田中: 見積もりを再取得」）。`;
 
+/**
+ * How the minutes are written — the part of the prompt a template may replace.
+ *
+ * What is *not* here is on purpose: that the transcript is the only source, that nothing is
+ * guessed, which language to write in, and the mechanics of the output (start at the first
+ * heading, no code fences, only the format's headings). Those keep minutes honest and parseable
+ * whatever a template says, so they stay in the fixed part of the prompt and cannot be edited
+ * away by accident.
+ */
+export const DEFAULT_MINUTES_INSTRUCTIONS = `- 発言ログをそのままコピーしない。必ず自分の言葉で要約・整理する。認識の言い間違いや冗長な口語は正す。
+- 1つの箇条書きは1〜2行。冗長な前置き・相槌・言い直しは削る。
+- 該当が無い見出しは「特になし」。
+- 文体は常体・体言止め。「ですます調」を禁止（「〜です」「〜ます」「〜ました」は使わない。例:「〜を決定」「〜が課題」「次回までに〜」）。`;
+
 const DETAIL_GUIDANCE: Record<string, string> = {
   brief:
     "全体を短くまとめる。各見出しは要点のみの少数の箇条書きにし、細部は省く。",
@@ -59,6 +73,8 @@ export function buildSummarySystemPrompt(
     detail?: string;
     /** The series' shared background, if this meeting is in one. */
     seriesBackground?: string | null;
+    /** How to write, from the template. Empty uses DEFAULT_MINUTES_INSTRUCTIONS. */
+    instructions?: string;
   },
 ): string {
   const speakerRule = opts?.multiSpeaker
@@ -72,6 +88,8 @@ export function buildSummarySystemPrompt(
   // Use the user-specified format if any, otherwise the default.
   const format = opts?.format?.trim() || DEFAULT_SUMMARY_FORMAT;
 
+  const instructions = opts?.instructions?.trim() || DEFAULT_MINUTES_INSTRUCTIONS;
+
   // Verbosity guidance (brief / standard / detailed).
   const detailRule = DETAIL_GUIDANCE[opts?.detail ?? "standard"] ?? "";
   const detailSection = detailRule ? `\n\n## 詳しさ\n${detailRule}` : "";
@@ -83,10 +101,11 @@ export function buildSummarySystemPrompt(
 
 ## 内容の原則
 - 議事録の情報源は発言ログだけ。発言ログに出てこない事項は書かない。
-- 発言ログをそのままコピーしない。必ず自分の言葉で要約・整理する。認識の言い間違いや冗長な口語は正す。
-- 1つの箇条書きは1〜2行。冗長な前置き・相槌・言い直しは削る。
+- 事実に基づかない推測は書かない。
 - ${speakerRule}
-- 事実に基づかない推測は書かない。該当が無い見出しは「特になし」。
+
+## 書き方
+${instructions}
 
 ## 出力フォーマット（この見出し構成に厳密に従う）
 ${format}${detailSection}
@@ -94,6 +113,5 @@ ${format}${detailSection}
 ## 必ず守る出力ルール（最重要）
 1. 出力の1行目から議事録本体（最初の見出し）を書き始める。「以下は〜」などの前置き、末尾の感想・説明文は一切書かない。
 2. 全体を \`\`\` などのコードフェンスで囲まない。Markdown をそのまま出力する。
-3. 見出しは上記フォーマットの見出しだけを使う。「# 議事録」「## 主な内容」など独自の見出しを作らない。フォーマットの指示文や例をそのまま書き写さない。
-4. 文体は常体・体言止め。「ですます調」を禁止（「〜です」「〜ます」「〜ました」は使わない。例:「〜を決定」「〜が課題」「次回までに〜」）。`;
+3. 見出しは上記フォーマットの見出しだけを使う。「# 議事録」「## 主な内容」など独自の見出しを作らない。フォーマットの指示文や例をそのまま書き写さない。`;
 }
