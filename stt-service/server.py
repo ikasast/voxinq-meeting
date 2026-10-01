@@ -665,7 +665,7 @@ async def preload(model: str | None = None, translate: bool = False) -> dict:
 
     `translate=1` also warms the translation model. It is on the CPU, so it loads alongside
     Whisper rather than competing with it — and without this the first non-Japanese utterance
-    triggers a ~600MB download mid-meeting, whose result arrives after the meeting has ended.
+    triggers a ~1.2GB download mid-meeting, whose result arrives after the meeting has ended.
     """
     name = model or DEFAULT_MODEL
     _touch_activity()

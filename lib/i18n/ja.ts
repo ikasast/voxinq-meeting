@@ -495,7 +495,6 @@ export const ja: Record<string, string> = {
   "Placing the device in the center of the table helps.":
     "端末をテーブルの中央に置くと拾いやすくなります。",
   "Translate non-Japanese speech into Japanese": "日本語以外の発言に日本語訳を付ける",
-  "CC-BY-NC — non-commercial use only": "CC-BY-NC — 非商用に限ります",
 
   "Minutes language": "議事録の言語",
   "Minutes are generated in this language regardless of the spoken language.":
@@ -777,8 +776,8 @@ export const ja: Record<string, string> = {
     "「会議室」はエコー・ノイズ抑制を切り、オートゲインを上げて離れた声を拾います。",
   "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.":
     "日本語以外の発言の下に日本語訳を表示します（会議中も、文字起こしの画面でも）。日本語の発言はそのままで、議事録は元の言葉から生成されます。翻訳は CPU で動くため、文字起こしと GPU を取り合いません。",
-  "Turning this on downloads a ~600MB translation model (NLLB-200 distilled, {licence}) to the STT host on first use.":
-    "有効にすると、初回利用時に約600MBの翻訳モデル（NLLB-200 distilled、{licence}）が STT ホストにダウンロードされます。",
+  "Turning this on downloads a ~1.2GB translation model (M2M100 1.2B, MIT licence) to the STT host on first use.":
+    "有効にすると、初回利用時に約1.2GBの翻訳モデル（M2M100 1.2B、MIT ライセンス）が STT ホストにダウンロードされます。",
   // Mostly sentences that had been split around <strong>, so the emphasised half stayed English
   // while the rest turned. Each is one key now.
   "This sends your meetings to {host}": "この設定では会議の内容が {host} に送られます",

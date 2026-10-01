@@ -67,7 +67,7 @@ shrink both until each is mediocre, the app moves the GPU between them: **Whispe
 meeting, the LLM after it ends**. Ollama is told to unload (`keep_alive: 0`) when a meeting
 starts.
 
-Translation is the exception — it runs on the **CPU** (NLLB-200 distilled via CTranslate2)
+Translation is the exception — it runs on the **CPU** (M2M100 1.2B via CTranslate2)
 precisely so it can happen *during* a meeting without competing for VRAM.
 
 ## Arbitration is a measurement, not a count
