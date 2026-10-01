@@ -28,6 +28,8 @@ export type TranscribeParams = {
    * so the queue chains them, and the tab is free to go.
    */
   thenMinutes?: boolean;
+  /** How the chained minutes are written: the run's own choices, as Regenerate takes them. */
+  minutesParams?: { detail?: string; provider?: string; templateId?: string };
 };
 
 /**
@@ -116,5 +118,6 @@ export async function runTranscribe(
     note: typeof result.note === "string" ? result.note : undefined,
     metrics,
     thenMinutes: params.thenMinutes === true,
+    minutesParams: params.minutesParams,
   };
 }

@@ -222,60 +222,11 @@ export function SummarySection({
     </div>
   );
 
-  // Not generated / processing (none yet) / error (none yet)
-  if (!current) {
-    return (
-      <>
-        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">{t("Minutes")}</h2>
-        {processing ? (
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
-              <Spinner />
-              {t("Generating minutes in the background. They will appear automatically when done…")}
-            </div>
-            {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
-          </div>
-        ) : lastOutcome === "error" && !minutesRunning ? (
-          <>
-            <p className="mt-4 text-sm text-[var(--error)]">
-              {t("Failed to generate minutes.")}
-              {/* The reason comes from the provider and is passed through as it was given. */}
-              {summaryError ? (
-                <span className="mt-1 block text-xs opacity-90">
-                  {t("Reason: {reason}", { reason: summaryError })}
-                </span>
-              ) : null}
-            </p>
-            {canGenerate && !readOnly ? (
-              <GenButton onClick={() => regenerate()} busy={genBusy} label={t("Retry")} />
-            ) : null}
-          </>
-        ) : (
-          <>
-            <p className="mt-4 text-sm text-[var(--text-muted)]">{t("No minutes generated yet.")}</p>
-            {canGenerate && !readOnly ? (
-              <GenButton onClick={() => regenerate()} busy={genBusy} label={t("Generate minutes")} />
-            ) : readOnly ? null : minutesAfterTranscript ? (
-              // Not "cannot be generated": nothing needs doing, they are coming.
-              <p className="mt-2 text-xs text-[var(--text-muted)]">
-                {t("They will be written once the transcription is done.")}
-              </p>
-            ) : (
-              <p className="mt-2 text-xs text-[var(--text-muted)]">{t("No transcript, so minutes cannot be generated.")}</p>
-            )}
-          </>
-        )}
-        {error ? <p className="mt-2 text-sm text-[var(--error)]">{error}</p> : null}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {header}
-
-      {/* Regenerate options: one-off detail level + provider for this run (settings unchanged). */}
-      {showOptions && !editing ? (
+  // The choices for one run, opened from Generate, Retry or Regenerate. Asking first is the point:
+  // the format, the detail and the model used to be whatever the settings said, unless the
+  // minutes were written twice.
+  const optionsPanel =
+    showOptions && !editing ? (
         <div className="mt-3 space-y-3 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3">
           <MinutesChoiceFields
             idPrefix="regen"
@@ -304,12 +255,69 @@ export function SummarySection({
                 disabled={genBusy || processing}
                 className="btn-ink"
               >
-                {genBusy ? t("Starting…") : t("Regenerate")}
+                {genBusy ? t("Starting…") : current ? t("Regenerate") : t("Generate minutes")}
               </button>
             </div>
           </div>
         </div>
-      ) : null}
+    ) : null;
+
+  // Not generated / processing (none yet) / error (none yet)
+  if (!current) {
+    return (
+      <>
+        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">{t("Minutes")}</h2>
+        {processing ? (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+              <Spinner />
+              {t("Generating minutes in the background. They will appear automatically when done…")}
+            </div>
+            {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
+          </div>
+        ) : lastOutcome === "error" && !minutesRunning ? (
+          <>
+            <p className="mt-4 text-sm text-[var(--error)]">
+              {t("Failed to generate minutes.")}
+              {/* The reason comes from the provider and is passed through as it was given. */}
+              {summaryError ? (
+                <span className="mt-1 block text-xs opacity-90">
+                  {t("Reason: {reason}", { reason: summaryError })}
+                </span>
+              ) : null}
+            </p>
+            {canGenerate && !readOnly ? (
+              <GenButton onClick={toggleOptions} busy={genBusy} label={t("Retry")} />
+            ) : null}
+            {optionsPanel}
+          </>
+        ) : (
+          <>
+            <p className="mt-4 text-sm text-[var(--text-muted)]">{t("No minutes generated yet.")}</p>
+            {canGenerate && !readOnly ? (
+              <GenButton onClick={toggleOptions} busy={genBusy} label={t("Generate minutes")} />
+            ) : readOnly ? null : minutesAfterTranscript ? (
+              // Not "cannot be generated": nothing needs doing, they are coming.
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                {t("They will be written once the transcription is done.")}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-[var(--text-muted)]">{t("No transcript, so minutes cannot be generated.")}</p>
+            )}
+            {canGenerate && !readOnly ? optionsPanel : null}
+          </>
+        )}
+        {error ? <p className="mt-2 text-sm text-[var(--error)]">{error}</p> : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {header}
+
+      {/* Options for this run only: format, detail and model (settings unchanged). */}
+      {optionsPanel}
 
       {processing ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">

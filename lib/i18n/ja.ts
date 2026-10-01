@@ -203,6 +203,8 @@ export const ja: Record<string, string> = {
   "Back to list": "一覧へ戻る",
   "Meeting details": "会議の情報",
   "1 person": "1人",
+  "Number of speakers": "話者の人数",
+  "Automatic (from the participants)": "自動（参加者の人数から）",
   "{n} people": "{n}人",
   "Speakers separated": "話者の分離",
   "Writing minutes…": "議事録を作成中…",

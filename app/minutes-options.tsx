@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useT } from "./locale-provider";
 
 // The choices a set of minutes can be written with for one run: the format, how much detail,
@@ -59,7 +59,8 @@ export function useMinutesChoice() {
   const [models, setModels] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
 
-  const load = async () => {
+  // Stable, so a dialog can ask for it from an effect without asking on every render.
+  const load = useCallback(async () => {
     if (loaded) return;
     try {
       const res = await fetch("/api/settings");
@@ -80,7 +81,7 @@ export function useMinutesChoice() {
     } catch {
       // Leave the defaults: the run can still be asked for, just not prefilled.
     }
-  };
+  }, [loaded]);
 
   return { choice, setChoice, templates, models, loaded, load };
 }

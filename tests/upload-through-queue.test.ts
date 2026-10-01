@@ -57,7 +57,7 @@ describe("minutes after a recognition", () => {
     // A page that sees the recognition finish looks again; it must find the minutes already
     // on their way, not a moment where neither is.
     const branch = dispatcher.slice(dispatcher.indexOf('case "transcribe"'));
-    const chained = branch.indexOf("queueMinutesAfter(job.meetingId)");
+    const chained = branch.indexOf("queueMinutesAfter(job.meetingId");
     const done = branch.indexOf('finishRun(job.id, "done"');
     expect(chained).toBeGreaterThan(-1);
     expect(done).toBeGreaterThan(chained);

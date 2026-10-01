@@ -49,7 +49,7 @@ describe("the end of a meeting with no live transcript", () => {
 
   it("leaves the minutes to the queue when there is no transcript yet", () => {
     const end = page.slice(page.indexOf("const generateSummaryAndEnd"), page.indexOf("const diarizeAndEnd"));
-    expect(end).toContain("transcribeAfterRecording(true)");
+    expect(end).toContain("transcribeAfterRecording(minutes)");
     // Asked for directly only when the transcript already exists.
     const ask = end.indexOf('fetch("/api/claude/summary"');
     expect(ask).toBeGreaterThan(end.indexOf('if (later === "live")'));

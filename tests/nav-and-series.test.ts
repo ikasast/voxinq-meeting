@@ -62,14 +62,16 @@ describe("ending a meeting", () => {
 
   it("asks in the reader's language", () => {
     // The three end dialogs were the last English on the recording screen.
+    // Generate minutes and Diarize ask in their own dialog, with choices (end-dialog.tsx).
+    const both = page + read("app/[id]/recording/end-dialog.tsx");
     for (const s of [
       "End the meeting without generating minutes.",
       "Start generating minutes and end the meeting.",
       "Protect the recording (otherwise",
     ]) {
-      const at = page.indexOf(s);
+      const at = both.indexOf(s);
       expect(at, s).toBeGreaterThan(-1);
-      expect(page.slice(Math.max(0, at - 40), at), s).toContain("t(");
+      expect(both.slice(Math.max(0, at - 40), at), s).toContain("t(");
     }
     expect(page).not.toContain('confirmLabel: "End"');
     expect(page).not.toContain('title || "Meeting"');
