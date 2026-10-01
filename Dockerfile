@@ -4,7 +4,7 @@
 # passes the .env values in as build args. After changing them, rebuild:
 #   docker compose up -d --build web
 
-FROM node:20-slim AS build
+FROM node:24-slim AS build
 WORKDIR /app
 # Prisma's engine needs openssl.
 RUN apt-get update -qq \
@@ -24,7 +24,7 @@ ENV NEXT_PUBLIC_STT_WS_URL=$NEXT_PUBLIC_STT_WS_URL \
     DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN npx prisma generate && npm run build
 
-FROM node:20-slim
+FROM node:24-slim
 WORKDIR /app
 RUN apt-get update -qq \
     && apt-get install -y --no-install-recommends openssl curl \

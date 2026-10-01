@@ -1,6 +1,6 @@
 name: Node and dependencies
 description: >-
-  Node 20 and node_modules, restored whole while the lockfile and the Prisma schema are
+  Node 24 and node_modules, restored whole while the lockfile and the Prisma schema are
   unchanged, and installed with `npm ci` when either has changed.
 
 # Shared by every job in CI that needs the app's dependencies.
@@ -17,12 +17,12 @@ runs:
   steps:
     - uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 24
     - id: modules
       uses: actions/cache@v4
       with:
         path: node_modules
-        key: node-modules-${{ runner.os }}-node20-${{ hashFiles('package-lock.json', 'prisma/schema.prisma') }}
+        key: node-modules-${{ runner.os }}-node24-${{ hashFiles('package-lock.json', 'prisma/schema.prisma') }}
     # The client is generated explicitly rather than left to @prisma/client's install hook. That
     # hook reads prisma.config.ts, which needs DATABASE_URL; in a job without one it failed with
     # only a warning, and whichever job saved the cache decided whether the cached node_modules

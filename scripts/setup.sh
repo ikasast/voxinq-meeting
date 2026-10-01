@@ -22,7 +22,7 @@ command -v python3 >/dev/null 2>&1 || PY=python
 
 step "Checking prerequisites"
 MISSING=0
-if command -v node >/dev/null 2>&1; then ok "node $(node --version)"; else fail "node not found — install Node.js 20+ (https://nodejs.org)"; MISSING=1; fi
+if command -v node >/dev/null 2>&1; then ok "node $(node --version)"; else fail "node not found — install Node.js 22+ (https://nodejs.org)"; MISSING=1; fi
 if command -v "$PY" >/dev/null 2>&1; then ok "$PY $("$PY" --version 2>&1 | cut -d' ' -f2)"; else fail "python not found — install Python 3.11"; MISSING=1; fi
 if command -v psql >/dev/null 2>&1; then ok "psql $(psql --version | awk '{print $3}')"; else warn "psql not found — fine if PostgreSQL runs elsewhere (DATABASE_URL just needs to reach it)"; fi
 if command -v ollama >/dev/null 2>&1; then ok "ollama"; else warn "ollama not found — install from https://ollama.com (or use another LLM provider in Settings)"; fi
