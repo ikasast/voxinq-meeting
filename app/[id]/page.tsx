@@ -29,7 +29,7 @@ import { TranscriptList } from "./transcript-list";
 
 export const dynamic = "force-dynamic";
 
-export default async function MeetingDetailPage({
+export default async function MeetingPage({
   params,
   searchParams,
 }: {
@@ -279,13 +279,13 @@ export default async function MeetingDetailPage({
           }
           readOnly={external}
           transcribeJobId={external ? null : (transcribing?.id ?? null)}
-          initialTranscripts={meeting.transcripts.map((t) => ({
-            id: t.id,
-            speakerType: t.speakerType,
-            text: t.text,
-            translation: t.translation,
-            createdAt: t.createdAt.toISOString(),
-            splitOfId: t.splitOfId,
+          initialTranscripts={meeting.transcripts.map((line) => ({
+            id: line.id,
+            speakerType: line.speakerType,
+            text: line.text,
+            translation: line.translation,
+            createdAt: line.createdAt.toISOString(),
+            splitOfId: line.splitOfId,
           }))}
         />
       </section>

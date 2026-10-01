@@ -4,7 +4,7 @@ import { apiError } from "@/lib/api";
 import { minutesDocx } from "@/lib/minutes-docx";
 import { prisma } from "@/lib/prisma";
 import { readSettings } from "@/lib/settings";
-import { collectSpeakerKeys, parseSpeakerLabels, speakerName } from "@/lib/speakers";
+import { speakersInOrder, readNames, nameOf } from "@/lib/speakers";
 import { formatDateTime, formatDuration, formatOffset } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   });
   if (!meeting) return apiError("not found", 404);
 
-  const labels = parseSpeakerLabels(meeting.speakerLabels);
+  const labels = readNames(meeting.speakerLabels);
   const latest = meeting.summaries[0];
 
   const safeTitleEarly = meeting.title.replace(/[\\/:*?"<>|]/g, "_").slice(0, 80);
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const lines = meeting.transcripts.map((t) => {
       const at = formatOffset((t.createdAt.getTime() - anchor) / 1000);
       return multi
-        ? `[${at}] ${speakerName(t.speakerType, labels)}: ${t.text}`
+        ? `[${at}] ${nameOf(t.speakerType, labels)}: ${t.text}`
         : `[${at}] ${t.text}`;
     });
     files.set("transcript.txt", `${meeting.title} — Transcript\n\n${lines.join("\n")}\n`);
@@ -95,10 +95,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (requested.includes("meta")) {
     const s = await readSettings();
-    const speakers = collectSpeakerKeys(
+    const speakers = speakersInOrder(
       meeting.transcripts.map((t) => t.speakerType),
       labels,
-    ).map((k) => speakerName(k, labels));
+    ).map((k) => nameOf(k, labels));
     const duration = formatDuration(meeting.startedAt, meeting.endedAt);
     const meta = [
       `# ${meeting.title} — Meeting info`,

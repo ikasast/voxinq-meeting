@@ -1,9 +1,12 @@
 // Builds the system prompt for minutes generation (not server-only, and holds no deps).
 // DEFAULT_SUMMARY_FORMAT is exported so the settings page can show/edit it as the "default format".
 
-function contextSection(description?: string | null): string {
-  if (!description || !description.trim()) return "";
-  return `\n\nこの会議の目的・内容（メタ情報）は以下の通りです。議事録作成の際は必ず考慮してください。\n"""\n${description.trim()}\n"""`;
+/** What this meeting was called for, in the words of whoever set it up. */
+function agendaSection(description?: string | null): string {
+  const about = description?.trim();
+  return about
+    ? `\n\n会議を設定した人による、この会議の趣旨の説明です。議事録を書くときはこれを踏まえてください。\n"""\n${about}\n"""`
+    : "";
 }
 
 /**
@@ -53,7 +56,7 @@ export const DEFAULT_SUMMARY_FORMAT = `## 会議概要
  */
 export const DEFAULT_MINUTES_INSTRUCTIONS = `- 発言ログをそのままコピーしない。必ず自分の言葉で要約・整理する。認識の言い間違いや冗長な口語は正す。
 - 1つの箇条書きは1〜2行。冗長な前置き・相槌・言い直しは削る。
-- 該当が無い見出しは「特になし」。
+- 書くことの無い見出しも残し、本文は「特になし」とする。
 - 文体は常体・体言止め。「ですます調」を禁止（「〜です」「〜ます」「〜ました」は使わない。例:「〜を決定」「〜が課題」「次回までに〜」）。`;
 
 const DETAIL_GUIDANCE: Record<string, string> = {
@@ -78,7 +81,7 @@ export function buildSummarySystemPrompt(
   },
 ): string {
   const speakerRule = opts?.multiSpeaker
-    ? "発言者を明示する場合は会話ログ中の話者名（例:「自分」「話者1」、または設定された名前）を使ってください。"
+    ? "誰の発言かを書くときは、発言ログに出てくる話者名（付けられた名前、または「Me」「Speaker 1」のような仮の名前）をそのまま使う。"
     : "発言ログに話者の区別はありません。「自分:」などの話者名は一切書かないでください。";
 
   // Always pin the output language. Default to Japanese if unspecified.
@@ -94,14 +97,14 @@ export function buildSummarySystemPrompt(
   const detailRule = DETAIL_GUIDANCE[opts?.detail ?? "standard"] ?? "";
   const detailSection = detailRule ? `\n\n## 詳しさ\n${detailRule}` : "";
 
-  return `あなたは会議の書記アシスタントです。
-渡された会議の発言ログ（音声認識の生テキスト）を読み、**要約した**議事録を Markdown で生成してください。${seriesSection(opts?.seriesBackground)}${contextSection(description)}
+  return `あなたは会議の議事録をまとめる担当者です。
+これから渡すのは、音声認識で書き起こした未整形の発言ログです。内容を**要約して**、Markdown の議事録にしてください。${seriesSection(opts?.seriesBackground)}${agendaSection(description)}
 
 **出力は必ず${langName}で書いてください。** 発言ログが何語であっても、議事録は${langName}で生成します（見出しも${langName}）。
 
 ## 内容の原則
 - 議事録の情報源は発言ログだけ。発言ログに出てこない事項は書かない。
-- 事実に基づかない推測は書かない。
+- 発言ログから読み取れない推測や補足を書き足さない。
 - ${speakerRule}
 
 ## 書き方

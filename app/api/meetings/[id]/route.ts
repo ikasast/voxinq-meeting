@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isExternalRequest } from "@/lib/is-tailnet";
-import { isValidSpeakerKey } from "@/lib/speakers";
+import { namesFromRequest } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
 import { applySeriesMembers, pruneOrphanSeries, seriesIdForName } from "@/lib/series";
 import { pruneOrphanTags } from "@/lib/tags";
@@ -109,18 +109,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (body?.speakerLabels !== undefined) {
-    const raw = body.speakerLabels;
-    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-      return apiError("invalid speakerLabels", 400);
-    }
-    // Accept only valid speaker keys with a non-empty string value.
-    const cleaned: Record<string, string> = {};
-    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-      if (isValidSpeakerKey(key) && typeof value === "string" && value.trim()) {
-        cleaned[key] = value.trim();
-      }
-    }
-    data.speakerLabels = JSON.stringify(cleaned);
+    const names = namesFromRequest(body.speakerLabels);
+    if (!names) return apiError("invalid speakerLabels", 400);
+    data.speakerLabels = JSON.stringify(names);
   }
 
   // Moving a booked meeting to another time. Only while it is still only a booking: once it has

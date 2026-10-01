@@ -73,7 +73,7 @@ describe("resting the screen", () => {
     expect(overlay).toContain("bg-black");
     expect(overlay).toMatch(/Recording/);
     expect(overlay, "the running time is the proof that it is still going").toContain(
-      "formatElapsed(elapsedSec)",
+      "runningTime(elapsedSec)",
     );
   });
 });

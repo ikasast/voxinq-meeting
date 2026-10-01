@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiError } from "@/lib/api";
+import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { tick } from "@/lib/queue/dispatcher";
@@ -14,25 +14,23 @@ export const runtime = "nodejs";
 // position in a queue instead. What is still refused is a *second* job for the same meeting:
 // two sets of minutes for one meeting is not a queue, it is a duplicate.
 export async function POST(req: NextRequest) {
-  const body = (await req.json().catch(() => null)) as
-    | { meetingId?: unknown; detail?: unknown; provider?: unknown; templateId?: unknown }
-    | null;
-  const meetingId = typeof body?.meetingId === "string" ? body.meetingId : "";
-  if (!meetingId) {
-    return NextResponse.json({ error: "meetingId is required" }, { status: 400 });
-  }
+  const body = await readJson<Record<string, unknown>>(req);
+  // Each field is a string or absent; anything else counts as not sent.
+  const field = (name: string) => {
+    const value = body?.[name];
+    return typeof value === "string" ? value : undefined;
+  };
+  const meetingId = field("meetingId");
+  if (!meetingId) return apiError("meetingId is required", 400);
 
-  // Overrides for this run only, never saved. requestSummary validates the values.
-  const detail = typeof body?.detail === "string" ? body.detail : undefined;
-  const provider = typeof body?.provider === "string" ? body.provider : undefined;
-  const templateId = typeof body?.templateId === "string" ? body.templateId : undefined;
+  // Overrides for this run only, never saved. writeMinutes validates the values.
+  const detail = field("detail");
+  const provider = field("provider");
+  const templateId = field("templateId");
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-    select: { id: true },
-  });
-  if (!meeting) {
-    return NextResponse.json({ error: "meeting not found" }, { status: 404 });
+  // Counted through the scoped client, so someone else's meeting is "not found" like a missing one.
+  if ((await prisma.meeting.count({ where: { id: meetingId } })) === 0) {
+    return apiError("meeting not found", 404);
   }
 
   const already = await openJobFor("minutes", meetingId);
@@ -49,12 +47,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const transcripts = await prisma.transcript.findMany({
-    where: { meetingId },
-    orderBy: { createdAt: "asc" },
-  });
-
-  if (transcripts.length === 0) {
+  // Nothing said, nothing to write minutes from.
+  if ((await prisma.transcript.count({ where: { meetingId } })) === 0) {
     return apiError("No utterances recorded", 400);
   }
 

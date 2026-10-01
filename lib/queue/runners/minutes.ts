@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
-import { requestSummary } from "@/lib/llm";
+import { writeMinutes } from "@/lib/llm";
 import { loadedModel } from "@/lib/llm/ollama-models";
 import { emptyUsage } from "@/lib/llm/types";
 import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { resolveInstructions, resolveTemplate } from "@/lib/minutes-templates";
 import { getLlmConfig, readSettings } from "@/lib/settings";
-import { parseSpeakerLabels } from "@/lib/speakers";
+import { readNames } from "@/lib/speakers";
 import type { JobMetrics } from "../metrics";
 import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
 
@@ -74,7 +74,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
     }
   }
 
-  // Which provider and model will write it — mirrors how requestSummary resolves them: a valid
+  // Which provider and model will write it — mirrors how writeMinutes resolves them: a valid
   // override wins, otherwise the saved setting. Worked out before the run so that a failure
   // records it too.
   const cfg = await getLlmConfig();
@@ -109,12 +109,12 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
   const ac = beginGeneration(meetingId);
   try {
     const settings = await readSettings();
-    const summaryText = await requestSummary(
+    const summaryText = await writeMinutes(
       transcripts,
       {
         description: meeting.description,
         seriesBackground: meeting.series?.description,
-        speakerLabels: parseSpeakerLabels(meeting.speakerLabels),
+        speakerLabels: readNames(meeting.speakerLabels),
         detail,
         provider,
         format: resolveTemplate(settings.minutesTemplates, {

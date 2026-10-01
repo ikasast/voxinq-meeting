@@ -7,7 +7,7 @@
 // it: the status, the words being recognised, the level. Saving belongs to the service, so each
 // line arrives already saved. See docs/android-app.md.
 
-import { type RecognizerStatus, type SttHandle, type SttHandlers, sttWsUrl } from "./client";
+import { type LinkStatus, type SttHandle, type SttHandlers, sttWsUrl } from "./client";
 
 /** What the app injects: strings go out through `postMessage`, and come back as message events. */
 type Bridge = {
@@ -47,7 +47,7 @@ export type NativeHandle = SttHandle & { detach: () => void };
 export type NativeState = {
   recording: boolean;
   meetingId: string | null;
-  status: RecognizerStatus | null;
+  status: LinkStatus | null;
   startedAt: number;
 };
 
@@ -64,7 +64,7 @@ export type NativeStartOptions = {
 
 type Message = { type: string; [key: string]: unknown };
 
-const STATUSES: readonly RecognizerStatus[] = ["connecting", "open", "closed", "reconnecting", "error"];
+const STATUSES: readonly LinkStatus[] = ["connecting", "open", "closed", "reconnecting", "error"];
 
 /** The app waits up to ten seconds for the service, then for the lines still being saved. */
 const STOP_CEILING_MS = 45_000;
@@ -111,8 +111,8 @@ function send(message: Message) {
   bridge()?.postMessage(JSON.stringify(message));
 }
 
-function asStatus(value: unknown): RecognizerStatus | null {
-  return STATUSES.includes(value as RecognizerStatus) ? (value as RecognizerStatus) : null;
+function asStatus(value: unknown): LinkStatus | null {
+  return STATUSES.includes(value as LinkStatus) ? (value as LinkStatus) : null;
 }
 
 /** Whether the app is recording, and which meeting. Null with no app, or no answer. */
@@ -221,7 +221,7 @@ export async function startNative(handlers: NativeHandlers, opts: NativeStartOpt
  * Pick up a recording the app is already making — the page reloaded, or opened again from the
  * notification. Nothing is started; the app says where it is.
  */
-export function attachNative(handlers: NativeHandlers, status: RecognizerStatus | null): NativeHandle {
+export function attachNative(handlers: NativeHandlers, status: LinkStatus | null): NativeHandle {
   const handle = subscribe(handlers);
   if (status) handlers.onStatus(status);
   return handle;

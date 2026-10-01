@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { type RecognizerStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
+import { type LinkStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
 import {
   type NativeHandle,
   type NativeSaved,
@@ -31,57 +31,63 @@ type TranscriptEntry = {
   translation?: string; // Japanese translation, when the utterance was in another language
 };
 
-function formatElapsed(seconds: number) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  const mm = String(m).padStart(2, "0");
-  const ss = String(s).padStart(2, "0");
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+/** A stored line as the server sends it back. */
+type ServerLine = { id: string; speakerType: string; text: string; translation?: string | null; createdAt: string };
+
+function fromServer(line: ServerLine): TranscriptEntry {
+  return {
+    id: line.id,
+    speaker: line.speakerType,
+    text: line.text,
+    at: new Date(line.createdAt),
+    ...(line.translation ? { translation: line.translation } : {}),
+  };
 }
 
-// Returns the key rather than the words, so the caller — which has the locale — translates it.
-// A module-level function has no hook to reach the language with, and threading one in would
-// make five callers pass a translator to something whose whole job is a switch.
-function statusLabel(status: RecognizerStatus | "idle") {
+/** The running time: "05:09" under an hour, "1:05:09" from then on. */
+function runningTime(totalSeconds: number): string {
+  const [hours, minutes, seconds] = [
+    Math.floor(totalSeconds / 3600),
+    Math.floor(totalSeconds / 60) % 60,
+    totalSeconds % 60,
+  ];
+  const clock = [minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
+  return hours > 0 ? `${hours}:${clock}` : clock;
+}
+
+type LinkState = LinkStatus | "idle";
+
+/**
+ * What the status line says. Each word is spelled out in a t() call of its own so the
+ * translation check can see all five.
+ */
+export function statusText(t: (k: string) => string, status: LinkState): string {
   switch (status) {
     case "connecting":
-      return "Preparing"; // model loading. audio is captured and transcribed together once ready
+      return t("Preparing"); // the model is loading; audio is kept and caught up on once it is ready
     case "open":
-      return "Listening";
+      return t("Listening");
     case "reconnecting":
-      return "Reconnecting";
+      return t("Reconnecting");
     case "error":
-      return "Error";
-    case "closed":
-    case "idle":
+      return t("Error");
     default:
-      return "Stopped";
+      return t("Stopped");
   }
 }
 
-/** The five strings statusLabel can return, spelled out so the table's test can see them. */
-export function statusText(
-  t: (k: string) => string,
-  status: RecognizerStatus | "idle",
-): string {
-  const key = statusLabel(status);
-  const table: Record<string, string> = {
-    Preparing: t("Preparing"),
-    Listening: t("Listening"),
-    Reconnecting: t("Reconnecting"),
-    Error: t("Error"),
-    Stopped: t("Stopped"),
-  };
-  return table[key] ?? key;
-}
+/** The dot beside it: red and pulsing while listening, amber while getting there. */
+const STATUS_DOT: Record<LinkState, string> = {
+  open: "bg-[var(--error)] animate-pulse",
+  connecting: "bg-[var(--warning)] animate-pulse",
+  reconnecting: "bg-[var(--warning)] animate-pulse",
+  error: "bg-[var(--error)]",
+  closed: "bg-[var(--border-strong)]",
+  idle: "bg-[var(--border-strong)]",
+};
 
-function statusDot(status: RecognizerStatus | "idle") {
-  if (status === "open") return "bg-[var(--error)] animate-pulse";
-  if (status === "connecting" || status === "reconnecting") return "bg-[var(--warning)] animate-pulse";
-  if (status === "error") return "bg-[var(--error)]";
-  return "bg-[var(--border-strong)]";
-}
+/** How long a toast stays up. What it said stays in the error bar until dismissed. */
+const TOAST_MS = 4500;
 
 export default function RecordingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: meetingId } = use(params);
@@ -90,10 +96,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
 
   const [title, setTitle] = useState<string>("");
   const [startedAt, setStartedAt] = useState<Date | null>(null);
-  const [now, setNow] = useState<Date>(new Date());
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
 
-  const [status, setStatus] = useState<RecognizerStatus | "idle">("idle");
+  const [status, setStatus] = useState<LinkState>("idle");
   const active = status === "connecting" || status === "open" || status === "reconnecting";
   const [partial, setPartial] = useState<string>("");
   const [level, setLevel] = useState(0); // input audio level (RMS 0..1)
@@ -179,12 +185,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // go off, and this page can even be closed, without it stopping (lib/stt/native.ts).
   const [native, setNative] = useState(false);
   const nativeRef = useRef<NativeHandle | null>(null);
-  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+  const linesBoxRef = useRef<HTMLDivElement>(null);
 
-  // Elapsed time
+  // The running time ticks once a second.
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const tick = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(tick);
   }, []);
 
   // On external (Funnel) access, STT is unreachable so recording is impossible. Used to warn and disable recording.
@@ -224,10 +230,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     let cancelled = false;
     (async () => {
       const res = await fetch(`/api/meetings/${meetingId}`);
-      if (!res.ok) {
-        if (res.status === 404) router.replace("/");
+      if (res.status === 404) {
+        // Gone, or not this person's: there is nothing to record into.
+        router.replace("/");
         return;
       }
+      if (!res.ok) return;
       const data = (await res.json()) as {
         title: string;
         startedAt: string;
@@ -235,7 +243,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         sttLanguage: string | null;
         whisperModel: string | null;
         series?: { sttGlossary: string | null } | null;
-        transcripts: { id: string; speakerType: string; text: string; createdAt: string }[];
+        transcripts: ServerLine[];
       };
       if (cancelled) return;
       setTitle(data.title);
@@ -263,14 +271,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         setMeetingLang(data.sttLanguage);
       }
       setMeetingLoaded(true);
-      setTranscripts(
-        data.transcripts.map((t) => ({
-          id: t.id,
-          speaker: t.speakerType,
-          text: t.text,
-          at: new Date(t.createdAt),
-        })),
-      );
+      setTranscripts(data.transcripts.map(fromServer));
     })();
     return () => {
       cancelled = true;
@@ -369,58 +370,50 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     };
   }, [settingsLoaded, meetingLoaded, external, ended, activeModel]);
 
-  // Auto-scroll
+  // Keep the newest line in view as lines, and the line still being heard, arrive.
   useEffect(() => {
-    transcriptScrollRef.current?.scrollTo({
-      top: transcriptScrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    const box = linesBoxRef.current;
+    box?.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
   }, [transcripts.length, partial]);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setLastError(msg);
-    window.setTimeout(() => setToast(null), 4500);
+  // Something went wrong that the person should see now. A later message is not cut short by
+  // an earlier one's timer.
+  const announce = useCallback((message: string) => {
+    setLastError(message);
+    setToast(message);
+    window.setTimeout(() => setToast((shown) => (shown === message ? null : shown)), TOAST_MS);
   }, []);
 
-  const saveTranscript = useCallback(
-    async (
-      speakerKey: string,
-      text: string,
-      seq?: number,
-      audio?: { startMs: number; endMs: number },
-    ) => {
-      const trimmed = text.trim();
-      if (!trimmed) return;
+  // Store a finished line, then list it under the id and time the server gave it.
+  const keepLine = useCallback(
+    async (speaker: string, said: string, seq?: number, audio?: { startMs: number; endMs: number }) => {
+      const text = said.trim();
+      if (!text) return;
+      let problem: string;
       try {
         const res = await fetch("/api/transcripts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             meetingId,
-            speakerType: speakerKey,
-            text: trimmed,
+            speakerType: speaker,
+            text,
             audioStartMs: audio?.startMs,
             audioEndMs: audio?.endMs,
           }),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const created = (await res.json()) as { id: string; createdAt: string };
-        setTranscripts((prev) => [
-          ...prev,
-          {
-            id: created.id,
-            speaker: speakerKey,
-            text: trimmed,
-            at: new Date(created.createdAt),
-            seq,
-          },
-        ]);
+        if (res.ok) {
+          const row = (await res.json()) as { id: string; createdAt: string };
+          setTranscripts((lines) => [...lines, { id: row.id, speaker, text, at: new Date(row.createdAt), seq }]);
+          return;
+        }
+        problem = `HTTP ${res.status}`;
       } catch (e) {
-        showToast(t("Failed to save utterance: {error}", { error: (e as Error).message }));
+        problem = (e as Error).message;
       }
+      announce(t("Failed to save utterance: {error}", { error: problem }));
     },
-    [meetingId, showToast],
+    [meetingId, announce, t],
   );
 
   // A translation arrives after its utterance (it runs on the CPU while Whisper keeps the
@@ -449,11 +442,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         audio?: { startMs: number; endMs: number },
       ) => {
         setPartial("");
-        void saveTranscript(speakerKey, text, seq, audio);
+        void keepLine(speakerKey, text, seq, audio);
       },
       onTranslation: applyTranslation,
-      onStatus: (s: RecognizerStatus) => setStatus(s),
-      onError: (message: string) => showToast(message),
+      onStatus: (s: LinkStatus) => setStatus(s),
+      onError: (message: string) => announce(message),
       // Skipped while the screen rests: the meter is not on screen, and this is the one thing
       // on this page that re-renders it ten times a second.
       onLevel: (rms: number) => {
@@ -464,7 +457,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         window.setTimeout(() => setClipping(false), 4000);
       },
     }),
-    [saveTranscript, applyTranslation, showToast],
+    [keepLine, applyTranslation, announce],
   );
 
   // The transcript as the server has it. In the app, lines are saved by the app's recorder
@@ -472,22 +465,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const resync = useCallback(async () => {
     const res = await fetch(`/api/meetings/${meetingId}/live`, { cache: "no-store" }).catch(() => null);
     if (!res?.ok) return;
-    const data = (await res.json()) as {
-      transcripts: {
-        id: string;
-        speakerType: string;
-        text: string;
-        translation: string | null;
-        createdAt: string;
-      }[];
-    };
-    const rows: TranscriptEntry[] = data.transcripts.map((r) => ({
-      id: r.id,
-      speaker: r.speakerType,
-      text: r.text,
-      at: new Date(r.createdAt),
-      translation: r.translation ?? undefined,
-    }));
+    const data = (await res.json()) as { transcripts: ServerLine[] };
+    const rows = data.transcripts.map(fromServer);
     const ids = new Set(rows.map((r) => r.id));
     // A line the app reported while this request was in flight is kept, not dropped.
     setTranscripts((prev) =>
@@ -515,8 +494,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         setTranscripts((prev) =>
           prev.map((r) => ((id ? r.id === id : r.seq === seq) ? { ...r, translation: text } : r)),
         ),
-      onStatus: (s: RecognizerStatus) => setStatus(s),
-      onError: (message: string) => showToast(message),
+      onStatus: (s: LinkStatus) => setStatus(s),
+      onError: (message: string) => announce(message),
       onLevel: (rms: number) => {
         if (!restingRef.current) setLevel(rms);
       },
@@ -534,7 +513,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         router.replace(`/${meetingId}`);
       },
     }),
-    [showToast, resync, router, meetingId],
+    [announce, resync, router, meetingId],
   );
 
   // In the app, ask whether it is already recording this meeting — this page reloaded, or was
@@ -673,16 +652,16 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       }
       if (!live) setAwaitingTranscript(true);
     } catch (e) {
-      showToast(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
+      announce(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
       setStatus("error");
     }
-  }, [handlers, nativeHandlers, title, meetingId, showToast, activeModel, confirm, deferred, claimCard]);
+  }, [handlers, nativeHandlers, title, meetingId, announce, activeModel, confirm, deferred, claimCard]);
 
   const stopRecording = useCallback(async () => {
     const h = handleRef.current;
     handleRef.current = null;
     nativeRef.current = null;
-    if (h) await h.stop().catch(() => {});
+    await h?.stop().catch(() => {});
     setStatus("idle");
     setPartial("");
     setLevel(0);
@@ -770,7 +749,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         }
         return "queued";
       } catch (e) {
-        showToast(
+        announce(
           t('Transcription failed: {error}. The recording is saved — use "Re-transcribe" on the meeting page.', {
             error: (e as Error).message,
           }),
@@ -778,36 +757,47 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         return "failed";
       }
     },
-    [awaitingTranscript, deferred, transcripts.length, activeModel, meetingId, showToast, t],
+    [awaitingTranscript, deferred, transcripts.length, activeModel, meetingId, announce, t],
+  );
+
+  // Every way of ending starts the same, in this order: stop taking audio (which waits for the
+  // service to finish the WAV and its line boundaries, both of which diarization needs), keep
+  // the recording if asked, and record the end on the server. `strict` lets a failure to record
+  // the end stop the caller; the plain endings carry on regardless.
+  const closeMeeting = useCallback(
+    async (keepRecording: boolean, strict: boolean) => {
+      endedRef.current = true;
+      setEnded(true);
+      await stopRecording();
+      if (keepRecording) await protectRecording();
+      const ended = fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
+      await (strict ? ended : ended.catch(() => {}));
+    },
+    [meetingId, stopRecording, protectRecording],
   );
 
   // Asked from the dialog (end-dialog.tsx): how to write the minutes, and whether to keep the
   // recording. The choices apply to this run only.
-  const generateSummaryAndEnd = useCallback(async (choice: EndChoice) => {
+  const endWithMinutes = useCallback(async (choice: EndChoice) => {
     if (busy !== "none") return;
-    const checked = choice.protect;
     const minutes = choice.minutes ?? { detail: "", provider: "", templateId: "" };
     setBusy("summary");
-    endedRef.current = true;
-    setEnded(true);
     try {
-      await stopRecording();
-      if (checked) await protectRecording();
-      await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
+      await closeMeeting(choice.protect, true);
       // With no transcript yet, the queue writes the minutes once the recognition has made one.
       // If it could not even be queued, there is nothing to write minutes from; the meeting
       // page, where "Re-transcribe" is, is the place to land.
       const later = await transcribeAfterRecording(minutes);
       if (later === "live") {
-        // Minutes generation runs in the background (202 returns immediately).
-        const sumRes = await fetch("/api/claude/summary", {
+        // Accepted with 202 and written in the background; a refusal says why.
+        const asked = await fetch("/api/claude/summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ meetingId, ...minutes }),
         });
-        if (!sumRes.ok && sumRes.status !== 202) {
-          const sumData = await sumRes.json().catch(() => null);
-          throw new Error(sumData?.error ?? `HTTP ${sumRes.status}`);
+        if (!asked.ok) {
+          const refusal = (await asked.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(refusal?.error ?? `HTTP ${asked.status}`);
         }
       }
       // Land on the meeting just recorded, where the minutes will appear as they finish —
@@ -816,26 +806,19 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // detail must not return here and restart the meeting.
       router.replace(`/${meetingId}`);
     } catch (e) {
-      showToast(t("Failed to start minutes generation: {error}", { error: (e as Error).message }));
+      announce(t("Failed to start minutes generation: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
+  }, [busy, meetingId, router, announce, closeMeeting, transcribeAfterRecording, t]);
 
   // End the meeting and kick off speaker diarization: the detail page opens with
   // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
   // Minutes are NOT generated — review the speakers first, then generate.
-  const diarizeAndEnd = useCallback(async (choice: EndChoice) => {
+  const endWithDiarization = useCallback(async (choice: EndChoice) => {
     if (busy !== "none") return;
-    const checked = choice.protect;
     setBusy("summary");
-    endedRef.current = true;
-    setEnded(true);
     try {
-      // stopRecording waits for the STT server to finish saving the WAV + utterance
-      // boundaries — diarization needs both.
-      await stopRecording();
-      if (checked) await protectRecording();
-      await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" });
+      await closeMeeting(choice.protect, true);
       // A transcript still to be made is followed by the meeting page, which starts
       // diarization once the lines have landed.
       await transcribeAfterRecording(false);
@@ -843,12 +826,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // count chosen in the dialog goes with it; absent, the page works it out as it always has.
       router.replace(`/${meetingId}?autodiarize=1${choice.speakers ? `&speakers=${choice.speakers}` : ""}`);
     } catch (e) {
-      showToast(t("Failed to end the meeting: {error}", { error: (e as Error).message }));
+      announce(t("Failed to end the meeting: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
+  }, [busy, meetingId, router, announce, closeMeeting, transcribeAfterRecording, t]);
 
-  const endWithoutSummary = useCallback(async () => {
+  const endOnly = useCallback(async () => {
     if (busy !== "none") return;
     const { ok, checked } = await confirm({
       title: title || t("Meeting"),
@@ -860,15 +843,11 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       ),
     });
     if (!ok) return;
-    endedRef.current = true;
-    setEnded(true);
-    await stopRecording();
-    if (checked) await protectRecording();
-    await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
+    await closeMeeting(checked, false);
     await transcribeAfterRecording(false);
     // replace() so back navigation cannot return to this recording page.
     router.replace(`/${meetingId}`);
-  }, [busy, confirm, title, meetingId, router, stopRecording, protectRecording, transcribeAfterRecording, t]);
+  }, [busy, confirm, title, meetingId, router, closeMeeting, transcribeAfterRecording, t]);
 
   // Started by mistake, or not worth keeping. The meeting goes to the trash rather than away:
   // "I did not mean to record that" is sometimes wrong, and the trash keeps it restorable for 30
@@ -885,26 +864,23 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       danger: true,
     });
     if (!ok) return;
-    endedRef.current = true;
-    setEnded(true);
-    await stopRecording();
-    await fetch(`/api/meetings/${meetingId}/end`, { method: "POST" }).catch(() => {});
+    await closeMeeting(false, false);
     await fetch(`/api/meetings/${meetingId}`, { method: "DELETE" }).catch(() => {});
     // replace() so back navigation cannot return to a recording page for a meeting in the trash.
     router.replace("/");
-  }, [busy, confirm, title, meetingId, router, stopRecording, t]);
+  }, [busy, confirm, title, meetingId, router, closeMeeting, t]);
 
   // Warn before leaving while recording. Not in the app: there, leaving the page leaves the
   // recording running, and the warning would be a dialog guarding nothing.
   useEffect(() => {
     const recording = status === "open" || status === "connecting";
     if (!recording || native) return;
-    const handler = (e: BeforeUnloadEvent) => {
+    const askFirst = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
+    window.addEventListener("beforeunload", askFirst);
+    return () => window.removeEventListener("beforeunload", askFirst);
   }, [status, native]);
 
   // While recording, prevent screen sleep (stops mic capture from halting when a phone screen turns off).
@@ -1008,9 +984,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     return () => window.removeEventListener("pagehide", onHide);
   }, [release]);
 
-  const elapsedSec = startedAt
-    ? Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000))
-    : 0;
+  const elapsedSec = startedAt ? Math.max(0, Math.floor((nowMs - startedAt.getTime()) / 1000)) : 0;
 
   // Block starting a recording if the meeting already ended. Stopping stays allowed.
   // Recording does not wait for the GPU any more — it asks for it, and the person decides.
@@ -1043,7 +1017,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         >
           <span aria-hidden className="h-2 w-2 rounded-full bg-[#7f1d1d]" />
           <span className="font-mono text-sm tabular-nums text-white/40">
-            {formatElapsed(elapsedSec)}
+            {runningTime(elapsedSec)}
           </span>
           <span className="text-xs text-white/25">{t("Recording — touch to show")}</span>
         </button>
@@ -1087,7 +1061,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           ) : null}
 
           <div className="flex items-center gap-2 text-sm">
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${statusDot(status)}`} />
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${STATUS_DOT[status]}`} />
             <span className="text-[var(--text-secondary)]">{statusText(t, status)}</span>
             {recordOnly ? (
               <span
@@ -1270,7 +1244,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       {lastError ? (
         <div className="flex items-start gap-2 rounded-md border border-[color-mix(in_srgb,var(--error)_40%,transparent)] bg-[color-mix(in_srgb,var(--error)_12%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
           <span className="font-medium">{t("Error:")}</span>
-          <span className="flex-1 break-all">{lastError}</span>
+          <span className="min-w-0 flex-1 break-words">{lastError}</span>
           <button
             type="button"
             onClick={() => setLastError(null)}
@@ -1287,23 +1261,21 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           {/* Diarization is a post-meeting step, so do not show speakers during recording */}
           <span className="text-xs text-[var(--text-muted)]">{t("Speakers can be distinguished after the meeting")}</span>
         </div>
-        <div ref={transcriptScrollRef} className="h-[60vh] space-y-2 overflow-y-auto px-4 py-3">
-            {transcripts.map((t) => (
+        <div ref={linesBoxRef} className="h-[60vh] space-y-2 overflow-y-auto px-4 py-3">
+            {transcripts.map((line) => (
               <div
-                key={t.id}
+                key={line.id}
                 className="rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-xs tabular-nums text-[var(--text-muted)]">
-                    {t.at.toLocaleTimeString("ja-JP")}
-                  </span>
-                </div>
-                <p className="mt-1 whitespace-pre-wrap">{t.text}</p>
+                <time dateTime={line.at.toISOString()} className="block text-xs tabular-nums text-[var(--text-muted)]">
+                  {line.at.toLocaleTimeString("ja-JP")}
+                </time>
+                <p className="mt-1 whitespace-pre-wrap">{line.text}</p>
                 {/* Japanese translation, when the utterance was spoken in another language.
                     It lands a beat after the line itself. */}
-                {t.translation ? (
+                {line.translation ? (
                   <p className="mt-1 border-l-2 border-[var(--border-strong)] pl-2 text-xs whitespace-pre-wrap text-[var(--text-muted)]">
-                    {t.translation}
+                    {line.translation}
                   </p>
                 ) : null}
               </div>
@@ -1342,7 +1314,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           onConfirm={(choice) => {
             const kind = endDialog;
             setEndDialog(null);
-            void (kind === "minutes" ? generateSummaryAndEnd(choice) : diarizeAndEnd(choice));
+            void (kind === "minutes" ? endWithMinutes(choice) : endWithDiarization(choice));
           }}
         />
       ) : null}
@@ -1357,7 +1329,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       <div className="sticky bottom-0 -mx-4 border-t border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_92%,transparent)] px-4 py-3 backdrop-blur">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="tabular-nums text-sm font-medium text-[var(--text-secondary)]">
-            {formatElapsed(elapsedSec)}
+            {runningTime(elapsedSec)}
           </span>
           <div className="grow" />
           <button
@@ -1380,7 +1352,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           </button>
           <button
             type="button"
-            onClick={endWithoutSummary}
+            onClick={endOnly}
             disabled={busy !== "none"}
             className="btn-outline !px-3 !py-1.5 !text-xs"
           >

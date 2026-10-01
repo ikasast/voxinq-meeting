@@ -7,11 +7,11 @@ import { audioPosition, displayOffset } from "@/lib/audio-position";
 import { mergeLiveTranscripts, type ServerSnapshot } from "@/lib/live-merge";
 import { formatOffset, formatTime } from "@/lib/utils";
 import {
-  type SpeakerLabels,
-  SELF_KEY,
-  collectSpeakerKeys,
-  parseSpeakerLabels,
-  speakerName,
+  type SpeakerNames,
+  MIC_SPEAKER,
+  speakersInOrder,
+  readNames,
+  nameOf,
 } from "@/lib/speakers";
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
@@ -19,7 +19,7 @@ import { useConfirm } from "../confirm-dialog";
 import { PencilIcon, TrashIcon } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
-import { SpeakerBadge, SpeakerManager, SpeakerReassignSelect } from "./speakers-ui";
+import { SpeakerChip, SpeakerNamesEditor, SpeakerPicker } from "./speakers-ui";
 import { ShareButton } from "./share-button";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
@@ -56,6 +56,15 @@ type RecordingInfo = {
 
 function remainingDays(expiresAt: string): number {
   return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 86400000));
+}
+
+/** A JSON PATCH. Null when it never reached the server, so callers can say which went wrong. */
+function patchJson(url: string, body: Record<string, unknown>): Promise<Response | null> {
+  return fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).catch(() => null);
 }
 
 // Post-meeting transcript. Supports recording playback, auto diarization, speaker renaming, and re-transcription.
@@ -97,8 +106,8 @@ export function TranscriptList({
 }) {
   const t = useT();
   const [transcripts, setTranscripts] = useState<Item[]>(initialTranscripts);
-  const [speakerLabels, setSpeakerLabels] = useState<SpeakerLabels>(
-    parseSpeakerLabels(initialSpeakerLabels),
+  const [speakerLabels, setSpeakerLabels] = useState<SpeakerNames>(
+    readNames(initialSpeakerLabels),
   );
   const [error, setError] = useState<string | null>(null);
   const [numSpeakers, setNumSpeakers] = useState<string>("");
@@ -278,15 +287,15 @@ export function TranscriptList({
   }, [recInfo, meetingId, t]);
 
   const reassignKeys = useMemo(
-    () => collectSpeakerKeys(transcripts.map((t) => t.speakerType), speakerLabels),
+    () => speakersInOrder(transcripts.map((t) => t.speakerType), speakerLabels),
     [transcripts, speakerLabels],
   );
   const selfUsed = useMemo(
-    () => transcripts.some((t) => t.speakerType === SELF_KEY) || Boolean(speakerLabels[SELF_KEY]),
+    () => transcripts.some((t) => t.speakerType === MIC_SPEAKER) || Boolean(speakerLabels[MIC_SPEAKER]),
     [transcripts, speakerLabels],
   );
   const managerKeys = useMemo(
-    () => (selfUsed ? reassignKeys : reassignKeys.filter((k) => k !== SELF_KEY)),
+    () => (selfUsed ? reassignKeys : reassignKeys.filter((k) => k !== MIC_SPEAKER)),
     [reassignKeys, selfUsed],
   );
   // Show the speaker badge/reassign on a row only when there are 2 or more speakers.
@@ -314,26 +323,20 @@ export function TranscriptList({
   const transcriptText = useMemo(
     () =>
       transcripts
-        .map((t) => (multiSpeaker ? `${speakerName(t.speakerType, speakerLabels)}: ${t.text}` : t.text))
+        .map((t) => (multiSpeaker ? `${nameOf(t.speakerType, speakerLabels)}: ${t.text}` : t.text))
         .join("\n"),
     [transcripts, speakerLabels, multiSpeaker],
   );
 
-  const reassignSpeaker = useCallback(
-    async (transcriptId: string, nextKey: string) => {
-      const snapshot = transcripts;
-      setTranscripts((list) =>
-        list.map((t) => (t.id === transcriptId ? { ...t, speakerType: nextKey } : t)),
-      );
-      const res = await fetch(`/api/transcripts/${transcriptId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ speakerType: nextKey }),
-      }).catch(() => null);
-      if (!res || !res.ok) {
-        setTranscripts(snapshot);
-        setError(t("Failed to change speaker ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
-      }
+  // Give one line to another speaker: shown at once, put back if the server says no.
+  const setLineSpeaker = useCallback(
+    async (lineId: string, speaker: string) => {
+      const before = transcripts;
+      setTranscripts((lines) => lines.map((line) => (line.id === lineId ? { ...line, speakerType: speaker } : line)));
+      const res = await patchJson(`/api/transcripts/${lineId}`, { speakerType: speaker });
+      if (res?.ok) return;
+      setTranscripts(before);
+      setError(t("Failed to change speaker ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
     },
     [transcripts, t],
   );
@@ -400,11 +403,7 @@ export function TranscriptList({
     async (transcriptId: string, text: string): Promise<boolean> => {
       const snapshot = transcripts;
       setTranscripts((list) => list.map((t) => (t.id === transcriptId ? { ...t, text } : t)));
-      const res = await fetch(`/api/transcripts/${transcriptId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      }).catch(() => null);
+      const res = await patchJson(`/api/transcripts/${transcriptId}`, { text });
       if (!res || !res.ok) {
         setTranscripts(snapshot);
         setError(t("Failed to save the edit ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
@@ -505,16 +504,13 @@ export function TranscriptList({
     [confirm, transcripts, t],
   );
 
-  const renameSpeaker = useCallback(
-    async (key: string, name: string) => {
-      const updated = { ...speakerLabels, [key]: name };
-      setSpeakerLabels(updated);
-      const res = await fetch(`/api/meetings/${meetingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ speakerLabels: updated }),
-      }).catch(() => null);
-      if (!res || !res.ok) {
+  // Name a speaker. The whole map is sent, so the names never drift from what is shown.
+  const nameSpeaker = useCallback(
+    async (speaker: string, name: string) => {
+      const names = { ...speakerLabels, [speaker]: name };
+      setSpeakerLabels(names);
+      const res = await patchJson(`/api/meetings/${meetingId}`, { speakerLabels: names });
+      if (!res?.ok) {
         setError(t("Failed to save speaker name ({reason})", { reason: res ? `HTTP ${res.status}` : t("connection error") }));
       }
     },
@@ -576,7 +572,7 @@ export function TranscriptList({
     if (!res.ok) return;
     const d = (await res.json()) as { transcripts?: Item[]; speakerLabels?: string | null };
     if (Array.isArray(d.transcripts)) setTranscripts(d.transcripts);
-    setSpeakerLabels(parseSpeakerLabels(d.speakerLabels ?? null));
+    setSpeakerLabels(readNames(d.speakerLabels ?? null));
     listRouter.refresh();
   }, [meetingId, listRouter]);
 
@@ -866,7 +862,7 @@ export function TranscriptList({
       });
       // Diarization only runs after a meeting ends, so labels can only have been set by a
       // reload of an already-ended meeting — but adopting them costs nothing.
-      if (data.speakerLabels) setSpeakerLabels(parseSpeakerLabels(data.speakerLabels));
+      if (data.speakerLabels) setSpeakerLabels(readNames(data.speakerLabels));
 
       if (data.endedAt) {
         stopped = true;
@@ -1067,7 +1063,7 @@ export function TranscriptList({
             <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
               {t("Speaker names (edits apply to all lines)")}
             </p>
-            <SpeakerManager speakerKeys={managerKeys} labels={speakerLabels} onRename={renameSpeaker} />
+            <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
 
             {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1442,7 +1438,7 @@ export function TranscriptList({
               showSpeaker={multiSpeaker}
               canSeek={Boolean(recInfo?.exists)}
               onSeek={() => seekTo(wavPosition(i))}
-              onReassign={(nextKey) => void reassignSpeaker(t.id, nextKey)}
+              onReassign={(speaker) => void setLineSpeaker(t.id, speaker)}
               onDelete={() => void deleteTranscript(t.id)}
               onEdit={(text) => editTranscript(t.id, text)}
               suggestion={suggestionByT.get(t.id) ?? null}
@@ -1483,7 +1479,7 @@ function TranscriptRow({
   showTranslation: boolean;
   item: Item;
   elapsed: number;
-  labels: SpeakerLabels;
+  labels: SpeakerNames;
   reassignKeys: string[];
   showSpeaker: boolean;
   canSeek: boolean;
@@ -1540,14 +1536,14 @@ function TranscriptRow({
             {formatOffset(elapsed)}
           </span>
         )}
-        {showSpeaker ? <SpeakerBadge speakerKey={item.speakerType} labels={labels} /> : null}
+        {showSpeaker ? <SpeakerChip who={item.speakerType} names={labels} /> : null}
         <span className="grow" />
         {showSpeaker && !readOnly ? (
-          <SpeakerReassignSelect
-            value={item.speakerType}
-            speakerKeys={reassignKeys}
-            labels={labels}
-            onChange={onReassign}
+          <SpeakerPicker
+            current={item.speakerType}
+            known={reassignKeys}
+            names={labels}
+            onPick={onReassign}
           />
         ) : null}
         {/* Fix or drop a misheard line so the minutes are built from the right words. Kept

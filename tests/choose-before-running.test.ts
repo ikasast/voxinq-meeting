@@ -13,8 +13,8 @@ describe("ending a meeting", () => {
   it("opens the dialog instead of running straight away", () => {
     expect(page).toContain('onClick={() => setEndDialog("minutes")}');
     expect(page).toContain('onClick={() => setEndDialog("diarize")}');
-    expect(page).not.toContain("onClick={generateSummaryAndEnd}");
-    expect(page).not.toContain("onClick={diarizeAndEnd}");
+    expect(page).not.toContain("onClick={endWithMinutes}");
+    expect(page).not.toContain("onClick={endWithDiarization}");
   });
 
   it("writes the minutes the way the dialog said, live or queued", () => {

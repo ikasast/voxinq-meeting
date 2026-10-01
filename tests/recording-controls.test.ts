@@ -61,11 +61,11 @@ describe("the recording control", () => {
 
   it("has the running time beside it rather than at the top", () => {
     const bar = src.slice(bottomBar);
-    expect(bar).toContain("formatElapsed(elapsedSec)");
+    expect(bar).toContain("runningTime(elapsedSec)");
     // The status and the input level stay up there: they are read, not acted on.
     const top = src.slice(topBar, bottomBar);
     expect(top).toContain("statusText(t, status)");
-    expect(top, "the clock is in both places").not.toContain("formatElapsed(elapsedSec)");
+    expect(top, "the clock is in both places").not.toContain("runningTime(elapsedSec)");
   });
 
   it("does not tell people to press it above", () => {
