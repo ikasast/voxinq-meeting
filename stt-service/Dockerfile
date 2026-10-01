@@ -57,6 +57,7 @@ RUN python3.11 -m venv /app/diarization/.venv \
        fi
 
 # Source last so dependency layers stay cached across code edits.
+COPY LICENSE NOTICE.md /app/
 COPY stt-service/ /app/stt-service/
 COPY diarization/ /app/diarization/
 

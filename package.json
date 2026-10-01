@@ -1,6 +1,7 @@
 {
   "name": "voxinq",
   "version": "3.8.7",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev",

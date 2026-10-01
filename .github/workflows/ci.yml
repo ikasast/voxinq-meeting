@@ -151,3 +151,26 @@ jobs:
       # which is not what a pull request is.
       - name: Build the web image
         run: docker build -t voxinq-web:ci .
+
+  # The licences of everything the app depends on, from its lockfiles: a list to read, and a
+  # check that nothing arrives under a licence an MIT project offered commercially cannot carry
+  # (scripts/licences.mjs says which). The published images get the same list, with their
+  # operating-system packages, at release time (publish-images.yml).
+  licences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom-source.spdx.json
+          upload-artifact: false
+      - run: node scripts/licences.mjs THIRD_PARTY_LICENSES.md sbom-source.spdx.json --check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: licences
+          path: |
+            THIRD_PARTY_LICENSES.md
+            sbom-source.spdx.json
