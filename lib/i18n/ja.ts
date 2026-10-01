@@ -232,6 +232,10 @@ export const ja: Record<string, string> = {
 
   // ---- The buttons along the top of the meeting ----
   "Edit meeting title": "タイトルを編集",
+  "How to write": "書き方の指示",
+  "Start from the built-in instructions": "既定の指示から書き始める",
+  "Instructions on how to write: tone, how much to condense, what to do with a heading that has nothing under it. Left empty, the built-in instructions shown faintly are used. Some rules always apply and are not part of this: only what was said, no guessing, the minutes' language, and starting at the first heading.":
+    "文体、どこまで要約するか、該当が無い見出しの扱いなど、書き方の指示です。空欄なら薄く表示している既定の指示を使います。発言ログにあることだけを書く・推測しない・議事録の言語・最初の見出しから書き始める、といった規則は常に適用され、ここには含まれません。",
   "Change the booked time": "予定の日時を変更",
   "Only a booked meeting that has not been recorded yet can be moved.": "日時を変更できるのは、まだ録音していない予定の会議だけです。",
   "Failed to save": "保存に失敗しました",

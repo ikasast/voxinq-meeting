@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
+import { DEFAULT_MINUTES_INSTRUCTIONS, DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import { type MinutesTemplate, newTemplateId } from "@/lib/minutes-templates";
 import { useT } from "@/app/locale-provider";
 
@@ -42,6 +42,7 @@ export function MinutesTemplates({
       id: newTemplateId(),
       name: "New format",
       body: DEFAULT_SUMMARY_FORMAT,
+      instructions: DEFAULT_MINUTES_INSTRUCTIONS,
     };
     onChange([...templates, created]);
     setEditing(created.id);
@@ -188,6 +189,33 @@ export function MinutesTemplates({
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("The heading structure the model is asked to follow. Its first heading is also used to start the model off, so keep one at the top.")}
+            </p>
+          </div>
+          <div className="mt-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <label className={labelClass} htmlFor={`tinstr-${draft.id}`}>
+                {t("How to write")}
+              </label>
+              {!draft.instructions?.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => update(draft.id, { instructions: DEFAULT_MINUTES_INSTRUCTIONS })}
+                  className="btn-outline px-2 py-1 text-xs"
+                >
+                  {t("Start from the built-in instructions")}
+                </button>
+              ) : null}
+            </div>
+            <textarea
+              id={`tinstr-${draft.id}`}
+              value={draft.instructions ?? ""}
+              onChange={(e) => update(draft.id, { instructions: e.target.value })}
+              rows={8}
+              placeholder={DEFAULT_MINUTES_INSTRUCTIONS}
+              className={`${inputClass} font-mono text-xs`}
+            />
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {t("Instructions on how to write: tone, how much to condense, what to do with a heading that has nothing under it. Left empty, the built-in instructions shown faintly are used. Some rules always apply and are not part of this: only what was said, no guessing, the minutes' language, and starting at the first heading.")}
             </p>
           </div>
         </div>

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildSummarySystemPrompt, DEFAULT_SUMMARY_FORMAT } from "../lib/minutes-prompt";
+import {
+  buildSummarySystemPrompt,
+  DEFAULT_MINUTES_INSTRUCTIONS,
+  DEFAULT_SUMMARY_FORMAT,
+} from "../lib/minutes-prompt";
 
 describe("buildSummarySystemPrompt", () => {
   it("uses the default format when none is given", () => {
@@ -36,5 +40,28 @@ describe("buildSummarySystemPrompt", () => {
   it("adds detail guidance only for non-standard levels", () => {
     expect(buildSummarySystemPrompt(null, { detail: "detailed" })).toContain("## 詳しさ");
     expect(buildSummarySystemPrompt(null, { detail: "standard" })).not.toContain("## 詳しさ");
+  });
+});
+
+describe("a template's writing instructions", () => {
+  it("replace the built-in ones when given", () => {
+    const p = buildSummarySystemPrompt(null, { instructions: "- 敬体で書く。" });
+    expect(p).toContain("- 敬体で書く。");
+    expect(p).not.toContain(DEFAULT_MINUTES_INSTRUCTIONS);
+  });
+
+  it("fall back to the built-in ones when empty", () => {
+    expect(buildSummarySystemPrompt(null, { instructions: "  " })).toContain(DEFAULT_MINUTES_INSTRUCTIONS);
+    expect(buildSummarySystemPrompt(null, {})).toContain(DEFAULT_MINUTES_INSTRUCTIONS);
+  });
+
+  it("cannot remove the rules that keep minutes honest and readable", () => {
+    // Whatever a template says, these stay: they are outside the part it replaces.
+    const p = buildSummarySystemPrompt(null, { instructions: "- 自由に書く。" });
+    expect(p).toContain("議事録の情報源は発言ログだけ");
+    expect(p).toContain("事実に基づかない推測は書かない");
+    expect(p).toContain("必ず日本語で");
+    expect(p).toContain("出力の1行目から議事録本体");
+    expect(p).toContain("コードフェンスで囲まない");
   });
 });

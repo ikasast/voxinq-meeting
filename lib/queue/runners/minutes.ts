@@ -4,7 +4,7 @@ import { requestSummary } from "@/lib/llm";
 import { loadedModel } from "@/lib/llm/ollama-models";
 import { emptyUsage } from "@/lib/llm/types";
 import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
-import { resolveTemplate } from "@/lib/minutes-templates";
+import { resolveInstructions, resolveTemplate } from "@/lib/minutes-templates";
 import { getLlmConfig, readSettings } from "@/lib/settings";
 import { parseSpeakerLabels } from "@/lib/speakers";
 import type { JobMetrics } from "../metrics";
@@ -120,6 +120,10 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
         format: resolveTemplate(settings.minutesTemplates, {
           chosenId: templateId,
           seriesFormat: meeting.series?.summaryFormat,
+          defaultId: settings.defaultMinutesTemplateId,
+        }),
+        instructions: resolveInstructions(settings.minutesTemplates, {
+          chosenId: templateId,
           defaultId: settings.defaultMinutesTemplateId,
         }),
         previousMinutes,
