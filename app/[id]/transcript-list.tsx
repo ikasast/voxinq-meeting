@@ -719,7 +719,7 @@ export function TranscriptList({
     }
   }, [meetingId, reloadTranscript, t]);
 
-  const runDiarization = useCallback(async () => {
+  const runDiarization = useCallback(async (speakers?: number) => {
     setError(null);
     setDiarWarn(null);
     setDiarizing(true);
@@ -729,7 +729,8 @@ export function TranscriptList({
       // The box wins when it has a number in it. Otherwise the count comes from the participant
       // list, read now rather than held in state: it is edited elsewhere on this page, and a
       // stale count is worse than none -- too low merges two people into one.
-      let want = Number(numSpeakers.trim());
+      // A count chosen when the meeting was ended (?speakers=) comes first.
+      let want = speakers ?? Number(numSpeakers.trim());
       if (!Number.isFinite(want) || want <= 0) want = await expectedSpeakerCount(meetingId);
 
       const startRes = await fetch(`/api/meetings/${meetingId}/diarize`, {
@@ -908,10 +909,12 @@ export function TranscriptList({
     const params = new URLSearchParams(window.location.search);
     if (params.get("autodiarize") !== "1") return;
     autoDiarizeTried.current = true;
+    const speakers = Number(params.get("speakers"));
     params.delete("autodiarize");
+    params.delete("speakers");
     const qs = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
-    void runDiarization();
+    void runDiarization(Number.isInteger(speakers) && speakers > 0 ? speakers : undefined);
   }, [transcripts.length, runDiarization]);
 
   return (

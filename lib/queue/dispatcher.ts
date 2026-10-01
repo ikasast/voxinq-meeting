@@ -159,7 +159,7 @@ async function run(job: {
         // alongside it, because a minutes job with no transcript to read fails; and queued
         // before this one is marked done, so a page that sees the recognition finish and looks
         // again finds the minutes already on their way rather than a gap between the two.
-        if (r.thenMinutes && job.meetingId) await queueMinutesAfter(job.meetingId);
+        if (r.thenMinutes && job.meetingId) await queueMinutesAfter(job.meetingId, r.minutesParams);
         await finishRun(job.id, "done", r.note, r.metrics);
         return;
       }
@@ -192,14 +192,17 @@ async function run(job: {
  * happens here. A meeting that ended up with no lines gets nothing rather than a failed job
  * that says "No utterances recorded" about a file somebody dropped a minute ago.
  */
-async function queueMinutesAfter(meetingId: string): Promise<void> {
+async function queueMinutesAfter(
+  meetingId: string,
+  params: { detail?: string; provider?: string; templateId?: string } = {},
+): Promise<void> {
   try {
     // Scoped: this runs as the meeting's owner, like the recognition before it, so the minutes
     // job is theirs too.
     const lines = await prisma.transcript.count({ where: { meetingId } });
     if (lines === 0) return;
     if (await openJobFor("minutes", meetingId)) return;
-    await enqueue({ kind: "minutes", meetingId, params: {} });
+    await enqueue({ kind: "minutes", meetingId, params });
   } catch (e) {
     console.error("[queue] could not queue the minutes after recognition", e);
   }

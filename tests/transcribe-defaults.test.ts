@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinGlossary, withDefaults } from "@/lib/stt/transcribe-defaults";
+import { joinGlossary, minutesParamsFrom, withDefaults } from "@/lib/stt/transcribe-defaults";
 
 // The pages know which model was picked and compose the glossary as they go. The Android app,
 // handed an audio file from another app, knows none of it — so the server answers for it. What
@@ -70,5 +70,24 @@ describe("the glossary", () => {
   it("drops what is not there and trims what is", () => {
     expect(joinGlossary([" a ", "", null, undefined, "b"])).toBe("a、b");
     expect(joinGlossary([null, "   "])).toBe("");
+  });
+});
+
+describe("the chained minutes' choices", () => {
+  it("go with the request only when minutes are chained", () => {
+    const minutesParams = { detail: "detailed", templateId: "tpl-1" };
+    expect(withDefaults({ thenMinutes: true, minutesParams }, settings).minutesParams).toEqual(minutesParams);
+    expect("minutesParams" in withDefaults({ minutesParams }, settings)).toBe(false);
+  });
+
+  it("are kept to the three a run can be given, as short strings", () => {
+    expect(minutesParamsFrom({ detail: "brief", provider: "ollama", templateId: "a", other: "x" })).toEqual({
+      detail: "brief",
+      provider: "ollama",
+      templateId: "a",
+    });
+    expect(minutesParamsFrom({ detail: 3, templateId: "x".repeat(101) })).toBeUndefined();
+    expect(minutesParamsFrom("detailed")).toBeUndefined();
+    expect(minutesParamsFrom(null)).toBeUndefined();
   });
 });

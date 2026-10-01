@@ -5,7 +5,7 @@ import { tick } from "@/lib/queue/dispatcher";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { resolveDestination } from "@/lib/queue/runners/transcribe";
 import { readSettings } from "@/lib/settings";
-import { withDefaults } from "@/lib/stt/transcribe-defaults";
+import { minutesParamsFrom, withDefaults } from "@/lib/stt/transcribe-defaults";
 
 export const runtime = "nodejs";
 
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       initialPrompt: typeof body.initialPrompt === "string" ? body.initialPrompt : undefined,
       translate: typeof body.translate === "boolean" ? body.translate : undefined,
       thenMinutes: body.thenMinutes === true,
+      minutesParams: minutesParamsFrom(body.minutesParams),
     },
     {
       model: settings.whisperModel,

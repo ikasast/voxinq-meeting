@@ -16,6 +16,7 @@ import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
 import { useConfirmEx } from "../../confirm-dialog";
 import { PreflightCheck } from "./preflight-check";
+import { type EndChoice, EndDialog } from "./end-dialog";
 import { useT } from "@/app/locale-provider";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
@@ -123,6 +124,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // Chosen for this meeting rather than decided by the hardware: something else was using the
   // card and the answer was to leave it alone. Recording happens; the text arrives at the end.
   const [recordOnly, setRecordOnly] = useState(false);
+  // Which way of ending is being asked about, if any (end-dialog.tsx).
+  const [endDialog, setEndDialog] = useState<null | "minutes" | "diarize">(null);
   // Audio was recorded here that nothing recognised as it came in -- on a host that transcribes
   // at the end, or in a record-only session. The transcript on screen is empty, which is not
   // the same as there being nothing to end the meeting with: minutes and speakers can still be
@@ -743,7 +746,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // transcript to write them from. The answer tells the caller which case it is in: "live" when
   // the transcript already exists and nothing was queued.
   const transcribeAfterRecording = useCallback(
-    async (thenMinutes: boolean): Promise<"live" | "queued" | "failed"> => {
+    async (thenMinutes: false | EndChoice["minutes"]): Promise<"live" | "queued" | "failed"> => {
       // Recorded here without recognition, or on a host that only ever transcribes at the end
       // and has no transcript yet -- which also covers audio recorded before a reload.
       if (!awaitingTranscript && !(deferred && transcripts.length === 0)) return "live";
@@ -757,7 +760,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           body: JSON.stringify({
             model,
             language: effectiveSttLanguage(model, meetingLangRef.current ?? sttLanguageRef.current),
-            thenMinutes,
+            thenMinutes: thenMinutes !== false,
+            ...(thenMinutes ? { minutesParams: thenMinutes } : {}),
           }),
         });
         if (!res.ok) {
@@ -777,19 +781,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     [awaitingTranscript, deferred, transcripts.length, activeModel, meetingId, showToast, t],
   );
 
-  const generateSummaryAndEnd = useCallback(async () => {
+  // Asked from the dialog (end-dialog.tsx): how to write the minutes, and whether to keep the
+  // recording. The choices apply to this run only.
+  const generateSummaryAndEnd = useCallback(async (choice: EndChoice) => {
     if (busy !== "none") return;
-    const { ok, checked } = await confirm({
-      title: title || t("Meeting"),
-      message: t(
-        "Start generating minutes and end the meeting. Generation runs in the background; check the result on the meeting page when it finishes.",
-      ),
-      confirmLabel: t("Generate minutes"),
-      checkboxLabel: t(
-        "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
-      ),
-    });
-    if (!ok) return;
+    const checked = choice.protect;
+    const minutes = choice.minutes ?? { detail: "", provider: "", templateId: "" };
     setBusy("summary");
     endedRef.current = true;
     setEnded(true);
@@ -800,13 +797,13 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // With no transcript yet, the queue writes the minutes once the recognition has made one.
       // If it could not even be queued, there is nothing to write minutes from; the meeting
       // page, where "Re-transcribe" is, is the place to land.
-      const later = await transcribeAfterRecording(true);
+      const later = await transcribeAfterRecording(minutes);
       if (later === "live") {
         // Minutes generation runs in the background (202 returns immediately).
         const sumRes = await fetch("/api/claude/summary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ meetingId }),
+          body: JSON.stringify({ meetingId, ...minutes }),
         });
         if (!sumRes.ok && sumRes.status !== 202) {
           const sumData = await sumRes.json().catch(() => null);
@@ -822,24 +819,14 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       showToast(t("Failed to start minutes generation: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
+  }, [busy, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
 
   // End the meeting and kick off speaker diarization: the detail page opens with
   // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
   // Minutes are NOT generated — review the speakers first, then generate.
-  const diarizeAndEnd = useCallback(async () => {
+  const diarizeAndEnd = useCallback(async (choice: EndChoice) => {
     if (busy !== "none") return;
-    const { ok, checked } = await confirm({
-      title: title || t("Meeting"),
-      message: t(
-        "End the meeting and start speaker diarization. Speakers are assigned automatically on the meeting page (enrolled voices get their names); generate minutes afterwards.",
-      ),
-      confirmLabel: t("Diarize"),
-      checkboxLabel: t(
-        "Protect the recording (otherwise auto-deleted after 7 days; used for diarization / re-transcription)",
-      ),
-    });
-    if (!ok) return;
+    const checked = choice.protect;
     setBusy("summary");
     endedRef.current = true;
     setEnded(true);
@@ -852,13 +839,14 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // A transcript still to be made is followed by the meeting page, which starts
       // diarization once the lines have landed.
       await transcribeAfterRecording(false);
-      // replace() so back navigation cannot return here and restart the meeting.
-      router.replace(`/${meetingId}?autodiarize=1`);
+      // replace() so back navigation cannot return here and restart the meeting. The speaker
+      // count chosen in the dialog goes with it; absent, the page works it out as it always has.
+      router.replace(`/${meetingId}?autodiarize=1${choice.speakers ? `&speakers=${choice.speakers}` : ""}`);
     } catch (e) {
       showToast(t("Failed to end the meeting: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, confirm, title, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
+  }, [busy, meetingId, router, showToast, stopRecording, protectRecording, transcribeAfterRecording, t]);
 
   const endWithoutSummary = useCallback(async () => {
     if (busy !== "none") return;
@@ -1346,6 +1334,19 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           </div>
       </section>
 
+      {endDialog ? (
+        <EndDialog
+          kind={endDialog}
+          title={title || t("Meeting")}
+          onCancel={() => setEndDialog(null)}
+          onConfirm={(choice) => {
+            const kind = endDialog;
+            setEndDialog(null);
+            void (kind === "minutes" ? generateSummaryAndEnd(choice) : diarizeAndEnd(choice));
+          }}
+        />
+      ) : null}
+
       {/* Sticky bottom bar: the recording control, and the ways to end the meeting.
           Start/Stop was at the top of the page, which on a phone is the far corner from your
           thumb and the one control you may need in a hurry. It is the primary action, so it is
@@ -1361,7 +1362,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           <div className="grow" />
           <button
             type="button"
-            onClick={generateSummaryAndEnd}
+            onClick={() => setEndDialog("minutes")}
             disabled={busy !== "none" || (transcripts.length === 0 && !awaitingTranscript)}
             className="btn-outline !px-3 !py-1.5 !text-xs"
             title={t("End the meeting and start generating minutes in the background")}
@@ -1370,7 +1371,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           </button>
           <button
             type="button"
-            onClick={diarizeAndEnd}
+            onClick={() => setEndDialog("diarize")}
             disabled={busy !== "none" || (transcripts.length === 0 && !awaitingTranscript)}
             className="btn-outline !px-3 !py-1.5 !text-xs"
             title={t("End the meeting and assign speakers automatically; generate minutes after reviewing them")}

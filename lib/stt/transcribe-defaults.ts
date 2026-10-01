@@ -16,6 +16,8 @@ export type TranscribeRequest = {
   translate?: boolean;
   /** Carried through untouched: it is for the queue, not for the recogniser. */
   thenMinutes?: boolean;
+  /** Likewise: how the chained minutes are to be written. */
+  minutesParams?: { detail?: string; provider?: string; templateId?: string };
 };
 
 /** The settings, plus the one thing that belongs to this meeting rather than the host. */
@@ -54,5 +56,15 @@ export function withDefaults(asked: TranscribeRequest, ctx: TranscribeContext): 
     translate: asked.translate ?? ctx.translate === true,
     // Not a recognition setting, so there is nothing to fill in for it.
     ...(asked.thenMinutes ? { thenMinutes: true } : {}),
+    ...(asked.thenMinutes && asked.minutesParams ? { minutesParams: asked.minutesParams } : {}),
   };
+}
+
+/** The chained minutes' choices, kept to the three a run can be given and only as strings. */
+export function minutesParamsFrom(raw: unknown): { detail?: string; provider?: string; templateId?: string } | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const pick = (k: string) => (typeof r[k] === "string" && (r[k] as string).length <= 100 ? (r[k] as string) : undefined);
+  const out = { detail: pick("detail"), provider: pick("provider"), templateId: pick("templateId") };
+  return Object.values(out).some((v) => v !== undefined) ? out : undefined;
 }
