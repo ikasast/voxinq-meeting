@@ -12,7 +12,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
-import { diarizerLabelToKey, isValidSpeakerKey } from "@/lib/speakers";
+import { fromDiarizer, isSpeakerKey } from "@/lib/speakers";
 
 /** One part of a divided line, as the diarizer returns it (seconds, and its own label). */
 export type SplitPiece = { speaker: string; text: string; start: number; end: number };
@@ -132,7 +132,7 @@ export function planSplits(
     const parts = pieces[i];
     if (!Array.isArray(parts) || parts.length < 2) return;
     const cleaned = parts.map((p) => ({
-      speaker: diarizerLabelToKey(p.speaker),
+      speaker: fromDiarizer(p.speaker),
       text: (p.text ?? "").trim(),
       audioStartMs: Math.round((p.start ?? 0) * 1000),
       audioEndMs: Math.round((p.end ?? 0) * 1000),
@@ -140,7 +140,7 @@ export function planSplits(
     const usable = cleaned.every(
       (p) =>
         p.text &&
-        isValidSpeakerKey(p.speaker) &&
+        isSpeakerKey(p.speaker) &&
         Number.isFinite(p.audioStartMs) &&
         p.audioEndMs > p.audioStartMs &&
         p.audioStartMs >= 0,

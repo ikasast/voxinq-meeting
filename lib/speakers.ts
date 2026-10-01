@@ -1,112 +1,129 @@
-// Shared utilities for the speaker-key scheme and display (also imported by the client).
+// Who said a line.
 //
-// Key scheme:
-//   "self"      ... the default speaker for mic input
-//   "partner-N" ... the N-th speaker assigned by diarization (pyannote)
+// Every transcript row carries a speaker key, and exports, the queue and the Android app all see
+// the same keys, so their spelling is data and stays as it is: "self" is whoever held the
+// microphone, "partner-<n>" is the n-th voice speaker separation told apart, counted from 0.
+// This module is the one place that reads that spelling; the rest of the app asks it.
 //
-// The STT/diarization side returns labels like "speaker0", "speaker1", ...,
-// so normalize them to "partner-N" via diarizerLabelToKey() before saving.
+// The diarizer numbers its voices "speaker0", "speaker1", ...; fromDiarizer turns those into keys
+// on the way in. The names people give speakers are stored per meeting as a key → name map.
+// Used on the server and in the browser alike.
 
-export const SELF_KEY = "self";
-const PARTNER_PREFIX = "partner-";
+/** The names given to a meeting's speakers, by key. */
+export type SpeakerNames = Record<string, string>;
 
-export type SpeakerLabels = Record<string, string>;
+/** The person at the microphone. */
+export const MIC_SPEAKER = "self";
 
-/** "partner-3" -> 3. null if not a partner key. */
-export function partnerIndex(key: string): number | null {
-  if (!key.startsWith(PARTNER_PREFIX)) return null;
-  const rest = key.slice(PARTNER_PREFIX.length);
-  return /^\d+$/.test(rest) ? Number(rest) : null;
+const VOICE_KEY = /^partner-(\d+)$/;
+
+/** The key for the n-th separated voice. */
+export function voiceKey(n: number): string {
+  return `partner-${n}`;
 }
 
-/** Whether the speaker key is allowed for DB storage / API acceptance. */
-export function isValidSpeakerKey(key: string): boolean {
-  return key === SELF_KEY || partnerIndex(key) !== null;
+/** Which separated voice a key is ("partner-2" → 2), or null when it is not one. */
+export function voiceNumber(key: string): number | null {
+  const found = VOICE_KEY.exec(key);
+  return found ? Number(found[1]) : null;
 }
 
-/** Diarizer label ("speaker2" etc.) -> speaker key ("partner-2"). Unknown values -> partner-0. */
-export function diarizerLabelToKey(label: string | undefined | null): string {
-  const m = label?.match(/^speaker(\d+)$/);
-  return m ? PARTNER_PREFIX + m[1] : PARTNER_PREFIX + "0";
-}
-
-/** Default display name when no custom name is set. partner is "話者N" starting from 1. */
-export function defaultSpeakerName(key: string): string {
-  if (key === SELF_KEY) return "Me";
-  const idx = partnerIndex(key);
-  return idx === null ? key : `Speaker ${idx + 1}`;
-}
-
-/** Return the custom name if set, otherwise the default name. */
-export function speakerName(key: string, labels: SpeakerLabels): string {
-  const custom = labels[key]?.trim();
-  return custom || defaultSpeakerName(key);
-}
-
-/** Safely convert Meeting.speakerLabels (JSON string) into SpeakerLabels. */
-export function parseSpeakerLabels(json: string | null | undefined): SpeakerLabels {
-  if (!json) return {};
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    return {};
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-  const labels: SpeakerLabels = {};
-  for (const [key, value] of Object.entries(parsed)) {
-    if (typeof value === "string") labels[key] = value;
-  }
-  return labels;
-}
-
-// Speaker badge colors. self is fixed to a blue tint; partners cycle by index.
-type SpeakerTint = { badge: string; dot: string };
-
-const TINTS: { self: SpeakerTint; partners: SpeakerTint[]; unknown: SpeakerTint } = {
-  self: { badge: "bg-sky-100 text-sky-700", dot: "bg-sky-500" },
-  partners: [
-    { badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
-    { badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
-    { badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500" },
-    { badge: "bg-rose-100 text-rose-700", dot: "bg-rose-500" },
-    { badge: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-500" },
-    { badge: "bg-fuchsia-100 text-fuchsia-700", dot: "bg-fuchsia-500" },
-  ],
-  unknown: { badge: "bg-zinc-100 text-zinc-600", dot: "bg-zinc-400" },
-};
-
-export function speakerColor(key: string): SpeakerTint {
-  if (key === SELF_KEY) return TINTS.self;
-  const idx = partnerIndex(key);
-  return idx === null ? TINTS.unknown : TINTS.partners[idx % TINTS.partners.length];
+/** Whether a key is one a line may be stored under. */
+export function isSpeakerKey(key: string): boolean {
+  return key === MIC_SPEAKER || voiceNumber(key) !== null;
 }
 
 /**
- * List of known speaker keys in display order (self -> partner-0, 1, 2 ...).
- * Merges keys appearing in the transcript with keys that have names.
+ * A diarizer label as a key. Labels it did not number are not a voice of their own: they go to
+ * `otherwise`, which is the first voice unless the caller says something else.
  */
-export function collectSpeakerKeys(
-  speakerKeys: Iterable<string>,
-  labels?: SpeakerLabels,
-): string[] {
-  const known = new Set<string>([SELF_KEY]);
-  for (const key of speakerKeys) {
-    if (isValidSpeakerKey(key)) known.add(key);
-  }
-  for (const key of Object.keys(labels ?? {})) {
-    if (isValidSpeakerKey(key)) known.add(key);
-  }
-  const order = (key: string) => (key === SELF_KEY ? -1 : (partnerIndex(key) ?? 0));
-  return [...known].sort((a, b) => order(a) - order(b));
+export function fromDiarizer(label: string | null | undefined, otherwise = voiceKey(0)): string {
+  const numbered = /^speaker(\d+)$/.exec(label ?? "");
+  return numbered ? voiceKey(Number(numbered[1])) : otherwise;
 }
 
-/** Issue the next unused partner key (max index + 1). */
-export function nextPartnerKey(speakerKeys: Iterable<string>): string {
-  let max = -1;
-  for (const key of speakerKeys) {
-    const idx = partnerIndex(key);
-    if (idx !== null && idx > max) max = idx;
+/** What a speaker is called before anyone names them: "Me", or "Speaker 1", "Speaker 2", ... */
+export function plainName(key: string): string {
+  if (key === MIC_SPEAKER) return "Me";
+  const n = voiceNumber(key);
+  return n === null ? key : `Speaker ${n + 1}`;
+}
+
+/** What a speaker is called: the name someone gave them, else their plain name. */
+export function nameOf(key: string, names: SpeakerNames = {}): string {
+  return names[key]?.trim() || plainName(key);
+}
+
+/** A meeting's stored names. Anything unreadable reads as no names at all. */
+export function readNames(stored: string | null | undefined): SpeakerNames {
+  let value: unknown = null;
+  try {
+    value = stored ? JSON.parse(stored) : null;
+  } catch {
+    return {};
   }
-  return PARTNER_PREFIX + (max + 1);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const names: SpeakerNames = {};
+  for (const [key, name] of Object.entries(value)) if (typeof name === "string") names[key] = name;
+  return names;
+}
+
+/**
+ * The names a request asks to store: real keys only, trimmed, none left empty. Null when what was
+ * sent is not a map of names at all, which the caller refuses.
+ */
+export function namesFromRequest(sent: unknown): SpeakerNames | null {
+  if (!sent || typeof sent !== "object" || Array.isArray(sent)) return null;
+  const names: SpeakerNames = {};
+  for (const [key, name] of Object.entries(sent)) {
+    const trimmed = typeof name === "string" ? name.trim() : "";
+    if (trimmed && isSpeakerKey(key)) names[key] = trimmed;
+  }
+  return names;
+}
+
+/**
+ * The speakers to offer, in the order they are shown: the microphone first, always, then every
+ * voice that has a line or a name, by number.
+ */
+export function speakersInOrder(keys: Iterable<string>, names: SpeakerNames = {}): string[] {
+  const voices = new Map<string, number>();
+  for (const key of [...keys, ...Object.keys(names)]) {
+    const n = voiceNumber(key);
+    if (n !== null) voices.set(key, n);
+  }
+  const byNumber = [...voices].sort(([, a], [, b]) => a - b).map(([key]) => key);
+  return [MIC_SPEAKER, ...byNumber];
+}
+
+/** A voice no line uses yet: one past the highest number among `keys`. */
+export function freshVoice(keys: Iterable<string>): string {
+  let next = 0;
+  for (const key of keys) {
+    const n = voiceNumber(key);
+    if (n !== null && n >= next) next = n + 1;
+  }
+  return voiceKey(next);
+}
+
+// The colour a speaker is shown in: `chip` for their name tag, `mark` for the dot beside the
+// name field. The microphone has its own; voices take the next colour round the ring. Written
+// out whole because Tailwind only generates classes it can find spelled out in the source.
+type Tone = { chip: string; mark: string };
+
+const MIC_TONE: Tone = { chip: "bg-blue-100 text-blue-800", mark: "bg-blue-600" };
+const VOICE_TONES: Tone[] = [
+  { chip: "bg-teal-100 text-teal-800", mark: "bg-teal-600" },
+  { chip: "bg-orange-100 text-orange-800", mark: "bg-orange-600" },
+  { chip: "bg-purple-100 text-purple-800", mark: "bg-purple-600" },
+  { chip: "bg-pink-100 text-pink-800", mark: "bg-pink-600" },
+  { chip: "bg-lime-100 text-lime-800", mark: "bg-lime-600" },
+  { chip: "bg-indigo-100 text-indigo-800", mark: "bg-indigo-600" },
+];
+const OTHER_TONE: Tone = { chip: "bg-stone-100 text-stone-700", mark: "bg-stone-400" };
+
+export function toneOf(key: string): Tone {
+  if (key === MIC_SPEAKER) return MIC_TONE;
+  const n = voiceNumber(key);
+  return n === null ? OTHER_TONE : VOICE_TONES[n % VOICE_TONES.length];
 }

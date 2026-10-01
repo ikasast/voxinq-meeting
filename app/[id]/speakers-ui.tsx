@@ -1,127 +1,105 @@
 "use client";
 
 import { useState } from "react";
-import {
-  type SpeakerLabels,
-  collectSpeakerKeys,
-  nextPartnerKey,
-  speakerColor,
-  speakerName,
-} from "@/lib/speakers";
+import { type SpeakerNames, freshVoice, nameOf, speakersInOrder, toneOf } from "@/lib/speakers";
 import { useT } from "@/app/locale-provider";
 
-const NEW_SPEAKER_VALUE = "__new__";
+// The small pieces a transcript uses to show and change who said what: a coloured tag on a line,
+// a picker that gives the line to someone else, and the row of fields that names the speakers.
 
-/** Colored name badge for a speaker. */
-export function SpeakerBadge({
-  speakerKey,
-  labels,
-  size = "sm",
-}: {
-  speakerKey: string;
-  labels: SpeakerLabels;
-  size?: "sm" | "xs";
-}) {
-  return (
-    <span
-      className={`rounded ${size === "xs" ? "px-1 text-[10px]" : "px-1.5 text-xs"} ${speakerColor(speakerKey).badge}`}
-    >
-      {speakerName(speakerKey, labels)}
-    </span>
-  );
+/** The picker's last entry. Not a key a line could ever have, so it cannot collide with one. */
+const ADD_VOICE = "+voice";
+
+/** A speaker's name on a line, in their colour. */
+export function SpeakerChip({ who, names }: { who: string; names: SpeakerNames }) {
+  return <span className={`rounded px-1.5 text-xs ${toneOf(who).chip}`}>{nameOf(who, names)}</span>;
 }
 
 /**
- * Select to reassign the speaker per utterance.
- * Choosing "＋ 新しい話者" at the end issues and assigns an unused partner key.
+ * Gives a line to another speaker. The last entry hands it to a voice nobody has yet, for when
+ * separation merged two people into one.
  */
-export function SpeakerReassignSelect({
-  value,
-  speakerKeys,
-  labels,
-  onChange,
+export function SpeakerPicker({
+  current,
+  known,
+  names,
+  onPick,
 }: {
-  value: string;
-  speakerKeys: string[];
-  labels: SpeakerLabels;
-  onChange: (nextKey: string) => void;
+  current: string;
+  known: string[];
+  names: SpeakerNames;
+  onPick: (speaker: string) => void;
 }) {
   const t = useT();
-  // Always include the current value as an option even if it is missing from the known list (for legacy data).
-  const options = collectSpeakerKeys([...speakerKeys, value], labels);
-
-  const handle = (selected: string) => {
-    onChange(selected === NEW_SPEAKER_VALUE ? nextPartnerKey(options) : selected);
-  };
-
+  // The line's own speaker is listed even when the meeting no longer knows it (older data).
+  const choices = speakersInOrder([...known, current], names);
   return (
     <select
-      value={value}
-      onChange={(e) => handle(e.target.value)}
+      value={current}
+      onChange={(e) => onPick(e.target.value === ADD_VOICE ? freshVoice(choices) : e.target.value)}
       title={t("Change the speaker of this utterance")}
       className="rounded border border-[var(--border-strong)] bg-[var(--elevated)] px-1 py-0.5 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
     >
-      {options.map((key) => (
-        <option key={key} value={key}>
-          {speakerName(key, labels)}
+      {choices.map((speaker) => (
+        <option key={speaker} value={speaker}>
+          {nameOf(speaker, names)}
         </option>
       ))}
-      <option value={NEW_SPEAKER_VALUE}>{t("+ New speaker")}</option>
+      <option value={ADD_VOICE}>{t("+ New speaker")}</option>
     </select>
   );
 }
 
-/** Panel to edit all speaker display names at once. Commits on blur / Enter. */
-export function SpeakerManager({
-  speakerKeys,
-  labels,
-  onRename,
+/** One field per speaker, to name them all from one place. */
+export function SpeakerNamesEditor({
+  speakers,
+  names,
+  onName,
 }: {
-  speakerKeys: string[];
-  labels: SpeakerLabels;
-  onRename: (key: string, name: string) => void;
+  speakers: string[];
+  names: SpeakerNames;
+  onName: (speaker: string, name: string) => void;
 }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-2">
-      {speakerKeys.map((key) => (
-        <NameField key={key} speakerKey={key} labels={labels} onRename={onRename} />
+      {speakers.map((speaker) => (
+        <NameInput key={speaker} speaker={speaker} names={names} onName={onName} />
       ))}
     </div>
   );
 }
 
-function NameField({
-  speakerKey,
-  labels,
-  onRename,
+// Typing changes only this field. The name is saved when the field is left or Enter is pressed,
+// and only if it says something new; Escape puts back what was there.
+function NameInput({
+  speaker,
+  names,
+  onName,
 }: {
-  speakerKey: string;
-  labels: SpeakerLabels;
-  onRename: (key: string, name: string) => void;
+  speaker: string;
+  names: SpeakerNames;
+  onName: (speaker: string, name: string) => void;
 }) {
-  // Hold a local draft only while editing; reset to null on commit/cancel.
-  const [draft, setDraft] = useState<string | null>(null);
-  const shown = speakerName(speakerKey, labels);
+  const saved = nameOf(speaker, names);
+  const [typing, setTyping] = useState<string | null>(null);
 
-  const commit = () => {
-    if (draft !== null) {
-      const name = draft.trim();
-      if (name && name !== shown) onRename(speakerKey, name);
-    }
-    setDraft(null);
+  const save = () => {
+    const name = typing?.trim();
+    setTyping(null);
+    if (name && name !== saved) onName(speaker, name);
   };
 
   return (
     <label className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-      <span className={`inline-block h-2.5 w-2.5 rounded-full ${speakerColor(speakerKey).dot}`} />
+      <span className={`inline-block h-2.5 w-2.5 rounded-full ${toneOf(speaker).mark}`} />
       <input
         type="text"
-        value={draft ?? shown}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
+        value={typing ?? saved}
+        onChange={(e) => setTyping(e.target.value)}
+        onBlur={save}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
-          else if (e.key === "Escape") setDraft(null);
+          if (e.key === "Escape") setTyping(null);
         }}
         className="w-24 rounded border border-[var(--border-strong)] bg-[var(--elevated)] px-1.5 py-0.5 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
       />

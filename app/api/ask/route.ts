@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { conversationText } from "@/lib/llm";
 import { askMinutes, askTranscript, type MeetingForAsk } from "@/lib/llm/ask";
-import { parseSpeakerLabels } from "@/lib/speakers";
+import { readNames } from "@/lib/speakers";
 import { minutesInFlight } from "@/lib/meetings/minutes-state";
 import { prisma } from "@/lib/prisma";
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         startedAt: meeting.startedAt,
         conversation: conversationText(
           meeting.transcripts,
-          parseSpeakerLabels(meeting.speakerLabels),
+          readNames(meeting.speakerLabels),
         ),
       });
       return NextResponse.json({

@@ -9,7 +9,7 @@ import {
   getSummaryLanguage,
 } from "../settings";
 import { buildSummarySystemPrompt, DEFAULT_SUMMARY_FORMAT } from "../minutes-prompt";
-import { type SpeakerLabels, speakerName } from "../speakers";
+import { type SpeakerNames, nameOf } from "../speakers";
 import { anthropicProvider } from "./anthropic";
 import { ollamaProvider } from "./ollama";
 import { openaiProvider } from "./openai";
@@ -30,7 +30,8 @@ const LANG_NAME: Record<string, string> = { ja: "日本語", en: "英語", zh: "
 // Rough token estimate. Japanese is ~1.7-2 chars/token; use 1.8 as a safe divisor.
 const estTokens = (s: string) => Math.ceil(s.length / 1.8);
 
-export type TranscriptForPrompt = {
+/** One line of a transcript, as much of it as a prompt needs. */
+export type PromptLine = {
   speakerType: string;
   text: string;
   createdAt: Date | string;
@@ -48,31 +49,19 @@ function providerFor(name: LlmProviderName): ChatProvider {
   }
 }
 
-// With a single speaker (not diarized), do not add a "自分:"-style prefix.
-// Prefixing every line with the same speaker (with no real info) leaks into the minutes and gets verbose.
-function transcriptsToText(
-  transcripts: TranscriptForPrompt[],
-  labels: SpeakerLabels,
-  multiSpeaker: boolean,
-): string {
-  return transcripts
-    .map((t) => (multiSpeaker ? `${speakerName(t.speakerType, labels)}: ${t.text}` : t.text))
-    .join("\n");
-}
-
 /**
  * The transcript as a prompt sees it: "Speaker: text" lines, or bare lines where only one
- * speaker was ever distinguished.
+ * speaker was ever distinguished — the same name on every line says nothing, and it leaks into
+ * the minutes as clutter.
  *
  * Exported because the minutes are no longer the only thing written from a transcript — a
  * question can be asked of one too, and it has to read the same meeting the minutes did.
  */
-export function conversationText(
-  transcripts: TranscriptForPrompt[],
-  labels: SpeakerLabels = {},
-): string {
-  const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
-  return transcriptsToText(transcripts, labels, multiSpeaker);
+export function conversationText(lines: PromptLine[], names: SpeakerNames = {}): string {
+  const separated = new Set(lines.map((line) => line.speakerType)).size > 1;
+  return lines
+    .map((line) => (separated ? `${nameOf(line.speakerType, names)}: ${line.text}` : line.text))
+    .join("\n");
 }
 
 // Append the shared business background (if set) as reference-only material at the END
@@ -211,13 +200,13 @@ export async function condenseTranscript(
     : combined;
 }
 
-export async function requestSummary(
-  transcripts: TranscriptForPrompt[],
+export async function writeMinutes(
+  transcripts: PromptLine[],
   opts?: {
     description?: string | null;
     /** The series' shared background, read as standing context rather than as today's agenda. */
     seriesBackground?: string | null;
-    speakerLabels?: SpeakerLabels;
+    speakerLabels?: SpeakerNames;
     // Per-generation overrides (e.g. from the "Regenerate with options" panel).
     // They apply to this run only and are NOT persisted to settings.
     detail?: string;
@@ -311,7 +300,7 @@ export async function requestSummary(
   // the raw log, but the instruction is the same: base the minutes only on this material.
   const sourceLabel = condensed
     ? "以下は、長い会議の発言ログ全体から抽出した要点メモ（会議全体をカバー）です。"
-    : "以下は会議の全発言ログです。";
+    : "以下は、この会議で話されたことの書き起こし全文です。";
   const raw = await provider.chat(
     {
       system,

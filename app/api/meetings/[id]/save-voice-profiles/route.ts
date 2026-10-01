@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { defaultSpeakerName, diarizerLabelToKey, parseSpeakerLabels } from "@/lib/speakers";
+import { plainName, fromDiarizer, readNames } from "@/lib/speakers";
 import { embeddingModel } from "@/lib/embedding-models";
 import { cleanClusterEmbeddings, mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
 
@@ -37,7 +37,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     return apiError("Stored embeddings are corrupted. Re-run Diarize.", 400);
   }
   const clusters = cleanClusterEmbeddings(raw);
-  const labels = parseSpeakerLabels(meeting.speakerLabels);
+  const labels = readNames(meeting.speakerLabels);
   // The model these embeddings came from, recorded when the diarization run was stored. Null
   // on meetings diarized before the backends split, which resolves to pyannote — correct,
   // since that was the only thing that produced them.
@@ -46,10 +46,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const saved: string[] = [];
   const skipped: string[] = [];
   for (const [cluster, embedding] of Object.entries(clusters)) {
-    const key = diarizerLabelToKey(cluster);
+    const key = fromDiarizer(cluster);
     const name = labels[key]?.trim();
     // Only enroll speakers the user explicitly named; skip default "Speaker N" clusters.
-    if (!name || name === defaultSpeakerName(key)) {
+    if (!name || name === plainName(key)) {
       skipped.push(key);
       continue;
     }

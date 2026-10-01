@@ -17,7 +17,7 @@ const page = read("app/[id]/recording/page.tsx");
 
 describe("the end of a meeting with no live transcript", () => {
   const at = page.indexOf("const transcribeAfterRecording");
-  const fn = page.slice(at, page.indexOf("const generateSummaryAndEnd"));
+  const fn = page.slice(at, page.indexOf("const closeMeeting"));
 
   it("is found, so the checks below are about the real function", () => {
     expect(at).toBeGreaterThan(-1);
@@ -48,7 +48,7 @@ describe("the end of a meeting with no live transcript", () => {
   });
 
   it("leaves the minutes to the queue when there is no transcript yet", () => {
-    const end = page.slice(page.indexOf("const generateSummaryAndEnd"), page.indexOf("const diarizeAndEnd"));
+    const end = page.slice(page.indexOf("const endWithMinutes"), page.indexOf("const endWithDiarization"));
     expect(end).toContain("transcribeAfterRecording(minutes)");
     // Asked for directly only when the transcript already exists.
     const ask = end.indexOf('fetch("/api/claude/summary"');
@@ -56,11 +56,15 @@ describe("the end of a meeting with no live transcript", () => {
   });
 
   it("ends the meeting before queueing, as every other path does", () => {
-    for (const name of ["generateSummaryAndEnd", "diarizeAndEnd", "endWithoutSummary"]) {
+    // The ending itself is one shared step; each way out takes it before asking for anything.
+    const close = page.slice(page.indexOf("const closeMeeting"), page.indexOf("const endWithMinutes"));
+    expect(close).toContain("/end`");
+    expect(close.indexOf("/end`")).toBeGreaterThan(close.indexOf("await stopRecording()"));
+    for (const name of ["endWithMinutes", "endWithDiarization", "endOnly"]) {
       const from = page.indexOf(`const ${name}`);
       const body = page.slice(from, page.indexOf("}, [", from));
-      expect(body.indexOf("/end`"), name).toBeGreaterThan(-1);
-      expect(body.indexOf("transcribeAfterRecording("), name).toBeGreaterThan(body.indexOf("/end`"));
+      expect(body.indexOf("closeMeeting("), name).toBeGreaterThan(-1);
+      expect(body.indexOf("transcribeAfterRecording("), name).toBeGreaterThan(body.indexOf("closeMeeting("));
     }
   });
 });

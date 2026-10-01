@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { isValidSpeakerKey } from "@/lib/speakers";
+import { isSpeakerKey } from "@/lib/speakers";
 
 export const runtime = "nodejs";
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   const meetingId = typeof body?.meetingId === "string" ? body.meetingId : null;
   const speakerType =
-    typeof body?.speakerType === "string" && isValidSpeakerKey(body.speakerType)
+    typeof body?.speakerType === "string" && isSpeakerKey(body.speakerType)
       ? body.speakerType
       : null;
   const text = typeof body?.text === "string" ? body.text.trim() : "";

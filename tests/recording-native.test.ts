@@ -29,7 +29,7 @@ describe("the recording page inside the Android app", () => {
   it("does not save a line the app has already saved", () => {
     const handlers = between("const nativeHandlers = useMemo", "// In the app, ask whether");
     expect(handlers).toContain("onSaved:");
-    expect(handlers).not.toContain("saveTranscript");
+    expect(handlers).not.toContain("keepLine");
     expect(handlers).not.toContain('method: "PATCH"');
   });
 

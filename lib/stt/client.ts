@@ -1,19 +1,20 @@
 import { antiAliasStages } from "@/lib/audio/lowpass";
-import { diarizerLabelToKey, SELF_KEY } from "@/lib/speakers";
+import { fromDiarizer, MIC_SPEAKER } from "@/lib/speakers";
 import { ROOM_GAIN, isRoomMode, micConstraints, streamIsLive } from "./mic-constraints";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
 // Assumes in-person meetings and single-phone recording, handling a single mic input.
 // pcm-worklet.js converts to 16kHz/16bit/mono PCM and sends it as raw binary.
 //
-// Follows the handler shape of the old lib/amivoice/client.ts but drops the source(self/partner) concept.
+// The page hears back through SttHandlers: text still being heard, finished lines, the state of
+// the link, errors, and how loud the input is.
 
-export type RecognizerStatus = "connecting" | "open" | "closed" | "reconnecting" | "error";
+export type LinkStatus = "connecting" | "open" | "reconnecting" | "closed" | "error";
 
 export type SttHandlers = {
   // Provisional (interim text mid-segment).
   onPartial: (text: string) => void;
-  // Finalized utterance. speakerKey is SELF_KEY when diarization is off, partner-N when on.
+  // Finalized utterance. speakerKey is MIC_SPEAKER when diarization is off, partner-N when on.
   // seq numbers the utterance within this session, so a later translation can find its line.
   // `audio` is where this utterance sits in the recording. Persist it: the alternative — deriving
   // a position from when the row reached the database — is late by the utterance's own length
@@ -27,7 +28,7 @@ export type SttHandlers = {
   // Japanese translation of finalized utterance `seq`, arriving separately (CPU-side, so it
   // must never hold up the transcript).
   onTranslation?: (seq: number, text: string) => void;
-  onStatus: (status: RecognizerStatus) => void;
+  onStatus: (status: LinkStatus) => void;
   onError: (message: string) => void;
   // Input audio level (RMS 0..1, ~every 100ms). For the "is sound arriving" meter.
   onLevel?: (rms: number) => void;
@@ -74,14 +75,6 @@ type ServerMessage =
   | { type: "final"; text: string; speaker?: string; seq?: number; start?: number; end?: number }
   | { type: "translation"; seq: number; text: string }
   | { type: "error"; message: string };
-
-// Convert the server's speaker label to a speaker key.
-// With diarization off, "spk" etc. arrives -> SELF_KEY as a single speaker.
-// With diarization on, "speaker0"/"speaker1" ... -> partner-N.
-function speakerLabelToKey(label: string | undefined): string {
-  if (label && /^speaker\d+$/.test(label)) return diarizerLabelToKey(label);
-  return SELF_KEY;
-}
 
 export async function startMic(
   handlers: SttHandlers,
@@ -265,7 +258,8 @@ export async function startMic(
               typeof msg.start === "number" && typeof msg.end === "number"
                 ? { startMs: Math.round(msg.start * 1000), endMs: Math.round(msg.end * 1000) }
                 : undefined;
-            handlers.onFinal(speakerLabelToKey(msg.speaker), msg.text, msg.seq, audio);
+            // Unseparated lines ("spk" and the like) are the microphone's; numbered ones are voices.
+            handlers.onFinal(fromDiarizer(msg.speaker, MIC_SPEAKER), msg.text, msg.seq, audio);
           }
           break;
         case "translation":
