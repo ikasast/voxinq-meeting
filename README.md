@@ -281,4 +281,5 @@ Similar open-source projects: [Meetily](https://github.com/Zackriya-Solutions/me
 Released under the [MIT License](LICENSE) — © 2026 ikasast. Third-party components ship under their
 own licenses: [pyannote.audio](https://github.com/pyannote/pyannote-audio) models require accepting
 their terms on Hugging Face (used only on an NVIDIA GPU), and Whisper and your chosen LLM are subject
-to theirs.
+to theirs. [NOTICE.md](NOTICE.md) covers what needs a word of its own, and each release lists every
+package in its images with its licence.

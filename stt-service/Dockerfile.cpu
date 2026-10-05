@@ -46,6 +46,7 @@ RUN python -m venv /app/diarization/.venv \
     && /app/diarization/.venv/bin/pip install -r /app/diarization/requirements.txt
 
 # Source last so dependency layers stay cached across code edits.
+COPY LICENSE NOTICE.md /app/
 COPY stt-service/ /app/stt-service/
 COPY diarization/ /app/diarization/
 
