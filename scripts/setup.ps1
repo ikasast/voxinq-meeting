@@ -17,7 +17,7 @@ function Have($cmd) { return [bool](Get-Command $cmd -ErrorAction SilentlyContin
 
 Step "Checking prerequisites"
 $missing = $false
-if (Have node)   { Ok ("node " + (node --version)) } else { Fail "node not found - install Node.js 20+ (https://nodejs.org)"; $missing = $true }
+if (Have node)   { Ok ("node " + (node --version)) } else { Fail "node not found - install Node.js 22+ (https://nodejs.org)"; $missing = $true }
 if (Have python) { Ok ("python " + (python --version).Split(" ")[1]) } else { Fail "python not found - install Python 3.11"; $missing = $true }
 if (Have psql)   { Ok ("psql " + (psql --version).Split(" ")[2]) } else { Warn "psql not found - fine if PostgreSQL runs elsewhere (DATABASE_URL just needs to reach it)" }
 if (Have ollama) { Ok "ollama" } else { Warn "ollama not found - install from https://ollama.com (or use another LLM provider in Settings)" }

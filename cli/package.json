@@ -8,7 +8,7 @@
   },
   "files": ["src", "README.md"],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "embedded-postgres": "17.10.0-beta.17"

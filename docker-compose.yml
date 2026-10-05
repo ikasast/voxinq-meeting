@@ -172,7 +172,9 @@ services:
   # Either way, point Settings → LLM at http://host.docker.internal:11434 and give the host's
   # Ollama OLLAMA_HOST=0.0.0.0 — its default is loopback, which from in here is in here.
   ollama:
-    image: ollama/ollama:latest
+    # A fixed release rather than `latest`, so a `docker compose pull` for a Voxinq update does not
+    # also change the model server underneath it. Dependabot proposes newer ones.
+    image: ollama/ollama:0.35.0
     profiles: ["${OLLAMA_PROFILE:-}"]
     volumes:
       - ollama:/root/.ollama
