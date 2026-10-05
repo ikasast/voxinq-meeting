@@ -1170,6 +1170,17 @@ export const ja: Record<string, string> = {
   "Generating minutes in the background. They will appear automatically when done…": "バックグラウンドで議事録を作成しています。終わると自動で表示されます…",
   "Detail": "詳しさ",
   "Applies to this run only — saved settings are unchanged.": "今回だけに適用されます。保存済みの設定は変わりません。",
+  "Meeting name and time": "会議名と日時",
+  "Purpose and agenda": "会議の目的・内容",
+  "Series background": "シリーズの背景",
+  "Previous minutes in the series": "前回の議事録（シリーズ）",
+  "Business background (Settings)": "業務背景（設定）",
+  "Given to the model with the transcript": "発言ログと一緒にモデルへ渡す情報",
+  "(nothing for this meeting)": "（この会議には無し）",
+  "With this provider, the checked items and the transcript are sent outside this machine.":
+    "この生成元では、チェックした情報と発言ログがこの機器の外へ送られます。",
+  "What a run with this format gives the model by default. Each run can still change it before it starts.":
+    "この書式で作るときに、既定でモデルへ渡す情報です。実行前にその回だけ変えられます。",
   "Applies to this batch only — saved settings are unchanged.":
     "今回のまとめて作成だけに適用されます。保存済みの設定は変わりません。",
   "Format, detail and model…": "書式・詳細度・モデル…",

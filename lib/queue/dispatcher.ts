@@ -9,6 +9,7 @@ import { claimNext, enqueue, finishRun, openJobFor, recoverInterrupted } from ".
 import { runDiarize } from "./runners/diarize";
 import { runMinutes } from "./runners/minutes";
 import { runTranscribe } from "./runners/transcribe";
+import type { MinutesParams } from "./types";
 
 // The one thing that decides what runs.
 //
@@ -194,7 +195,7 @@ async function run(job: {
  */
 async function queueMinutesAfter(
   meetingId: string,
-  params: { detail?: string; provider?: string; templateId?: string } = {},
+  params: MinutesParams = {},
 ): Promise<void> {
   try {
     // Scoped: this runs as the meeting's owner, like the recognition before it, so the minutes

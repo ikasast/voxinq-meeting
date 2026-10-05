@@ -5,6 +5,9 @@
 // dozen meetings with "0 sets of minutes" in grey text, which is easy to walk past — and the
 // only way to act on them was to open each one.
 
+import { normalizeInclude } from "@/lib/minutes-context";
+import type { MinutesParams } from "@/lib/queue/types";
+
 export type MinutesCandidateRow = {
   id: string;
   title: string;
@@ -52,12 +55,8 @@ const PROVIDERS = new Set(["ollama", "anthropic", "openai"]);
  * stored two hundred times. A template id is taken as given: one that no longer exists falls
  * back to the settings when the job runs, as it does for a single meeting.
  */
-export function minutesOverrides(body: Record<string, unknown> | null): {
-  detail?: string;
-  provider?: string;
-  templateId?: string;
-} {
-  const out: { detail?: string; provider?: string; templateId?: string } = {};
+export function minutesOverrides(body: Record<string, unknown> | null): MinutesParams {
+  const out: MinutesParams = {};
   if (typeof body?.detail === "string" && DETAILS.has(body.detail)) out.detail = body.detail;
   if (typeof body?.provider === "string" && PROVIDERS.has(body.provider)) out.provider = body.provider;
   if (
@@ -67,5 +66,7 @@ export function minutesOverrides(body: Record<string, unknown> | null): {
   ) {
     out.templateId = body.templateId;
   }
+  const include = normalizeInclude(body?.include);
+  if (include) out.include = include;
   return out;
 }

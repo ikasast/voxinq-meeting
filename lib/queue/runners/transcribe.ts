@@ -1,6 +1,6 @@
 import { applyTranscript, type Utterance } from "@/lib/meetings/apply";
 import { readSettings } from "@/lib/settings";
-import { parseParams } from "../types";
+import { type MinutesParams, parseParams } from "../types";
 import type { JobMetrics } from "../metrics";
 import { sttPost, sttRuntime, sttWait } from "./stt-job";
 
@@ -29,7 +29,7 @@ export type TranscribeParams = {
    */
   thenMinutes?: boolean;
   /** How the chained minutes are written: the run's own choices, as Regenerate takes them. */
-  minutesParams?: { detail?: string; provider?: string; templateId?: string };
+  minutesParams?: MinutesParams;
 };
 
 /**

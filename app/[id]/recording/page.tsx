@@ -1309,6 +1309,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       {endDialog ? (
         <EndDialog
           kind={endDialog}
+          meetingId={meetingId}
           title={title || t("Meeting")}
           onCancel={() => setEndDialog(null)}
           onConfirm={(choice) => {

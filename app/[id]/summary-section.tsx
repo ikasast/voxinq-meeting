@@ -74,7 +74,7 @@ export function SummarySection({
   // "Regenerate with options" panel: per-run format, detail level and provider, prefilled from
   // the saved settings the first time it opens.
   const [showOptions, setShowOptions] = useState(false);
-  const opts = useMinutesChoice();
+  const opts = useMinutesChoice(meetingId);
   const toggleOptions = () => {
     setShowOptions((v) => !v);
     void opts.load();
@@ -138,6 +138,7 @@ export function SummarySection({
     detail?: string;
     provider?: string;
     templateId?: string;
+    include?: string[];
   }) => {
     setGenBusy(true);
     setError(null);
@@ -233,7 +234,9 @@ export function SummarySection({
             choice={opts.choice}
             onChange={opts.setChoice}
             templates={opts.templates}
+            defaultTemplateId={opts.defaultTemplateId}
             models={opts.models}
+            previews={opts.previews}
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-[var(--text-muted)]">
@@ -250,6 +253,7 @@ export function SummarySection({
                     detail: opts.choice.detail,
                     provider: opts.choice.provider,
                     templateId: opts.choice.templateId || undefined,
+                    include: opts.choice.include,
                   })
                 }
                 disabled={genBusy || processing}

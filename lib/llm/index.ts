@@ -2,13 +2,12 @@
 // Default is Ollama (on-prem). Swap to an external API with LLM_PROVIDER=anthropic|openai.
 
 import {
-  getLlmBackground,
   getLlmConfig,
   getSummaryDetail,
   getSummaryFormat,
   getSummaryLanguage,
 } from "../settings";
-import { buildSummarySystemPrompt, DEFAULT_SUMMARY_FORMAT } from "../minutes-prompt";
+import { buildSummarySystemPrompt, DEFAULT_SUMMARY_FORMAT, type MeetingFacts } from "../minutes-prompt";
 import { type SpeakerNames, nameOf } from "../speakers";
 import { anthropicProvider } from "./anthropic";
 import { ollamaProvider } from "./ollama";
@@ -81,6 +80,21 @@ function withBackground(system: string, background: string): string {
 参考情報そのものを要約・列挙してはいけません。
 """
 ${bg}
+"""`;
+}
+
+// The glossary, as the spelling to use. Reference only, like the background: a term that is
+// listed but never came up in the meeting must not appear in its minutes.
+function withGlossary(system: string, glossary: string): string {
+  const terms = glossary.trim();
+  if (!terms) return system;
+  return `${system}
+
+## 参考情報: 用語集（正しい表記）
+以下は、この会議に出てきうる固有名詞・略語の正しい表記です。発言ログに音の近い語があれば、この表記で書いてください。
+**ここにある語でも、発言ログに出てこないものは議事録に書かないこと。**
+"""
+${terms}
 """`;
 }
 
@@ -217,6 +231,12 @@ export async function writeMinutes(
     instructions?: string;
     // Previous meeting's minutes when this meeting belongs to a series (reference-only).
     previousMinutes?: { title: string; date: string; text: string };
+    /** The meeting's name, time and participants, where the run chose to give them. */
+    meeting?: MeetingFacts;
+    /** Settings' business background (reference only), where chosen. */
+    background?: string;
+    /** The glossary, as spelling to follow (reference only), where chosen. */
+    glossary?: string;
     // Filled in with what the calls cost, for the job's record. Condensing counts too.
     usage?: ChatUsage;
   },
@@ -226,9 +246,8 @@ export async function writeMinutes(
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
   const conversation = conversationText(transcripts, opts?.speakerLabels ?? {});
 
-  const [cfg, background, savedFormat, language, savedDetail] = await Promise.all([
+  const [cfg, savedFormat, language, savedDetail] = await Promise.all([
     getLlmConfig(),
-    getLlmBackground(),
     getSummaryFormat(),
     getSummaryLanguage(),
     getSummaryDetail(),
@@ -258,19 +277,24 @@ export async function writeMinutes(
 
   // Use the user-specified format if any, otherwise the default, inside the prompt.
   const effectiveFormat = format?.trim() || DEFAULT_SUMMARY_FORMAT;
-  const system = withBackground(
-    withPreviousMinutes(
-      buildSummarySystemPrompt(opts?.description, {
-        multiSpeaker,
-        language,
-        format,
-        detail,
-        seriesBackground: opts?.seriesBackground,
-        instructions: opts?.instructions,
-      }),
-      opts?.previousMinutes,
+  // Each piece of context is here only because the run chose it (lib/minutes-context.ts).
+  const system = withGlossary(
+    withBackground(
+      withPreviousMinutes(
+        buildSummarySystemPrompt(opts?.description, {
+          multiSpeaker,
+          language,
+          format,
+          detail,
+          seriesBackground: opts?.seriesBackground,
+          instructions: opts?.instructions,
+          meeting: opts?.meeting,
+        }),
+        opts?.previousMinutes,
+      ),
+      opts?.background ?? "",
     ),
-    background,
+    opts?.glossary ?? "",
   );
 
   // If the transcript is too long for the model context, condense it first (map-reduce)

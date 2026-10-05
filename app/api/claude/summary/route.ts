@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
+import { normalizeInclude } from "@/lib/minutes-context";
 import { prisma } from "@/lib/prisma";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { tick } from "@/lib/queue/dispatcher";
@@ -27,6 +28,8 @@ export async function POST(req: NextRequest) {
   const detail = field("detail");
   const provider = field("provider");
   const templateId = field("templateId");
+  // Which context goes in with the transcript; absent leaves it to the template.
+  const include = normalizeInclude(body?.include);
 
   // Counted through the scoped client, so someone else's meeting is "not found" like a missing one.
   if ((await prisma.meeting.count({ where: { id: meetingId } })) === 0) {
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
   // The job is the whole record that this was asked for: the screens read it, so there is
   // nothing to write on the meeting. What the meeting keeps is how the last attempt ended, and
   // that is written when this one does.
-  await enqueue({ kind: "minutes", meetingId, params: { detail, provider, templateId } });
+  await enqueue({ kind: "minutes", meetingId, params: { detail, provider, templateId, ...(include ? { include } : {}) } });
   // Nudge the loop so a queue that is empty does not wait out a tick before starting.
   void tick();
 

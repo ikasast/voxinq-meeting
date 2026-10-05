@@ -65,6 +65,7 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
                 detail: opts.choice.detail,
                 provider: opts.choice.provider,
                 templateId: opts.choice.templateId || undefined,
+                include: opts.choice.include,
               }
             : {}),
         }),
@@ -150,6 +151,7 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
                 choice={opts.choice}
                 onChange={opts.setChoice}
                 templates={opts.templates}
+                defaultTemplateId={opts.defaultTemplateId}
                 models={opts.models}
               />
               <p className="text-xs text-[var(--text-muted)]">

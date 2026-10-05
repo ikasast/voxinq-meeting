@@ -4,6 +4,8 @@ import { useState } from "react";
 import { DEFAULT_MINUTES_INSTRUCTIONS, DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import { type MinutesTemplate, newTemplateId } from "@/lib/minutes-templates";
 import { useT } from "@/app/locale-provider";
+import { ContextChecklist } from "@/app/minutes-options";
+import { CONTEXT_KEYS } from "@/lib/minutes-context";
 
 // Saved minutes formats.
 //
@@ -216,6 +218,21 @@ export function MinutesTemplates({
             />
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("Instructions on how to write: tone, how much to condense, what to do with a heading that has nothing under it. Left empty, the built-in instructions shown faintly are used. Some rules always apply and are not part of this: only what was said, no guessing, the minutes' language, and starting at the first heading.")}
+            </p>
+          </div>
+          <div className="mt-3">
+            <ContextChecklist
+              idPrefix={`tctx-${draft.id}`}
+              included={new Set(draft.include ?? CONTEXT_KEYS)}
+              onToggle={(key, on) => {
+                const next = new Set(draft.include ?? CONTEXT_KEYS);
+                if (on) next.add(key);
+                else next.delete(key);
+                update(draft.id, { include: CONTEXT_KEYS.filter((k) => next.has(k)) });
+              }}
+            />
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {t("What a run with this format gives the model by default. Each run can still change it before it starts.")}
             </p>
           </div>
         </div>
