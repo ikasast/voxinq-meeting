@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { parseEmbeddingModelId } from "@/lib/embedding-models";
 import { getVoiceprintThreshold } from "@/lib/settings";
-import { SELF_KEY, diarizerLabelToKey, isValidSpeakerKey, parseSpeakerLabels } from "@/lib/speakers";
+import { MIC_SPEAKER, fromDiarizer, isSpeakerKey, readNames } from "@/lib/speakers";
 import { cleanClusterEmbeddings, matchProfiles, parseEmbedding } from "@/lib/voiceprint";
 
 // Writing a job's results into the meeting.
@@ -102,8 +102,8 @@ async function attachSpeakers(
   const usedKeys = new Set<string>();
   const updates = [];
   for (const { id, speaker } of pairs) {
-    const key = diarizerLabelToKey(speaker); // "speakerN" -> "partner-N"
-    if (!isValidSpeakerKey(key)) continue;
+    const key = fromDiarizer(speaker); // "speakerN" -> "partner-N"
+    if (!isSpeakerKey(key)) continue;
     usedKeys.add(key);
     updates.push(prisma.transcript.update({ where: { id }, data: { speakerType: key } }));
   }
@@ -140,7 +140,7 @@ export async function applyDiarizationEmbeddings(
   });
   if (!meeting) throw new MeetingWorkError("not found", 404);
 
-  const labels = parseSpeakerLabels(meeting.speakerLabels);
+  const labels = readNames(meeting.speakerLabels);
   let matched: Record<string, string> = {};
 
   if (Object.keys(clusters).length > 0) {
@@ -176,7 +176,7 @@ export async function applyDiarizationEmbeddings(
       await getVoiceprintThreshold(),
     );
     for (const [cluster, m] of Object.entries(matches)) {
-      const key = diarizerLabelToKey(cluster);
+      const key = fromDiarizer(cluster);
       if (!labels[key]?.trim()) {
         labels[key] = m.name;
         matched = { ...matched, [key]: m.name };
@@ -233,7 +233,7 @@ export async function applyTranscript(
     prisma.transcript.createMany({
       data: utterances.map((u, i) => ({
         meetingId,
-        speakerType: SELF_KEY,
+        speakerType: MIC_SPEAKER,
         text: u.text,
         translation: u.translation ?? null,
         audioStartMs: Math.round(u.start * 1000),

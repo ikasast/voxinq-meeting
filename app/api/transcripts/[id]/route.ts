@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { isValidSpeakerKey } from "@/lib/speakers";
+import { isSpeakerKey } from "@/lib/speakers";
 
 export const runtime = "nodejs";
 
@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/transcript
   }
   if (body?.speakerType !== undefined) {
     const speakerType = typeof body.speakerType === "string" ? body.speakerType : "";
-    if (!isValidSpeakerKey(speakerType)) return apiError("invalid speakerType", 400);
+    if (!isSpeakerKey(speakerType)) return apiError("invalid speakerType", 400);
     data.speakerType = speakerType;
   }
   if (typeof body?.translation === "string" && body.translation.trim()) {

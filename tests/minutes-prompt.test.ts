@@ -59,7 +59,7 @@ describe("a template's writing instructions", () => {
     // Whatever a template says, these stay: they are outside the part it replaces.
     const p = buildSummarySystemPrompt(null, { instructions: "- 自由に書く。" });
     expect(p).toContain("議事録の情報源は発言ログだけ");
-    expect(p).toContain("事実に基づかない推測は書かない");
+    expect(p).toContain("読み取れない推測や補足を書き足さない");
     expect(p).toContain("必ず日本語で");
     expect(p).toContain("出力の1行目から議事録本体");
     expect(p).toContain("コードフェンスで囲まない");
