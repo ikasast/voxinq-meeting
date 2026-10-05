@@ -246,8 +246,9 @@ the household are different acts.
 - `sttTranslate` — `false` (default). Shows a Japanese translation under each non-Japanese
   utterance, live and on the transcript; minutes are still generated from the original words.
   Translation runs on the **CPU**, so it does not compete with transcription for the GPU.
-  Enabling it downloads a ~600MB model (NLLB-200 distilled, **CC-BY-NC — non-commercial use
-  only**) to the STT host on first use. Override the repo with `STT_TRANSLATE_MODEL`.
+  Enabling it downloads a ~1.2GB model (M2M100 1.2B, MIT licence) to the STT host on first
+  use. Override the repo with `STT_TRANSLATE_MODEL` — any CTranslate2 conversion of M2M100;
+  `jncraton/m2m100_418M-ct2-int8` is about half the size and twice as fast, and rougher.
 
 **Minutes**
 - `summaryLanguage` — `ja` / `en` / `zh` (output language, regardless of what was spoken)

@@ -1,57 +1,61 @@
 """Translate non-Japanese utterances into Japanese, on the CPU.
 
 Runs alongside recording: the GPU is fully occupied by Whisper during a meeting (8GB VRAM
-only fits one model at a time), so translation has to stay off it. NLLB-200-distilled-600M
-in CTranslate2 int8 form is small and fast enough on CPU for a sentence at a time.
+only fits one model at a time), so translation has to stay off it. M2M100 1.2B in
+CTranslate2 int8 form translates a sentence in well under a second on a few CPU threads.
 
-Deliberately built on the packages faster-whisper already pulls in (`ctranslate2`,
-`tokenizers`, `huggingface_hub`) rather than `transformers`, so enabling translation adds no
-new dependency — only the model download (~600MB, on first use, cached afterwards).
+The model is MIT-licensed (facebook/m2m100_1.2B, converted by jncraton), so translation can be
+used commercially. It replaced NLLB-200 distilled, which is CC-BY-NC — non-commercial only —
+and was no better on meeting speech. `STT_TRANSLATE_MODEL` takes any CTranslate2 conversion of
+M2M100 that ships its SentencePiece model; jncraton/m2m100_418M-ct2-int8 is the lighter one
+(~0.5GB, about twice as fast, noticeably rougher).
 
-The model is CC-BY-NC-4.0, so translation is opt-in (Settings → Transcription) and nothing
-is downloaded until it is switched on.
+Translation is still opt-in (Settings → Transcription): nothing is downloaded (~1.2GB, cached
+afterwards) until it is switched on.
 """
 
 from __future__ import annotations
 
 import os
+import re
 import threading
 
-# Model repo (CTranslate2 int8 conversion of facebook/nllb-200-distilled-600M).
-TRANSLATE_MODEL = os.environ.get(
-    "STT_TRANSLATE_MODEL", "JustFrederik/nllb-200-distilled-600M-ct2-int8"
-)
+TRANSLATE_MODEL = os.environ.get("STT_TRANSLATE_MODEL", "jncraton/m2m100_1.2B-ct2-int8")
 # Threads for one translation. Kept small: this shares the machine with the GPU pipeline.
 TRANSLATE_THREADS = int(os.environ.get("STT_TRANSLATE_THREADS", "4"))
 # Longer inputs are truncated — a single utterance is far below this.
 MAX_INPUT_TOKENS = 384
 
-TARGET_LANG = "jpn_Jpan"
+# Languages offered, as Whisper reports them. M2M100 names them the same way ("en" is
+# "__en__"), so no mapping is needed. Anything else is left untranslated rather than guessed at.
+SOURCE_LANGUAGES = frozenset(
+    "en zh ko es fr de pt it ru vi th id ms hi ar tl nl pl tr uk".split()
+)
 
-# Whisper language codes -> NLLB (FLORES-200) codes. Only languages worth offering here;
-# anything else is left untranslated rather than guessed at.
-WHISPER_TO_NLLB = {
-    "en": "eng_Latn",
-    "zh": "zho_Hans",
-    "ko": "kor_Hang",
-    "es": "spa_Latn",
-    "fr": "fra_Latn",
-    "de": "deu_Latn",
-    "pt": "por_Latn",
-    "it": "ita_Latn",
-    "ru": "rus_Cyrl",
-    "vi": "vie_Latn",
-    "th": "tha_Thai",
-    "id": "ind_Latn",
-    "ms": "zsm_Latn",
-    "hi": "hin_Deva",
-    "ar": "arb_Arab",
-    "tl": "tgl_Latn",
-    "nl": "nld_Latn",
-    "pl": "pol_Latn",
-    "tr": "tur_Latn",
-    "uk": "ukr_Cyrl",
-}
+_JAPANESE = r"぀-ヿ㐀-鿿＀-￯"
+_LEADING_FOREIGN = re.compile(rf"^([^{_JAPANESE}]+)(?=[{_JAPANESE}])")
+
+
+def drop_echo(source: str, output: str) -> str:
+    """The translation without a copy of the source in front of it.
+
+    M2M100 sometimes repeats the sentence before translating it — "OK, so action items: Ken
+    updates the slides. ケンはスライドを更新し…" — when the source opens with a filler and a
+    colon. The copy is recognised as a run of non-Japanese text before the first Japanese
+    character that is mostly the source's own words and most of the source. A name or a
+    product in front of the Japanese ("Google Cloud の料金は…") is neither, and stays.
+    """
+    found = _LEADING_FOREIGN.match(output)
+    if not found:
+        return output
+    head = re.findall(r"\w+", found.group(1).lower())
+    said = re.findall(r"\w+", source.lower())
+    if len(head) < 3 or not said:
+        return output
+    from_source = sum(word in set(said) for word in head) / len(head)
+    if from_source >= 0.8 and len(head) >= 0.6 * len(said):
+        return output[found.end(1):].strip()
+    return output
 
 
 class _Translator:
@@ -60,7 +64,7 @@ class _Translator:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._translator = None
-        self._tokenizer = None
+        self._pieces = None
         self._error: str | None = None
         self._loaded = False
 
@@ -79,15 +83,17 @@ class _Translator:
             return False  # don't retry a broken setup on every utterance
         try:
             import ctranslate2
+            import sentencepiece
             from huggingface_hub import snapshot_download
-            from tokenizers import Tokenizer
 
             path = snapshot_download(TRANSLATE_MODEL)
             self._translator = ctranslate2.Translator(
                 path, device="cpu", compute_type="int8", inter_threads=1,
                 intra_threads=TRANSLATE_THREADS,
             )
-            self._tokenizer = Tokenizer.from_file(os.path.join(path, "tokenizer.json"))
+            self._pieces = sentencepiece.SentencePieceProcessor(
+                model_file=os.path.join(path, "sentencepiece.bpe.model"),
+            )
             self._loaded = True
             print(f"[translate] loaded {TRANSLATE_MODEL}")
             return True
@@ -99,7 +105,7 @@ class _Translator:
     def preload(self) -> bool:
         """Load the model now, so the first utterance of a meeting is not the trigger.
 
-        The first load downloads ~600MB and builds the CTranslate2 session, which takes
+        The first load downloads ~1.2GB and builds the CTranslate2 session, which takes
         longer than a short meeting has left once it starts. Translations produced after the
         WebSocket closes are simply lost, so the load has to happen before recording.
         """
@@ -112,29 +118,25 @@ class _Translator:
         Returns None for Japanese (nothing to do), for languages outside the table, and for
         any failure — a missing translation is always preferable to blocking transcription.
         """
-        src = WHISPER_TO_NLLB.get((whisper_lang or "").lower())
-        if not src or not text.strip():
+        lang = (whisper_lang or "").lower()
+        if lang not in SOURCE_LANGUAGES or not text.strip():
             return None
         with self._lock:
             if not self._load_locked():
                 return None
             try:
-                # NLLB expects the source sentence framed as [src_lang] … </s>, and the
-                # target language forced as the first generated token.
-                encoded = self._tokenizer.encode(text, add_special_tokens=False)
-                tokens = [src, *encoded.tokens[:MAX_INPUT_TOKENS], "</s>"]
+                # M2M100 reads the sentence framed as __src__ … </s>, and is made to answer in
+                # Japanese by forcing __ja__ as the first token it writes.
+                pieces = self._pieces.encode(text, out_type=str)[:MAX_INPUT_TOKENS]
                 results = self._translator.translate_batch(
-                    [tokens],
-                    target_prefix=[[TARGET_LANG]],
-                    beam_size=2,
+                    [[f"__{lang}__", *pieces, "</s>"]],
+                    target_prefix=[["__ja__"]],
+                    beam_size=4,
                     max_decoding_length=512,
                 )
-                hypothesis = results[0].hypotheses[0]
-                if hypothesis and hypothesis[0] == TARGET_LANG:
-                    hypothesis = hypothesis[1:]  # drop the forced language token
-                ids = [self._tokenizer.token_to_id(t) for t in hypothesis]
-                out = self._tokenizer.decode([i for i in ids if i is not None])
-                return out.strip() or None
+                written = results[0].hypotheses[0][1:]  # without the forced __ja__
+                out = drop_echo(text, self._pieces.decode(written).strip())
+                return out or None
             except Exception as e:  # noqa: BLE001
                 print(f"[translate] failed: {type(e).__name__}: {e}")
                 return None

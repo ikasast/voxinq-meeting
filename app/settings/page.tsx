@@ -485,8 +485,7 @@ export default function SettingsPage() {
                 "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.",
               )}{" "}
               {t(
-                "Turning this on downloads a ~600MB translation model (NLLB-200 distilled, {licence}) to the STT host on first use.",
-                { licence: t("CC-BY-NC — non-commercial use only") },
+                "Turning this on downloads a ~1.2GB translation model (M2M100 1.2B, MIT licence) to the STT host on first use.",
               )}
             </p>
           </div>

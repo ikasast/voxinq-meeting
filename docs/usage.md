@@ -530,8 +530,8 @@ transcript stays the record of what was actually said. A **Show translations** t
 on a meeting once it has any.
 
 Translation runs on the CPU, so it does not compete with transcription for the GPU. Turning
-it on downloads a ~600MB model (NLLB-200 distilled) to the STT host on first use; that model
-is **CC-BY-NC — non-commercial use only**, which is why this is off by default.
+it on downloads a ~1.2GB model (M2M100 1.2B, MIT licence) to the STT host on first use, which
+is why it is off by default.
 
 ## The list, and finding a meeting in it
 

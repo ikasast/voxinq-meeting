@@ -11,6 +11,8 @@ pywhispercpp>=1.5.1
 ctranslate2>=4.8.1
 tokenizers>=0.23.1
 huggingface_hub>=1.29.0
+# Only translator.py: M2M100 tokenises with SentencePiece, which has no tokenizers file.
+sentencepiece>=0.2.0
 
 fastapi>=0.141.1
 uvicorn[standard]>=0.52.4
