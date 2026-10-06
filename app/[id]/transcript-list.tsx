@@ -20,6 +20,7 @@ import { PencilIcon, TrashIcon } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerChip, SpeakerNamesEditor, SpeakerPicker } from "./speakers-ui";
+import { TrimRecording } from "./trim-recording";
 import { ShareButton } from "./share-button";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
@@ -52,6 +53,7 @@ type RecordingInfo = {
   expiresAt?: string | null;
   firstUtteranceStart?: number; // start seconds of the first utterance within the WAV (for mapping playback position)
   segments?: { start: number; end: number }[]; // utterance boundaries, for rows with no stored offset
+  durationSec?: number | null; // length of the recording, for the trim bar's scale
 };
 
 function remainingDays(expiresAt: string): number {
@@ -261,6 +263,9 @@ export function TranscriptList({
     (index: number) => audioPosition(transcripts, index, positionSources) ?? 0,
     [transcripts, positionSources],
   );
+
+  // Where every line starts in the recording, for the trim bar's ticks.
+  const linePositions = useMemo(() => transcripts.map((_, i) => wavPosition(i)), [transcripts, wavPosition]);
 
   const seekTo = useCallback((seconds: number) => {
     const el = audioRef.current;
@@ -980,6 +985,15 @@ export function TranscriptList({
               >
                 {recBusy ? t("Updating…") : recInfo.protected ? t("Unprotect") : t("Protect")}
               </button>
+            ) : null}
+            {/* Not while it is still being recorded: the end of the recording is not known yet. */}
+            {!readOnly && !live && recInfo.durationSec ? (
+              <TrimRecording
+                meetingId={meetingId}
+                durationSec={recInfo.durationSec}
+                linePositions={linePositions}
+                audioRef={audioRef}
+              />
             ) : null}
           </div>
         </div>

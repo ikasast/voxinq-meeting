@@ -63,6 +63,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from translator import preload_translator, translate_to_ja, translator_state
+from trim import trim_recording
 
 SAMPLE_RATE = 16000
 
@@ -1028,6 +1029,52 @@ async def recording_segment_delete(meeting_id: str, request: Request) -> dict:
     except Exception:  # noqa: BLE001  no cached diarization — nothing to keep in step
         pass
     return {"synced": True, "count": len(segments)}
+
+
+def _trim_recording(mid: str, start_ms: int, end_ms: int, drop: list[int], expected: int) -> dict:
+    result = trim_recording(_rec_paths(mid), start_ms, end_ms, drop, expected)
+    with _DIA_LOCK:
+        _DIA_JOBS.pop(mid, None)
+    return result
+
+
+@app.post("/recordings/{meeting_id}/trim")
+async def recording_trim(meeting_id: str, request: Request) -> dict:
+    """Keep only [startMs, endMs) of a recording — for a meeting left recording after it ended.
+
+    The WAV is cut, and the utterance boundaries are dropped and moved back to match, so every
+    position the web app seeks by still lands on the same words. Which boundaries go is the web
+    app's call (`drop`, by index): a boundary here is a transcript row there, and diarization
+    pairs them by position, so they must leave together. When the counts no longer agree the
+    boundaries are judged by their own times instead and `synced` says so. Cached diarization
+    results are discarded, as for any change to the recording. There is no undo.
+
+    body: {"startMs": int, "endMs": int, "drop": [int], "expectedCount": int}
+    """
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    start_ms, end_ms = body.get("startMs"), body.get("endMs")
+    drop, expected = body.get("drop", []), body.get("expectedCount", -1)
+    if not isinstance(start_ms, int) or not isinstance(end_ms, int) or start_ms < 0 or end_ms <= start_ms:
+        raise HTTPException(status_code=400, detail="startMs and endMs must be a range")
+    if not isinstance(drop, list) or not all(isinstance(i, int) for i in drop) or not isinstance(expected, int):
+        raise HTTPException(status_code=400, detail="drop must be a list of indices")
+    if not _rec_paths(mid)["wav"].exists():
+        raise HTTPException(status_code=404, detail="no recording")
+    with _DIA_LOCK:
+        if (_DIA_JOBS.get(mid) or {}).get("status") == "running":
+            raise HTTPException(status_code=409, detail="speaker separation is running on this recording")
+    try:
+        return await asyncio.to_thread(_trim_recording, mid, start_ms, end_ms, drop, expected)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.delete("/recordings/{meeting_id}")

@@ -130,6 +130,10 @@ jobs:
       # that drops a copy of the source the model sometimes writes before translating.
       - run: python stt-service/test_translator.py
 
+      # Cutting a recording down to the part worth keeping: the WAV, the boundaries beside it,
+      # and the deadline it keeps. Standard library only.
+      - run: python stt-service/test_trim.py
+
   # Catches rot in the container setup (bad Dockerfile, a dependency that stopped
   # resolving) without waiting for someone to try `docker compose up`.
   #

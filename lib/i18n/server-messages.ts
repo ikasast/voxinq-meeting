@@ -92,4 +92,10 @@ export const SERVER_MESSAGES = [
   "{model} is what minutes are written with, for this machine or for somebody on it. Choose another model there first.",
   "{model} is still downloading.",
   "Ollama could not delete it: {reason}",
+  // Trimming a recording left running after the meeting ended.
+  "Keep at least one second of the recording.",
+  "End the meeting before trimming its recording.",
+  "Wait until the work queued for this meeting has finished, then trim.",
+  "This meeting has no recording to trim.",
+  "The recording could not be trimmed: {reason}",
 ] as const;
