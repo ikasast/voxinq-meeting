@@ -47,10 +47,12 @@ describe("the row for this machine", () => {
     const tbody = table.indexOf("<tbody>");
     const body = table.slice(tbody, table.indexOf("{profiles.map(", tbody));
     // Through t() since the screen was translated, so these follow the sentences there rather
-    // than pinning the literals they used to be.
+    // than pinning the literals they used to be. Edit and remove are icons since, named for
+    // the row they act on.
     expect(body).toContain('t("On this machine")');
-    expect(body).toMatch(/\{t\("Edit"\)\}/);
-    expect(body, "the machine cannot be removed from the machine").not.toMatch(/\{t\("Remove"\)\}/);
+    expect(body).toContain("<PencilIcon />");
+    expect(body, "the machine cannot be removed from the machine").not.toContain("<TrashIcon />");
+    expect(body).not.toContain('t("Remove {name}"');
   });
 
   it("cannot be mistaken for a saved endpoint", () => {
