@@ -16,6 +16,7 @@ import {
 } from "@/lib/stt/models";
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { DataBackup } from "./data-backup";
+import { StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 import { ExternalProviderNotice } from "./external-provider-notice";
@@ -738,7 +739,27 @@ export default function SettingsPage() {
         {/* Remote access (Tailscale Funnel publish toggle) */}
         {tab === "remote" ? <RemoteAccess /> : null}
 
-        {tab === "data" ? <DataBackup /> : null}
+        {tab === "data" ? (
+          <>
+            {/* Also in the account menu; this is the way in on an instance without accounts. */}
+            <Link
+              href="/storage"
+              className="card flex items-center gap-3 p-4 hover:bg-[var(--hover-surface)]"
+            >
+              <StorageIcon className="h-5 w-5 shrink-0 text-[var(--accent-sub)]" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-[var(--text-strong)]">{t("Storage")}</span>
+                <span className="block text-xs text-[var(--text-muted)]">
+                  {t("How much room the recordings, transcripts and minutes take")}
+                </span>
+              </span>
+              <span aria-hidden className="text-lg text-[var(--text-muted)]">
+                ›
+              </span>
+            </Link>
+            <DataBackup />
+          </>
+        ) : null}
 
         {/* Appearance */}
         {tab === "defaults" ? <HouseDefaults /> : null}

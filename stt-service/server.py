@@ -831,6 +831,55 @@ async def recording_states(request: Request) -> dict:
     return out
 
 
+# Files kept beside a recording: its utterance boundaries and what speaker separation left.
+_SIDECARS = ("seg", "spk", "req", "key", "pcs", "emb")
+
+
+def _recording_sizes(ids: list) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for raw in ids[:20000]:
+        mid = _safe_meeting_id(raw if isinstance(raw, str) else None)
+        if not mid:
+            continue
+        p = _rec_paths(mid)
+        try:
+            audio = p["wav"].stat().st_size
+        except OSError:  # no recording, or it went while we looked
+            continue
+        other = 0
+        for key in _SIDECARS:
+            with suppress(OSError):
+                other += p[key].stat().st_size
+        out[mid] = {
+            "audio": audio,
+            "other": other,
+            "seconds": _wav_duration_sec(p["wav"]),
+            "protected": p["keep"].exists(),
+        }
+    return out
+
+
+@app.post("/recordings/sizes")
+async def recording_sizes(request: Request) -> dict:
+    """How much room each meeting's recording takes. For the storage page.
+
+    Only for the meetings asked about, never a listing of the folder: a meeting id is all it
+    takes to fetch a recording from here, so a list of them would be everybody's audio.
+
+    body (JSON): {"ids": ["<meetingId>", ...]}
+    returns: {"<id>": {audio, other, seconds, protected}, ...} for those that have a recording,
+    sizes in bytes."""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    ids = body.get("ids") if isinstance(body, dict) else None
+    if not isinstance(ids, list):
+        return {}
+    # Thousands of stats and WAV headers: off the event loop, which is also carrying live audio.
+    return await asyncio.to_thread(_recording_sizes, ids)
+
+
 @app.post("/activity")
 async def activity_states(request: Request) -> dict:
     """Current live GPU activity per meeting, for the list's status labels (avoids N+1).

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "./avatar";
-import { GearIcon, PeopleIcon, PersonIcon, SignOutIcon } from "./icons";
+import { GearIcon, PeopleIcon, PersonIcon, SignOutIcon, StorageIcon } from "./icons";
 import { useT } from "./locale-provider";
 
 const MENU_W = 208; // w-52
@@ -125,6 +125,10 @@ export function AccountMenu({
                 <Link href="/settings" className={item} role="menuitem" onClick={() => setOpen(false)}>
                   <GearIcon className="h-4 w-4" />
                   {t("Settings")}
+                </Link>
+                <Link href="/storage" className={item} role="menuitem" onClick={() => setOpen(false)}>
+                  <StorageIcon className="h-4 w-4" />
+                  {t("Storage")}
                 </Link>
                 {/* The rail carries this on a desktop and does not exist on a phone, which
                     would leave an administrator no way to reach it from the device they

@@ -1369,4 +1369,26 @@ export const ja: Record<string, string> = {
   "Done. Run \"Diarize\" to distinguish speakers.": "完了しました。話者を分けるには「話者を分離」を実行してください。",
   "Replaced in 1 utterance.": "1 件の発言を置換しました。",
   "Replaced in {n} utterances.": "{n} 件の発言を置換しました。",
+  Storage: "ストレージ",
+  "How much room the recordings, transcripts and minutes take": "録音・文字起こし・議事録が使っている容量を見る",
+  "How much room your meetings take on this machine.": "あなたの会議が、この機器で使っている容量です。",
+  "In all": "合計",
+  "Audio recordings": "録音（音声）",
+  Transcripts: "文字起こし",
+  Other: "その他",
+  "1 recording, {length}": "1件・{length}",
+  "{n} recordings, {length} in all": "{n}件・計 {length}",
+  "1 recording": "1件",
+  "{n} recordings": "{n}件",
+  "Not measured": "測れませんでした",
+  "Search index, speaker separation results and voiceprints": "検索用の索引・話者分離の結果・声紋など",
+  "The recordings could not be measured: the transcription service did not answer.":
+    "録音の容量は、文字起こしサービスが応答しないため測れませんでした。",
+  "Largest recordings": "大きい録音",
+  Protected: "保護中",
+  "In the trash": "ゴミ箱",
+  "A recording that ran on after the meeting can be cut down to the meeting with Trim, under its player.":
+    "会議のあとも続いていた録音は、会議ページのプレーヤーの下にあるトリミングで、会議の部分だけにできます。",
+  "Text is counted as the characters stored, without the database's own overhead. Meetings in the trash count until they are deleted for good.":
+    "テキストは保存されている文字のデータ量で、データベース自体の管理領域は含みません。ゴミ箱の会議も、完全に削除されるまでは含みます。",
 };
