@@ -33,20 +33,23 @@ export function RecordingBadges({ ids }: { ids: string[] }) {
   }, [ids.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    // Inject the fetched states into each card's placeholder.
+    // Show each card's badge. Both icons are already in it (meeting-list-pane.tsx): a padlock
+    // for a protected recording, a microphone for one that is kept for now — the same padlock as
+    // beside the player. Details on hover.
     for (const [id, st] of Object.entries(states)) {
       const el = document.querySelector<HTMLElement>(`[data-rec-badge="${id}"]`);
       if (!el) continue;
       if (!st.exists) {
-        el.textContent = "";
+        el.hidden = true;
         continue;
       }
-      // Icon-only: 🔒 = recording protected, 🎙 = recording available (details on hover).
-      el.textContent = st.protected ? "🔒" : "🎙";
-      el.title = st.protected
+      el.dataset.state = st.protected ? "protected" : "available";
+      const label = st.protected
         ? t("Recording protected (not auto-deleted)")
         : t("Recording available (auto-deletes after the retention period)");
-      el.className = "text-[11px] leading-none";
+      el.title = label;
+      el.setAttribute("aria-label", label);
+      el.hidden = false;
     }
   }, [states, t]);
 

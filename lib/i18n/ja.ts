@@ -1059,6 +1059,8 @@ export const ja: Record<string, string> = {
 
   // ---- Names and tooltips the runtime sweep turned up ----
   "Remove {name}": "{name} を削除",
+  "Edit {name}": "{name} を編集",
+  "Edit the purpose and agenda": "目的と議題を編集",
   format: "形式",
   "{name} spoke": "{name} は発言しました",
   "+ New speaker": "＋ 話者を追加",

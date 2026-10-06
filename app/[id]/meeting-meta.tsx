@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SeriesIcon } from "@/app/icons";
+import { PencilIcon, SeriesIcon } from "@/app/icons";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
@@ -124,8 +124,14 @@ export function MeetingMeta({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Purpose & agenda")}</h2>
         {!editing && !readOnly ? (
-          <button type="button" onClick={() => setEditing(true)} className="btn-outline">
-            {t("Edit")}
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="btn-icon"
+            title={t("Edit the purpose and agenda")}
+            aria-label={t("Edit the purpose and agenda")}
+          >
+            <PencilIcon />
           </button>
         ) : null}
       </div>

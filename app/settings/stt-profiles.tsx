@@ -1,5 +1,6 @@
 "use client";
 
+import { PencilIcon, TrashIcon } from "../icons";
 import { useState, type ReactNode } from "react";
 import {
   type PublicSttProfile,
@@ -156,9 +157,11 @@ export function SttProfiles({
                     type="button"
                     onClick={() => setEditing(editing === LOCAL_ID ? null : LOCAL_ID)}
                     disabled={disabled}
-                    className="btn-outline px-2 py-1 text-xs"
+                    className="btn-icon !h-8 !w-8"
+                    title={t("Edit {name}", { name: t("On this machine") })}
+                    aria-label={t("Edit {name}", { name: t("On this machine") })}
                   >
-                    {t("Edit")}
+                    <PencilIcon />
                   </button>
                 </div>
               </td>
@@ -203,18 +206,21 @@ export function SttProfiles({
                         type="button"
                         onClick={() => setEditing(p.id)}
                         disabled={disabled}
-                        className="btn-outline px-2 py-1 text-xs"
+                        className="btn-icon !h-8 !w-8"
+                        title={t("Edit {name}", { name: p.name || t("endpoint") })}
+                        aria-label={t("Edit {name}", { name: p.name || t("endpoint") })}
                       >
-                        {t("Edit")}
+                        <PencilIcon />
                       </button>
                       <button
                         type="button"
                         onClick={() => remove(p.id)}
                         disabled={disabled}
-                        className="btn-outline px-2 py-1 text-xs text-[var(--error)]"
+                        className="btn-icon !h-8 !w-8 !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
+                        title={t("Remove {name}", { name: p.name || t("endpoint") })}
                         aria-label={t("Remove {name}", { name: p.name || t("endpoint") })}
                       >
-                        {t("Remove")}
+                        <TrashIcon />
                       </button>
                     </div>
                   </td>

@@ -1,5 +1,6 @@
 "use client";
 
+import { PencilIcon, TrashIcon } from "../icons";
 import { useState } from "react";
 import { DEFAULT_MINUTES_INSTRUCTIONS, DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import { type MinutesTemplate, newTemplateId } from "@/lib/minutes-templates";
@@ -130,18 +131,21 @@ export function MinutesTemplates({
                         type="button"
                         onClick={() => setEditing(tpl.id)}
                         disabled={disabled}
-                        className="btn-outline px-2 py-1 text-xs"
+                        className="btn-icon !h-8 !w-8"
+                        title={t("Edit {name}", { name: tpl.name || t("format") })}
+                        aria-label={t("Edit {name}", { name: tpl.name || t("format") })}
                       >
-                        {t("Edit")}
+                        <PencilIcon />
                       </button>
                       <button
                         type="button"
                         onClick={() => remove(tpl.id)}
                         disabled={disabled}
-                        className="btn-outline px-2 py-1 text-xs text-[var(--error)]"
+                        className="btn-icon !h-8 !w-8 !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
+                        title={t("Remove {name}", { name: tpl.name || t("format") })}
                         aria-label={t("Remove {name}", { name: tpl.name || t("format") })}
                       >
-                        {t("Remove")}
+                        <TrashIcon />
                       </button>
                     </div>
                   </td>

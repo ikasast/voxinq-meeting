@@ -18,7 +18,7 @@ import { minutesCandidates, needsMinutes } from "@/lib/meetings/bulk-minutes";
 import { minutesRunningIn } from "@/lib/meetings/minutes-state";
 import { BulkMinutes } from "./bulk-minutes";
 import { MinutesWatcher } from "./minutes-watcher";
-import { ArchiveIcon, SeriesIcon, TrashIcon } from "./icons";
+import { ArchiveIcon, LockIcon, MicIcon, SeriesIcon, TrashIcon } from "./icons";
 import { MeetingCalendar } from "./meeting-calendar";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
@@ -379,8 +379,17 @@ export async function MeetingListPane({
         </Link>
         {m.tags.length > 0 || showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
           <p className="mt-1.5 flex flex-wrap items-center gap-1">
-            {/* Recording/protection icon (RecordingBadges fills it in after querying STT) */}
-            <span data-rec-badge={m.id} />
+            {/* Recording/protection icon: hidden until RecordingBadges has asked STT, which then
+                says which of the two to show (and nothing when there is no recording). */}
+            <span
+              data-rec-badge={m.id}
+              role="img"
+              hidden
+              className="group inline-flex items-center text-[var(--text-muted)] data-[state=protected]:text-[var(--accent-sub)]"
+            >
+              <LockIcon className="hidden h-3 w-3 shrink-0 group-data-[state=protected]:block" />
+              <MicIcon className="h-3 w-3 shrink-0 group-data-[state=protected]:hidden" />
+            </span>
             {showSeriesChip ? (
               <Link
                 href={hrefWith({ series: m.seriesName })}

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PencilIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 
 // Title display with inline editing. Pencil button -> input field,
@@ -68,9 +69,9 @@ export function MeetingTitle({
             onClick={() => setEditing(true)}
             aria-label={t("Edit meeting title")}
             title={t("Edit meeting title")}
-            className="rounded p-1 text-base text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
+            className="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
           >
-            ✎
+            <PencilIcon />
           </button>
         ) : null}
       </h1>

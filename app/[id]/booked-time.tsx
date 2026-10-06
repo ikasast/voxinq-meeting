@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PencilIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 
 /** An instant as `datetime-local` wants it: wall-clock time on this device, to the minute. */
@@ -76,9 +77,9 @@ export function BookedTime({ id, at, label }: { id: string; at: string; label: s
           onClick={start}
           aria-label={t("Change the booked time")}
           title={t("Change the booked time")}
-          className="ml-1 rounded px-1 text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
+          className="ml-1 inline-flex rounded p-0.5 align-middle text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--text-strong)]"
         >
-          ✎
+          <PencilIcon className="h-3.5 w-3.5" />
         </button>
       </>
     );
