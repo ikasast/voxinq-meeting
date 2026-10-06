@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import time
 import wave
 from pathlib import Path
 
@@ -23,6 +25,26 @@ def shift_times(item: dict, head: float, length: float, keys: tuple[str, str]) -
         if isinstance(out.get(k), (int, float)) and not isinstance(out.get(k), bool):
             out[k] = round(min(max(float(out[k]) - head, 0.0), length), 3)
     return out
+
+
+def put_in_place(tmp: Path, target: Path, tries: int = 10) -> None:
+    """Move the cut copy over the original.
+
+    On Windows a file that is open cannot be replaced, and the player used to find where to cut
+    usually still has the recording open (the web page lets go of it first, but the server notices
+    a moment later). It can still be written to, so after a few tries the cut copy is written over
+    the original instead. If even that fails the cut copy is left beside it, as the only whole one.
+    """
+    for _ in range(tries):
+        try:
+            os.replace(tmp, target)
+            return
+        except PermissionError:
+            time.sleep(0.2)
+    with open(tmp, "rb") as src, open(target, "r+b") as dst:
+        shutil.copyfileobj(src, dst, 1024 * 1024)
+        dst.truncate()
+    tmp.unlink()
 
 
 def trim_recording(
@@ -47,19 +69,23 @@ def trim_recording(
         if last - first < rate:
             raise ValueError("less than a second would be left")
         # A slice at a time: a recording left running overnight is close to a gigabyte.
-        with wave.open(str(tmp_path), "wb") as dst:
-            dst.setnchannels(channels)
-            dst.setsampwidth(width)
-            dst.setframerate(rate)
-            src.setpos(first)
-            left = last - first
-            while left > 0:
-                frames = src.readframes(min(rate * 30, left))
-                if not frames:
-                    break
-                dst.writeframes(frames)
-                left -= len(frames) // (width * channels)
-    os.replace(tmp_path, wav_path)
+        try:
+            with wave.open(str(tmp_path), "wb") as dst:
+                dst.setnchannels(channels)
+                dst.setsampwidth(width)
+                dst.setframerate(rate)
+                src.setpos(first)
+                left = last - first
+                while left > 0:
+                    frames = src.readframes(min(rate * 30, left))
+                    if not frames:
+                        break
+                    dst.writeframes(frames)
+                    left -= len(frames) // (width * channels)
+        except BaseException:
+            tmp_path.unlink(missing_ok=True)  # the original is untouched; leave no half copy
+            raise
+    put_in_place(tmp_path, wav_path)
     # Trimming is not new audio: the recording keeps the retention deadline it had.
     os.utime(wav_path, (before.st_atime, before.st_mtime))
 

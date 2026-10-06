@@ -84,6 +84,7 @@ export function TrimRecording({
     setError(null);
     setBusy(true);
     const range = { startMs: Math.round(start * 1000), endMs: Math.round(end * 1000) };
+    let giveBack: (() => void) | null = null;
     try {
       const preview = await fetch(`/api/meetings/${meetingId}/trim`, {
         method: "POST",
@@ -104,6 +105,19 @@ export function TrimRecording({
         danger: true,
       });
       if (!ok) return;
+      // The player still has the recording open, and on Windows an open file cannot be replaced:
+      // let go of it first, and take it back if the trim does not happen.
+      const el = audioRef.current;
+      const src = el?.getAttribute("src");
+      if (el && src) {
+        el.pause();
+        el.removeAttribute("src");
+        el.load();
+        giveBack = () => {
+          el.setAttribute("src", src);
+          el.load();
+        };
+      }
       const res = await fetch(`/api/meetings/${meetingId}/trim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -116,6 +130,7 @@ export function TrimRecording({
       // The audio, every line's position and the meeting's times all changed: start over.
       window.location.reload();
     } catch (e) {
+      giveBack?.();
       setError((e as Error).message);
     } finally {
       setBusy(false);

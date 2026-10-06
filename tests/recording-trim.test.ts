@@ -72,4 +72,11 @@ describe("the trim route", () => {
     expect(ui.indexOf("await confirm(")).toBeLessThan(ui.indexOf("body: JSON.stringify(range)"));
     expect(ui).toContain("danger: true");
   });
+
+  it("lets go of the recording before cutting it, since Windows cannot replace an open file", () => {
+    const ui = read("app/[id]/trim-recording.tsx");
+    expect(ui.indexOf('el.removeAttribute("src")')).toBeGreaterThan(-1);
+    expect(ui.indexOf('el.removeAttribute("src")')).toBeLessThan(ui.indexOf("body: JSON.stringify(range)"));
+    expect(ui).toContain("giveBack?.()");
+  });
 });

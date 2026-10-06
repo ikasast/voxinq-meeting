@@ -86,6 +86,20 @@ def test_judges_boundaries_by_time_when_out_of_step():
         assert [(s["start"], s["end"]) for s in segments] == [(0.5, 1.5), (0.0, 0.5)]
 
 
+def test_cuts_a_recording_the_player_still_has_open():
+    # On Windows an open file cannot be replaced, only written to.
+    with tempfile.TemporaryDirectory() as d:
+        paths = _recording(Path(d))
+        with open(paths["wav"], "rb"):
+            result = trim.trim_recording(paths, 2000, 7000, drop=[0, 3], expected=4)
+        assert result["durationMs"] == 5000
+        with wave.open(str(paths["wav"]), "rb") as w:
+            assert w.getnframes() == 5 * RATE
+            assert w.readframes(1)[0] == 2
+        assert int(paths["wav"].stat().st_mtime) == 1_700_000_000
+        assert sorted(p.name for p in Path(d).iterdir()) == ["m.segments.json", "m.wav"]
+
+
 def test_refuses_to_leave_less_than_a_second():
     with tempfile.TemporaryDirectory() as d:
         paths = _recording(Path(d))
