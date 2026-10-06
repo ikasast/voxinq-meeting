@@ -5,6 +5,8 @@ import { loadedModel } from "@/lib/llm/ollama-models";
 import { emptyUsage } from "@/lib/llm/types";
 import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { resolveInstructions, resolveTemplate } from "@/lib/minutes-templates";
+import { resolveInclude } from "@/lib/minutes-context";
+import { gatherMinutesContext } from "@/lib/minutes-context-data";
 import { getLlmConfig, readSettings } from "@/lib/settings";
 import { readNames } from "@/lib/speakers";
 import type { JobMetrics } from "../metrics";
@@ -23,17 +25,13 @@ import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
 export async function runMinutes(job: { id: string; meetingId: string | null; params: string }) {
   const meetingId = job.meetingId;
   if (!meetingId) throw new Error("a minutes job needs a meeting");
-  const { detail, provider, templateId } = parseParams<MinutesParams>(job.params);
+  const { detail, provider, templateId, include } = parseParams<MinutesParams>(job.params);
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
     select: {
-      id: true,
-      description: true,
       speakerLabels: true,
-      seriesId: true,
-      startedAt: true,
-      series: { select: { summaryFormat: true, description: true } },
+      series: { select: { summaryFormat: true } },
     },
   });
   if (!meeting) throw new Error("meeting not found");
@@ -47,32 +45,17 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
   // waited. Nothing to write, and an empty prompt would invent a meeting.
   if (transcripts.length === 0) throw new Error("No utterances recorded");
 
-  // The previous meeting's minutes, as reference material for "continuing from last time".
-  let previousMinutes: { title: string; date: string; text: string } | undefined;
-  if (meeting.seriesId) {
-    const prev = await prisma.meeting.findFirst({
-      where: {
-        seriesId: meeting.seriesId,
-        deletedAt: null,
-        id: { not: meeting.id },
-        startedAt: { lt: meeting.startedAt },
-        summaries: { some: {} },
-      },
-      orderBy: { startedAt: "desc" },
-      select: {
-        title: true,
-        startedAt: true,
-        summaries: { orderBy: { createdAt: "desc" }, take: 1, select: { summaryText: true } },
-      },
-    });
-    if (prev?.summaries[0]) {
-      previousMinutes = {
-        title: prev.title,
-        date: prev.startedAt.toISOString().slice(0, 10),
-        text: prev.summaries[0].summaryText,
-      };
-    }
-  }
+  // What else it is given: what this run chose, or else what its template has on by default.
+  const ctx = await gatherMinutesContext(meetingId);
+  if (!ctx) throw new Error("meeting not found");
+  const settings = await readSettings();
+  const given = new Set(
+    include ??
+      resolveInclude(settings.minutesTemplates, {
+        chosenId: templateId,
+        defaultId: settings.defaultMinutesTemplateId,
+      }),
+  );
 
   // Which provider and model will write it — mirrors how writeMinutes resolves them: a valid
   // override wins, otherwise the saved setting. Worked out before the run so that a failure
@@ -108,12 +91,19 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
 
   const ac = beginGeneration(meetingId);
   try {
-    const settings = await readSettings();
     const summaryText = await writeMinutes(
       transcripts,
       {
-        description: meeting.description,
-        seriesBackground: meeting.series?.description,
+        meeting: {
+          title: given.has("meeting") ? ctx.meeting.title : undefined,
+          when: given.has("meeting") ? ctx.meeting.when : undefined,
+          participants: given.has("participants") ? ctx.participants : undefined,
+        },
+        description: given.has("purpose") ? ctx.purpose : undefined,
+        glossary: given.has("glossary") ? ctx.glossary : undefined,
+        seriesBackground: given.has("series") ? ctx.series : undefined,
+        previousMinutes: given.has("previous") ? (ctx.previous ?? undefined) : undefined,
+        background: given.has("background") ? ctx.background : undefined,
         speakerLabels: readNames(meeting.speakerLabels),
         detail,
         provider,
@@ -126,7 +116,6 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
           chosenId: templateId,
           defaultId: settings.defaultMinutesTemplateId,
         }),
-        previousMinutes,
         usage,
       },
       ac.signal,

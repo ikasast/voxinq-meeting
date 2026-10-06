@@ -10,6 +10,8 @@
 // the recognition endpoints, for the same reason: the setting decides the default, the run
 // decides what actually happens.
 
+import { type ContextKey, normalizeInclude } from "./minutes-context";
+
 export type MinutesTemplate = {
   /** Stable across renames: it is what a saved default refers to. */
   id: string;
@@ -23,6 +25,11 @@ export type MinutesTemplate = {
    * part of this and cannot be replaced by it; see lib/minutes-prompt.ts.
    */
   instructions?: string;
+  /**
+   * What the minutes are given besides the transcript, by default, when this template is used
+   * (lib/minutes-context.ts). Absent means all of it, as before this was a choice.
+   */
+  include?: ContextKey[];
 };
 
 /** Ids are only compared, never parsed. */
@@ -43,7 +50,14 @@ export function normalizeTemplates(raw: unknown): MinutesTemplate[] {
     // says otherwise, which is worse than not having it.
     if (!id || !name || !body.trim()) continue;
     const instructions = typeof t.instructions === "string" && t.instructions.trim() ? t.instructions : undefined;
-    out.push({ id, name: name.slice(0, 60), body, ...(instructions ? { instructions } : {}) });
+    const include = normalizeInclude(t.include);
+    out.push({
+      id,
+      name: name.slice(0, 60),
+      body,
+      ...(instructions ? { instructions } : {}),
+      ...(include ? { include } : {}),
+    });
   }
   return out;
 }

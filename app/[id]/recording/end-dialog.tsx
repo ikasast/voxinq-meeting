@@ -23,17 +23,19 @@ const MAX_SPEAKERS = 10;
 
 export function EndDialog({
   kind,
+  meetingId,
   title,
   onCancel,
   onConfirm,
 }: {
   kind: "minutes" | "diarize";
+  meetingId: string;
   title: string;
   onCancel: () => void;
   onConfirm: (choice: EndChoice) => void;
 }) {
   const t = useT();
-  const opts = useMinutesChoice();
+  const opts = useMinutesChoice(meetingId);
   const [protect, setProtect] = useState(false);
   const [speakers, setSpeakers] = useState("");
   const { load } = opts;
@@ -83,7 +85,9 @@ export function EndDialog({
               choice={opts.choice}
               onChange={opts.setChoice}
               templates={opts.templates}
+              defaultTemplateId={opts.defaultTemplateId}
               models={opts.models}
+              previews={opts.previews}
             />
           ) : (
             <div>

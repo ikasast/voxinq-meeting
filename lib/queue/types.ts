@@ -4,6 +4,8 @@
 // else's machine — recognition sent to an endpoint, minutes written by a cloud model — costs
 // nothing here however long it takes, because what is being rationed is the card.
 
+import type { ContextKey } from "@/lib/minutes-context";
+
 /**
  * A live recording's hold on the card. Not a kind the dispatcher runs — it is created already
  * `running` by the screen that is recording, and exists so admission control can see that the
@@ -39,6 +41,8 @@ export type MinutesParams = {
   provider?: string;
   /** A saved template id, or "default" for the built-in format. */
   templateId?: string;
+  /** What else the minutes are given (lib/minutes-context.ts). Absent uses the template's default. */
+  include?: ContextKey[];
 };
 
 /** What each kind is called on screen. */

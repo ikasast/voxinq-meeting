@@ -5,6 +5,8 @@
 // The Android app cannot — it hands over a shared audio file and nothing else — so the same
 // answer is worked out here, on the server, from the same two places.
 
+import { normalizeInclude } from "@/lib/minutes-context";
+import type { MinutesParams } from "@/lib/queue/types";
 import { effectiveSttLanguage } from "@/lib/stt/models";
 
 /** What a caller asked for. Anything absent is filled in from the settings. */
@@ -17,7 +19,7 @@ export type TranscribeRequest = {
   /** Carried through untouched: it is for the queue, not for the recogniser. */
   thenMinutes?: boolean;
   /** Likewise: how the chained minutes are to be written. */
-  minutesParams?: { detail?: string; provider?: string; templateId?: string };
+  minutesParams?: MinutesParams;
 };
 
 /** The settings, plus the one thing that belongs to this meeting rather than the host. */
@@ -60,11 +62,17 @@ export function withDefaults(asked: TranscribeRequest, ctx: TranscribeContext): 
   };
 }
 
-/** The chained minutes' choices, kept to the three a run can be given and only as strings. */
-export function minutesParamsFrom(raw: unknown): { detail?: string; provider?: string; templateId?: string } | undefined {
+/** The chained minutes' choices: the three a run can be given, as short strings, and the context. */
+export function minutesParamsFrom(raw: unknown): MinutesParams | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   const pick = (k: string) => (typeof r[k] === "string" && (r[k] as string).length <= 100 ? (r[k] as string) : undefined);
-  const out = { detail: pick("detail"), provider: pick("provider"), templateId: pick("templateId") };
+  const include = normalizeInclude(r.include);
+  const out: MinutesParams = {
+    detail: pick("detail"),
+    provider: pick("provider"),
+    templateId: pick("templateId"),
+    ...(include ? { include } : {}),
+  };
   return Object.values(out).some((v) => v !== undefined) ? out : undefined;
 }

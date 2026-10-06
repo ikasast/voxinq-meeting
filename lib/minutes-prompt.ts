@@ -67,6 +67,22 @@ const DETAIL_GUIDANCE: Record<string, string> = {
     "会議の内容を充実させて詳しくまとめる。「会議の詳細」は議題ごとに、誰が何を述べ・どう議論し・どう決まったかを取りこぼさず、必要なだけ多くの箇条書きで丁寧に記述する（発言ログにある事項に限る）。",
 };
 
+/** What the meeting is, as recorded: its name, when it was held, who was registered for it. */
+export type MeetingFacts = { title?: string; when?: string; participants?: string[] };
+
+function meetingSection(facts?: MeetingFacts): string {
+  const lines = [
+    facts?.title ? `- 会議名: ${facts.title}` : "",
+    facts?.when ? `- 日時: ${facts.when}` : "",
+    facts?.participants?.length ? `- 参加者（登録された名前）: ${facts.participants.join("、")}` : "",
+  ].filter(Boolean);
+  if (lines.length === 0) return "";
+  const caution = facts?.participants?.length
+    ? "\n参加者は出席者として書いてよい。ただし誰が何を言ったかは発言ログの話者名からだけ判断し、参加者の名前を当てはめて推測しない。"
+    : "";
+  return `\n\nこの会議の記録上の情報です。会議名・日時・出席者として議事録に書いてよい事実です。\n${lines.join("\n")}${caution}`;
+}
+
 export function buildSummarySystemPrompt(
   description?: string | null,
   opts?: {
@@ -78,6 +94,8 @@ export function buildSummarySystemPrompt(
     seriesBackground?: string | null;
     /** How to write, from the template. Empty uses DEFAULT_MINUTES_INSTRUCTIONS. */
     instructions?: string;
+    /** The meeting's name, time and participants, where the run chose to give them. */
+    meeting?: MeetingFacts;
   },
 ): string {
   const speakerRule = opts?.multiSpeaker
@@ -98,12 +116,12 @@ export function buildSummarySystemPrompt(
   const detailSection = detailRule ? `\n\n## 詳しさ\n${detailRule}` : "";
 
   return `あなたは会議の議事録をまとめる担当者です。
-これから渡すのは、音声認識で書き起こした未整形の発言ログです。内容を**要約して**、Markdown の議事録にしてください。${seriesSection(opts?.seriesBackground)}${agendaSection(description)}
+これから渡すのは、音声認識で書き起こした未整形の発言ログです。内容を**要約して**、Markdown の議事録にしてください。${meetingSection(opts?.meeting)}${seriesSection(opts?.seriesBackground)}${agendaSection(description)}
 
 **出力は必ず${langName}で書いてください。** 発言ログが何語であっても、議事録は${langName}で生成します（見出しも${langName}）。
 
 ## 内容の原則
-- 議事録の情報源は発言ログだけ。発言ログに出てこない事項は書かない。
+- 議事録の情報源は発言ログだけ。発言ログに出てこない事項は書かない${meetingSection(opts?.meeting) ? "（会議名・日時・出席者は上の記録上の情報から書いてよい）" : ""}。
 - 発言ログから読み取れない推測や補足を書き足さない。
 - ${speakerRule}
 
