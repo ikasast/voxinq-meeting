@@ -67,6 +67,11 @@ describe("the trim route", () => {
     expect(list).toContain("!readOnly && !live && recInfo.durationSec");
   });
 
+  it("stays after the recording is protected, whose answer has no length in it", () => {
+    const list = read("app/[id]/transcript-list.tsx");
+    expect(list).toContain("setRecInfo((prev) => ({ ...prev, ...next }))");
+  });
+
   it("asks before it deletes anything", () => {
     const ui = read("app/[id]/trim-recording.tsx");
     expect(ui.indexOf("await confirm(")).toBeLessThan(ui.indexOf("body: JSON.stringify(range)"));
