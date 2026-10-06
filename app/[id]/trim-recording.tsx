@@ -3,6 +3,7 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { formatOffset } from "@/lib/utils";
 import { useConfirm } from "../confirm-dialog";
+import { ScissorsIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 
 // Cutting a recording down to the part that was the meeting.
@@ -142,9 +143,11 @@ export function TrimRecording({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
+        aria-label={t("Trim the recording…")}
+        title={t("Trim the recording…")}
+        className="btn-icon"
       >
-        {t("Trim the recording…")}
+        <ScissorsIcon />
       </button>
     );
   }

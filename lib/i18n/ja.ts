@@ -317,9 +317,10 @@ export const ja: Record<string, string> = {
   "Delete this utterance (it will no longer feed minutes generation)":
     "この発言を削除します（以後、議事録の生成には使われません）",
   "Change the speaker of this utterance": "この発言の話者を変更",
-  Protect: "保護する",
-  Unprotect: "保護を解除",
-  "Updating…": "更新中…",
+  "Protect the recording": "録音を保護",
+  "Protect the recording so it is not auto-deleted": "録音を保護して、自動で削除されないようにします",
+  "Protected. If unprotected, it is auto-deleted once the retention period has passed from then":
+    "保護しています。解除すると、その時点から保存期間が過ぎたあとに自動で削除されます",
   "Checking…": "確認中…",
   "Diarization failed": "話者の分離に失敗しました",
   "Done. Rename the speakers below if you like.": "完了しました。下で話者の名前を付け直せます。",
@@ -981,6 +982,8 @@ export const ja: Record<string, string> = {
   "Recording:": "録音:",
   "protected (not auto-deleted)": "保護済み（自動削除されません）",
   saved: "保存済み",
+  "auto-deletes in 1 day": "1日後に自動削除",
+  "auto-deletes in {n} days": "{n}日後に自動削除",
   "Show translations": "翻訳を表示",
   "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)":
     "録音を解析して各行に話者を割り当てます（人数を入れると精度が上がります）",

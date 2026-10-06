@@ -75,6 +75,33 @@ export const RefreshIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+/** A padlock, shut: a recording that is kept. */
+export const LockIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    <path d="M12 15v2" />
+  </Base>
+);
+
+/** The same padlock, open: a recording that goes when its time is up. */
+export const LockOpenIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 7.75-1.4" />
+    <path d="M12 15v2" />
+  </Base>
+);
+
+export const ScissorsIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="M8.12 8.12 20 20" />
+    <path d="M8.12 15.88 20 4" />
+  </Base>
+);
+
 export const CheckIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <path d="M20 6 9 17l-5-5" />
