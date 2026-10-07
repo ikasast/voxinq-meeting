@@ -5,6 +5,7 @@ import { isExternalRequest } from "@/lib/is-tailnet";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { AskMinutes } from "../../ask-minutes";
 import { SeriesSettings } from "./series-settings";
 import { DeleteSeriesButton } from "./delete-series-button";
@@ -102,7 +103,9 @@ export default async function SeriesPage({
       {/* Questions span the whole series ("what were the TODOs from last time?"), so this
           belongs here rather than on any single meeting. Hidden for external (read-only)
           viewers: answering runs the local LLM on the GPU. */}
-      {!external ? <AskMinutes seriesId={series.id} scopeLabel={series.name} /> : null}
+      {!external && (await extensionEnabled("ask")) ? (
+        <AskMinutes seriesId={series.id} scopeLabel={series.name} />
+      ) : null}
 
       <SeriesSettings
         id={series.id}

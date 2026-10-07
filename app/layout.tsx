@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
+import { ExtensionsProvider } from "./extensions-provider";
+import { readExtensions } from "@/lib/extensions-store";
 import { NavTracker } from "./back-link";
 import { currentUser } from "@/lib/auth/session";
 import { currentLocale, serverT } from "@/lib/i18n/server";
@@ -208,6 +210,7 @@ export default async function RootLayout({
           }}
         />
         <LocaleProvider locale={locale}>
+          <ExtensionsProvider value={await readExtensions()}>
           {/* Which page was before this one, for "Back to list" (app/back-link.tsx). */}
           <Suspense fallback={null}>
             <NavTracker />
@@ -251,6 +254,7 @@ export default async function RootLayout({
               </div>
             </div>
           </ConfirmProvider>
+          </ExtensionsProvider>
         </LocaleProvider>
       </body>
     </html>

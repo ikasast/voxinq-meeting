@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
+import { extensionOff } from "@/app/api/extension-off";
 import { conversationText } from "@/lib/llm";
 import { askMinutes, askTranscript, type MeetingForAsk } from "@/lib/llm/ask";
 import { readNames } from "@/lib/speakers";
@@ -18,6 +19,8 @@ const QUESTION_MAX = 500;
 // A meeting with no series is asked about on its own — a one-off is just a series of one.
 // Nothing is stored: the answer is read once and discarded.
 export async function POST(req: NextRequest) {
+  const off = await extensionOff("ask");
+  if (off) return off;
   const body = await readJson<{
     question?: unknown;
     seriesId?: unknown;

@@ -623,6 +623,26 @@ export const ja: Record<string, string> = {
   "That is the only administrator. Make somebody else one first.":
     "管理者はその 1 人だけです。先に他の誰かを管理者にしてください。",
   "You cannot disable your own account.": "自分自身のアカウントは無効化できません。",
+  "Ask about meetings": "会議への質問",
+  "Ask a question of a meeting's minutes or transcript, or of a whole series.": "会議の議事録や発言、シリーズ全体に質問できます。",
+  "The minutes model (LLM)": "議事録を書くモデル（LLM）",
+  "Write minutes in bulk": "まとめて作成",
+  "Queue minutes for every listed meeting that has none, in one go.": "一覧に出ている、議事録のない会議の議事録をまとめて順番待ちに入れます。",
+  "Suggest corrections": "誤変換の候補",
+  "Check the transcript against the glossary, the series name and the participants, and suggest fixes.": "用語集・シリーズ名・参加者名と照らして、誤変換の直し方を提案します。",
+  "Translation": "翻訳",
+  "A Japanese translation under each line spoken in another language.": "日本語以外の発言の下に、日本語訳を表示します。",
+  "A translation model (about 1.2 GB), downloaded on first use": "翻訳モデル（約 1.2 GB、初回に自動でダウンロード）",
+  "Read-only sharing": "外部公開",
+  "Publish a password-protected, read-only link outside the tailnet.": "パスワード付きの読み取り専用リンクを、tailnet の外に公開します。",
+  "Extensions": "拡張機能",
+  "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.": "録音・文字起こし・議事録はいつでも使えます。ここで選ぶ機能は、その上に追加するもので、この機器を使う全員に効きます。無効にすると画面から消えますがデータは残り、有効に戻せば元どおりになります。",
+  "Needs: {what}": "必要なもの：{what}",
+  "On": "有効",
+  "Off": "無効",
+  "Only an administrator switches extensions on or off.": "拡張機能を切り替えられるのは管理者だけです。",
+  "This feature is switched off. An administrator can switch it on under Settings, Extensions.":
+    "この機能は無効になっています。管理者が「設定 → 拡張機能」で有効にできます。",
   "Only an administrator sets the defaults everybody starts from.":
     "全員の既定値を設定できるのは管理者だけです。",
 

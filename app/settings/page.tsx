@@ -17,6 +17,8 @@ import {
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { DataBackup } from "./data-backup";
 import { ReminderNotifications } from "./reminder-notifications";
+import { ExtensionsSettings } from "./extensions-settings";
+import { useExtensions } from "../extensions-provider";
 import { RestScreenSetting } from "./rest-screen-setting";
 import { StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
@@ -95,6 +97,7 @@ const TABS = [
   { id: "remote", label: "Remote access" },
   { id: "data", label: "Data" },
   { id: "appearance", label: "Appearance" },
+  { id: "extensions", label: "Extensions" },
   // Only shown to an administrator; see the tab bar below. Last, because it is the one tab that
   // is not about the reader.
   { id: "defaults", label: "Defaults for everyone" },
@@ -128,6 +131,7 @@ function settingLabel(t: (k: string) => string, label: string): string {
     "Remote access": t("Remote access"),
     Data: t("Data"),
     Appearance: t("Appearance"),
+    Extensions: t("Extensions"),
     "Defaults for everyone": t("Defaults for everyone"),
     System: t("System"),
     Light: t("Light"),
@@ -163,6 +167,7 @@ function settingLabel(t: (k: string) => string, label: string): string {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const t = useT();
+  const extensions = useExtensions();
   // Edited as a whole, because a key typed into one entry must survive editing another.
   const [draftProfiles, setDraftProfiles] = useState<DraftProfile[]>([]);
   const [draftTemplates, setDraftTemplates] = useState<MinutesTemplate[]>([]);
@@ -282,7 +287,10 @@ export default function SettingsPage() {
         <div className="flex flex-wrap gap-1 border-b border-[var(--border)]">
           {/* The defaults tab is not the reader's own settings, so it is only offered to
               somebody who can change them for everybody. */}
-          {TABS.filter((tab_) => tab_.id !== "defaults" || settings.isAdmin).map((tab_) => (
+          {TABS.filter(
+            (tab_) =>
+              (tab_.id !== "defaults" || settings.isAdmin) && (tab_.id !== "remote" || extensions.externalShare),
+          ).map((tab_) => (
             <button
               key={tab_.id}
               type="button"
@@ -469,6 +477,7 @@ export default function SettingsPage() {
             </p>
           </div>
 
+          {extensions.translation ? (
           <div>
             <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
               <input
@@ -489,6 +498,7 @@ export default function SettingsPage() {
               )}
             </p>
           </div>
+          ) : null}
         </section>
         ) : null}
 
@@ -736,7 +746,9 @@ export default function SettingsPage() {
         ) : null}
 
         {/* Remote access (Tailscale Funnel publish toggle) */}
-        {tab === "remote" ? <RemoteAccess /> : null}
+        {tab === "remote" && extensions.externalShare ? <RemoteAccess /> : null}
+
+        {tab === "extensions" ? <ExtensionsSettings isAdmin={settings.isAdmin} /> : null}
 
         {tab === "data" ? (
           <>

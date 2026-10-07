@@ -25,6 +25,7 @@ import { ShareButton } from "./share-button";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
+import { useExtensions } from "@/app/extensions-provider";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -160,6 +161,8 @@ export function TranscriptList({
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(true);
+  // Extensions switched off keep their data but show nothing (lib/extensions.ts).
+  const extensions = useExtensions();
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
@@ -1371,7 +1374,7 @@ export function TranscriptList({
             <span />
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {hasTranslations ? (
+            {hasTranslations && extensions.translation ? (
               <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
                 <input
                   type="checkbox"
@@ -1382,7 +1385,7 @@ export function TranscriptList({
                 {t("Show translations")}
               </label>
             ) : null}
-            {!readOnly && transcripts.length > 0 ? (
+            {!readOnly && extensions.corrections && transcripts.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => void runSuggestions()}
@@ -1470,7 +1473,7 @@ export function TranscriptList({
                 if (s) void applySuggestion(s);
               }}
               onDismissSuggestion={() => dismissSuggestion(t.id)}
-              showTranslation={showTranslation}
+              showTranslation={showTranslation && extensions.translation}
               readOnly={readOnly}
             />
           ))}

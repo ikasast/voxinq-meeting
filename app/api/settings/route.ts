@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { apiError } from "@/lib/api";
 import {
   type AppSettings,
@@ -17,6 +18,9 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const s = await readSettings();
+  // Translation switched off as an extension reads as off here, which is what every screen and
+  // recorder asks; the choice itself stays stored for when it is switched back on.
+  if (!(await extensionEnabled("translation"))) s.sttTranslate = false;
   const me = await currentUser();
   // The screen needs to know which fields it may offer, and saying so here keeps that answer
   // in one place rather than in the component's idea of who is an administrator.
@@ -70,7 +74,11 @@ export async function PATCH(req: NextRequest) {
     const v = body[key];
     if (typeof v === "string") (patch as Record<string, string>)[key] = cleanSetting(v);
   }
-  if (typeof body.sttTranslate === "boolean") patch.sttTranslate = body.sttTranslate;
+  // Not while translation is switched off: the screen shows it as off, and saving that would
+  // overwrite the choice it kept.
+  if (typeof body.sttTranslate === "boolean" && (await extensionEnabled("translation"))) {
+    patch.sttTranslate = body.sttTranslate;
+  }
   // 0 means "work it out from the card". Anything under 512 MB is a typo, not a budget, and
   // writeSettings refuses it too — this is just the earlier of the two.
   if (

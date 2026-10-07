@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { getFunnelState, setFunnelPublic } from "@/lib/funnel";
 import { isExternalRequest } from "@/lib/is-tailnet";
+import { extensionOff } from "@/app/api/extension-off";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 // external callers here, and proxy.ts already blocks external mutating requests (403).
 
 export async function GET() {
+  const off = await extensionOff("externalShare");
+  if (off) return off;
   // Don't reveal funnel details or spawn tailscale for outside viewers.
   if (await isExternalRequest()) {
     return NextResponse.json({ internal: false, available: false, public: null, url: null });
@@ -20,6 +23,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const off = await extensionOff("externalShare");
+  if (off) return off;
   if (await isExternalRequest()) {
     return apiError("Remote access can only be changed from your local network.", 403);
   }

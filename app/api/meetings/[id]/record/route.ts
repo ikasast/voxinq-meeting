@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { apiError } from "@/lib/api";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
@@ -52,6 +53,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const contended = !deferredHost && (await gpuContenders()).length > 0;
 
   const settings = await readSettings();
+  if (!(await extensionEnabled("translation"))) settings.sttTranslate = false;
   const plan = recordingPlan({
     meeting,
     settings,
