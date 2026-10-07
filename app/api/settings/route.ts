@@ -60,7 +60,6 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "uiLanguage",
   "meetingTitleFormat",
   "summaryLanguage",
-  "summaryDetail",
 ];
 
 export async function PATCH(req: NextRequest) {

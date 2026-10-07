@@ -21,7 +21,6 @@ import { useExtensions } from "../extensions-provider";
 
 type Defaults = {
   summaryLanguage: string;
-  summaryDetail: string;
   sttLanguage: string;
   micMode: string;
   sttTranslate: boolean;
@@ -45,15 +44,6 @@ const FIELDS: {
       { value: "ja", label: "Japanese (日本語)" },
       { value: "en", label: "English" },
       { value: "zh", label: "Chinese (中文)" },
-    ],
-  },
-  {
-    key: "summaryDetail",
-    label: "Minutes detail",
-    options: [
-      { value: "brief", label: "Brief" },
-      { value: "standard", label: "Standard" },
-      { value: "detailed", label: "Detailed" },
     ],
   },
   {
@@ -103,7 +93,6 @@ const FIELDS: {
 function fieldLabel(t: (k: string) => string, label: string): string {
   const table: Record<string, string> = {
     "Minutes language": t("Minutes language"),
-    "Minutes detail": t("Minutes detail"),
     "Transcription language": t("Transcription language"),
     "Microphone mode": t("Microphone mode"),
     "Japanese translation under each line": t("Japanese translation under each line"),
@@ -116,9 +105,7 @@ function fieldLabel(t: (k: string) => string, label: string): string {
     "Japanese (日本語)": t("Japanese (日本語)"),
     English: t("English"),
     "Chinese (中文)": t("Chinese (中文)"),
-    Brief: t("Brief"),
     Standard: t("Standard"),
-    Detailed: t("Detailed"),
     "Auto-detect": t("Auto-detect"),
     "Japanese (fixed)": t("Japanese (fixed)"),
     "English (fixed)": t("English (fixed)"),

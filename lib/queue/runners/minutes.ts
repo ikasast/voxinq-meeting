@@ -27,7 +27,6 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
   const meetingId = job.meetingId;
   if (!meetingId) throw new Error("a minutes job needs a meeting");
   const asked = parseParams<MinutesParams>(job.params);
-  const { detail } = asked;
   // A run asked for before an extension was switched off is written as it now would be: by
   // Ollama, in the built-in format, given what that format is given.
   const extensions = await readExtensions();
@@ -113,7 +112,6 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
         previousMinutes: given.has("previous") ? (ctx.previous ?? undefined) : undefined,
         background: given.has("background") ? ctx.background : undefined,
         speakerLabels: readNames(meeting.speakerLabels),
-        detail,
         provider,
         format: resolveTemplate(settings.minutesTemplates, {
           chosenId: templateId,

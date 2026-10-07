@@ -5,8 +5,9 @@ import { CONTEXT_KEYS, type ContextKey, includeForFormat, resolveInclude } from 
 import { useT } from "./locale-provider";
 import { useExtensions } from "./extensions-provider";
 
-// The choices a set of minutes can be written with for one run: the format, how much detail,
-// and which model. Never saved — the settings stay as they are.
+// The choices a set of minutes can be written with for one run: the format, and which model.
+// Never saved — the settings stay as they are. Each belongs to an extension (Minutes formats,
+// External AI); with both off there is nothing to choose.
 //
 // One component because two places ask: Regenerate on a meeting, and Write them all on the
 // list. They used to be one copy, and the second place would have been a second copy that
@@ -15,12 +16,6 @@ import { useExtensions } from "./extensions-provider";
 // The labels are the keys, translated where they are rendered. A module-level constant has no
 // hook to reach the language with, and the same spelling-out the meeting list's bands needed:
 // a key that only exists at run time is one the table's test cannot see.
-const DETAILS: { id: string; label: string }[] = [
-  { id: "brief", label: "Brief (shorter)" },
-  { id: "standard", label: "Standard" },
-  { id: "detailed", label: "Detailed (fuller)" },
-];
-
 // Each provider uses the model configured for it in Settings — the fields just say which.
 const PROVIDERS: { id: string; label: string }[] = [
   { id: "ollama", label: "Ollama (local)" },
@@ -28,12 +23,9 @@ const PROVIDERS: { id: string; label: string }[] = [
   { id: "openai", label: "OpenAI-compatible" },
 ];
 
-/** The six option labels, spelled out so the table's test can find them. */
+/** The option labels, spelled out so the table's test can find them. */
 function optionLabel(t: (k: string) => string, label: string): string {
   const table: Record<string, string> = {
-    "Brief (shorter)": t("Brief (shorter)"),
-    Standard: t("Standard"),
-    "Detailed (fuller)": t("Detailed (fuller)"),
     "Ollama (local)": t("Ollama (local)"),
     Anthropic: t("Anthropic"),
     "OpenAI-compatible": t("OpenAI-compatible"),
@@ -59,7 +51,7 @@ function contextLabel(t: (k: string) => string, key: ContextKey): string {
  * What the run is asked for with. An empty `templateId` means "as the settings and series say";
  * an absent `include` means "what the template has on".
  */
-export type MinutesChoice = { detail: string; provider: string; templateId: string; include?: ContextKey[] };
+export type MinutesChoice = { provider: string; templateId: string; include?: ContextKey[] };
 
 type TemplateSummary = { id: string; name: string; include?: ContextKey[] };
 
@@ -72,7 +64,6 @@ type TemplateSummary = { id: string; name: string; include?: ContextKey[] };
  */
 export function useMinutesChoice(meetingId?: string) {
   const [choice, setChoice] = useState<MinutesChoice>({
-    detail: "standard",
     provider: "ollama",
     templateId: "",
   });
@@ -93,7 +84,6 @@ export function useMinutesChoice(meetingId?: string) {
       const saved: TemplateSummary[] = Array.isArray(s.minutesTemplates) ? s.minutesTemplates : [];
       const defaultId: string = s.defaultMinutesTemplateId ?? "";
       setChoice({
-        detail: s.summaryDetail ?? "standard",
         provider: s.llmProvider ?? "ollama",
         templateId: defaultId,
         include: resolveInclude(saved, { defaultId }),
@@ -187,25 +177,7 @@ export function MinutesChoiceFields({
 
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor={`${idPrefix}-detail`} className="label">
-            {t("Detail")}
-          </label>
-          <select
-            id={`${idPrefix}-detail`}
-            value={choice.detail}
-            onChange={(e) => onChange({ ...choice, detail: e.target.value })}
-            className="input mt-1"
-          >
-            {DETAILS.map((d) => (
-              <option key={d.id} value={d.id}>
-                {optionLabel(t, d.label)}
-              </option>
-            ))}
-          </select>
-        </div>
-        {extensions.externalAi ? (
+      {extensions.externalAi ? (
         <div>
           <label htmlFor={`${idPrefix}-provider`} className="label">
             {t("Provider")}
@@ -228,8 +200,7 @@ export function MinutesChoiceFields({
             </p>
           ) : null}
         </div>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* What goes in with the transcript is part of a format: without formats of your own,
           the built-in one decides. */}

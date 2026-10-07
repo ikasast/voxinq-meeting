@@ -117,7 +117,7 @@ the UI is the better place for anything, and especially for keys.
 | `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Ollama's address and model | `http://127.0.0.1:11434` / `qwen3:8b` |
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` | Anthropic's key and model (`CLAUDE_MODEL` is an older name for the second) | — / `claude-sonnet-4-6` |
 | `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL` | An OpenAI-compatible endpoint | `https://api.openai.com/v1` / — / `gpt-4o-mini` |
-| `SUMMARY_LANGUAGE` / `SUMMARY_DETAIL` | The minutes' language and length | `ja` / `standard` |
+| `SUMMARY_LANGUAGE` | The minutes' language | `ja` |
 
 Under Docker, `OLLAMA_BASE_URL` is set by the compose file to the bundled Ollama.
 
@@ -252,7 +252,6 @@ the household are different acts.
 
 **Minutes**
 - `summaryLanguage` — `ja` / `en` / `zh` (output language, regardless of what was spoken)
-- `summaryDetail` — `brief` / `standard` / `detailed`
 - `minutesTemplates` — saved heading structures, `{ id, name, body }` each. A lecture is not a
   meeting, and the same headings leave one with empty sections. Empty (the default) means the
   built-in format. A `summaryFormat` from an older settings file is migrated into one entry and

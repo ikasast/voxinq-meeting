@@ -3,7 +3,6 @@
 
 import {
   getLlmConfig,
-  getSummaryDetail,
   getSummaryFormat,
   getSummaryLanguage,
 } from "../settings";
@@ -18,11 +17,9 @@ import type { ChatProvider, ChatUsage, LlmConfig, LlmProviderName } from "./type
 // Budgets live in provider.ts; see the note there on why the Ollama one is a VRAM figure.
 
 // Output token budget by verbosity level.
-const DETAIL_MAX_TOKENS: Record<string, number> = {
-  brief: 2048,
-  standard: 4096,
-  detailed: 8192,
-};
+// Room for the fullest minutes (lib/minutes-prompt.ts asks for them): what "Detailed" had when
+// the length could still be chosen.
+const MINUTES_MAX_TOKENS = 8192;
 
 const LANG_NAME: Record<string, string> = { ja: "日本語", en: "英語", zh: "中国語" };
 
@@ -223,7 +220,6 @@ export async function writeMinutes(
     speakerLabels?: SpeakerNames;
     // Per-generation overrides (e.g. from the "Regenerate with options" panel).
     // They apply to this run only and are NOT persisted to settings.
-    detail?: string;
     provider?: string;
     // Minutes format override (e.g. the meeting's series format). Wins over the saved setting.
     format?: string;
@@ -246,22 +242,14 @@ export async function writeMinutes(
   const multiSpeaker = new Set(transcripts.map((t) => t.speakerType)).size > 1;
   const conversation = conversationText(transcripts, opts?.speakerLabels ?? {});
 
-  const [cfg, savedFormat, language, savedDetail] = await Promise.all([
+  const [cfg, savedFormat, language] = await Promise.all([
     getLlmConfig(),
     getSummaryFormat(),
     getSummaryLanguage(),
-    getSummaryDetail(),
   ]);
   // Format priority: per-run override (series format) > saved setting > built-in default.
   const format = opts?.format?.trim() || savedFormat;
 
-  // Apply per-generation overrides. Detail falls back to the saved setting if invalid/absent.
-  // Use hasOwnProperty (not `in`) so inherited keys like "toString"/"constructor" from a
-  // crafted request body cannot select a function as maxTokens.
-  const detail =
-    opts?.detail && Object.prototype.hasOwnProperty.call(DETAIL_MAX_TOKENS, opts.detail)
-      ? opts.detail
-      : savedDetail;
   // Provider override for this run only. Each provider still uses the model configured for
   // it in settings (cfg from getLlmConfig is a fresh object, so mutating it is local).
   if (
@@ -273,7 +261,7 @@ export async function writeMinutes(
 
   if (opts?.usage) cfg.usage = opts.usage;
   const provider = providerFor(cfg.provider);
-  const maxTokens = DETAIL_MAX_TOKENS[detail] ?? DETAIL_MAX_TOKENS.standard;
+  const maxTokens = MINUTES_MAX_TOKENS;
 
   // Use the user-specified format if any, otherwise the default, inside the prompt.
   const effectiveFormat = format?.trim() || DEFAULT_SUMMARY_FORMAT;
@@ -285,7 +273,6 @@ export async function writeMinutes(
           multiSpeaker,
           language,
           format,
-          detail,
           seriesBackground: opts?.seriesBackground,
           instructions: opts?.instructions,
           meeting: opts?.meeting,

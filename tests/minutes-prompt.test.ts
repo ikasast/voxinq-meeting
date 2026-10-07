@@ -37,9 +37,12 @@ describe("buildSummarySystemPrompt", () => {
     expect(p).toContain("話者名は一切書かない");
   });
 
-  it("adds detail guidance only for non-standard levels", () => {
-    expect(buildSummarySystemPrompt(null, { detail: "detailed" })).toContain("## 詳しさ");
-    expect(buildSummarySystemPrompt(null, { detail: "standard" })).not.toContain("## 詳しさ");
+  it("always asks for the fullest minutes, as the old Detailed level did", () => {
+    const p = buildSummarySystemPrompt(null, {});
+    expect(p).toContain("## 詳しさ");
+    expect(p).toContain("取りこぼさず");
+    // A format's own instructions do not remove it.
+    expect(buildSummarySystemPrompt(null, { instructions: "- 敬体で書く。" })).toContain("## 詳しさ");
   });
 });
 

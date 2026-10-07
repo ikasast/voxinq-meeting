@@ -62,14 +62,13 @@ export function withDefaults(asked: TranscribeRequest, ctx: TranscribeContext): 
   };
 }
 
-/** The chained minutes' choices: the three a run can be given, as short strings, and the context. */
+/** The chained minutes' choices: the two a run can be given, as short strings, and the context. */
 export function minutesParamsFrom(raw: unknown): MinutesParams | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
   const pick = (k: string) => (typeof r[k] === "string" && (r[k] as string).length <= 100 ? (r[k] as string) : undefined);
   const include = normalizeInclude(r.include);
   const out: MinutesParams = {
-    detail: pick("detail"),
     provider: pick("provider"),
     templateId: pick("templateId"),
     ...(include ? { include } : {}),

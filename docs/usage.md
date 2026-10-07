@@ -363,8 +363,8 @@ is one with nothing recorded. A meeting whose last attempt failed is offered aga
 
 ## Regenerate minutes
 
-The **Regenerate** button opens a small panel to pick a **detail level**, a **provider** and a
-**format** for that one run — handy to try a bigger model on a specific meeting, or to write a
+The **Regenerate** button opens a small panel to pick a **provider** and a **format** for that
+one run — handy to try a bigger model on a specific meeting, or to write a
 talk up as a lecture rather than as a meeting, without changing your defaults. Formats are
 saved in *Settings → Minutes*; a series with its own format keeps using that unless one is
 chosen here. Past versions are kept; switch between them with the version selector.

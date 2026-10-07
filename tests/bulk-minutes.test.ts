@@ -88,10 +88,10 @@ describe("queueing several at once", () => {
 });
 
 describe("a batch's own choices", () => {
-  it("carries the three the single-meeting route takes", () => {
+  it("carries the two the single-meeting route takes", () => {
     expect(
       minutesOverrides({ detail: "brief", provider: "anthropic", templateId: "lecture" }),
-    ).toEqual({ detail: "brief", provider: "anthropic", templateId: "lecture" });
+    ).toEqual({ provider: "anthropic", templateId: "lecture" });
   });
 
   it("carries nothing when nothing was chosen, so a series keeps its own format", () => {

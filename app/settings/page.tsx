@@ -56,15 +56,8 @@ type PublicSettings = {
   uiLanguage: string;
   meetingTitleFormat: string;
   summaryLanguage: string;
-  summaryDetail: string;
   vramBudgetMb: number;
 };
-
-const SUMMARY_DETAILS: { id: string; label: string }[] = [
-  { id: "brief", label: "Brief (key points, shorter)" },
-  { id: "standard", label: "Standard" },
-  { id: "detailed", label: "Detailed (fuller for longer meetings)" },
-];
 
 const SUMMARY_LANGUAGES: { id: string; label: string }[] = [
   { id: "ja", label: "Japanese (日本語)" },
@@ -529,27 +522,6 @@ export default function SettingsPage() {
             </select>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("Minutes are generated in this language regardless of the spoken language.")}
-            </p>
-          </div>
-          <div>
-            <label htmlFor="summaryDetail" className={labelClass}>
-              {t("Minutes detail")}
-            </label>
-            <select
-              id="summaryDetail"
-              value={settings.summaryDetail}
-              onChange={(e) => update("summaryDetail", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {SUMMARY_DETAILS.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {settingLabel(t, d.label)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.")}
             </p>
           </div>
           <div>

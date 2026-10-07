@@ -839,7 +839,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // recording. The choices apply to this run only.
   const endWithMinutes = useCallback(async (choice: EndChoice) => {
     if (busy !== "none") return;
-    const minutes = choice.minutes ?? { detail: "", provider: "", templateId: "" };
+    const minutes = choice.minutes ?? { provider: "", templateId: "" };
     setBusy("summary");
     try {
       await closeMeeting(choice.protect, true);

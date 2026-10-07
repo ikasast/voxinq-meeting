@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "./locale-provider";
 import { MinutesChoiceFields, useMinutesChoice } from "./minutes-options";
+import { useExtensions } from "./extensions-provider";
 
 // "Record now, write the minutes later" — which is how a day of meetings actually goes, and at
 // a conference how a week of them does. This is the later: the meetings in view that have no
@@ -12,7 +13,7 @@ import { MinutesChoiceFields, useMinutesChoice } from "./minutes-options";
 // It works on what the list is showing, so the filters above it are the selection: a series, a
 // day, a search. The queue decides what runs when; this only fills it.
 //
-// The format, the detail and the model can be chosen for this batch alone, as Regenerate does
+// The format and the model can be chosen for this batch alone, as Regenerate does
 // for one meeting: a conference day written up as lectures, say, without making that the
 // default for everything after it. Left closed, each meeting is written as it would be on its
 // own — its series' format included.
@@ -21,6 +22,7 @@ export type BulkCandidate = { id: string; title: string; when: string };
 
 export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
   const t = useT();
+  const extensions = useExtensions();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -62,7 +64,6 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
           meetingIds: [...chosen],
           ...(showOptions && opts.loaded
             ? {
-                detail: opts.choice.detail,
                 provider: opts.choice.provider,
                 templateId: opts.choice.templateId || undefined,
                 include: opts.choice.include,
@@ -133,17 +134,20 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
             ))}
           </ul>
 
-          <button
-            type="button"
-            onClick={() => {
-              setShowOptions((v) => !v);
-              void opts.load();
-            }}
-            aria-expanded={showOptions}
-            className="mt-2 text-xs text-[var(--accent-sub)] hover:underline"
-          >
-            {showOptions ? t("Hide options") : t("Format, detail and model…")}
-          </button>
+          {/* Nothing to choose when neither the formats nor the external providers are on. */}
+          {extensions.minutesFormats || extensions.externalAi ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShowOptions((v) => !v);
+                void opts.load();
+              }}
+              aria-expanded={showOptions}
+              className="mt-2 text-xs text-[var(--accent-sub)] hover:underline"
+            >
+              {showOptions ? t("Hide options") : t("Choose how they are written…")}
+            </button>
+          ) : null}
           {showOptions ? (
             <div className="mt-2 space-y-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
               <MinutesChoiceFields
