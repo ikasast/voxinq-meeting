@@ -114,6 +114,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (body?.speakerLabels !== undefined) {
+    // Naming speakers is Speaker separation's.
+    const off = await extensionOff("speakers");
+    if (off) return off;
     const names = namesFromRequest(body.speakerLabels);
     if (!names) return apiError("invalid speakerLabels", 400);
     data.speakerLabels = JSON.stringify(names);

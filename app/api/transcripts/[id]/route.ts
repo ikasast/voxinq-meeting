@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
@@ -33,6 +34,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<"/api/transcript
     data.text = text;
   }
   if (body?.speakerType !== undefined) {
+    // Who said a line is Speaker separation's to change.
+    const off = await extensionOff("speakers");
+    if (off) return off;
     const speakerType = typeof body.speakerType === "string" ? body.speakerType : "";
     if (!isSpeakerKey(speakerType)) return apiError("invalid speakerType", 400);
     data.speakerType = speakerType;

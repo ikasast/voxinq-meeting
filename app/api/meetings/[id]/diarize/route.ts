@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
@@ -10,6 +11,8 @@ export const runtime = "nodejs";
 // watch it, and post the labels back — so closing the tab abandoned the run, and the button had
 // to be disabled whenever anything else held the GPU.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("speakers");
+  if (off) return off;
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 

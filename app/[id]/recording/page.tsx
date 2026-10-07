@@ -18,6 +18,7 @@ import { useConfirmEx } from "../../confirm-dialog";
 import { PreflightCheck } from "./preflight-check";
 import { type EndChoice, EndDialog } from "./end-dialog";
 import { useT } from "@/app/locale-provider";
+import { useExtensions } from "@/app/extensions-provider";
 import { readRestSeconds, subscribeRestSeconds } from "@/app/rest-screen";
 import { backGuards, useBackGuard } from "@/app/use-back-guard";
 
@@ -157,6 +158,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // guards against restarting the recording / meeting timer on a finished meeting.
   const [ended, setEnded] = useState(false);
   const t = useT();
+  const speakersOn = useExtensions().speakers;
   const endedRef = useRef(false);
 
   // Per-recording temporary settings passed from the new-meeting screen (not saved to the settings file).
@@ -1246,7 +1248,9 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             {t(". With speakers, the mic picks up PC audio and it may be recorded twice.")}
           </li>
         ) : null}
-        <li>{t("Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.")}</li>
+        {speakersOn ? (
+          <li>{t("Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.")}</li>
+        ) : null}
         {native ? (
           <li>
             {t(
@@ -1401,6 +1405,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           >
             {busy === "summary" ? t("Starting…") : t("Generate minutes")}
           </button>
+          {speakersOn ? (
           <button
             type="button"
             onClick={() => setEndDialog("diarize")}
@@ -1410,6 +1415,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
           >
             {t("Diarize")}
           </button>
+          ) : null}
           <button
             type="button"
             onClick={endOnly}

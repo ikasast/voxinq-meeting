@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { LEGACY_EMBEDDING_MODEL, parseEmbeddingModelId } from "@/lib/embedding-models";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 // POST /api/meetings/[id]/save-voice-profiles, or directly here with an embedding
 // extracted by the STT host's /voiceprint (guided recording in Settings).
 export async function GET() {
+  const off = await extensionOff("speakers");
+  if (off) return off;
   const rows = await prisma.speakerProfile.findMany({
     select: {
       name: true,
@@ -35,6 +38,8 @@ export async function GET() {
 // Re-recording under the same name adds to the voiceprint (running average over every
 // enrollment) instead of replacing it, so extra recordings make matching steadier.
 export async function POST(req: NextRequest) {
+  const off = await extensionOff("speakers");
+  if (off) return off;
   const body = await readJson<{ name?: unknown; embedding?: unknown; embeddingModel?: unknown }>(
     req,
   );
@@ -89,6 +94,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const off = await extensionOff("speakers");
+  if (off) return off;
   const name = new URL(req.url).searchParams.get("name")?.trim();
   if (!name) return apiError("name is required", 400);
   // deleteMany rather than delete: the name identifies a row only within one person's library,

@@ -918,7 +918,7 @@ export function TranscriptList({
   // doesn't re-trigger (results are cached on the STT side anyway, so a re-run is cheap).
   const autoDiarizeTried = useRef(false);
   useEffect(() => {
-    if (autoDiarizeTried.current || transcripts.length === 0) return;
+    if (autoDiarizeTried.current || transcripts.length === 0 || !extensions.speakers) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("autodiarize") !== "1") return;
     autoDiarizeTried.current = true;
@@ -928,7 +928,7 @@ export function TranscriptList({
     const qs = params.toString();
     window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
     void runDiarization(Number.isInteger(speakers) && speakers > 0 ? speakers : undefined);
-  }, [transcripts.length, runDiarization]);
+  }, [transcripts.length, runDiarization, extensions.speakers]);
 
   // Worked out here rather than inside t(): the string scanner reads a plural choice only when
   // its condition has no call in it, and missed both forms (they showed in English).
@@ -1021,7 +1021,7 @@ export function TranscriptList({
           many voices to look for, the run itself, and the names that come out of it. Open
           by default, because on a meeting with a recording it is the thing most likely to
           be wanted next; it is one click to fold away on a phone. */}
-      {!readOnly && (canDiarize || showSpeakerTools) ? (
+      {!readOnly && extensions.speakers && (canDiarize || showSpeakerTools) ? (
         <Disclosure
           title={t("Speaker separation")}
           hint={t("Work out who spoke each line, and give them names")}
@@ -1525,6 +1525,8 @@ function TranscriptRow({
   readOnly: boolean;
 }) {
   const t = useT();
+  // Who said it is changed here only with Speaker separation on.
+  const speakersOn = useExtensions().speakers;
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
   // enough that retyping one line beats re-transcribing the whole meeting.
   const [editing, setEditing] = useState(false);
@@ -1570,7 +1572,7 @@ function TranscriptRow({
         )}
         {showSpeaker ? <SpeakerChip who={item.speakerType} names={labels} /> : null}
         <span className="grow" />
-        {showSpeaker && !readOnly ? (
+        {showSpeaker && !readOnly && speakersOn ? (
           <SpeakerPicker
             current={item.speakerType}
             known={reassignKeys}

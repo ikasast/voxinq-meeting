@@ -25,6 +25,12 @@ export const EXTENSIONS = [
     needs: null,
   },
   {
+    id: "speakers",
+    name: "Speaker separation",
+    description: "Work out who said each line, name the speakers, and recognise them next time by their voice.",
+    needs: "A separation model; faster with a GPU",
+  },
+  {
     id: "series",
     name: "Series",
     description: "Group recurring meetings: shared background, regular members, and last time's minutes carried into the next.",

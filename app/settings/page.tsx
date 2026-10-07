@@ -282,7 +282,9 @@ export default function SettingsPage() {
               somebody who can change them for everybody. */}
           {TABS.filter(
             (tab_) =>
-              (tab_.id !== "defaults" || settings.isAdmin) && (tab_.id !== "remote" || extensions.externalShare),
+              (tab_.id !== "defaults" || settings.isAdmin) &&
+              (tab_.id !== "remote" || extensions.externalShare) &&
+              (tab_.id !== "speakers" || extensions.speakers),
           ).map((tab_) => (
             <button
               key={tab_.id}
@@ -497,7 +499,7 @@ export default function SettingsPage() {
         ) : null}
 
         {/* Voice profiles (speaker auto-naming) */}
-        {tab === "speakers" ? <VoiceProfiles /> : null}
+        {tab === "speakers" && extensions.speakers ? <VoiceProfiles /> : null}
 
         {/* Minutes (business background / format) */}
         {tab === "minutes" ? (

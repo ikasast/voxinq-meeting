@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { extensionEnabled } from "@/lib/extensions-store";
 import {
   applyDiarizationEmbeddings,
   applySpeakers,
@@ -29,7 +30,11 @@ export type DiarizeParams = {
   numSpeakers?: number;
 };
 
+/** Thrown for a separation queued before Speaker separation was switched off. */
+const SWITCHED_OFF = "Speaker separation is switched off.";
+
 export async function runDiarize(job: { meetingId: string | null; params: string }, signal?: AbortSignal) {
+  if (!(await extensionEnabled("speakers"))) throw new Error(SWITCHED_OFF);
   const meetingId = job.meetingId;
   if (!meetingId) throw new Error("a diarize job needs a meeting");
   const { numSpeakers } = parseParams<DiarizeParams>(job.params);

@@ -1,4 +1,5 @@
 import { formatDurationIn } from "@/lib/i18n/format";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { currentLocale } from "@/lib/i18n/server";
 import { serverT } from "@/lib/i18n/server";
 
@@ -59,6 +60,7 @@ export async function ProgressCard({
 }) {
   const t = await serverT();
   const locale = await currentLocale();
+  const speakersOn = await extensionEnabled("speakers");
   const steps: Step[] = [
 
     {
@@ -74,14 +76,18 @@ export async function ProgressCard({
           ? t(transcriptCount === 1 ? "1 utterance" : "{n} utterances", { n: transcriptCount })
           : undefined,
     },
-    {
-      label: t("Speakers separated"),
-      state: separated ? "done" : "not-run",
-      detail:
-        separated && speakerCount > 0
-          ? t(speakerCount === 1 ? "1 speaker" : "{n} speakers", { n: speakerCount })
-          : undefined,
-    },
+    ...(speakersOn
+      ? [
+          {
+            label: t("Speakers separated"),
+            state: separated ? ("done" as const) : ("not-run" as const),
+            detail:
+              separated && speakerCount > 0
+                ? t(speakerCount === 1 ? "1 speaker" : "{n} speakers", { n: speakerCount })
+                : undefined,
+          },
+        ]
+      : []),
     {
       label: minutesRunning ? t("Writing minutes…") : t("Minutes"),
       state:
@@ -108,7 +114,9 @@ export async function ProgressCard({
         ))}
       </ul>
       <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-        {t("Separating speakers and writing minutes are optional, and can be run in either order.")}
+        {speakersOn
+          ? t("Separating speakers and writing minutes are optional, and can be run in either order.")
+          : t("Writing minutes is optional.")}
       </p>
     </section>
   );
