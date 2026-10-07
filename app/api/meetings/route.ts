@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       : [];
 
   const seriesName =
-    typeof body?.series === "string" ? body.series.trim().slice(0, 60) : "";
+    typeof body?.series === "string" && (await extensionEnabled("series")) ? body.series.trim().slice(0, 60) : "";
 
   // A meeting put in the diary before it happens. `startedAt` is set to the same moment so the
   // date shown everywhere is the meeting's own; it is corrected to the real one when the

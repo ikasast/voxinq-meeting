@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError, readJson } from "@/lib/api";
 import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +11,8 @@ const DESCRIPTION_MAX = 4000;
 const MEMBERS_MAX = 50;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("series");
+  if (off) return off;
   const { id } = await params;
   const series = await prisma.series.findUnique({
     where: { id },
@@ -42,6 +45,8 @@ async function onlyMine(): Promise<{ ownerId?: string }> {
  * own participants use.
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("series");
+  if (off) return off;
   const { id } = await params;
   const body = await readJson<{
     name?: unknown;
@@ -157,6 +162,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
  * meetings, not only the caller's, and nobody's series disappears from under them.
  */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("series");
+  if (off) return off;
   const { id } = await params;
   const series = await prisma.series.findUnique({
     where: { id },

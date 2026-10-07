@@ -32,6 +32,8 @@ export default async function SeriesPage({
   /** `edit=1` arrives from New series, where the name is all that exists yet. */
   searchParams: Promise<{ edit?: string }>;
 }) {
+  // Not there at all while Series is switched off.
+  if (!(await extensionEnabled("series"))) notFound();
   const { id } = await params;
   const { edit } = await searchParams;
   const series = await prisma.series.findUnique({

@@ -74,7 +74,7 @@ export default function NewMeetingForm({
   // appearing to have been ignored — the whole point of that link was to say which day.
   const bookedDay = dayFromKey(date);
   const t = useT();
-  const { schedule } = useExtensions();
+  const { schedule, series: seriesOn } = useExtensions();
   const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
   const [title, setTitle] = useState(dayTitle);
   const [description, setDescription] = useState("");
@@ -424,6 +424,7 @@ export default function NewMeetingForm({
           />
         </div>
 
+        {seriesOn ? (
         <div>
           <label htmlFor="series" className="label">
             {t("Series (recurring meetings, optional)")}
@@ -445,6 +446,7 @@ export default function NewMeetingForm({
             ))}
           </datalist>
         </div>
+        ) : null}
 
         {schedule ? (
         <div>

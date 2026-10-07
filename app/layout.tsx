@@ -61,9 +61,11 @@ function HeaderNav({
   external,
   me,
   t,
+  seriesOn,
 }: {
   t: (key: string) => string;
   external: boolean;
+  seriesOn: boolean;
   me: {
     username: string;
     name: string | null;
@@ -101,7 +103,7 @@ function HeaderNav({
           {external ? <ThemeToggle /> : null}
           {/* The bottom bar carries Series on a phone, and it is not rendered for an external
               visitor at all — so for them the way to the series list comes up here. */}
-          {external ? (
+          {external && seriesOn ? (
             <Link
               href="/series"
               aria-label={t("Series")}
@@ -225,7 +227,7 @@ export default async function RootLayout({
                 isAdmin={me?.isAdmin ?? false}
               />
               <div className="flex min-w-0 flex-1 flex-col">
-                <HeaderNav external={external} me={meWithImage} t={t} />
+                <HeaderNav external={external} me={meWithImage} t={t} seriesOn={extensions.series} />
                 {/* Above everything, because until it is dealt with nothing below it can be read. */}
                 {locked ? <LockedBanner /> : null}
                 {/* Below the lock and above the page: a meeting starting is worth interrupting

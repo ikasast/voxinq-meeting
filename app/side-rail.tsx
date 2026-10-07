@@ -16,6 +16,7 @@ import {
 import { isAuthPath } from "./auth-paths";
 import { useMyQueueCount } from "./use-my-queue-count";
 import { useT } from "./locale-provider";
+import { useExtensions } from "./extensions-provider";
 
 // Navigation as a rail down the left edge, on screens wide enough to spare it.
 //
@@ -118,6 +119,7 @@ export function SideRail({
 }) {
   const pathname = usePathname();
   const t = useT();
+  const extensions = useExtensions();
   // A meeting's own page belongs to the list it came from, so the list stays lit while reading
   // one — otherwise the rail goes blank the moment you open anything. A series page is its own
   // destination, so it is excluded: two lit entries would say the rail does not know where it is.
@@ -143,9 +145,11 @@ export function SideRail({
 
       {/* Outside the `!external` block on purpose: a series is a way of reading meetings, and
           an external viewer can already read them one at a time. */}
-      <RailLink href="/series" label={t("Series")} active={onSeries}>
-        <SeriesIcon />
-      </RailLink>
+      {extensions.series ? (
+        <RailLink href="/series" label={t("Series")} active={onSeries}>
+          <SeriesIcon />
+        </RailLink>
+      ) : null}
 
       {/* Outside it too: setting a meeting up needs no microphone, and `/new` drops its
           recording half when reached from out there. Recording itself stays inside. Not on the

@@ -6,6 +6,7 @@ import { MeetingsIcon, MicIcon, QueueIcon, SeriesIcon } from "./icons";
 import { isAuthPath } from "./auth-paths";
 import { useMyQueueCount } from "./use-my-queue-count";
 import { useT } from "./locale-provider";
+import { useExtensions } from "./extensions-provider";
 
 // Recording, within reach of a thumb.
 //
@@ -68,6 +69,7 @@ export function BottomBar({ external }: { external: boolean }) {
   const pathname = usePathname() ?? "/";
   const mine = useMyQueueCount();
   const t = useT();
+  const extensions = useExtensions();
   // Recording is refused server-side from outside the tailnet, so an external visitor gets no
   // button for it. A control that is only ever going to 403 is worse than its absence.
   // Nor before anybody is identified: offering to record on the sign-in screen promises
@@ -95,9 +97,11 @@ export function BottomBar({ external }: { external: boolean }) {
 
           {/* On a phone this bar is the only navigation there is. Without Series on it, the
               series list could be reached from a meeting's chip or by typing its address. */}
-          <Slot href="/series" label={t("Series")} active={onSeries}>
-            <SeriesIcon className="h-[22px] w-[22px]" />
-          </Slot>
+          {extensions.series ? (
+            <Slot href="/series" label={t("Series")} active={onSeries}>
+              <SeriesIcon className="h-[22px] w-[22px]" />
+            </Slot>
+          ) : null}
 
           {/* Raised, and the only accented thing down here. Everything else on this bar is
               navigation; this is the app doing its job. */}

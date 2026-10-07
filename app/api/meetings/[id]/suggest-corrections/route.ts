@@ -1,4 +1,5 @@
 import { correctionGlossary } from "@/lib/correction-terms";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { extensionOff } from "@/app/api/extension-off";
@@ -47,7 +48,7 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[
   // so the two cannot disagree about whether there is anything to check.
   const glossary = correctionGlossary({
     globalGlossary: await getSttGlossary(),
-    series: meeting.series
+    series: meeting.series && (await extensionEnabled("series"))
       ? {
           name: meeting.series.name,
           sttGlossary: meeting.series.sttGlossary,

@@ -636,6 +636,15 @@ export const ja: Record<string, string> = {
   "Publish a password-protected, read-only link outside the tailnet.": "パスワード付きの読み取り専用リンクを、tailnet の外に公開します。",
   "Extensions": "拡張機能",
   "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.": "録音・文字起こし・議事録はいつでも使えます。ここで選ぶ機能は、その上に追加するもので、この機器を使う全員に効きます。無効にすると画面から消えますがデータは残り、有効に戻せば元どおりになります。",
+  "Group recurring meetings: shared background, regular members, and last time's minutes carried into the next.":
+    "定例会議をまとめます。背景と常連メンバーを共有し、前回の議事録を次の議事録に引き継ぎます。",
+  "A weekly meeting whose minutes should pick up from last week's.": "毎週の定例で、先週の議事録を踏まえて今週の議事録を書かせたい。",
+  "The same people every time, so speaker separation knows how many voices to expect.":
+    "毎回同じ顔ぶれなので、話者分離に人数を伝えておきたい。",
+  "Terms that belong to one project, kept on its series rather than in everyone's glossary.":
+    "あるプロジェクトだけの用語を、全員の用語集ではなくそのシリーズに持たせたい。",
+  "Series in the navigation, a Series field on each meeting, and the list folding a series into one row. Each series has a page with its timeline, background, members and glossary.":
+    "メニューに「シリーズ」、各会議に「シリーズ」の欄が出て、一覧ではシリーズが1行にまとまります。シリーズごとに、経過・背景・常連メンバー・用語集をまとめた画面があります。",
   "Schedule and reminders": "予定とリマインダー",
   "Book meetings ahead on a calendar, and be told when one is due to start.":
     "カレンダーから会議を予定に入れ、始まる時刻に知らせを受け取れます。",

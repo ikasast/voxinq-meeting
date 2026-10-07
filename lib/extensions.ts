@@ -25,6 +25,12 @@ export const EXTENSIONS = [
     needs: null,
   },
   {
+    id: "series",
+    name: "Series",
+    description: "Group recurring meetings: shared background, regular members, and last time's minutes carried into the next.",
+    needs: null,
+  },
+  {
     id: "schedule",
     name: "Schedule and reminders",
     description: "Book meetings ahead on a calendar, and be told when one is due to start.",

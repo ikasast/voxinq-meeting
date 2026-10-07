@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -54,7 +55,7 @@ export default async function PrintMinutes({ params }: { params: Promise<{ id: s
           {formatDateTimeIn(locale, meeting.startedAt)}
           {meeting.endedAt ? ` – ${formatDateTimeIn(locale, meeting.endedAt)}` : ""}
           {duration ? ` (${duration})` : ""}
-          {meeting.series ? `  ·  ${meeting.series.name}` : ""}
+          {meeting.series && (await extensionEnabled("series")) ? `  ·  ${meeting.series.name}` : ""}
         </p>
         {meeting.tags.length > 0 ? (
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">

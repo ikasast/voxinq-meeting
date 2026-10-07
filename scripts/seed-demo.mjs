@@ -26,6 +26,10 @@ const IDS = {
   booked: "demo-booked-review",
 };
 
+// The weekly sync and its standup as one series, with the background and members a series
+// carries — what the Series extension's picture shows.
+const SERIES_ID = "demo-series-sync";
+
 // English or Japanese demo content.
 //
 // The Japanese set is not a translation of the English one — it is a meeting of the kind this
@@ -205,9 +209,10 @@ const minutesAt = (start, offsetMin) => new Date(start.getTime() + offsetMin * 6
 
 async function removeDemo() {
   await prisma.meeting.deleteMany({ where: { id: { in: Object.values(IDS) } } });
+  await prisma.series.deleteMany({ where: { id: SERIES_ID } });
 }
 
-async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people, language, scheduledAt }) {
+async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people, language, scheduledAt, seriesId }) {
   await prisma.meeting.create({
     data: {
       id,
@@ -217,6 +222,7 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
       endedAt,
       recordedMs,
       scheduledAt: scheduledAt ?? null,
+      seriesId: seriesId ?? null,
       speakerLabels: labels ?? null,
       // The language the meeting was held in — a Japanese demo meeting reading "en" in the
       // screenshot is the kind of wrong detail a reader notices first.
@@ -259,10 +265,24 @@ async function main() {
   const now = Date.now();
   const day = 86_400_000;
 
+  await prisma.series.create({
+    data: {
+      id: SERIES_ID,
+      name: JA ? "プロダクト定例" : "Weekly Product Sync",
+      description: JA
+        ? "プロダクト・デザイン・計測の3人で、毎週の進み具合とリリースの判断を共有する定例。"
+        : "The weekly sync between product, design and analytics: progress, and the call on what ships.",
+      sttGlossary: JA ? "ステージング、テナント、レート制限" : "staging, tenant, rate limit",
+      standalone: true,
+      members: { create: PEOPLE.map((name, position) => ({ name, position })) },
+    },
+  });
+
   // 1) Ended meeting with full minutes — for minutes.png.
   const syncStart = new Date(now - 2 * day);
   await makeMeeting({
     id: IDS.sync,
+    seriesId: SERIES_ID,
     title: JA ? "プロダクト定例" : "Weekly Product Sync",
     description: JA
       ? "週次の合同定例。新規登録フローの作り直し、リリース準備、API のレート制限。"
@@ -281,6 +301,7 @@ async function main() {
   const liveStart = new Date(now - 5 * 60_000);
   await makeMeeting({
     id: IDS.live,
+    seriesId: SERIES_ID,
     title: JA ? "プロダクト定例 — 朝会" : "Weekly Product Sync — standup",
     description: JA ? "毎日の朝会。" : "Daily standup.",
     startedAt: liveStart,

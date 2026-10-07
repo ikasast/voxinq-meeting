@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { apiError } from "@/lib/api";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
@@ -55,7 +56,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   const plan = recordingPlan({
     meeting,
     settings,
-    seriesGlossary: meeting.series?.sttGlossary,
+    seriesGlossary: (await extensionEnabled("series")) ? meeting.series?.sttGlossary : undefined,
     wsUrl,
     deferredHost,
     contended,

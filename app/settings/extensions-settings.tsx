@@ -52,6 +52,21 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       needs: null,
     },
+    series: {
+      name: t("Series"),
+      summary: t(
+        "Group recurring meetings: shared background, regular members, and last time's minutes carried into the next.",
+      ),
+      scenes: [
+        t("A weekly meeting whose minutes should pick up from last week's."),
+        t("The same people every time, so speaker separation knows how many voices to expect."),
+        t("Terms that belong to one project, kept on its series rather than in everyone's glossary."),
+      ],
+      where: t(
+        "Series in the navigation, a Series field on each meeting, and the list folding a series into one row. Each series has a page with its timeline, background, members and glossary.",
+      ),
+      needs: null,
+    },
     schedule: {
       name: t("Schedule and reminders"),
       summary: t("Book meetings ahead on a calendar, and be told when one is due to start."),

@@ -13,7 +13,8 @@ describe("the meeting list", () => {
     // Folded once, unfolded because the folded rows were the ones people scrolled looking for,
     // folded again on request — with a picked day kept flat, which is the case the unfolding
     // argument actually covered: "what happened on the 12th" is every meeting on the 12th.
-    expect(src).toContain("const group = !activeDate && !activeSeries;");
+    // (and not at all without Series)
+    expect(src).toContain("const group = !activeDate && !activeSeries && seriesOn;");
     expect(src).toContain("<details");
     // Still one component: a separate stack component is what the first version was.
     expect(src).not.toContain("SeriesStack");

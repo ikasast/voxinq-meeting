@@ -49,7 +49,8 @@ describe("on a phone", () => {
   it("reaches it from the header when there is no bottom bar", () => {
     const layout = read("app/layout.tsx");
     const header = layout.slice(layout.indexOf("function HeaderNav"), layout.indexOf("</header>"));
-    expect(header).toMatch(/\{external \? \(\s*<Link\s+href="\/series"/);
+    // …while Series is on.
+    expect(header).toMatch(/\{external && seriesOn \? \(\s*<Link\s+href="\/series"/);
   });
 
   it("can see the version, at the bottom of Settings", () => {

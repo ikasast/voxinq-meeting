@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { BackLink } from "@/app/back-link";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
@@ -43,8 +44,10 @@ export default async function ArchivePage() {
   type Group = { series: { id: string; name: string } | null; items: Row[] };
   const groups: Group[] = [];
   const bySeries = new Map<string, Group>();
+  // Without Series each meeting stands alone, as it does in the list.
+  const seriesOn = await extensionEnabled("series");
   for (const m of meetings) {
-    if (!m.series) {
+    if (!m.series || !seriesOn) {
       groups.push({ series: null, items: [m] });
       continue;
     }

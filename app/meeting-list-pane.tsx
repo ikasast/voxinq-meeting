@@ -78,7 +78,9 @@ export async function MeetingListPane({
 }) {
   const query = (q ?? "").trim();
   const activeTag = (tag ?? "").trim();
-  const activeSeries = (series ?? "").trim();
+  // Without Series there is no series to filter by, chip to show or stack to fold into.
+  const seriesOn = await extensionEnabled("series");
+  const activeSeries = seriesOn ? (series ?? "").trim() : "";
   const activeDate = parseDay(date);
 
   // An async server component renders once per request, so this is the request's own time —
@@ -310,7 +312,7 @@ export async function MeetingListPane({
   // that opens the meeting.
   const card = (m: MeetingCardData) => {
     const active = m.id === activeId;
-    const showSeriesChip = Boolean(m.seriesName) && m.seriesName !== activeSeries;
+    const showSeriesChip = seriesOn && Boolean(m.seriesName) && m.seriesName !== activeSeries;
     const hit = matched.get(m.id);
     return (
       <div
@@ -487,7 +489,7 @@ export async function MeetingListPane({
     //
     // Sorted by when they happened rather than when the row was made, so the bands below are
     // monotonic — a meeting booked last month and recorded yesterday belongs to yesterday.
-    const group = !activeDate && !activeSeries;
+    const group = !activeDate && !activeSeries && seriesOn;
     const past = meetings
       .filter((m) => !m.upcoming)
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());

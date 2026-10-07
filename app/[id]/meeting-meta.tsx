@@ -5,6 +5,7 @@ import { PencilIcon, SeriesIcon } from "@/app/icons";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
+import { useExtensions } from "@/app/extensions-provider";
 
 // Section to edit the meeting's contents/purpose (description), tags, and series afterward.
 // description feeds the minutes-generation prompt; tags are used for list display/filtering.
@@ -27,6 +28,7 @@ export function MeetingMeta({
   const router = useRouter();
   const [savedDesc, setSavedDesc] = useState(description ?? "");
   const t = useT();
+  const seriesOn = useExtensions().series;
   const [savedTags, setSavedTags] = useState(tags);
   const [savedSeries, setSavedSeries] = useState(series ?? "");
   const [draftDesc, setDraftDesc] = useState(description ?? "");
@@ -94,7 +96,8 @@ export function MeetingMeta({
         body: JSON.stringify({
           description: draftDesc.trim(),
           tags: finalTags,
-          series: draftSeries.trim() || null,
+          // Not sent without Series: the field is not shown, and an empty one would detach it.
+          ...(seriesOn ? { series: draftSeries.trim() || null } : {}),
         }),
       });
       if (!res.ok) {
@@ -200,6 +203,7 @@ export function MeetingMeta({
             ) : null}
           </div>
 
+          {seriesOn ? (
           <div>
             <label htmlFor="series" className="label">
               {t("Series (recurring meetings)")}
@@ -226,6 +230,7 @@ export function MeetingMeta({
               )}
             </p>
           </div>
+          ) : null}
 
           {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
           <div className="flex justify-end gap-2">
@@ -246,9 +251,9 @@ export function MeetingMeta({
           ) : (
             <p className="mt-2 text-sm text-[var(--text-muted)]">{t("Not set")}</p>
           )}
-          {savedTags.length > 0 || savedSeries ? (
+          {savedTags.length > 0 || (seriesOn && savedSeries) ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {savedSeries ? (
+              {seriesOn && savedSeries ? (
                 seriesId && savedSeries === (series ?? "") ? (
                   <Link
                     href={`/series/${seriesId}`}
