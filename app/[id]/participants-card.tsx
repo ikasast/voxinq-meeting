@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "@/app/locale-provider";
+import { useExtensions } from "@/app/extensions-provider";
 
 export type Participant = { name: string; speaking: boolean };
 
@@ -30,6 +31,7 @@ export function ParticipantsCard({
 }) {
   const [people, setPeople] = useState<Participant[]>(initial);
   const t = useT();
+  const speakersOn = useExtensions().speakers;
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +185,7 @@ export function ParticipantsCard({
         </>
       ) : null}
 
-      {people.length > 0 ? (
+      {people.length > 0 && speakersOn ? (
         <p className="mt-2 text-xs text-[var(--text-muted)]">
           {t("{speakers} of {total} expected to speak — diarization is told to look for {n}.", {
             speakers,

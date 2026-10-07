@@ -46,6 +46,7 @@ const W = JA
       regenerate: "作り直す",
       upcoming: "予定",
       seriesGlossary: "ステージング、テナント、レート制限",
+      speakerSeparation: "話者分離",
       booked: "デザインレビュー — 第2回",
       templates: [
         { id: "t-weekly", name: "定例会議（決定事項と ToDo）", body: "## 決定事項\n## ToDo", instructions: "" },
@@ -65,6 +66,7 @@ const W = JA
       regenerate: "Regenerate",
       upcoming: "Upcoming",
       seriesGlossary: "staging, tenant, rate limit",
+      speakerSeparation: "Speaker separation",
       booked: "Design Review — round two",
       templates: [
         { id: "t-weekly", name: "Weekly meeting (decisions and to-dos)", body: "## Decisions\n## To-dos", instructions: "" },
@@ -117,6 +119,28 @@ const SHOTS = {
     // The bar and the cards under it, one of them marked No minutes: what the bar is about.
     const b = await bar.boundingBox();
     return { clip: { x: b.x - 16, y: b.y - 10, width: b.width + 32, height: 514 } };
+  },
+
+  async speakers(page) {
+    // The panel — the run, the names it found — and the first lines with their speakers.
+    await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
+    const panel = page
+      .getByRole("button", { name: W.speakerSeparation })
+      .first()
+      .locator("xpath=ancestor::div[contains(@class,'rounded-lg')][1]");
+    await panel.waitFor();
+    // What sits between the panel and the lines (find and replace, re-transcription, the
+    // toolbar) is other features; set aside for the picture so the two halves are together.
+    await panel.evaluate((el) => {
+      for (let next = el.nextElementSibling; next && next.tagName !== "UL"; next = next.nextElementSibling) {
+        next.style.display = "none";
+      }
+    });
+    const details = page.locator("details", { has: page.locator("summary", { hasText: W.transcript }) }).first();
+    const d = await details.boundingBox();
+    const p = await panel.boundingBox();
+    const third = await details.locator("ul > li").nth(2).boundingBox();
+    return { clip: { x: d.x - 8, y: p.y - 12, width: d.width + 16, height: third.y + third.height - p.y + 20 } };
   },
 
   async series(page) {

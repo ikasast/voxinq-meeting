@@ -52,6 +52,19 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       needs: null,
     },
+    speakers: {
+      name: t("Speaker separation"),
+      summary: t("Work out who said each line, name the speakers, and recognise them next time by their voice."),
+      scenes: [
+        t("Meetings recorded on one microphone in a room, where everyone's lines come out as one voice."),
+        t("Minutes that say who decided what and who took on which task."),
+        t("Regular members, named once and recognised in every meeting after that."),
+      ],
+      where: t(
+        "A Speaker separation panel above each meeting's transcript, the speaker on every line, Diarize when ending a recording, and Settings, Speakers for voiceprints.",
+      ),
+      needs: t("A separation model; faster with a GPU"),
+    },
     series: {
       name: t("Series"),
       summary: t(

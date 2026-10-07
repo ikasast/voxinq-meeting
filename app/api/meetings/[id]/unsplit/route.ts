@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError } from "@/lib/api";
 import { undoSplits } from "@/lib/meetings/split";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +12,8 @@ export const runtime = "nodejs";
 // it and removed. A meeting with nothing split answers 0 rather than failing, so pressing this
 // twice is harmless.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("speakers");
+  if (off) return off;
   const { id } = await params;
   // Somebody else's meeting is not found, as on every other route. Without this the scoped
   // query found no lines and answered "nothing to undo" — harmless, and still an answer about a

@@ -645,6 +645,17 @@ export const ja: Record<string, string> = {
     "あるプロジェクトだけの用語を、全員の用語集ではなくそのシリーズに持たせたい。",
   "Series in the navigation, a Series field on each meeting, and the list folding a series into one row. Each series has a page with its timeline, background, members and glossary.":
     "メニューに「シリーズ」、各会議に「シリーズ」の欄が出て、一覧ではシリーズが1行にまとまります。シリーズごとに、経過・背景・常連メンバー・用語集をまとめた画面があります。",
+  "Work out who said each line, name the speakers, and recognise them next time by their voice.":
+    "各発言を誰が話したかを推定し、話者に名前を付けて、次からは声で見分けます。",
+  "Meetings recorded on one microphone in a room, where everyone's lines come out as one voice.":
+    "会議室のマイク1本で録音して、全員の発言が1人分として書き起こされる。",
+  "Minutes that say who decided what and who took on which task.": "誰が何を決め、誰がどの作業を引き受けたかを議事録に残したい。",
+  "Regular members, named once and recognised in every meeting after that.":
+    "いつものメンバーに一度名前を付けたら、以後の会議では自動で見分けてほしい。",
+  "A Speaker separation panel above each meeting's transcript, the speaker on every line, Diarize when ending a recording, and Settings, Speakers for voiceprints.":
+    "会議の発言の上に「話者分離」の欄、各行に話者、録音終了時に「話者を分離」が出ます。声紋は設定の「話者」で管理します。",
+  "A separation model; faster with a GPU": "話者分離のモデル（GPU があると速い）",
+  "Writing minutes is optional.": "議事録の作成は任意です。",
   "Schedule and reminders": "予定とリマインダー",
   "Book meetings ahead on a calendar, and be told when one is due to start.":
     "カレンダーから会議を予定に入れ、始まる時刻に知らせを受け取れます。",

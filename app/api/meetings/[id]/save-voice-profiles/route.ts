@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { plainName, fromDiarizer, readNames } from "@/lib/speakers";
@@ -12,6 +13,8 @@ export const runtime = "nodejs";
 // with the previous recordings rather than replacing them). Requires that diarization was run
 // after voiceprint support was added (the meeting must have stored cluster embeddings).
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("speakers");
+  if (off) return off;
   const { id } = await params;
   const meeting = await prisma.meeting.findUnique({
     where: { id },
