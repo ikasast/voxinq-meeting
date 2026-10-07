@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extensionEnabled } from "@/lib/extensions-store";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { resolveDestination } from "@/lib/queue/runners/transcribe";
-import { readSettings } from "@/lib/settings";
+import { readEffectiveSettings } from "@/lib/settings";
 import { minutesParamsFrom, withDefaults } from "@/lib/stt/transcribe-defaults";
 
 export const runtime = "nodejs";
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // A caller that says nothing gets what the settings say, model, language, glossary and all
   // (lib/stt/transcribe-defaults.ts). The pages always say; the Android app, handed a shared
   // audio file, has nothing to say it with.
-  const settings = await readSettings();
+  const settings = await readEffectiveSettings();
   const params = withDefaults(
     {
       profileId: typeof body.profileId === "string" ? body.profileId : undefined,
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       model: settings.whisperModel,
       language: settings.sttLanguage,
       glossary: settings.sttGlossary,
-      translate: settings.sttTranslate && (await extensionEnabled("translation")),
+      translate: settings.sttTranslate,
       seriesGlossary: meeting.series?.sttGlossary,
     },
   );

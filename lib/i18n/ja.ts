@@ -640,6 +640,28 @@ export const ja: Record<string, string> = {
   "Publish a password-protected, read-only link outside the tailnet.": "パスワード付きの読み取り専用リンクを、tailnet の外に公開します。",
   "Extensions": "拡張機能",
   "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.": "録音・文字起こし・議事録はいつでも使えます。ここで選ぶ機能は、その上に追加するもので、この機器を使う全員に効きます。無効にすると画面から消えますがデータは残り、有効に戻せば元どおりになります。",
+  "Minutes formats": "議事録の書式",
+  "Formats and writing instructions of your own, and choosing what the model is given.":
+    "自分で作った書式と書き方の指示で議事録を書き、モデルに渡す情報も選べます。",
+  "Regular meetings whose minutes should always have the same headings.": "定例会議の議事録を、毎回同じ見出しでそろえたい。",
+  "A client meeting and an internal one, each wanting its minutes written differently.":
+    "取引先との打ち合わせと社内の会議で、議事録の書き方を変えたい。",
+  "Leaving the previous minutes or the glossary out of what the model reads, for one run.":
+    "前回の議事録や用語集を、今回だけモデルに渡さずに書かせたい。",
+  "Settings, Minutes, to make formats; and, whenever minutes are written, a choice of format and of what the model is given. Off, minutes are written in the built-in format.":
+    "設定の「議事録」で書式を作れます。議事録を作るたびに、書式とモデルに渡す情報を選べます。無効のときは、組み込みの書式で書かれます。",
+  "External AI": "外部の AI",
+  "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.":
+    "Anthropic や OpenAI 互換のサービスで議事録を書き、文字起こしにも好きなサービスを使えます。",
+  "There is no GPU for a local model, and meetings may be sent to a cloud service.":
+    "ローカルのモデルを動かす GPU がなく、会議の内容をクラウドのサービスに送ってよい。",
+  "A model larger than this machine can run, for long or difficult meetings.":
+    "長い会議や難しい会議を、この機器では動かせない大きなモデルに書かせたい。",
+  "A server of your own: LM Studio or vLLM for minutes, a Whisper server on another machine for transcription.":
+    "自分で立てたサーバーを使いたい（議事録に LM Studio や vLLM、文字起こしに別の機器の Whisper サーバー）。",
+  "Settings, LLM and Transcription: where minutes are written and where speech is recognised. Off, everything is done by Ollama and the built-in transcription.":
+    "設定の「LLM」と「文字起こし」で、議事録を書く先と文字起こしの先を選べます。無効のときは、すべて Ollama と組み込みの文字起こしで処理します。",
+  "An API key, and agreeing to send meetings outside this machine": "API キーと、会議の内容をこの機器の外に送ることへの同意",
   "Details": "詳しく",
   "When it helps": "こんな場面で",
   "Where it shows up": "どこに出るか",

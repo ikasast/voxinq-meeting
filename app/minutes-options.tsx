@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { CONTEXT_KEYS, type ContextKey, includeForFormat, resolveInclude } from "@/lib/minutes-context";
 import { useT } from "./locale-provider";
+import { useExtensions } from "./extensions-provider";
 
 // The choices a set of minutes can be written with for one run: the format, how much detail,
 // and which model. Never saved — the settings stay as they are.
@@ -136,6 +137,7 @@ export function MinutesChoiceFields({
   previews?: Record<ContextKey, string | null>;
 }) {
   const t = useT();
+  const extensions = useExtensions();
   const included = new Set(choice.include ?? CONTEXT_KEYS);
   // What was ticked or unticked here by hand. A template sets the defaults, not the answer:
   // choosing another format used to put every box back to that template's, and quietly undid
@@ -150,6 +152,7 @@ export function MinutesChoiceFields({
   };
   return (
     <>
+      {extensions.minutesFormats ? (
       <div>
         <label htmlFor={`${idPrefix}-template`} className="label">
           {t("Format")}
@@ -182,6 +185,8 @@ export function MinutesChoiceFields({
         </select>
       </div>
 
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor={`${idPrefix}-detail`} className="label">
@@ -200,6 +205,7 @@ export function MinutesChoiceFields({
             ))}
           </select>
         </div>
+        {extensions.externalAi ? (
         <div>
           <label htmlFor={`${idPrefix}-provider`} className="label">
             {t("Provider")}
@@ -222,15 +228,20 @@ export function MinutesChoiceFields({
             </p>
           ) : null}
         </div>
+        ) : null}
       </div>
 
-      <ContextChecklist
-        idPrefix={idPrefix}
-        included={included}
-        onToggle={toggle}
-        previews={previews}
-        sentAway={choice.provider !== "ollama"}
-      />
+      {/* What goes in with the transcript is part of a format: without formats of your own,
+          the built-in one decides. */}
+      {extensions.minutesFormats ? (
+        <ContextChecklist
+          idPrefix={idPrefix}
+          included={included}
+          onToggle={toggle}
+          previews={previews}
+          sentAway={choice.provider !== "ollama"}
+        />
+      ) : null}
     </>
   );
 }

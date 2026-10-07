@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useT } from "../../locale-provider";
+import { useExtensions } from "../../extensions-provider";
 
 // Per-series defaults: rename the series and set a minutes format / STT glossary that
 // override the global settings for every meeting in the series.
@@ -36,6 +37,9 @@ export function SeriesSettings({
   const [editing, setEditing] = useState(startEditing);
   const [draftName, setDraftName] = useState(name);
   const [draftFormat, setDraftFormat] = useState(summaryFormat ?? "");
+  // A series' own format is one of the formats Minutes formats adds; switched off, it is kept
+  // and not shown.
+  const formats = useExtensions().minutesFormats;
   const [draftGlossary, setDraftGlossary] = useState(sttGlossary ?? "");
   const [draftDescription, setDraftDescription] = useState(description ?? "");
   const [draftMembers, setDraftMembers] = useState<string[]>(members);
@@ -214,6 +218,7 @@ export function SeriesSettings({
               )}
             </p>
           </div>
+          {formats ? (
           <div>
             <label htmlFor="series-format" className="label">
               {t("Minutes format (empty = use the global setting)")}
@@ -231,6 +236,7 @@ export function SeriesSettings({
               className="input mt-1 resize-y font-mono text-xs"
             />
           </div>
+          ) : null}
           <div>
             <label htmlFor="series-glossary" className="label">
               {t("Transcription glossary (appended to the global glossary)")}
@@ -283,6 +289,7 @@ export function SeriesSettings({
               {members.length > 0 ? members.join(" / ") : t("Not set")}
             </dd>
           </div>
+          {formats ? (
           <div>
             <dt className="text-xs text-[var(--text-muted)]">{t("Minutes format")}</dt>
             <dd className="text-[var(--text-secondary)]">
@@ -295,6 +302,7 @@ export function SeriesSettings({
               )}
             </dd>
           </div>
+          ) : null}
           <div>
             <dt className="text-xs text-[var(--text-muted)]">
               {t("Transcription glossary")}

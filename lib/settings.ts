@@ -10,6 +10,8 @@ import { resolveScope } from "./db/owner";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
 import { UI_LANGUAGES } from "./i18n";
 import { DEFAULT_TITLE_FORMAT } from "./meeting-title";
+import { readExtensions } from "./extensions-store";
+import { withExtensions } from "./extensions-settings";
 import { prisma } from "./prisma";
 import { onlyUserKeys } from "./settings-scope";
 import {
@@ -289,9 +291,18 @@ function stripUndefined<T extends object>(obj: T): Partial<T> {
   return out;
 }
 
-/** Convert to LlmConfig for lib/llm. */
+/**
+ * The settings as the app acts on them: what belongs to a switched-off extension reads as unused
+ * (lib/extensions-settings.ts). Everything that does work — recording, transcribing, writing
+ * minutes, answering — reads these; the settings screen and its saves read the stored ones.
+ */
+export async function readEffectiveSettings(): Promise<AppSettings> {
+  return withExtensions(await readSettings(), await readExtensions());
+}
+
+/** Convert to LlmConfig for lib/llm. Ollama while External AI is switched off. */
 export async function getLlmConfig(): Promise<LlmConfig> {
-  const s = await readSettings();
+  const s = await readEffectiveSettings();
   return {
     provider: s.llmProvider,
     ollamaBaseUrl: s.ollamaBaseUrl,

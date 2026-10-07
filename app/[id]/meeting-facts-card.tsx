@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SeriesIcon } from "../icons";
 import { serverT } from "@/lib/i18n/server";
+import { extensionEnabled } from "@/lib/extensions-store";
 
 // The settings this meeting was actually recorded and written with.
 //
@@ -70,7 +71,7 @@ export async function MeetingFactsCard({
           </div>
           {/* Why this meeting's minutes are shaped the way they are, and why those proper nouns
               came out right — both live on the series and were invisible from here. */}
-          {series.summaryFormat ? (
+          {series.summaryFormat && (await extensionEnabled("minutesFormats")) ? (
             <p className="mt-1.5 text-xs text-[var(--text-muted)]">
               {t("Uses this series’ own minutes format.")}
             </p>

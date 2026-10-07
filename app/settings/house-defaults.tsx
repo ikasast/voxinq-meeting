@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
+import { useExtensions } from "../extensions-provider";
 
 // What everybody starts from.
 //
@@ -132,6 +133,7 @@ function fieldLabel(t: (k: string) => string, label: string): string {
 export function HouseDefaults() {
   const [values, setValues] = useState<Defaults | null>(null);
   const t = useT();
+  const extensions = useExtensions();
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -187,7 +189,12 @@ export function HouseDefaults() {
         {t("These are what a new account starts with, and what anybody who has never changed a setting is using right now. Changing one here reaches all of them at once — and leaves alone anybody who has made their own choice.")}
       </p>
 
-      {FIELDS.map((f) => (
+      {/* Not the defaults of a switched-off extension: nobody can use them, and they are saved
+          back as they are. */}
+      {FIELDS.filter(
+        (f) =>
+          (f.key !== "llmProvider" || extensions.externalAi) && (f.key !== "sttTranslate" || extensions.translation),
+      ).map((f) => (
         <div key={f.key}>
           {f.kind === "boolean" ? (
             <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">

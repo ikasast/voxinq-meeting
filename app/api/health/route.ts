@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { translate } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
-import { readSettings } from "@/lib/settings";
+import { readEffectiveSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ async function checkDb(): Promise<{ ok: boolean; detail?: string }> {
 // STT is checked by the browser hitting `${sttHttpBase()}/health` directly (recording goes
 // browser->STT directly, so a check via the web server would not verify the actual recording path).
 export async function GET() {
-  const [s, db] = await Promise.all([readSettings(), checkDb()]);
+  const [s, db] = await Promise.all([readEffectiveSettings(), checkDb()]);
 
   if (s.llmProvider === "ollama") {
     try {

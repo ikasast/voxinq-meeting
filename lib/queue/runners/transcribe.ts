@@ -1,5 +1,5 @@
 import { applyTranscript, type Utterance } from "@/lib/meetings/apply";
-import { readSettings } from "@/lib/settings";
+import { readEffectiveSettings } from "@/lib/settings";
 import { type MinutesParams, parseParams } from "../types";
 import type { JobMetrics } from "../metrics";
 import { sttPost, sttRuntime, sttWait } from "./stt-job";
@@ -40,7 +40,8 @@ export type TranscribeParams = {
  * be told.
  */
 export async function resolveDestination(params: TranscribeParams) {
-  const s = await readSettings();
+  // No endpoints while External AI is switched off: everything is recognised on this machine.
+  const s = await readEffectiveSettings();
   //   profileId: "<id>"   that endpoint
   //   profileId: "local"  this machine, whatever the default is
   //   absent              the default endpoint, or this machine when there is none

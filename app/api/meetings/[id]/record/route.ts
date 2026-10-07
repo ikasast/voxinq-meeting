@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { extensionEnabled } from "@/lib/extensions-store";
 import { apiError } from "@/lib/api";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
 import { gpuContenders, reserveForRecording } from "@/lib/queue/recording";
 import { recordingPlan } from "@/lib/recording/plan";
-import { readSettings } from "@/lib/settings";
+import { readEffectiveSettings } from "@/lib/settings";
 import { sttInternalUrl } from "@/lib/stt/internal";
 
 export const runtime = "nodejs";
@@ -52,8 +51,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   }
   const contended = !deferredHost && (await gpuContenders()).length > 0;
 
-  const settings = await readSettings();
-  if (!(await extensionEnabled("translation"))) settings.sttTranslate = false;
+  const settings = await readEffectiveSettings();
   const plan = recordingPlan({
     meeting,
     settings,
