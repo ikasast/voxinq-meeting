@@ -62,4 +62,14 @@ describe("the meeting's details column", () => {
       expect(inside).toContain(card);
     }
   });
+
+  it("shows what it opened as inside it, below the rail's width", () => {
+    // Open, the bar and the cards share one white card, and the cards inside become grey
+    // sections. The bar used to be a card like the others, so the five read as a row of equals
+    // rather than one thing and its contents.
+    expect(asideCode).toContain("max-2xl:bg-[var(--surface)]");
+    expect(asideCode).toContain("max-2xl:[&_.card]:bg-[var(--elevated)] max-2xl:[&_.card]:shadow-none");
+    // Only below 2xl: where the rail shows, the cards stand on their own as before.
+    expect(asideCode).not.toMatch(/[^-]2xl:\[&_\.card\]/);
+  });
 });

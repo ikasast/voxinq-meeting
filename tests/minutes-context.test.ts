@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CONTEXT_KEYS, normalizeInclude, resolveInclude } from "@/lib/minutes-context";
+import { CONTEXT_KEYS, includeForFormat, normalizeInclude, resolveInclude } from "@/lib/minutes-context";
 import { meetingWhen } from "@/lib/minutes-context-data";
 import { buildSummarySystemPrompt } from "@/lib/minutes-prompt";
 import { normalizeTemplates } from "@/lib/minutes-templates";
@@ -95,3 +95,27 @@ describe("the minutes job", () => {
     expect(read("app/api/meetings/[id]/minutes/context/route.ts")).toContain("gatherMinutesContext(id)");
   });
 });
+
+describe("choosing another format in the panel", () => {
+  it("takes the new template's defaults for what was not touched", () => {
+    expect(includeForFormat(["meeting", "glossary"], {})).toEqual(["meeting", "glossary"]);
+  });
+
+  it("keeps what was ticked or unticked by hand", () => {
+    // Unticking the agenda and then picking another format used to tick it again.
+    expect(includeForFormat([...CONTEXT_KEYS], { purpose: false })).not.toContain("purpose");
+    expect(includeForFormat(["meeting"], { glossary: true })).toEqual(["meeting", "glossary"]);
+  });
+
+  it("is what the format select uses", () => {
+    const fields = read("app/minutes-options.tsx");
+    expect(fields).toContain("include: includeForFormat(");
+    expect(fields).toContain("setByHand((h) => ({ ...h, [key]: on }));");
+  });
+
+  it("cuts a long preview short instead of letting it run out of the panel", () => {
+    // A fieldset is never narrower than its content's unbroken width unless told otherwise.
+    expect(read("app/minutes-options.tsx")).toContain('<fieldset className="min-w-0">');
+  });
+});
+

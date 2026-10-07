@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { CONTEXT_KEYS, type ContextKey, resolveInclude } from "@/lib/minutes-context";
+import { CONTEXT_KEYS, type ContextKey, includeForFormat, resolveInclude } from "@/lib/minutes-context";
 import { useT } from "./locale-provider";
 
 // The choices a set of minutes can be written with for one run: the format, how much detail,
@@ -137,7 +137,12 @@ export function MinutesChoiceFields({
 }) {
   const t = useT();
   const included = new Set(choice.include ?? CONTEXT_KEYS);
+  // What was ticked or unticked here by hand. A template sets the defaults, not the answer:
+  // choosing another format used to put every box back to that template's, and quietly undid
+  // what had just been decided about the agenda or the glossary.
+  const [byHand, setByHand] = useState<Partial<Record<ContextKey, boolean>>>({});
   const toggle = (key: ContextKey, on: boolean) => {
+    setByHand((h) => ({ ...h, [key]: on }));
     const next = new Set(included);
     if (on) next.add(key);
     else next.delete(key);
@@ -157,7 +162,10 @@ export function MinutesChoiceFields({
             onChange({
               ...choice,
               templateId: e.target.value,
-              include: resolveInclude(templates, { chosenId: e.target.value, defaultId: defaultTemplateId }),
+              include: includeForFormat(
+                resolveInclude(templates, { chosenId: e.target.value, defaultId: defaultTemplateId }),
+                byHand,
+              ),
             })
           }
           className="input mt-1"
@@ -248,7 +256,9 @@ export function ContextChecklist({
 }) {
   const t = useT();
   return (
-    <fieldset>
+    // min-w-0: a fieldset is never narrower than its content's unbroken width, so the previews'
+    // `truncate` had nothing to cut against and a long agenda ran out of the panel.
+    <fieldset className="min-w-0">
       <legend className="label">{t("Given to the model with the transcript")}</legend>
       <div className="mt-1 space-y-1.5">
         {CONTEXT_KEYS.map((key) => {
@@ -263,7 +273,7 @@ export function ContextChecklist({
                 disabled={disabled}
                 className="mt-1 accent-[var(--accent)]"
               />
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="text-[var(--text-strong)]">{contextLabel(t, key)}</span>
                 {previews ? (
                   <span className="block truncate text-xs text-[var(--text-muted)]">
