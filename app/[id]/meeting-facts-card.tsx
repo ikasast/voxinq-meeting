@@ -54,7 +54,7 @@ export async function MeetingFactsCard({
         ))}
       </dl>
 
-      {series ? (
+      {series && (await extensionEnabled("series")) ? (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
           <div className="flex gap-2 text-xs">
             <dt className="w-28 shrink-0 text-[var(--text-muted)]">{t("Series")}</dt>

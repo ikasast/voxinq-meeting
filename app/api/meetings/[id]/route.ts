@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionEnabled } from "@/lib/extensions-store";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isExternalRequest } from "@/lib/is-tailnet";
@@ -17,7 +19,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: {
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
-      series: { select: { id: true, name: true, sttGlossary: true } },
+      // Read by the recorder for the series' glossary, which is not used without Series.
+      series: (await extensionEnabled("series")) ? { select: { id: true, name: true, sttGlossary: true } } : false,
     },
   });
   return meeting ? NextResponse.json(meeting) : apiError("not found", 404);
@@ -98,7 +101,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     };
   }
 
-  if (body?.series !== undefined) {
+  // Not while Series is switched off: the screen does not offer it, and a meeting keeps the
+  // series it had for when it comes back.
+  if (body?.series !== undefined && (await extensionEnabled("series"))) {
     if (body.series !== null && typeof body.series !== "string") {
       return apiError("invalid series", 400);
     }
@@ -123,6 +128,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // `startedAt` moves too: a booked meeting carries its diary time there until it is recorded,
   // which is what the list and the page show (see POST /api/meetings).
   if (body?.scheduledAt !== undefined) {
+    const off = await extensionOff("schedule");
+    if (off) return off;
     if (typeof body.scheduledAt !== "string" || !body.scheduledAt.trim()) {
       return apiError("scheduledAt is not a date", 400);
     }

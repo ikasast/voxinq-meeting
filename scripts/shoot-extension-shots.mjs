@@ -44,6 +44,9 @@ const W = JA
       transcript: "発言",
       showTranslations: "翻訳を表示",
       regenerate: "作り直す",
+      upcoming: "予定",
+      seriesGlossary: "ステージング、テナント、レート制限",
+      booked: "デザインレビュー — 第2回",
       templates: [
         { id: "t-weekly", name: "定例会議（決定事項と ToDo）", body: "## 決定事項\n## ToDo", instructions: "" },
         { id: "t-client", name: "取引先との打ち合わせ", body: "## 合意事項\n## 宿題", instructions: "" },
@@ -60,6 +63,9 @@ const W = JA
       transcript: "Transcript",
       showTranslations: "Show translations",
       regenerate: "Regenerate",
+      upcoming: "Upcoming",
+      seriesGlossary: "staging, tenant, rate limit",
+      booked: "Design Review — round two",
       templates: [
         { id: "t-weekly", name: "Weekly meeting (decisions and to-dos)", body: "## Decisions\n## To-dos", instructions: "" },
         { id: "t-client", name: "Client meeting", body: "## Agreed\n## Follow-ups", instructions: "" },
@@ -111,6 +117,31 @@ const SHOTS = {
     // The bar and the cards under it, one of them marked No minutes: what the bar is about.
     const b = await bar.boundingBox();
     return { clip: { x: b.x - 16, y: b.y - 10, width: b.width + 32, height: 514 } };
+  },
+
+  async series(page) {
+    // The series page: what it is for, who is in it, and its meetings in order.
+    await page.goto(`${BASE}/series/demo-series-sync`, { waitUntil: "networkidle" });
+    const title = await page.locator("h1").first().boundingBox();
+    const settings = await page
+      .getByText(W.seriesGlossary)
+      .first()
+      .locator("xpath=ancestor::section[1]")
+      .boundingBox();
+    // Down to the first meeting of its timeline, under the settings card.
+    const bottom = settings.y + settings.height + 150;
+    return { clip: { x: settings.x - 16, y: title.y - 16, width: settings.width + 32, height: bottom - title.y + 16 } };
+  },
+
+  async schedule(page) {
+    // The calendar, and under it Upcoming with tomorrow's booked meeting in it.
+    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    const booked = page.getByText(W.booked).first();
+    await booked.waitFor();
+    const calendar = page.locator("div.rounded-lg", { has: page.locator("table, [role=grid]") }).first();
+    const c = await calendar.boundingBox();
+    const card = await booked.locator("xpath=ancestor::li[1]").boundingBox();
+    return { clip: { x: c.x - 16, y: c.y - 10, width: c.width + 32, height: card.y + card.height - c.y + 20 } };
   },
 
   async minutesFormats(page) {

@@ -115,7 +115,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
         provider,
         format: resolveTemplate(settings.minutesTemplates, {
           chosenId: templateId,
-          seriesFormat: extensions.minutesFormats ? meeting.series?.summaryFormat : undefined,
+          seriesFormat: extensions.minutesFormats && extensions.series ? meeting.series?.summaryFormat : undefined,
           defaultId: settings.defaultMinutesTemplateId,
         }),
         instructions: resolveInstructions(settings.minutesTemplates, {

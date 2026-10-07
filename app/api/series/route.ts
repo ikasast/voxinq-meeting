@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError, readJson } from "@/lib/api";
 import { currentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -23,6 +24,8 @@ async function onlyMine(): Promise<{ ownerId?: string }> {
  * rewritten by the scoped client, so without it the number would count everybody's meetings.
  */
 export async function GET() {
+  const off = await extensionOff("series");
+  if (off) return off;
   const mine = await onlyMine();
   const rows = await prisma.series.findMany({
     orderBy: { name: "asc" },
@@ -71,6 +74,8 @@ export async function GET() {
  * named it still goes with its last meeting. Its owner is stamped like any series'.
  */
 export async function POST(req: NextRequest) {
+  const off = await extensionOff("series");
+  if (off) return off;
   const body = await readJson<{ name?: unknown }>(req);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name) return apiError("Enter a name for the series.", 400);

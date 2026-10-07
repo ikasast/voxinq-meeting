@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
 import { dayFromKey } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
+import { useExtensions } from "@/app/extensions-provider";
 import {
   WHISPER_MODELS,
   effectiveSttLanguage,
@@ -73,6 +74,7 @@ export default function NewMeetingForm({
   // appearing to have been ignored — the whole point of that link was to say which day.
   const bookedDay = dayFromKey(date);
   const t = useT();
+  const { schedule, series: seriesOn } = useExtensions();
   const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
   const [title, setTitle] = useState(dayTitle);
   const [description, setDescription] = useState("");
@@ -422,6 +424,7 @@ export default function NewMeetingForm({
           />
         </div>
 
+        {seriesOn ? (
         <div>
           <label htmlFor="series" className="label">
             {t("Series (recurring meetings, optional)")}
@@ -443,7 +446,9 @@ export default function NewMeetingForm({
             ))}
           </datalist>
         </div>
+        ) : null}
 
+        {schedule ? (
         <div>
           <label htmlFor="scheduled" className="label">
             {t("When (optional)")}
@@ -462,6 +467,7 @@ export default function NewMeetingForm({
             {t("Leave empty to record now. Filling it in puts the meeting under Upcoming so the title, agenda and settings can be sorted out ahead of time — then it is one tap to start when the meeting comes round.")}
           </p>
         </div>
+        ) : null}
 
         {/* Recording settings for this meeting only. Defaults come from settings; changes here are
             not saved. Always expanded: picking the wrong model here is silent and costly, so these

@@ -25,7 +25,8 @@ describe("moving a booked meeting", () => {
 
   it("is offered on the page only for a meeting that is still a booking", () => {
     const page = read("app/[id]/page.tsx");
-    expect(page).toContain("{upcoming && meeting.scheduledAt ? (");
+    // …and only while Schedule and reminders is on; off, the time shows without the editor.
+    expect(page).toContain("{upcoming && meeting.scheduledAt && extensions.schedule ? (");
     expect(page).toContain("<BookedTime");
   });
 

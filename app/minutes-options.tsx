@@ -237,13 +237,15 @@ export function ContextChecklist({
   disabled?: boolean;
 }) {
   const t = useT();
+  // Without Series there is no series background and no "last time" to give.
+  const seriesOn = useExtensions().series;
   return (
     // min-w-0: a fieldset is never narrower than its content's unbroken width, so the previews'
     // `truncate` had nothing to cut against and a long agenda ran out of the panel.
     <fieldset className="min-w-0">
       <legend className="label">{t("Given to the model with the transcript")}</legend>
       <div className="mt-1 space-y-1.5">
-        {CONTEXT_KEYS.map((key) => {
+        {CONTEXT_KEYS.filter((key) => seriesOn || (key !== "series" && key !== "previous")).map((key) => {
           const preview = previews?.[key];
           return (
             <label key={key} htmlFor={`${idPrefix}-ctx-${key}`} className="flex items-start gap-2 text-sm">

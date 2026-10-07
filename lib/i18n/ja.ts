@@ -636,6 +636,25 @@ export const ja: Record<string, string> = {
   "Publish a password-protected, read-only link outside the tailnet.": "パスワード付きの読み取り専用リンクを、tailnet の外に公開します。",
   "Extensions": "拡張機能",
   "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.": "録音・文字起こし・議事録はいつでも使えます。ここで選ぶ機能は、その上に追加するもので、この機器を使う全員に効きます。無効にすると画面から消えますがデータは残り、有効に戻せば元どおりになります。",
+  "Group recurring meetings: shared background, regular members, and last time's minutes carried into the next.":
+    "定例会議をまとめます。背景と常連メンバーを共有し、前回の議事録を次の議事録に引き継ぎます。",
+  "A weekly meeting whose minutes should pick up from last week's.": "毎週の定例で、先週の議事録を踏まえて今週の議事録を書かせたい。",
+  "The same people every time, so speaker separation knows how many voices to expect.":
+    "毎回同じ顔ぶれなので、話者分離に人数を伝えておきたい。",
+  "Terms that belong to one project, kept on its series rather than in everyone's glossary.":
+    "あるプロジェクトだけの用語を、全員の用語集ではなくそのシリーズに持たせたい。",
+  "Series in the navigation, a Series field on each meeting, and the list folding a series into one row. Each series has a page with its timeline, background, members and glossary.":
+    "メニューに「シリーズ」、各会議に「シリーズ」の欄が出て、一覧ではシリーズが1行にまとまります。シリーズごとに、経過・背景・常連メンバー・用語集をまとめた画面があります。",
+  "Schedule and reminders": "予定とリマインダー",
+  "Book meetings ahead on a calendar, and be told when one is due to start.":
+    "カレンダーから会議を予定に入れ、始まる時刻に知らせを受け取れます。",
+  "Next week's meetings set up ahead of time: the title, the agenda and who is coming.":
+    "来週の会議の名前・議題・参加者を、前もって用意しておく。",
+  "A notice on your phone or watch when a meeting is due, and recording started from it.":
+    "会議の時刻にスマホや腕時計に知らせが来て、そこから録音を始める。",
+  "A month of meetings looked back over on a calendar.": "1か月分の会議をカレンダーで見返す。",
+  "A calendar above the meeting list, a When field on New meeting, and Upcoming in the list. Reminders come to the browser (allowed under Settings, Appearance) and to the Android app.":
+    "会議一覧の上にカレンダー、「新しい会議」に日時の欄、一覧に「予定」が出ます。開始の知らせはブラウザ（設定の「表示」で許可）と Android アプリに届きます。",
   "Minutes formats": "議事録の書式",
   "Formats and writing instructions of your own, and choosing what the model is given.":
     "自分で作った書式と書き方の指示で議事録を書き、モデルに渡す情報も選べます。",
@@ -1359,6 +1378,7 @@ export const ja: Record<string, string> = {
   "Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).":
     "長い会議のため、全体から抽出した要点メモに基づいています（会議全体をカバーしています）。",
   "Recorded, but no minutes yet": "録音はあり、議事録がまだ作られていません",
+  "1 of these meetings has no minutes yet": "この一覧のうち 1 件は議事録がまだです",
   "{n} of these meetings have no minutes yet": "この一覧のうち {n} 件は議事録がまだです",
   "Write them all": "まとめて作成",
   "Select all": "すべて選択",

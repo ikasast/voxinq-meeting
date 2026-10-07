@@ -1,4 +1,5 @@
 import { applySeriesMembers, seriesIdForName } from "@/lib/series";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
@@ -64,13 +65,18 @@ export async function POST(req: NextRequest) {
       : [];
 
   const seriesName =
-    typeof body?.series === "string" ? body.series.trim().slice(0, 60) : "";
+    typeof body?.series === "string" && (await extensionEnabled("series")) ? body.series.trim().slice(0, 60) : "";
 
   // A meeting put in the diary before it happens. `startedAt` is set to the same moment so the
   // date shown everywhere is the meeting's own; it is corrected to the real one when the
   // recording ends, which is when a true start time first exists.
   let scheduledAt: Date | undefined;
-  if (typeof body?.scheduledAt === "string" && body.scheduledAt.trim()) {
+  // Not while Schedule and reminders is switched off: the meeting is set up to be recorded now.
+  if (
+    typeof body?.scheduledAt === "string" &&
+    body.scheduledAt.trim() &&
+    (await extensionEnabled("schedule"))
+  ) {
     const d = new Date(body.scheduledAt);
     if (Number.isNaN(d.getTime())) return apiError("scheduledAt is not a date", 400);
     scheduledAt = d;

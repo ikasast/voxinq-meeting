@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { extensionEnabled } from "./extensions-store";
 import { readSettings } from "@/lib/settings";
 import { joinGlossary } from "@/lib/stt/transcribe-defaults";
 import type { ContextKey } from "./minutes-context";
@@ -45,10 +46,13 @@ export async function gatherMinutesContext(meetingId: string): Promise<MinutesCo
   });
   if (!meeting) return null;
   const settings = await readSettings();
+  // Without Series, a meeting's series is not context: no background, no glossary of its own, and
+  // no "last time".
+  const series = (await extensionEnabled("series")) ? meeting.series : null;
 
   // The previous meeting of the same series that has minutes, for "continuing from last time".
   let previous: MinutesContext["previous"] = null;
-  if (meeting.seriesId) {
+  if (series && meeting.seriesId) {
     const prev = await prisma.meeting.findFirst({
       where: {
         seriesId: meeting.seriesId,
@@ -73,8 +77,8 @@ export async function gatherMinutesContext(meetingId: string): Promise<MinutesCo
     meeting: { title: meeting.title, when: meetingWhen(meeting.startedAt, meeting.endedAt) },
     participants: meeting.participants.map((p) => p.name),
     purpose: meeting.description?.trim() ?? "",
-    glossary: joinGlossary([settings.sttGlossary, meeting.series?.sttGlossary]),
-    series: meeting.series?.description?.trim() ?? "",
+    glossary: joinGlossary([settings.sttGlossary, series?.sttGlossary]),
+    series: series?.description?.trim() ?? "",
     previous,
     background: settings.llmBackground?.trim() ?? "",
   };

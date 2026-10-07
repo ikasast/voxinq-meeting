@@ -1,4 +1,6 @@
+import { notFound } from "next/navigation";
 import Link from "next/link";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { BackLink } from "@/app/back-link";
 import { currentUser } from "@/lib/auth/session";
 import { formatDateTimeIn } from "@/lib/i18n/format";
@@ -17,6 +19,8 @@ export const dynamic = "force-dynamic";
 // Ordered by when the series last met rather than by name: the useful question is "what is
 // running", and a project that finished two years ago should not sit above this week's.
 export default async function SeriesListPage() {
+  // Not there at all while Series is switched off.
+  if (!(await extensionEnabled("series"))) notFound();
   const t = await serverT();
   const locale = await currentLocale();
   const me = await currentUser();

@@ -78,7 +78,9 @@ export async function MeetingListPane({
 }) {
   const query = (q ?? "").trim();
   const activeTag = (tag ?? "").trim();
-  const activeSeries = (series ?? "").trim();
+  // Without Series there is no series to filter by, chip to show or stack to fold into.
+  const seriesOn = await extensionEnabled("series");
+  const activeSeries = seriesOn ? (series ?? "").trim() : "";
   const activeDate = parseDay(date);
 
   // An async server component renders once per request, so this is the request's own time —
@@ -114,7 +116,9 @@ export async function MeetingListPane({
   // The calendar is about when things happened, which a text search and a series filter have
   // both already answered in their own terms — showing it beside them offers a third axis that
   // only ever narrows to nothing. A picked day keeps it, because that is what it is showing.
-  const showCalendar = !query && !activeSeries;
+  // The calendar is part of Schedule and reminders: off, the list is just the list.
+  const schedule = await extensionEnabled("schedule");
+  const showCalendar = !query && !activeSeries && schedule;
   const shownMonth = parseMonth(month ?? activeDate?.slice(0, 7), new Date(now));
   const { start: monthStart, end: monthEnd } = monthRange(shownMonth);
 
@@ -308,7 +312,7 @@ export async function MeetingListPane({
   // that opens the meeting.
   const card = (m: MeetingCardData) => {
     const active = m.id === activeId;
-    const showSeriesChip = Boolean(m.seriesName) && m.seriesName !== activeSeries;
+    const showSeriesChip = seriesOn && Boolean(m.seriesName) && m.seriesName !== activeSeries;
     const hit = matched.get(m.id);
     return (
       <div
@@ -485,7 +489,7 @@ export async function MeetingListPane({
     //
     // Sorted by when they happened rather than when the row was made, so the bands below are
     // monotonic — a meeting booked last month and recorded yesterday belongs to yesterday.
-    const group = !activeDate && !activeSeries;
+    const group = !activeDate && !activeSeries && seriesOn;
     const past = meetings
       .filter((m) => !m.upcoming)
       .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
@@ -623,9 +627,11 @@ export async function MeetingListPane({
           </span>
           {/* Not behind `readOnly`: booking a meeting is allowed from outside, and a day on the
               calendar is the most natural place to book one from. */}
-          <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] underline">
-            {t("+ Add a meeting on this day")}
-          </Link>
+          {schedule ? (
+            <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] underline">
+              {t("+ Add a meeting on this day")}
+            </Link>
+          ) : null}
           <Link
             href={hrefWith({ date: null, month: monthKey(shownMonth) })}
             className="ml-auto text-[var(--text-muted)] underline"

@@ -36,6 +36,10 @@ export async function POST(req: NextRequest) {
   const seriesId = typeof body?.seriesId === "string" ? body.seriesId : "";
   const meetingId = typeof body?.meetingId === "string" ? body.meetingId : "";
   if (!seriesId && !meetingId) return apiError("seriesId or meetingId is required", 400);
+  if (seriesId) {
+    const off = await extensionOff("series");
+    if (off) return off;
+  }
 
   // Answering uses the same GPU as minutes generation, so refuse rather than contend with it.
   const inFlight = await minutesInFlight();

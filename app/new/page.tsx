@@ -1,4 +1,5 @@
 import { isExternalRequest } from "@/lib/is-tailnet";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { readSettings } from "@/lib/settings";
 import NewMeetingForm from "./new-meeting-form";
 
@@ -18,5 +19,7 @@ export default async function NewMeetingPage({
   // the shape has to be right on the first paint. Fetching it in the browser would show the
   // compact default and then swap it under somebody already typing.
   const { meetingTitleFormat } = await readSettings();
-  return <NewMeetingForm external={external} date={date} titleFormat={meetingTitleFormat} />;
+  // A day to book on means nothing while Schedule and reminders is switched off.
+  const bookOn = (await extensionEnabled("schedule")) ? date : undefined;
+  return <NewMeetingForm external={external} date={bookOn} titleFormat={meetingTitleFormat} />;
 }

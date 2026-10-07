@@ -61,9 +61,11 @@ function HeaderNav({
   external,
   me,
   t,
+  seriesOn,
 }: {
   t: (key: string) => string;
   external: boolean;
+  seriesOn: boolean;
   me: {
     username: string;
     name: string | null;
@@ -101,7 +103,7 @@ function HeaderNav({
           {external ? <ThemeToggle /> : null}
           {/* The bottom bar carries Series on a phone, and it is not rendered for an external
               visitor at all — so for them the way to the series list comes up here. */}
-          {external ? (
+          {external && seriesOn ? (
             <Link
               href="/series"
               aria-label={t("Series")}
@@ -165,6 +167,7 @@ export default async function RootLayout({
   // Has a key, and it is shut. Both halves matter: an account with no key at all is not locked,
   // it is unencrypted, and telling that person to unlock something would be a sentence about a
   // thing they do not have.
+  const extensions = await readExtensions();
   const locked = me
     ? Boolean(
         (
@@ -210,7 +213,7 @@ export default async function RootLayout({
           }}
         />
         <LocaleProvider locale={locale}>
-          <ExtensionsProvider value={await readExtensions()}>
+          <ExtensionsProvider value={extensions}>
           {/* Which page was before this one, for "Back to list" (app/back-link.tsx). */}
           <Suspense fallback={null}>
             <NavTracker />
@@ -224,12 +227,12 @@ export default async function RootLayout({
                 isAdmin={me?.isAdmin ?? false}
               />
               <div className="flex min-w-0 flex-1 flex-col">
-                <HeaderNav external={external} me={meWithImage} t={t} />
+                <HeaderNav external={external} me={meWithImage} t={t} seriesOn={extensions.series} />
                 {/* Above everything, because until it is dealt with nothing below it can be read. */}
                 {locked ? <LockedBanner /> : null}
                 {/* Below the lock and above the page: a meeting starting is worth interrupting
                     for, but not worth interrupting an account that cannot read anything yet. */}
-                {locked ? null : <DueMeetingAlert external={external} />}
+                {locked || !extensions.schedule ? null : <DueMeetingAlert external={external} />}
                 {/* The rail carries navigation on wide screens, but not the controls that only
                   make sense per-device or per-session — those keep a home along the top. */}
                 <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
