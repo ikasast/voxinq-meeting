@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatDateTimeIn } from "@/lib/i18n/format";
 import { useConfirm } from "../confirm-dialog";
 import { useLocale, useT } from "../locale-provider";
 import { RestoreIcon, TrashIcon } from "../icons";
+import { BackLink } from "../back-link";
 
 type TrashItem = {
   id: string;
@@ -86,9 +86,9 @@ export function TrashList() {
           <p className="eyebrow">{t("Trash")}</p>
           <p className="eyebrow-sub">{t("Deleted meetings")}</p>
         </div>
-        <Link href="/" className="btn-outline shrink-0">
+        <BackLink href="/" className="btn-outline shrink-0">
           {t("Back to list")}
-        </Link>
+        </BackLink>
       </div>
 
       <p className="text-sm text-[var(--text-muted)]">

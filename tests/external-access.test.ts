@@ -111,7 +111,8 @@ describe("the new-meeting screen", () => {
     // The STT service is unreachable from out there; landing on the recording page would be a
     // dead end with a microphone button on it.
     expect(form).toContain("if (external) {");
-    expect(form).toMatch(/router\.push\(`\/\$\{meeting\.id\}`\)/);
+    // replace: the form leaves the history once the meeting exists.
+    expect(form).toMatch(/router\.replace\(`\/\$\{meeting\.id\}`\)/);
   });
 });
 

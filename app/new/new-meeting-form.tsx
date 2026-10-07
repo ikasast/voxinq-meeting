@@ -198,6 +198,9 @@ export default function NewMeetingForm({
   // Set up the meeting: create it and open the recording screen ready to go. Recording is
   // started by hand there — auto-starting meant capture began while the model was still
   // loading and before the settings could be checked.
+  //
+  // Every way out of this form replaces it in the history: the meeting exists now, and Back to
+  // a blank form — which makes another meeting if sent — is not a way back to anything.
   const startRecording = async () => {
     setSubmitting(true);
     // From outside the private network there is no recording to set up for: the STT service is
@@ -206,7 +209,7 @@ export default function NewMeetingForm({
     if (external) {
       try {
         const meeting = await createMeeting(dayTitle);
-        router.push(`/${meeting.id}`);
+        router.replace(`/${meeting.id}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : t("Could not create the meeting"));
         setSubmitting(false);
@@ -226,7 +229,7 @@ export default function NewMeetingForm({
       if (scheduledAt) {
         // Straight to the meeting, not the recording screen: it has not happened yet, and the
         // point of booking it was to fill in the agenda and participants calmly beforehand.
-        router.push(`/${meeting.id}`);
+        router.replace(`/${meeting.id}`);
         return;
       }
       try {
@@ -235,7 +238,7 @@ export default function NewMeetingForm({
         // ignore
       }
       const qs = new URLSearchParams({ model, mic: micMode, source });
-      router.push(`/${meeting.id}/recording?${qs}`);
+      router.replace(`/${meeting.id}/recording?${qs}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Failed to create meeting."));
       setSubmitting(false);
@@ -309,7 +312,7 @@ export default function NewMeetingForm({
         const d = (await queued.json().catch(() => null)) as { error?: string } | null;
         throw new Error(d?.error ?? `Could not queue the transcription (HTTP ${queued.status})`);
       }
-      router.push(`/${meeting.id}`);
+      router.replace(`/${meeting.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Failed to process the file."));
       setPhase(null);

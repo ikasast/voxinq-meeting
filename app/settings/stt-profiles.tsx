@@ -10,6 +10,7 @@ import {
 } from "@/lib/stt/profiles";
 import { profileDestination } from "@/lib/stt/destination";
 import { useT } from "@/app/locale-provider";
+import { useBackGuard } from "@/app/use-back-guard";
 
 // Saved recognition endpoints: a list you scan, not a stack of forms you scroll.
 //
@@ -287,6 +288,8 @@ function AddMenu({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // Back closes the menu instead of leaving Settings.
+  useBackGuard(open, () => setOpen(false));
   return (
     <div className="relative">
       <button

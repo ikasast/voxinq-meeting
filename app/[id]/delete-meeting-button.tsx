@@ -28,7 +28,7 @@ export function DeleteMeetingButton({ id, title }: { id: string; title: string }
         const detail = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(detail?.error ?? `HTTP ${res.status}`);
       }
-      router.push("/");
+      router.replace("/");
       router.refresh();
     } catch (err) {
       await confirm({

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import Link from "next/link";
+import { Suspense } from "react";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
+import { NavTracker } from "./back-link";
 import { currentUser } from "@/lib/auth/session";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { hasKey } from "@/lib/crypto/key-cache";
@@ -206,6 +208,10 @@ export default async function RootLayout({
           }}
         />
         <LocaleProvider locale={locale}>
+          {/* Which page was before this one, for "Back to list" (app/back-link.tsx). */}
+          <Suspense fallback={null}>
+            <NavTracker />
+          </Suspense>
           <ConfirmProvider>
             <div className="flex min-h-full flex-1">
               <SideRail

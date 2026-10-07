@@ -93,6 +93,10 @@ export const ja: Record<string, string> = {
   "Generate minutes": "議事録を作成",
   "Starting…": "開始中…",
   "End only": "終了のみ",
+  "Stop recording?": "録音を止めますか？",
+  "Leaving this screen stops the recording. The meeting is not ended: open its recording screen again to carry on.":
+    "この画面を離れると録音が止まります。会議は終了しないので、録音画面を開き直せば続けられます。",
+  "Stop and leave": "止めて離れる",
   "View minutes": "議事録を見る",
   Diarize: "話者を分離",
   "Speaker separation": "話者分離",

@@ -205,6 +205,10 @@ export default function SettingsPage() {
         setSettings(data);
         setDraftProfiles(data.sttProfiles);
         setDraftTemplates(data.minutesTemplates);
+        // The tab in the address (?tab=data), from a reload or a link.
+        const asked = new URLSearchParams(window.location.search).get("tab");
+        const known = TABS.find((x) => x.id === asked);
+        if (known && (known.id !== "defaults" || data.isAdmin)) setTab(known.id);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("Failed to load")));
   }, [t]);
@@ -294,7 +298,15 @@ export default function SettingsPage() {
             <button
               key={tab_.id}
               type="button"
-              onClick={() => setTab(tab_.id)}
+              onClick={() => {
+                setTab(tab_.id);
+                // Replaced, not pushed: switching tabs is not going somewhere, so Back still
+                // leaves Settings. The address just says which tab, for a reload or a link.
+                const url = new URL(window.location.href);
+                if (tab_.id === "stt") url.searchParams.delete("tab");
+                else url.searchParams.set("tab", tab_.id);
+                window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+              }}
               className={`-mb-px rounded-t-md px-4 py-2 text-sm font-medium ${
                 tab === tab_.id
                   ? "border-b-2 border-[var(--accent)] text-[var(--text-strong)]"

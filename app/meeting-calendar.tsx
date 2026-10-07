@@ -34,8 +34,11 @@ export async function MeetingCalendar({
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">
       <div className="flex items-center gap-1 px-1 pb-1">
+        {/* replace: paging through months is looking around, not going somewhere — Back
+            should leave the list, not walk back through every month on the way. */}
         <Link
           href={hrefForMonth(step(-1))}
+          replace
           aria-label={t("Previous month")}
           className="rounded px-1.5 py-0.5 text-sm text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--foreground)]"
         >
@@ -44,6 +47,7 @@ export async function MeetingCalendar({
         <span className="text-sm font-medium text-[var(--text-strong)]">{monthLabelIn(locale, month)}</span>
         <Link
           href={hrefForMonth(step(1))}
+          replace
           aria-label={t("Next month")}
           className="rounded px-1.5 py-0.5 text-sm text-[var(--text-muted)] hover:bg-[var(--elevated)] hover:text-[var(--foreground)]"
         >
@@ -52,6 +56,7 @@ export async function MeetingCalendar({
         {todayMonth !== `${month.year}-${String(month.month).padStart(2, "0")}` ? (
           <Link
             href={hrefForMonth(todayMonth)}
+            replace
             className="ml-auto rounded px-1.5 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
           >
             {t("Today")}

@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "./locale-provider";
+import { useBackGuard } from "./use-back-guard";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -41,6 +42,8 @@ export function InstallApp() {
   const t = useT();
   const [prompt, setPrompt] = useState<InstallPromptEvent | null>(null);
   const [showIosHelp, setShowIosHelp] = useState(false);
+  // Back closes the instructions instead of leaving the page.
+  useBackGuard(showIosHelp, () => setShowIosHelp(false));
   const [dismissed, setDismissed] = useState(true); // assume hidden until the check runs
 
   // Registering it is what makes the browser consider the app installable at all; see
