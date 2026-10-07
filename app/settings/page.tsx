@@ -17,6 +17,7 @@ import {
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { DataBackup } from "./data-backup";
 import { ReminderNotifications } from "./reminder-notifications";
+import { RestScreenSetting } from "./rest-screen-setting";
 import { StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
@@ -54,7 +55,6 @@ type PublicSettings = {
   meetingTitleFormat: string;
   summaryLanguage: string;
   summaryDetail: string;
-  restScreenSeconds: number;
   vramBudgetMb: number;
 };
 
@@ -86,15 +86,6 @@ const LLM_PROVIDERS: { id: PublicSettings["llmProvider"]; label: string }[] = [
 ];
 
 // Settings tabs. Grouped by category as the number of items has grown.
-// Minutes, in the words a phone user would use. The values are the ones lib/settings.ts
-// accepts; anything else is refused there and by the API.
-const REST_SCREEN_CHOICES = [
-  { value: 0, label: "Never — keep the screen on" },
-  { value: 30, label: "After 30 seconds" },
-  { value: 60, label: "After 1 minute" },
-  { value: 300, label: "After 5 minutes" },
-  { value: 600, label: "After 10 minutes" },
-];
 
 const TABS = [
   { id: "stt", label: "Transcription" },
@@ -157,11 +148,6 @@ function settingLabel(t: (k: string) => string, label: string): string {
       t("Anthropic (Claude API — sends your transcripts off this machine)"),
     "OpenAI-compatible API (OpenAI, or a local server like LM Studio)":
       t("OpenAI-compatible API (OpenAI, or a local server like LM Studio)"),
-    "Never — keep the screen on": t("Never — keep the screen on"),
-    "After 30 seconds": t("After 30 seconds"),
-    "After 1 minute": t("After 1 minute"),
-    "After 5 minutes": t("After 5 minutes"),
-    "After 10 minutes": t("After 10 minutes"),
     // Whisper models. The name is an identifier and stays; the bracket is prose.
     "large-v3-turbo (default; fast and accurate)": t("large-v3-turbo (default; fast and accurate)"),
     "large-v3 (accurate)": t("large-v3 (accurate)"),
@@ -857,36 +843,9 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div>
-            <label htmlFor="restScreenSeconds" className={labelClass}>
-              {t("Rest the screen while recording")}
-            </label>
-            <select
-              id="restScreenSeconds"
-              value={String(settings.restScreenSeconds)}
-              onChange={(e) => update("restScreenSeconds", Number(e.target.value))}
-              disabled={saving}
-              className={`${inputClass} max-w-sm`}
-            >
-              {REST_SCREEN_CHOICES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {settingLabel(t, c.label)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.")}
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-secondary)]">
-              {t(
-                "On a phone with an OLED screen this is most of the battery: black pixels do not light up.",
-              )}{" "}
-              <strong>{t("You cannot watch the live transcript while it rests")}</strong>
-              {t(
-                ", which is the trade — worth it for a long meeting recorded from a pocket, not for one you are reading along with.",
-              )}
-            </p>
-          </div>
+          {/* Per device, like the theme: a phone in a pocket and a laptop on the table want
+              different answers (app/rest-screen.ts). */}
+          <RestScreenSetting labelClass={labelClass} inputClass={inputClass} />
         </section>
         {/* Per device, like the theme above it. */}
         <ReminderNotifications />

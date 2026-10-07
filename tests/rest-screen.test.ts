@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { VALID_REST_SCREEN_SECONDS } from "../lib/settings";
+import { REST_SCREEN_SECONDS, defaultRestSeconds, restSecondsFrom } from "../app/rest-screen";
 
 // The recording screen can go black while it records.
 //
@@ -10,29 +10,49 @@ import { VALID_REST_SCREEN_SECONDS } from "../lib/settings";
 // no brightness API, so black is the only lever a web page has, and on an OLED panel it is a
 // large one.
 //
-// Two things have to stay true for it to be worth having, and neither is visible in a type:
-// the recording must be untouched by it, and the wait the settings screen offers must be a
-// wait the server will actually accept.
+// It hides the live transcript, so whether it is wanted depends on the device: a phone in a
+// pocket wants it, a computer on the table does not. The wait is kept per device, and the
+// recording must be untouched by it.
 
 const root = join(__dirname, "..");
 const page = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
 const rec = readFileSync(join(root, "app/[id]/recording/page.tsx"), "utf8");
 
-describe("the waits the settings screen offers", () => {
-  it("are exactly the ones the server accepts", () => {
-    const block = page.slice(
-      page.indexOf("const REST_SCREEN_CHOICES"),
-      page.indexOf("];", page.indexOf("const REST_SCREEN_CHOICES")),
-    );
-    const offered = [...block.matchAll(/value:\s*(\d+)/g)].map((m) => Number(m[1]));
-    expect(offered.length).toBeGreaterThan(1);
-    // A choice the page offers and the server refuses saves nothing and says nothing: the
-    // select keeps showing it until the page is reloaded, and then it is back to the old value.
-    expect(offered).toEqual(VALID_REST_SCREEN_SECONDS);
+const card = readFileSync(join(root, "app/settings/rest-screen-setting.tsx"), "utf8");
+const phone = { app: false, touchFirst: true };
+const computer = { app: false, touchFirst: false };
+
+describe("the wait, per device", () => {
+  it("is a minute on a phone, a tablet or the app, and never on a computer, until chosen", () => {
+    expect(defaultRestSeconds(phone)).toBe(60);
+    expect(defaultRestSeconds({ app: true, touchFirst: false })).toBe(60);
+    expect(defaultRestSeconds(computer)).toBe(0);
+    expect(restSecondsFrom(null, phone)).toBe(60);
+    expect(restSecondsFrom(null, computer)).toBe(0);
   });
 
-  it("include never, because watching the transcript is the other reason to be on that screen", () => {
-    expect(VALID_REST_SCREEN_SECONDS).toContain(0);
+  it("follows what this device chose, never included", () => {
+    expect(restSecondsFrom("0", phone)).toBe(0);
+    expect(restSecondsFrom("300", computer)).toBe(300);
+  });
+
+  it("ignores a stored value it does not offer", () => {
+    // From an older build, or typed into the console: the device's default, not a guess.
+    expect(restSecondsFrom("45", phone)).toBe(60);
+    expect(restSecondsFrom("soon", computer)).toBe(0);
+  });
+
+  it("offers every wait, with never among them", () => {
+    expect(REST_SCREEN_SECONDS).toContain(0);
+    for (const s of REST_SCREEN_SECONDS) expect(card).toContain(`${s}: t(`);
+  });
+
+  it("is no longer a setting on the account", () => {
+    // One answer for every device was the problem. A value saved there before is simply unused.
+    expect(readFileSync(join(root, "lib/settings.ts"), "utf8")).not.toContain("restScreenSeconds");
+    expect(readFileSync(join(root, "lib/settings-scope.ts"), "utf8")).not.toContain("restScreenSeconds");
+    expect(page).toContain("<RestScreenSetting");
+    expect(rec).toContain("useSyncExternalStore(subscribeRestSeconds, readRestSeconds, () => 0)");
   });
 });
 

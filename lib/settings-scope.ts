@@ -61,7 +61,6 @@ export const USER_KEYS = [
   "meetingTitleFormat",
   "summaryLanguage",
   "summaryDetail",
-  "restScreenSeconds",
   // Voiceprints are per person, so the confidence needed to match one is too.
   "voiceprintThreshold",
 ] as const satisfies readonly (keyof AppSettings)[];

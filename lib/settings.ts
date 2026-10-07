@@ -91,19 +91,6 @@ export type AppSettings = {
    * knows what else is on the card, and setting it here overrides the guess entirely.
    */
   vramBudgetMb: number;
-  /**
-   * Seconds of no interaction before the recording screen goes black. 0 = never.
-   *
-   * A phone recording a meeting has to keep its screen on -- when it sleeps the page is
-   * suspended and the microphone stops -- and the screen is what empties the battery. Black
-   * pixels on an OLED panel do not emit, so a black screen with the wake lock still held costs
-   * a fraction of a lit one, and the recording is untouched by it.
-   *
-   * Never by default: it hides the live transcript, which on that screen is the thing people
-   * are watching. Someone recording a long meeting from a pocket wants it; someone following
-   * along does not.
-   */
-  restScreenSeconds: number;
   voiceprintThreshold: number; // cosine similarity needed to auto-name a diarized speaker from a voice profile (0..1)
   // Ollama context window in tokens. 0 = use the built-in budget, which is what fits beside a
   // 7B model on 8 GB of VRAM. Raise it on a bigger card: it is a VRAM figure, not a model
@@ -141,7 +128,6 @@ function defaults(): AppSettings {
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
     vramBudgetMb: 0,
-    restScreenSeconds: 0,
     voiceprintThreshold: 0.5,
     ollamaNumCtx: 0,
   };
@@ -151,9 +137,6 @@ const VALID_STT_LANGUAGES = ["auto", "ja", "en"];
 const VALID_SUMMARY_LANGUAGES = ["ja", "en", "zh"];
 const VALID_SUMMARY_DETAILS = ["brief", "standard", "detailed"];
 const VALID_MIC_MODES = ["standard", "room"];
-// A list rather than a range: these are the choices the settings screen offers, and a value
-// from anywhere else is a mistake worth ignoring rather than honouring. 0 = never.
-export const VALID_REST_SCREEN_SECONDS = [0, 30, 60, 300, 600];
 
 const VALID_PROVIDERS: LlmProviderName[] = ["ollama", "anthropic", "openai"];
 
@@ -259,9 +242,6 @@ export async function readMachineSettings(): Promise<AppSettings> {
     ) {
       merged.vramBudgetMb = base.vramBudgetMb;
     }
-    if (!VALID_REST_SCREEN_SECONDS.includes(merged.restScreenSeconds)) {
-      merged.restScreenSeconds = base.restScreenSeconds;
-    }
     if (
       typeof merged.voiceprintThreshold !== "number" ||
       !(merged.voiceprintThreshold > 0 && merged.voiceprintThreshold < 1)
@@ -296,9 +276,6 @@ export async function writeSettings(patch: Partial<AppSettings>): Promise<AppSet
   }
   if (!next.minutesTemplates.some((t) => t.id === next.defaultMinutesTemplateId)) {
     next.defaultMinutesTemplateId = "";
-  }
-  if (!VALID_REST_SCREEN_SECONDS.includes(next.restScreenSeconds)) {
-    next.restScreenSeconds = current.restScreenSeconds;
   }
   await fs.writeFile(SETTINGS_PATH, JSON.stringify(next, null, 2), "utf8");
   return next;
@@ -472,9 +449,6 @@ function finish(next: AppSettings, machine: AppSettings): AppSettings {
   if (!out.sttProfiles.some((p) => p.id === out.sttDefaultProfileId)) out.sttDefaultProfileId = "";
   if (!out.minutesTemplates.some((t) => t.id === out.defaultMinutesTemplateId)) {
     out.defaultMinutesTemplateId = "";
-  }
-  if (!VALID_REST_SCREEN_SECONDS.includes(out.restScreenSeconds)) {
-    out.restScreenSeconds = machine.restScreenSeconds;
   }
   return out;
 }
