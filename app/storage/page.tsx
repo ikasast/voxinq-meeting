@@ -240,8 +240,8 @@ export default async function StoragePage() {
   ];
   const textBytes = textParts.reduce((a, p) => a + p.bytes, 0);
 
-  // The two side by side, per hour of meeting, from this machine's own recordings: why one
-  // panel is in hundreds and the other in fractions.
+  // Per hour of meeting, from this machine's own recordings, each in its own panel: why one is
+  // in hundreds and the other in fractions.
   const audioPerHour = audioSeconds > 0 ? (audioBytes * 3600) / audioSeconds : null;
   const textPerHour = text.timedMs > 0 ? (text.timedTranscriptBytes * 3_600_000) / text.timedMs : null;
 
@@ -253,7 +253,7 @@ export default async function StoragePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Storage")}</h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          {t("How much room your meetings take on this machine.")}{" "}
+          {t("The room your meeting material takes in Voxinq.")}{" "}
           {recordings ? (
             <span className="tabular-nums">{t("{size} in all.", { size: formatMB(audioBytes + textBytes) })}</span>
           ) : null}
@@ -266,7 +266,13 @@ export default async function StoragePage() {
           total={formatMB(audioBytes)}
           sub={audioLength ? t("{length} in all", { length: audioLength }) : null}
           parts={audioParts}
-        />
+        >
+          {audioPerHour ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              {t("About {size} per hour of meeting.", { size: formatMB(audioPerHour) })}
+            </p>
+          ) : null}
+        </Panel>
       ) : (
         <section className="card p-6">
           <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Audio recordings")}</h2>
@@ -277,12 +283,9 @@ export default async function StoragePage() {
       )}
 
       <Panel title={t("Text")} total={formatMB(textBytes)} sub={null} parts={textParts}>
-        {audioPerHour && textPerHour ? (
+        {textPerHour ? (
           <p className="text-xs text-[var(--text-muted)]">
-            {t("Per hour of meeting here: about {audio} of audio and {text} of transcript.", {
-              audio: formatMB(audioPerHour),
-              text: formatMB(textPerHour),
-            })}
+            {t("Transcripts take about {size} per hour of meeting.", { size: formatMB(textPerHour) })}
           </p>
         ) : null}
       </Panel>

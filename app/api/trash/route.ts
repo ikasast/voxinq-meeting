@@ -1,28 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sttHttpBase } from "@/lib/stt/client";
-import { TRASH_PURGE_DAYS as PURGE_AFTER_DAYS } from "@/lib/trash";
+import { TRASH_PURGE_DAYS as PURGE_AFTER_DAYS, purgeExpiredTrash } from "@/lib/trash";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// List of trashed meetings. Also permanently deletes items older than 30 days (recordings too).
+// List of trashed meetings. Also permanently deletes the reader's items older than 30 days
+// (recordings too) — the hourly sweep in lib/trash.ts does the same for everybody, so opening the
+// trash only makes sure what it lists is current.
 export async function GET() {
-  const cutoff = new Date(Date.now() - PURGE_AFTER_DAYS * 86400_000);
-  const expired = await prisma.meeting.findMany({
-    where: { deletedAt: { lt: cutoff } },
-    select: { id: true },
-  });
-  if (expired.length > 0) {
-    await prisma.meeting.deleteMany({ where: { id: { in: expired.map((m) => m.id) } } });
-    // Clean up recordings too (best-effort).
-    for (const m of expired) {
-      fetch(`${sttHttpBase()}/recordings/${m.id}`, {
-        method: "DELETE",
-        signal: AbortSignal.timeout(4000),
-      }).catch(() => {});
-    }
-  }
+  await purgeExpiredTrash();
 
   const meetings = await prisma.meeting.findMany({
     where: { deletedAt: { not: null } },
