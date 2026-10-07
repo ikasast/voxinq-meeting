@@ -28,7 +28,12 @@ export type OnBack = () => void | "stay" | Promise<void | "stay">;
 export type Guard = { token: number; onBack: OnBack };
 
 export type GuardWindow = {
-  history: { state: unknown; pushState(data: unknown, unused: string, url?: string | null): void; back(): void };
+  history: {
+    state: unknown;
+    pushState(data: unknown, unused: string, url?: string | URL | null): void;
+    replaceState(data: unknown, unused: string, url?: string | URL | null): void;
+    back(): void;
+  };
   location: { href: string };
   addEventListener(type: "popstate", listener: () => void): void;
   setTimeout(handler: () => void, ms: number): unknown;
@@ -85,6 +90,20 @@ export function createBackGuards(win: GuardWindow): BackGuards {
         }),
     );
     return chain;
+  };
+
+  // Keep a guard's mark when the router rewrites the entry it is on. A refresh does — every few
+  // seconds while minutes are being written — and builds the state afresh; without the mark the
+  // entry looks like the page itself, and closing what is open would leave it behind. Only for
+  // the same address: a replace that goes somewhere else is a different page.
+  const replace = win.history.replaceState.bind(win.history);
+  win.history.replaceState = (data, unused, url) => {
+    const token = tokenHere();
+    const same = url == null || new URL(String(url), win.location.href).href === new URL(win.location.href).href;
+    if (token > 0 && same && data !== null && typeof data === "object" && !(GUARD_KEY in data)) {
+      data = { ...(data as Record<string, unknown>), [GUARD_KEY]: token };
+    }
+    replace(data, unused, url);
   };
 
   win.addEventListener("popstate", () => {

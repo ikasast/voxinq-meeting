@@ -9,9 +9,10 @@ import { GUARD_KEY, createBackGuards, type GuardWindow } from "@/lib/back-guard"
 /** A history of entries and a popstate that arrives a moment after Back, as in a browser. */
 function browser() {
   const entries: { state: Record<string, unknown> | null; url: string }[] = [
-    { state: { __NA: true, tree: "page" }, url: "/meeting" },
+    { state: { __NA: true, tree: "page" }, url: "http://app.test/meeting" },
   ];
   let index = 0;
+  const at = (url: string | URL | null | undefined) => (url ? new URL(String(url), entries[index].url).href : entries[index].url);
   const listeners: (() => void)[] = [];
   const win: GuardWindow = {
     history: {
@@ -19,9 +20,13 @@ function browser() {
         return entries[index].state;
       },
       pushState(data, _unused, url) {
+        const next = at(url);
         entries.splice(index + 1);
-        entries.push({ state: data as Record<string, unknown>, url: url ?? entries[index].url });
+        entries.push({ state: data as Record<string, unknown>, url: next });
         index++;
+      },
+      replaceState(data, _unused, url) {
+        entries[index] = { state: data as Record<string, unknown>, url: at(url) };
       },
       back() {
         if (index === 0) return;
@@ -58,7 +63,7 @@ describe("something open over the page", () => {
     const b = browser();
     createBackGuards(b.win).arm(() => {});
     expect(b.depth()).toBe(1);
-    expect(b.here().url).toBe("/meeting");
+    expect(b.here().url).toBe("http://app.test/meeting");
     expect(b.here().state).toMatchObject({ __NA: true, tree: "page" });
     expect(typeof b.here().state?.[GUARD_KEY]).toBe("number");
   });
@@ -89,7 +94,7 @@ describe("something open over the page", () => {
     const g = guards.arm(() => {});
     b.navigate("/settings");
     await guards.release(g);
-    expect(b.here().url).toBe("/settings");
+    expect(b.here().url).toBe("http://app.test/settings");
   });
 
   it("closes the top one first when two are open", async () => {
@@ -126,6 +131,26 @@ describe("something open over the page", () => {
     b.back(); // past it
     await tick();
     expect(below).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the router rewriting the entry", () => {
+  it("keeps the guard's mark through a refresh of the same page", async () => {
+    // Without it the menu's entry looks like the page, and closing the menu leaves it behind.
+    const b = browser();
+    const guards = createBackGuards(b.win);
+    const g = guards.arm(() => {});
+    b.win.history.replaceState({ __NA: true, tree: "refreshed" }, "", "/meeting");
+    expect(b.here().state?.[GUARD_KEY]).toBe(g.token);
+    await guards.release(g);
+    expect(b.depth()).toBe(0);
+  });
+
+  it("does not carry it to another address", () => {
+    const b = browser();
+    createBackGuards(b.win).arm(() => {});
+    b.win.history.replaceState({ __NA: true, tree: "other" }, "", "/elsewhere");
+    expect(b.here().state?.[GUARD_KEY]).toBeUndefined();
   });
 });
 

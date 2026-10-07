@@ -64,6 +64,8 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setOpen(false);
+      // A refresh rewrites the entry it lands on; let the menu's go first.
+      await releaseBack();
       router.refresh();
     } finally {
       setBusy(false);
