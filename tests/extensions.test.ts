@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { EXTENSION_IDS, resolveExtensions } from "@/lib/extensions";
@@ -47,6 +47,14 @@ describe("every extension listed", () => {
 
   it.each(EXTENSION_IDS)("%s has words on the Extensions tab", (id) => {
     expect(read("app/settings/extensions-settings.tsx")).toContain(`    ${id}: {`);
+  });
+
+  it.each(EXTENSION_IDS)("%s has a picture in both languages", (id) => {
+    // Missing, the details dialog quietly shows none; retake them with
+    // scripts/shoot-extension-shots.mjs (docs/screenshots/README.md).
+    for (const locale of ["en", "ja"]) {
+      expect(existsSync(join(root, "public", "extension-shots", locale, `${id}.webp`))).toBe(true);
+    }
   });
 });
 

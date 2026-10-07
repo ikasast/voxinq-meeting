@@ -334,6 +334,9 @@ export const ja: Record<string, string> = {
   "Enrolled:": "登録済み:",
   "Delete this voice profile": "この声紋を削除",
   "Suggest fixes": "誤変換の候補を出す",
+  "1 suggestion across {checked} utterances — review it below.": "発言 {checked}件を確認し、候補が1件あります。下の行で確かめてください。",
+  "{n} suggestions across {checked} utterances — review each below.": "発言 {checked}件を確認し、候補が {n}件あります。下の各行で確かめてください。",
+  "No misheard glossary terms found across {checked} utterances.": "発言 {checked}件を確認しました。聞き違えた用語は見つかりませんでした。",
   "Suggested fix": "修正候補",
   "Fix a term that was misheard the same way throughout": "同じ誤変換をまとめて直します",
   "Find & replace": "検索と置換",
@@ -637,7 +640,42 @@ export const ja: Record<string, string> = {
   "Publish a password-protected, read-only link outside the tailnet.": "パスワード付きの読み取り専用リンクを、tailnet の外に公開します。",
   "Extensions": "拡張機能",
   "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.": "録音・文字起こし・議事録はいつでも使えます。ここで選ぶ機能は、その上に追加するもので、この機器を使う全員に効きます。無効にすると画面から消えますがデータは残り、有効に戻せば元どおりになります。",
-  "Needs: {what}": "必要なもの：{what}",
+  "Details": "詳しく",
+  "When it helps": "こんな場面で",
+  "Where it shows up": "どこに出るか",
+  "What it needs": "必要なもの",
+  "{name}, as it appears on screen": "{name}の画面例",
+  "Before the next meeting, check what was left undecided last time.": "次の会議の前に、前回決まらなかったことを確かめる。",
+  "Find who took on what, without reading the transcript again.": "誰が何を引き受けたかを、発言を読み返さずに探す。",
+  "Ask a series what has been decided over several meetings.": "シリーズに、何回かの会議でこれまでに決まったことを聞く。",
+  "A question box on each meeting's page and each series page. Answers come only from that meeting or series, and are not saved.":
+    "会議の画面とシリーズの画面に質問欄が出ます。答えはその会議・シリーズの内容だけから作られ、保存はされません。",
+  "A day of back-to-back sessions, such as a conference: record each one, and write all the minutes in the evening.":
+    "学会や展示会のように会議が続く日。その場では録音だけして、夜にまとめて議事録にする。",
+  "Meetings ended without minutes have piled up, and you want them all done at once.":
+    "議事録を作らずに終えた会議がたまったときに、一度で片付ける。",
+  "A bar above the meeting list whenever a listed meeting has no minutes. They are written one after another; the queue shows how far it has got.":
+    "議事録のない会議が一覧にあると、一覧の上にバーが出ます。議事録は1件ずつ順に作られ、進み具合は順番待ちの画面で見られます。",
+  "Product names or in-house terms come out wrong in the same way every time.":
+    "製品名や社内用語が、毎回同じように聞き違えられる。",
+  "A participant's name is written with the wrong characters.": "参加者の名前が、違う漢字で書き起こされる。",
+  "Before sharing a transcript, check it against the glossary in one pass.":
+    "発言を人に渡す前に、用語集とまとめて照らし合わせる。",
+  "A Suggest fixes button above the transcript. Each suggestion appears on its own line, and nothing changes until you apply it.":
+    "発言の上に「誤変換の候補を出す」ボタンが出ます。候補はそれぞれの発言の行に表示され、適用するまでは何も書き換わりません。",
+  "Meetings with members or partners abroad who speak English.": "海外のメンバーや取引先が英語で話す会議。",
+  "Checking a line you did not quite catch, in Japanese, while the meeting goes on.":
+    "聞き取れなかった発言を、会議の途中でも日本語で確かめる。",
+  "Reading a meeting back in Japanese later, with the original kept above each line.":
+    "あとから日本語で読み返す（原文は各行にそのまま残ります）。",
+  "Under each line of the transcript. Switch it on under Settings, Transcription; it applies to what is transcribed from then on.":
+    "発言の下に日本語訳が出ます。設定の「文字起こし」で翻訳をオンにすると、それ以後の文字起こしに付きます。",
+  "Let someone without Tailscale read the minutes, such as a client or a colleague.":
+    "Tailscale を入れていない取引先や同僚に、議事録を読んでもらう。",
+  "Read your minutes from a machine where you cannot install anything.":
+    "何もインストールできない端末から、自分の議事録を読む。",
+  "Settings, Remote access. Visitors from outside sign in with the password and can only read and download; recording and editing stay on the tailnet.":
+    "設定の「外部公開」で切り替えます。外からの閲覧はパスワードでログインし、読むこととダウンロードだけができます。録音と編集は tailnet の中だけです。",
   "On": "有効",
   "Off": "無効",
   "Only an administrator switches extensions on or off.": "拡張機能を切り替えられるのは管理者だけです。",

@@ -871,9 +871,13 @@ export default function SettingsPage() {
           <Link href="/" className="btn-outline">
             {t("Back")}
           </Link>
-          <button type="submit" disabled={saving} className="btn-ink">
-            {saving ? t("Saving…") : t("Save")}
-          </button>
+          {/* Not on the tabs whose switches take effect as they are flipped: Save there saves
+              nothing, and reads as if the switch has not counted until it is pressed. */}
+          {tab !== "extensions" && tab !== "remote" ? (
+            <button type="submit" disabled={saving} className="btn-ink">
+              {saving ? t("Saving…") : t("Save")}
+            </button>
+          ) : null}
         </div>
       </form>
     </div>

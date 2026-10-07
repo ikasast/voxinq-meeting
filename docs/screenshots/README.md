@@ -12,6 +12,7 @@ app is for, these say what it looks like.
 | `minutes.png` | Meeting detail: minutes in the middle, the column beside them — progress, agenda, who was there, what it was recorded with — and the list, with one meeting still waiting for its minutes. | `shoot-screenshots.mjs` |
 | `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series), a band of what each kind of hardware does, and a strip on encryption, accounts, search and self-hosting. **Says more than any drawing can**, which is why it is the hero and not one. | by hand |
 | `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
+| `../../public/extension-shots/<locale>/<id>.webp` | One per extension, cut out of the screen where it shows up, for the details dialog on Settings → Extensions. Served by the app, so they live in `public/`. | `shoot-extension-shots.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
 
 There are two sets. `docs/screenshots/*.png` is English, for README.md; `ja/` is Japanese, for
@@ -66,6 +67,14 @@ BASE_URL=http://127.0.0.1:3100 node scripts/shoot-demo-gif.mjs   # needs ffmpeg 
 LOCALE=ja node scripts/seed-demo.mjs
 BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-screenshots.mjs
 BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-demo-gif.mjs
+
+# The pictures on Settings → Extensions, one set per language. They need DATABASE_URL too:
+# the corrections shot looks up the line it fixes. The answer, the fix and the Tailscale Funnel
+# state are answered in the browser, so no model is woken and no real host name is photographed.
+LOCALE=ja node scripts/seed-demo.mjs
+BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-extension-shots.mjs
+node scripts/seed-demo.mjs
+BASE_URL=http://127.0.0.1:3100 node scripts/shoot-extension-shots.mjs
 
 docker rm -f voxinq-shots-db     # when you are done
 ```

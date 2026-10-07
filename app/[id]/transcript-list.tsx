@@ -446,17 +446,23 @@ export function TranscriptList({
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
       const found = d?.suggestions ?? [];
       setSuggestions(found);
+      const checked = d?.checked ?? 0;
       setSuggestMsg(
         found.length > 0
-          ? `${found.length} suggestion${found.length === 1 ? "" : "s"} across ${d?.checked ?? 0} utterances — review each below.`
-          : `No misheard glossary terms found across ${d?.checked ?? 0} utterances.`,
+          ? t(
+              found.length === 1
+                ? "1 suggestion across {checked} utterances — review it below."
+                : "{n} suggestions across {checked} utterances — review each below.",
+              { n: found.length, checked },
+            )
+          : t("No misheard glossary terms found across {checked} utterances.", { checked }),
       );
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setSuggesting(false);
     }
-  }, [meetingId]);
+  }, [meetingId, t]);
 
   const dismissSuggestion = useCallback((transcriptId: string) => {
     setSuggestions((list) => list.filter((s) => s.transcriptId !== transcriptId));

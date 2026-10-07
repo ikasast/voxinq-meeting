@@ -38,7 +38,9 @@ const LABELS = JSON.stringify(
 
 const PEOPLE = JA ? ["佐藤 玲", "田中 悠", "鈴木 千夏"] : ["Alex Rivera", "Sam Chen", "Jordan Lee"];
 
-// A meeting's spoken lines: [speakerKey, text]. createdAt is spaced out from startedAt.
+// A meeting's spoken lines: [speakerKey, text, translation?]. createdAt is spaced out from
+// startedAt. The translation is the Japanese line the Translation extension shows under one
+// spoken in another language.
 const SYNC_LINES = [
   ["self", "Thanks for joining, everyone. Let's start with the onboarding redesign — Sam, where are we?"],
   ["partner-0", "The new three-step flow is live in staging. In testing, drop-off fell from 40% to 18%."],
@@ -190,7 +192,8 @@ const DESIGN_LINES_JA = [
 ];
 
 const RESEARCH_LINES_JA = [
-  ["self", "端末内検索のために、ローカルの埋め込みモデルを3種類比較しました。"],
+  // 「エンベリング」は聞き違い。誤変換の候補（拡張機能）のスクリーンショットが直す行です。
+  ["self", "端末内検索のために、ローカルのエンベリングモデルを3種類比較しました。"],
   ["partner-0", "一番小さいモデルでも精度は十分で、速度はかなり上でした。"],
   ["self", "ではキーワード検索を先に出して、意味検索は来期に再検討しましょう。"],
 ];
@@ -201,7 +204,7 @@ async function removeDemo() {
   await prisma.meeting.deleteMany({ where: { id: { in: Object.values(IDS) } } });
 }
 
-async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people }) {
+async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people, language }) {
   await prisma.meeting.create({
     data: {
       id,
@@ -213,7 +216,7 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
       speakerLabels: labels ?? null,
       // The language the meeting was held in — a Japanese demo meeting reading "en" in the
       // screenshot is the kind of wrong detail a reader notices first.
-      sttLanguage: JA ? "ja" : "en",
+      sttLanguage: language ?? (JA ? "ja" : "en"),
       summaryStatus: minutes ? "done" : null,
       tags: tags?.length
         ? { connectOrCreate: tags.map((name) => ({ where: { name }, create: { name } })) }
@@ -224,9 +227,10 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
         ? { create: people.map((name, position) => ({ name, position, speaking: true })) }
         : undefined,
       transcripts: {
-        create: lines.map(([speakerType, text], i) => ({
+        create: lines.map(([speakerType, text, translation], i) => ({
           speakerType,
           text,
+          translation: translation ?? null,
           createdAt: new Date(startedAt.getTime() + i * 90_000),
         })),
       },
@@ -327,7 +331,8 @@ async function main() {
     lines: JA
       ? RESEARCH_LINES_JA
       : [
-          ["self", "We compared three local embedding models for on-device search."],
+          // "in bedding" is misheard on purpose: the Suggest corrections screenshot fixes it.
+          ["self", "We compared three local in bedding models for on-device search."],
           ["partner-0", "The smallest was accurate enough and much faster."],
           ["self", "Let's ship keyword search now and revisit semantic search next quarter."],
         ],
@@ -340,29 +345,32 @@ async function main() {
   await makeMeeting({
     id: IDS.pending,
     title: JA ? "取引先との打ち合わせ — 納期確認" : "Partner call — delivery dates",
-    description: JA ? "パイロット導入分の納期を確かめる。" : "Confirm the delivery dates for the pilot.",
+    description: JA
+      ? "海外の取引先と、パイロット導入分の納期を確かめる。"
+      : "Confirm the delivery dates for the pilot with the partner abroad.",
     startedAt: pStart,
     endedAt: minutesAt(pStart, 14),
     recordedMs: 14 * 60_000,
     labels: JSON.stringify(
       JA
-        ? { self: "田中 悠", "partner-0": "鈴木 千夏" }
-        : { self: "Sam Chen", "partner-0": "Jordan Lee" },
+        ? { self: "田中 悠", "partner-0": "Emma Walsh" }
+        : { self: "Sam Chen", "partner-0": "Emma Walsh" },
     ),
-    lines: JA
-      ? [
-          ["self", "パイロットの納期を確認させてください。"],
-          ["partner-0", "初回分は 12 日に出荷、残りはその 1 週間後です。"],
-          ["self", "ありがとうございます。議事録は明日まとめます。"],
-        ]
-      : [
-          ["self", "Can we confirm the delivery dates for the pilot?"],
-          ["partner-0", "The first batch ships on the twelfth, the rest a week later."],
-          ["self", "Thanks — I'll write it up tomorrow."],
-        ],
+    // Held in English, with the Japanese translation under each line: what the Translation
+    // extension's screenshot shows. The same in both sets — the translation is always into
+    // Japanese.
+    language: "en",
+    lines: [
+      ["self", "Thanks for making time. Can we confirm the delivery dates for the pilot?",
+        "お時間ありがとうございます。パイロットの納期を確認させてください。"],
+      ["partner-0", "Sure. The first batch ships on the twelfth, and the rest a week later.",
+        "はい。初回分は12日に出荷し、残りはその1週間後です。"],
+      ["self", "That works for us. I'll share the minutes tomorrow.",
+        "それで問題ありません。議事録は明日共有します。"],
+    ],
     minutes: null,
     tags: JA ? ["取引先"] : ["Partners"],
-    people: [PEOPLE[1], PEOPLE[2]],
+    people: [PEOPLE[1], "Emma Walsh"],
   });
 
   console.log("Seeded demo meetings:");
