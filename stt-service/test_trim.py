@@ -27,6 +27,7 @@ def _recording(folder: Path, seconds: int = 10) -> dict[str, Path]:
         "seg": folder / "m.segments.json",
         "spk": folder / "m.speakers.json",
         "emb": folder / "m.embeddings.json",
+        "model": folder / "m.embedding-model",
         "key": folder / "m.speakers.key",
         "pcs": folder / "m.pieces.json",
         "req": folder / "m.request.json",
@@ -44,7 +45,7 @@ def _recording(folder: Path, seconds: int = 10) -> dict[str, Path]:
         {"start": 8.0, "end": 9.0},
     ]
     paths["seg"].write_text(json.dumps(segments), encoding="utf-8")
-    for key in ("spk", "emb", "key", "pcs", "req"):
+    for key in ("spk", "emb", "model", "key", "pcs", "req"):
         paths[key].write_text("[]", encoding="utf-8")
     old = 1_700_000_000
     os.utime(paths["wav"], (old, old))
@@ -72,7 +73,7 @@ def test_keeps_the_retention_deadline_and_drops_speaker_results():
         paths = _recording(Path(d))
         trim.trim_recording(paths, 0, 5000, drop=[3], expected=4)
         assert int(paths["wav"].stat().st_mtime) == 1_700_000_000
-        for key in ("spk", "emb", "key", "pcs", "req"):
+        for key in ("spk", "emb", "model", "key", "pcs", "req"):
             assert not paths[key].exists(), key
 
 
