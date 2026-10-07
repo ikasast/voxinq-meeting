@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type LinkStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
@@ -18,6 +18,7 @@ import { useConfirmEx } from "../../confirm-dialog";
 import { PreflightCheck } from "./preflight-check";
 import { type EndChoice, EndDialog } from "./end-dialog";
 import { useT } from "@/app/locale-provider";
+import { readRestSeconds, subscribeRestSeconds } from "@/app/rest-screen";
 import { backGuards, useBackGuard } from "@/app/use-back-guard";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
@@ -170,9 +171,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     };
   }, []);
 
-  // Seconds of stillness before the screen goes black, from Settings. 0 = never; resting by
-  // hand still works.
-  const [restAfter, setRestAfter] = useState(0);
+  // Seconds of stillness before the screen goes black: this device's choice, or its kind's
+  // default (app/rest-screen.ts). 0 = never; resting by hand still works. Read from storage,
+  // so the server render says 0 and the page settles on the device's answer.
+  const restAfter = useSyncExternalStore(subscribeRestSeconds, readRestSeconds, () => 0);
   const [resting, setResting] = useState(false);
   // The level meter fires ~10 times a second and re-renders the page each time. Nothing is on
   // screen to show it while resting, and the point of resting is to stop spending.
@@ -350,11 +352,9 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             sttGlossary?: string;
             micMode?: string;
             sttTranslate?: boolean;
-            restScreenSeconds?: number;
           } | null,
         ) => {
           if (cancelled) return;
-          if (typeof s?.restScreenSeconds === "number") setRestAfter(s.restScreenSeconds);
           if (s?.whisperModel) settingsModelRef.current = s.whisperModel;
           if (s?.sttLanguage) sttLanguageRef.current = s.sttLanguage;
           if (s?.sttGlossary) sttGlossaryRef.current = s.sttGlossary;

@@ -4,7 +4,6 @@ import { currentUser } from "@/lib/auth/session";
 import { normalizeTemplates } from "@/lib/minutes-templates";
 import {
   type AppSettings,
-  VALID_REST_SCREEN_SECONDS,
   readMachineSettings,
   toPublic,
   writeSettings,
@@ -61,12 +60,6 @@ export async function PATCH(req: NextRequest) {
   // The two that are neither a string nor a number, and one that is checked against a list.
   if (Array.isArray(body.minutesTemplates)) {
     patch.minutesTemplates = normalizeTemplates(body.minutesTemplates);
-  }
-  if (
-    patch.restScreenSeconds !== undefined &&
-    !VALID_REST_SCREEN_SECONDS.includes(patch.restScreenSeconds)
-  ) {
-    delete patch.restScreenSeconds;
   }
   // An empty key means "no change", the same as on the ordinary screen: the browser is never
   // sent the stored one, so it has nothing to send back.

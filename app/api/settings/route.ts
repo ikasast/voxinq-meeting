@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import {
   type AppSettings,
-  VALID_REST_SCREEN_SECONDS,
   readMachineSettings,
   readSettings,
   toPublic,
@@ -72,11 +71,6 @@ export async function PATCH(req: NextRequest) {
     if (typeof v === "string") (patch as Record<string, string>)[key] = cleanSetting(v);
   }
   if (typeof body.sttTranslate === "boolean") patch.sttTranslate = body.sttTranslate;
-  // The only number the settings screen edits. Checked against the list it offers rather than
-  // a range: anything else is a mistake, and writeSettings would drop it anyway.
-  if (typeof body.restScreenSeconds === "number" && VALID_REST_SCREEN_SECONDS.includes(body.restScreenSeconds)) {
-    patch.restScreenSeconds = body.restScreenSeconds;
-  }
   // 0 means "work it out from the card". Anything under 512 MB is a typo, not a budget, and
   // writeSettings refuses it too — this is just the earlier of the two.
   if (

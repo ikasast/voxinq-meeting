@@ -536,6 +536,8 @@ export const ja: Record<string, string> = {
   "What a meeting is called until somebody names it. The day it is for — a meeting booked from the calendar is named for that day, not for today.":
     "誰かが名前を付けるまでの会議名です。その会議の日付が入ります — カレンダーから予約した会議は、今日ではなくその日の名前になります。",
   "Rest the screen while recording": "録音中に画面を休ませる",
+  "Saved per device and applied at once. Until it is chosen here, a phone, a tablet or the Android app rests after 1 minute, and a computer never does.":
+    "端末ごとに保存され、すぐに反映されます。ここで選ぶまでは、スマホ・タブレット・Android アプリは1分で、PC は休ませません。",
   "After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.":
     "この時間だけ操作がないと、録音画面が真っ暗になります。触れば戻り、同じ時間でまた休みます。録音には影響しません — マイクも送信も画面ロックも動いたままです。",
   "You cannot watch the live transcript while it rests": "休止中は文字起こしを見られません",
