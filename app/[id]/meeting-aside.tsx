@@ -21,14 +21,26 @@ export function MeetingAside({ summary, children }: { summary: string; children:
   const t = useT();
   const [open, setOpen] = useState(false);
 
+  // Open below 2xl, the bar and the cards it opened share one panel, so they read as one thing
+  // with its contents rather than as five cards in a row: the bar was a card like the others,
+  // and nothing showed that they were inside it. At 2xl there is no bar and no panel, only the
+  // rail of cards.
   return (
-    <aside className="order-first 2xl:order-none">
+    <aside
+      className={`order-first 2xl:order-none ${
+        open
+          ? "rounded-2xl border border-[var(--border)] bg-[var(--elevated)] p-2 2xl:rounded-none 2xl:border-0 2xl:bg-transparent 2xl:p-0"
+          : ""
+      }`}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="meeting-details"
-        className="card flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-left 2xl:hidden"
+        className={`flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left 2xl:hidden ${
+          open ? "rounded-xl px-2 py-1.5 hover:bg-[var(--hover-surface)]" : "card px-4 py-3"
+        }`}
       >
         <span
           aria-hidden
@@ -51,7 +63,7 @@ export function MeetingAside({ summary, children }: { summary: string; children:
 
       <div
         id="meeting-details"
-        className={`space-y-4 ${open ? "mt-4" : "hidden"} 2xl:mt-0 2xl:block`}
+        className={`space-y-3 ${open ? "mt-2" : "hidden"} 2xl:mt-0 2xl:block 2xl:space-y-4`}
       >
         {children}
       </div>

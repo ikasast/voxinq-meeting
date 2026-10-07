@@ -46,3 +46,15 @@ export function resolveInclude(
   const template = byId(opts.chosenId) ?? byId(opts.defaultId);
   return template?.include ? [...template.include] : [...CONTEXT_KEYS];
 }
+
+/**
+ * After a change of format: the new template's defaults, except where the person ticked or
+ * unticked a piece by hand in this panel. A template sets the defaults, not the answer.
+ */
+export function includeForFormat(
+  defaults: ContextKey[],
+  byHand: Partial<Record<ContextKey, boolean>>,
+): ContextKey[] {
+  const on = new Set(defaults);
+  return CONTEXT_KEYS.filter((k) => byHand[k] ?? on.has(k));
+}

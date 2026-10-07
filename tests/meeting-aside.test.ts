@@ -62,4 +62,12 @@ describe("the meeting's details column", () => {
       expect(inside).toContain(card);
     }
   });
+
+  it("shows what it opened as inside it, below the rail's width", () => {
+    // Open, the bar and the cards share one panel. The bar used to be a card like the others,
+    // so the five read as a row of equals rather than one thing and its contents.
+    expect(asideCode).toContain("rounded-2xl border border-[var(--border)] bg-[var(--elevated)] p-2");
+    // And none of it where the rail shows: there the cards stand on their own.
+    expect(asideCode).toContain("2xl:rounded-none 2xl:border-0 2xl:bg-transparent 2xl:p-0");
+  });
 });
