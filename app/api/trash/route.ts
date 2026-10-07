@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sttHttpBase } from "@/lib/stt/client";
+import { TRASH_PURGE_DAYS as PURGE_AFTER_DAYS } from "@/lib/trash";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const PURGE_AFTER_DAYS = 30;
 
 // List of trashed meetings. Also permanently deletes items older than 30 days (recordings too).
 export async function GET() {

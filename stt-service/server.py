@@ -843,18 +843,25 @@ def _recording_sizes(ids: list) -> dict[str, dict]:
             continue
         p = _rec_paths(mid)
         try:
-            audio = p["wav"].stat().st_size
+            st = p["wav"].stat()
         except OSError:  # no recording, or it went while we looked
             continue
         other = 0
         for key in _SIDECARS:
             with suppress(OSError):
                 other += p[key].stat().st_size
+        protected = p["keep"].exists()
         out[mid] = {
-            "audio": audio,
+            "audio": st.st_size,
             "other": other,
             "seconds": _wav_duration_sec(p["wav"]),
-            "protected": p["keep"].exists(),
+            "protected": protected,
+            # As in _recording_state: when the sweep will take it, or None if it never will.
+            "expiresAt": (
+                datetime.fromtimestamp(st.st_mtime + RETENTION_DAYS * 86400, tz=timezone.utc).isoformat()
+                if not protected and RETENTION_DAYS > 0
+                else None
+            ),
         }
     return out
 
@@ -867,8 +874,8 @@ async def recording_sizes(request: Request) -> dict:
     takes to fetch a recording from here, so a list of them would be everybody's audio.
 
     body (JSON): {"ids": ["<meetingId>", ...]}
-    returns: {"<id>": {audio, other, seconds, protected}, ...} for those that have a recording,
-    sizes in bytes."""
+    returns: {"<id>": {audio, other, seconds, protected, expiresAt}, ...} for those that have a
+    recording, sizes in bytes."""
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001

@@ -1,9 +1,9 @@
 // How much room a person's meetings take, and in what. The arithmetic for app/storage.
 //
-// Not a quota: nothing here is measured against a limit. The question it answers is "what is
-// using the space", and the answer is nearly always the audio — a minute of it is about 1.9 MB,
-// a minute of its transcript a few kilobytes — so the parts are shown side by side rather than
-// as a fraction of something.
+// Not a quota: nothing here is measured against a limit. And not one bar for everything: an
+// hour of audio is about 110 MB and an hour of its transcript a tenth of one, so a bar holding
+// both says only "it is the audio". The page shows the two apart — the recordings by what will
+// happen to them, which is the part anyone can act on, and the text on a scale of its own.
 
 export type RecordingSize = {
   /** The WAV, in bytes. */
@@ -12,26 +12,47 @@ export type RecordingSize = {
   other: number;
   seconds: number | null;
   protected: boolean;
+  /** When the retention sweep will take it; null when it will not (protected, or retention off). */
+  expiresAt: string | null;
 };
 
-const KB = 1024;
-const MB = KB * 1024;
-const GB = MB * 1024;
+/**
+ * What becomes of a recording's room. In the trash first: emptying the trash deletes the
+ * recording whether or not it was protected.
+ */
+export type Fate = "trash" | "protected" | "expiring" | "kept";
 
-/** "814 MB", "4.2 MB", "1.3 GB", "36 KB". Binary units, as the file manager counts them. */
-export function formatBytes(bytes: number): string {
-  if (bytes >= GB) return `${(bytes / GB).toFixed(bytes >= 100 * GB ? 0 : 1)} GB`;
-  if (bytes >= MB) return `${(bytes / MB).toFixed(bytes >= 10 * MB ? 0 : 1)} MB`;
-  if (bytes >= KB) return `${Math.round(bytes / KB)} KB`;
-  return bytes > 0 ? "1 KB" : "0 MB";
+export function fateOf(r: Pick<RecordingSize, "protected" | "expiresAt">, inTrash: boolean): Fate {
+  if (inTrash) return "trash";
+  if (r.protected) return "protected";
+  return r.expiresAt ? "expiring" : "kept";
+}
+
+/** Whole days from `now` until `when`, at least one: "within 3 days". */
+export function daysUntil(when: Date, now: Date): number {
+  return Math.max(1, Math.ceil((when.getTime() - now.getTime()) / 86_400_000));
+}
+
+const MB = 1024 * 1024;
+
+/**
+ * Always in MB, so any two sizes on the page can be compared by reading them:
+ * "1,247 MB", "3.8 MB", "0.21 MB", and "< 0.01 MB" for what would otherwise round to nothing.
+ * Binary megabytes, as the file manager counts them.
+ */
+export function formatMB(bytes: number): string {
+  if (bytes <= 0) return "0 MB";
+  const mb = bytes / MB;
+  if (mb < 0.01) return "< 0.01 MB";
+  const digits = mb < 1 ? 2 : mb < 10 ? 1 : 0;
+  return `${mb.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })} MB`;
 }
 
 /**
- * Each part's width on the bar, in percent, summing to 100.
+ * Each part's width on a bar, in percent, summing to 100.
  *
- * In proportion, except that a part that is there at all is never thinner than `min`: beside
- * hours of audio the text is a fraction of a percent, and a part that cannot be seen reads as
- * a part that is not there.
+ * In proportion, except that a part that is there at all is never thinner than `min`: a part
+ * that cannot be seen reads as a part that is not there.
  */
 export function barWidths(sizes: number[], min = 0.8): number[] {
   const total = sizes.reduce((a, b) => a + b, 0);
