@@ -27,7 +27,7 @@ export function DeleteSeriesButton({ id, name }: { id: string; name: string }) {
       setError(d?.error ?? `HTTP ${res.status}`);
       return;
     }
-    router.push("/series");
+    router.replace("/series");
     router.refresh();
   };
 

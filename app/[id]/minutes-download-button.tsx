@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DownloadIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
+import { useBackGuard } from "@/app/use-back-guard";
 
 // Downloading the minutes, in whichever format they have to arrive in.
 //
@@ -25,6 +26,8 @@ export function MinutesDownloadButton({
   const [open, setOpen] = useState(false);
   const t = useT();
   const box = useRef<HTMLSpanElement>(null);
+  // Back closes the menu instead of leaving the meeting.
+  useBackGuard(open, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;

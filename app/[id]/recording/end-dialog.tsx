@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { type MinutesChoice, MinutesChoiceFields, useMinutesChoice } from "@/app/minutes-options";
 import { useT } from "@/app/locale-provider";
+import { useBackGuard } from "@/app/use-back-guard";
 
 // Ending a meeting with minutes, or with speaker separation, asks how first.
 //
@@ -43,6 +44,9 @@ export function EndDialog({
   useEffect(() => {
     if (kind === "minutes") void load();
   }, [kind, load]);
+
+  // Back cancels, like Escape — without it, Back went past the dialog to the recording.
+  useBackGuard(true, onCancel);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

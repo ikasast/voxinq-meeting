@@ -9,6 +9,7 @@ import { parseParams } from "@/lib/queue/types";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
+import { BackLink } from "../back-link";
 import { MeetingListPane } from "../meeting-list-pane";
 import { PageHeader } from "../page-header";
 import { ArchiveButton } from "./archive-button";
@@ -167,11 +168,13 @@ export default async function MeetingPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Desktop can navigate via the left pane, so the back button is mobile-only */}
-          <Link href="/" className="btn-outline lg:hidden">
+          <BackLink href="/" className="btn-outline lg:hidden">
             {t("Back to list")}
-          </Link>
+          </BackLink>
           {!meeting.endedAt && !external ? (
-            <Link href={`/${meeting.id}/recording`} className="btn-ink">
+            // replace: ending replaces the recording screen with this page again, and two
+            // entries for one page meant pressing Back twice.
+            <Link href={`/${meeting.id}/recording`} replace className="btn-ink">
               {t("Recording screen")}
             </Link>
           ) : null}

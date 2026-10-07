@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useConfirm } from "./confirm-dialog";
 import { useT } from "./locale-provider";
+import { useBackGuard } from "./use-back-guard";
 import { ArchiveIcon, DotsIcon, TrashIcon } from "./icons";
 
 const MENU_W = 176; // matches w-44
@@ -50,6 +51,9 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
     };
   }, [open]);
 
+  // Back closes the menu instead of leaving the list.
+  const releaseBack = useBackGuard(open, () => setOpen(false));
+
   const toggleArchive = async () => {
     setBusy(true);
     try {
@@ -60,6 +64,8 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setOpen(false);
+      // A refresh rewrites the entry it lands on; let the menu's go first.
+      await releaseBack();
       router.refresh();
     } finally {
       setBusy(false);
@@ -68,6 +74,8 @@ export function MeetingItemMenu({ id, archived }: { id: string; archived: boolea
 
   const trash = async () => {
     setOpen(false);
+    // The menu's entry first, so the confirmation's sits on the page and not on top of it.
+    await releaseBack();
     const ok = await confirm({
       title: t("Move to Trash?"),
       message: t("The meeting can be restored from Trash for 30 days."),

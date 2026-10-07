@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackLink } from "@/app/back-link";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
@@ -112,9 +113,9 @@ export default async function ArchivePage() {
           <ArchiveIcon className="h-5 w-5" />
           {t("Archived meetings")}
         </h1>
-        <Link href="/" className="btn-outline">
+        <BackLink href="/" className="btn-outline">
           {t("Back to list")}
-        </Link>
+        </BackLink>
       </div>
       <p className="text-sm text-[var(--text-muted)]">
         {t(

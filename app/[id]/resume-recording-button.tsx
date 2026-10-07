@@ -33,6 +33,8 @@ export function ResumeRecordingButton({ meetingId }: { meetingId: string }) {
   return (
     <Link
       href={`/${meetingId}/recording?autostart=1&resume=1`}
+      // Ending comes back here by replacing the recording screen; one entry, not two.
+      replace
       className="btn-ink"
       title={t("Continue recording — appends to the existing recording and transcript")}
     >

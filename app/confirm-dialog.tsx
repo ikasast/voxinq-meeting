@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useT } from "./locale-provider";
+import { useBackGuard } from "./use-back-guard";
 
 export type ConfirmOptions = {
   title?: string; // dialog heading (e.g. meeting title). Unlike the browser default, no origin name is shown.
@@ -46,11 +47,26 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const finish = useCallback((v: boolean) => {
-    setOpts(null);
-    resolver.current?.({ ok: v, checked: checkedRef.current });
-    resolver.current = null;
-  }, []);
+  // Back cancels, as it closes any dialog on a phone. Through a ref: finish needs the release
+  // this returns, and Back needs finish.
+  const finishRef = useRef<(v: boolean) => void>(() => {});
+  const releaseBack = useBackGuard(opts !== null, () => finishRef.current(false));
+
+  // The answer goes back only once the dialog's history entry is gone: what the caller does next
+  // is often to navigate, and a navigation that lands before that Back would be undone by it.
+  const finish = useCallback(
+    (v: boolean) => {
+      setOpts(null);
+      const resolve = resolver.current;
+      resolver.current = null;
+      const checkedNow = checkedRef.current;
+      void releaseBack().then(() => resolve?.({ ok: v, checked: checkedNow }));
+    },
+    [releaseBack],
+  );
+  useEffect(() => {
+    finishRef.current = finish;
+  }, [finish]);
 
   useEffect(() => {
     if (!opts) return;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
 import { DownloadIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
+import { useBackGuard } from "@/app/use-back-guard";
 
 type PartId = "minutes" | "transcript" | "meta" | "recording";
 
@@ -32,6 +33,9 @@ export function DownloadMeetingButton({
     meta: true,
     recording: false, // enabled once the STT host confirms the WAV exists
   });
+
+  // Back closes the panel instead of leaving the meeting.
+  useBackGuard(open, () => setOpen(false));
 
   const toggleOpen = () => {
     setOpen((v) => !v);

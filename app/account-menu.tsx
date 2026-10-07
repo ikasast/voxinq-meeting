@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "./avatar";
 import { GearIcon, PeopleIcon, PersonIcon, SignOutIcon, StorageIcon } from "./icons";
 import { useT } from "./locale-provider";
+import { useBackGuard, useLinksAfterClosing } from "./use-back-guard";
 
 const MENU_W = 208; // w-52
 const GAP = 6;
@@ -65,6 +66,11 @@ export function AccountMenu({
     };
   }, [open]);
 
+  // Back closes the menu; a link in it closes it first and then goes.
+  const close = useCallback(() => setOpen(false), []);
+  const releaseBack = useBackGuard(open, close);
+  const followLink = useLinksAfterClosing(close, releaseBack);
+
   const signOut = async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     // A full load, not router.push: the session cookie is gone and the proxy has to be asked
@@ -102,6 +108,7 @@ export function AccountMenu({
               />
               <div
                 role="menu"
+                onClickCapture={followLink}
                 style={{ top: pos.top, right: pos.right, width: MENU_W }}
                 className="fixed z-50 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg"
               >

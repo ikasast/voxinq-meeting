@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackLink } from "@/app/back-link";
 import { currentUser } from "@/lib/auth/session";
 import { formatDateTimeIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
@@ -63,9 +64,9 @@ export default async function SeriesListPage() {
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <NewSeriesButton />
-          <Link href="/" className="btn-outline">
+          <BackLink href="/" className="btn-outline">
             {t("Back to list")}
-          </Link>
+          </BackLink>
         </div>
       </div>
       <p className="text-sm text-[var(--text-muted)]">

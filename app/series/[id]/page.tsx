@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackLink } from "@/app/back-link";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
@@ -85,9 +86,9 @@ export default async function SeriesPage({
           <SeriesIcon className="h-6 w-6 shrink-0 text-[var(--accent-sub)]" />
           {series.name}
         </h1>
-        <Link href="/" className="btn-outline">
+        <BackLink href="/" className="btn-outline">
           {t("Back to list")}
-        </Link>
+        </BackLink>
       </div>
       <p className="text-sm text-[var(--text-muted)]">
         {t(

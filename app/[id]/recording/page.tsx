@@ -18,6 +18,7 @@ import { useConfirmEx } from "../../confirm-dialog";
 import { PreflightCheck } from "./preflight-check";
 import { type EndChoice, EndDialog } from "./end-dialog";
 import { useT } from "@/app/locale-provider";
+import { backGuards, useBackGuard } from "@/app/use-back-guard";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
 type Contender = { id: string; kind: string; meetingId: string | null; title: string | null };
@@ -187,6 +188,64 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const nativeRef = useRef<NativeHandle | null>(null);
   const linesBoxRef = useRef<HTMLDivElement>(null);
 
+  // Leaving this page stops a browser recording (the cleanup below), and Back used to do that
+  // without a word: a swipe from the screen edge mid-meeting, and the meeting went unrecorded
+  // until somebody looked. While recording, Back asks first, and so does a link elsewhere in the
+  // app. Not in the Android app, whose recording carries on without the page.
+  const guardLeaving = active && !native;
+  const askToLeave = useCallback(async () => {
+    const { ok } = await confirm({
+      title: t("Stop recording?"),
+      message: t(
+        "Leaving this screen stops the recording. The meeting is not ended: open its recording screen again to carry on.",
+      ),
+      confirmLabel: t("Stop and leave"),
+      danger: true,
+    });
+    return ok;
+  }, [confirm, t]);
+  useBackGuard(guardLeaving, async () => {
+    // Back on the resting screen wakes it, as a tap does.
+    if (restingRef.current) {
+      setResting(false);
+      return "stay";
+    }
+    if (!(await askToLeave())) return "stay";
+    window.history.back();
+  });
+  useEffect(() => {
+    if (!guardLeaving) return;
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target || a.hasAttribute("download")) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      // Before the router sees it: capture on the document runs ahead of React's handlers.
+      e.preventDefault();
+      e.stopPropagation();
+      void askToLeave().then(async (ok) => {
+        if (!ok) return;
+        await backGuards().unwind();
+        router.push(`${url.pathname}${url.search}${url.hash}`);
+      });
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [guardLeaving, askToLeave, router]);
+
+  /**
+   * Off this page, replacing it in the history. The guard's entry goes first: a replace that
+   * landed on it would leave this page underneath, one Back away.
+   */
+  const leave = useCallback(
+    async (to: string) => {
+      await backGuards().unwind();
+      router.replace(to);
+    },
+    [router],
+  );
+
   // The running time ticks once a second.
   useEffect(() => {
     const tick = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -232,7 +291,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       const res = await fetch(`/api/meetings/${meetingId}`);
       if (res.status === 404) {
         // Gone, or not this person's: there is nothing to record into.
-        router.replace("/");
+        void leave("/");
         return;
       }
       if (!res.ok) return;
@@ -276,7 +335,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     return () => {
       cancelled = true;
     };
-  }, [meetingId, router]);
+  }, [meetingId, leave]);
 
   // Fetch settings (model, STT language, glossary) and pass them to the STT service at recording start.
   useEffect(() => {
@@ -510,10 +569,10 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         nativeRef.current = null;
         endedRef.current = true;
         setEnded(true);
-        router.replace(`/${meetingId}`);
+        void leave(`/${meetingId}`);
       },
     }),
-    [announce, resync, router, meetingId],
+    [announce, resync, leave, meetingId],
   );
 
   // In the app, ask whether it is already recording this meeting — this page reloaded, or was
@@ -804,12 +863,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       // the list gives no sign of which meeting the generation belongs to.
       // replace() so this recording page leaves the history — pressing "back" from the
       // detail must not return here and restart the meeting.
-      router.replace(`/${meetingId}`);
+      void leave(`/${meetingId}`);
     } catch (e) {
       announce(t("Failed to start minutes generation: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, meetingId, router, announce, closeMeeting, transcribeAfterRecording, t]);
+  }, [busy, meetingId, leave, announce, closeMeeting, transcribeAfterRecording, t]);
 
   // End the meeting and kick off speaker diarization: the detail page opens with
   // ?autodiarize=1 and starts Auto-diarize (apply + voiceprint naming) automatically.
@@ -824,12 +883,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       await transcribeAfterRecording(false);
       // replace() so back navigation cannot return here and restart the meeting. The speaker
       // count chosen in the dialog goes with it; absent, the page works it out as it always has.
-      router.replace(`/${meetingId}?autodiarize=1${choice.speakers ? `&speakers=${choice.speakers}` : ""}`);
+      void leave(`/${meetingId}?autodiarize=1${choice.speakers ? `&speakers=${choice.speakers}` : ""}`);
     } catch (e) {
       announce(t("Failed to end the meeting: {error}", { error: (e as Error).message }));
       setBusy("none");
     }
-  }, [busy, meetingId, router, announce, closeMeeting, transcribeAfterRecording, t]);
+  }, [busy, meetingId, leave, announce, closeMeeting, transcribeAfterRecording, t]);
 
   const endOnly = useCallback(async () => {
     if (busy !== "none") return;
@@ -846,8 +905,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     await closeMeeting(checked, false);
     await transcribeAfterRecording(false);
     // replace() so back navigation cannot return to this recording page.
-    router.replace(`/${meetingId}`);
-  }, [busy, confirm, title, meetingId, router, closeMeeting, transcribeAfterRecording, t]);
+    void leave(`/${meetingId}`);
+  }, [busy, confirm, title, meetingId, leave, closeMeeting, transcribeAfterRecording, t]);
 
   // Started by mistake, or not worth keeping. The meeting goes to the trash rather than away:
   // "I did not mean to record that" is sometimes wrong, and the trash keeps it restorable for 30
@@ -867,8 +926,8 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     await closeMeeting(false, false);
     await fetch(`/api/meetings/${meetingId}`, { method: "DELETE" }).catch(() => {});
     // replace() so back navigation cannot return to a recording page for a meeting in the trash.
-    router.replace("/");
-  }, [busy, confirm, title, meetingId, router, closeMeeting, t]);
+    void leave("/");
+  }, [busy, confirm, title, meetingId, leave, closeMeeting, t]);
 
   // Warn before leaving while recording. Not in the app: there, leaving the page leaves the
   // recording running, and the warning would be a dialog guarding nothing.
