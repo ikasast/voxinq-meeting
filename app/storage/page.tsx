@@ -130,8 +130,9 @@ function Panel({ title, total, sub, parts, children }: {
         {parts.map((p) => (
           <li key={p.key} className="flex items-baseline gap-2.5 text-sm">
             <span aria-hidden className="h-2.5 w-2.5 shrink-0 self-center rounded-sm" style={{ background: p.color }} />
-            <span className="text-[var(--foreground)]">{p.label}</span>
-            {p.detail ? <span className="text-xs text-[var(--text-muted)]">{p.detail}</span> : null}
+            {/* The label keeps its line; a long detail wraps beside it instead (on a phone). */}
+            <span className="shrink-0 text-[var(--foreground)]">{p.label}</span>
+            {p.detail ? <span className="min-w-0 text-xs text-[var(--text-muted)]">{p.detail}</span> : null}
             <span className="ml-auto shrink-0 tabular-nums text-[var(--text-strong)]">{formatMB(p.bytes)}</span>
           </li>
         ))}
