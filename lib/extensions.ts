@@ -25,6 +25,12 @@ export const EXTENSIONS = [
     needs: null,
   },
   {
+    id: "schedule",
+    name: "Schedule and reminders",
+    description: "Book meetings ahead on a calendar, and be told when one is due to start.",
+    needs: null,
+  },
+  {
     id: "minutesFormats",
     name: "Minutes formats",
     description: "Formats and writing instructions of your own, and choosing what the model is given.",

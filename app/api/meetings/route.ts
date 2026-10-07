@@ -1,4 +1,5 @@
 import { applySeriesMembers, seriesIdForName } from "@/lib/series";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
@@ -70,7 +71,12 @@ export async function POST(req: NextRequest) {
   // date shown everywhere is the meeting's own; it is corrected to the real one when the
   // recording ends, which is when a true start time first exists.
   let scheduledAt: Date | undefined;
-  if (typeof body?.scheduledAt === "string" && body.scheduledAt.trim()) {
+  // Not while Schedule and reminders is switched off: the meeting is set up to be recorded now.
+  if (
+    typeof body?.scheduledAt === "string" &&
+    body.scheduledAt.trim() &&
+    (await extensionEnabled("schedule"))
+  ) {
     const d = new Date(body.scheduledAt);
     if (Number.isNaN(d.getTime())) return apiError("scheduledAt is not a date", 400);
     scheduledAt = d;

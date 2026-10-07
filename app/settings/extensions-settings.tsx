@@ -52,6 +52,19 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       needs: null,
     },
+    schedule: {
+      name: t("Schedule and reminders"),
+      summary: t("Book meetings ahead on a calendar, and be told when one is due to start."),
+      scenes: [
+        t("Next week's meetings set up ahead of time: the title, the agenda and who is coming."),
+        t("A notice on your phone or watch when a meeting is due, and recording started from it."),
+        t("A month of meetings looked back over on a calendar."),
+      ],
+      where: t(
+        "A calendar above the meeting list, a When field on New meeting, and Upcoming in the list. Reminders come to the browser (allowed under Settings, Appearance) and to the Android app.",
+      ),
+      needs: null,
+    },
     minutesFormats: {
       name: t("Minutes formats"),
       summary: t("Formats and writing instructions of your own, and choosing what the model is given."),

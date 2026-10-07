@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isExternalRequest } from "@/lib/is-tailnet";
@@ -123,6 +124,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // `startedAt` moves too: a booked meeting carries its diary time there until it is recorded,
   // which is what the list and the page show (see POST /api/meetings).
   if (body?.scheduledAt !== undefined) {
+    const off = await extensionOff("schedule");
+    if (off) return off;
     if (typeof body.scheduledAt !== "string" || !body.scheduledAt.trim()) {
       return apiError("scheduledAt is not a date", 400);
     }

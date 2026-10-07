@@ -21,6 +21,9 @@ const IDS = {
   // Recorded and not written up yet — the case the list's "No minutes" and "Write them all"
   // are for. Without one, the screenshots show a list with nothing waiting.
   pending: "demo-partner-call",
+  // Booked for tomorrow and not recorded — what Upcoming and the calendar show (Schedule and
+  // reminders, an extension).
+  booked: "demo-booked-review",
 };
 
 // English or Japanese demo content.
@@ -204,7 +207,7 @@ async function removeDemo() {
   await prisma.meeting.deleteMany({ where: { id: { in: Object.values(IDS) } } });
 }
 
-async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people, language }) {
+async function makeMeeting({ id, title, description, startedAt, endedAt, recordedMs, labels, lines, minutes, tags, people, language, scheduledAt }) {
   await prisma.meeting.create({
     data: {
       id,
@@ -213,6 +216,7 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
       startedAt,
       endedAt,
       recordedMs,
+      scheduledAt: scheduledAt ?? null,
       speakerLabels: labels ?? null,
       // The language the meeting was held in — a Japanese demo meeting reading "en" in the
       // screenshot is the kind of wrong detail a reader notices first.
@@ -371,6 +375,24 @@ async function main() {
     minutes: null,
     tags: JA ? ["取引先"] : ["Partners"],
     people: [PEOPLE[1], "Emma Walsh"],
+  });
+
+  // Tomorrow at ten, in the machine's own time zone.
+  const bStart = new Date(now + day);
+  bStart.setHours(10, 0, 0, 0);
+  await makeMeeting({
+    id: IDS.booked,
+    title: JA ? "デザインレビュー — 第2回" : "Design Review — round two",
+    description: JA ? "スマホの余白を詰めた案を確認する。" : "Look at the revised mobile spacing.",
+    startedAt: bStart,
+    scheduledAt: bStart,
+    endedAt: null,
+    recordedMs: null,
+    labels: null,
+    lines: [],
+    minutes: null,
+    tags: JA ? ["デザイン"] : ["Design"],
+    people: PEOPLE.slice(0, 2),
   });
 
   console.log("Seeded demo meetings:");

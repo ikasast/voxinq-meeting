@@ -71,7 +71,8 @@ describe("the calendar over the list", () => {
   it("is hidden beside a search or a series, and kept beside a picked day", () => {
     // Both already answer "when" in their own terms; a third axis beside them only narrows to
     // nothing. A picked day is what the calendar is showing, so it stays.
-    expect(src).toContain("const showCalendar = !query && !activeSeries;");
+    // And not at all while Schedule and reminders is switched off.
+    expect(src).toContain("const showCalendar = !query && !activeSeries && schedule;");
   });
 
   it("offers to add a meeting whether or not the day is empty", () => {

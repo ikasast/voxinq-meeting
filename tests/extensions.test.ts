@@ -73,7 +73,7 @@ describe("switching", () => {
   });
 
   it("reaches every page through the layout", () => {
-    expect(read("app/layout.tsx")).toContain("<ExtensionsProvider value={await readExtensions()}>");
+    expect(read("app/layout.tsx")).toContain("<ExtensionsProvider value={extensions}>");
   });
 });
 

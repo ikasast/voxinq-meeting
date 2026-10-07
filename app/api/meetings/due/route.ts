@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -27,6 +28,10 @@ const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
  * thirty seconds — the Android app, which sets a notice for each booked meeting's own time.
  */
 export async function GET(req: NextRequest) {
+  // Off, nothing is due: the browsers' poller is not rendered, and the Android app reads the 404
+  // as no reminders.
+  const off = await extensionOff("schedule");
+  if (off) return off;
   const now = Date.now();
   // How far ahead to also report, in minutes. Absent — which is every browser — adds nothing.
   const soonMinutes = Number(req.nextUrl.searchParams.get("soon") ?? 0);

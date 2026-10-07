@@ -844,7 +844,7 @@ export default function SettingsPage() {
           <RestScreenSetting labelClass={labelClass} inputClass={inputClass} />
         </section>
         {/* Per device, like the theme above it. */}
-        <ReminderNotifications />
+        {extensions.schedule ? <ReminderNotifications /> : null}
         </>
         ) : null}
 

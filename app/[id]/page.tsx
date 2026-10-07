@@ -148,7 +148,7 @@ export default async function MeetingPage({
               not allow. */}
           <MeetingTitle id={meeting.id} title={meeting.title} />
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {upcoming && meeting.scheduledAt ? (
+            {upcoming && meeting.scheduledAt && extensions.schedule ? (
               <BookedTime
                 id={meeting.id}
                 at={meeting.scheduledAt.toISOString()}

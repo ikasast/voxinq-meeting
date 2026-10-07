@@ -87,7 +87,12 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
     <div className="rounded-md border border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] px-3 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <p className="flex-1 text-xs text-[var(--text-secondary)]">
-          {t("{n} of these meetings have no minutes yet", { n: candidates.length })}
+          {t(
+            candidates.length === 1
+              ? "1 of these meetings has no minutes yet"
+              : "{n} of these meetings have no minutes yet",
+            { n: candidates.length },
+          )}
         </p>
         <button
           type="button"
