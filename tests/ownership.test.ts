@@ -44,6 +44,10 @@ describe("the unscoped client", () => {
     // happening to match that owner, which is exactly the assumption this design removes.
     "lib/crypto/index-meeting.ts",
     "lib/crypto/reindex-hook.ts",
+    // Decides, once, which extensions the whole instance starts with, from signs of use across
+    // every account. Counts and a few settings flags only — no meeting content is read — and
+    // the scoped client would see one person's share and decide for everybody from it.
+    "lib/extensions-defaults.ts",
   ]);
 
   it("is imported only where it has to be", () => {

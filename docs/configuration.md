@@ -296,6 +296,24 @@ the household are different acts.
 
 See **[LLM providers](llm-providers.md)** for provider details.
 
+## `extensions.json`
+
+Which extensions are on, for the whole instance — switched by an administrator under
+*Settings → Extensions*. It sits beside `settings.json` (in Docker, the same `settings` volume).
+
+It is written the first time the app starts without one, and never decided again:
+
+- **A new install** (no meetings yet) starts with every extension off. Recording, transcription
+  and minutes are the app; the rest is added.
+- **An instance coming up from 3.x** keeps each extension it shows signs of using: separated or
+  named speakers or voiceprints, a series, a booked meeting, a format of its own, translation,
+  a provider other than Ollama or an endpoint of its own, and Funnel published or
+  `APP_PASSWORD` set. Asking, writing minutes in bulk and suggesting corrections leave no sign,
+  so they stay on.
+
+Switching one off hides it and refuses its API; nothing it stored is deleted. An extension a
+later version adds starts off. Delete the file to have the starting set decided again.
+
 ## Retention
 
 - **Recordings (WAV):** auto-delete after `STT_RECORDING_RETENTION_DAYS` (default 7). Protect

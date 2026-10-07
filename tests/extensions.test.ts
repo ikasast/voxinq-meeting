@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { EXTENSION_IDS, resolveExtensions } from "@/lib/extensions";
+import { EXTENSION_IDS, type ExtensionState, resolveExtensions } from "@/lib/extensions";
+import { defaultsFrom, type Evidence } from "@/lib/extensions-defaults";
 import { keysKeptWhileOff, withExtensions } from "@/lib/extensions-settings";
 import type { AppSettings } from "@/lib/settings";
 
@@ -24,14 +25,15 @@ function sources(dir: string): string[] {
 }
 
 describe("the stored state", () => {
-  it("is everything on when nothing was stored, as 3.x was", () => {
-    for (const on of Object.values(resolveExtensions(null))) expect(on).toBe(true);
+  it("is off for an extension the file does not mention: one added since it was written", () => {
+    for (const on of Object.values(resolveExtensions(null))) expect(on).toBe(false);
   });
 
-  it("keeps what was switched off, and ignores what it does not know", () => {
-    const s = resolveExtensions({ ask: false, translation: "no", somethingElse: false });
+  it("keeps what was stored, and ignores what it does not know", () => {
+    const s = resolveExtensions({ ask: false, translation: true, corrections: "no", somethingElse: false });
     expect(s.ask).toBe(false);
     expect(s.translation).toBe(true);
+    expect(s.corrections).toBe(false);
     expect(Object.keys(s).sort()).toEqual([...EXTENSION_IDS].sort());
   });
 });
@@ -86,7 +88,7 @@ describe("settings while an extension is off", () => {
     minutesTemplates: [{ id: "t1", name: "Weekly", body: "## Weekly", instructions: "" }],
     defaultMinutesTemplateId: "t1",
   } as unknown as AppSettings;
-  const allOn = resolveExtensions(null);
+  const allOn = Object.fromEntries(EXTENSION_IDS.map((id) => [id, true])) as ExtensionState;
 
   it("are what was stored while it is on", () => {
     expect(withExtensions(stored, allOn)).toEqual(stored);
@@ -127,5 +129,43 @@ describe("settings while an extension is off", () => {
     const settings = read("lib/settings.ts");
     const llm = settings.slice(settings.indexOf("export async function getLlmConfig"));
     expect(llm.split(/\r?\n/)[1]).toBe("  const s = await readEffectiveSettings();");
+  });
+});
+
+describe("what an instance starts with", () => {
+  const none: Evidence = {
+    meetings: 0,
+    speakers: false,
+    series: false,
+    schedule: false,
+    minutesFormats: false,
+    translation: false,
+    externalAi: false,
+    externalShare: false,
+  };
+
+  it("is nothing on a new install: the core is the app, the rest is added", () => {
+    for (const on of Object.values(defaultsFrom(none))) expect(on).toBe(false);
+    // Signs without meetings are not an upgrade: a settings file carried over is not use.
+    for (const on of Object.values(defaultsFrom({ ...none, externalAi: true }))) expect(on).toBe(false);
+  });
+
+  it("keeps, coming up from 3.x, what leaves no sign of being used", () => {
+    const s = defaultsFrom({ ...none, meetings: 12 });
+    expect([s.ask, s.bulkMinutes, s.corrections]).toEqual([true, true, true]);
+    expect([s.speakers, s.series, s.schedule, s.minutesFormats, s.translation, s.externalAi, s.externalShare]).toEqual(
+      [false, false, false, false, false, false, false],
+    );
+  });
+
+  it("keeps, coming up from 3.x, each one it finds signs of", () => {
+    const s = defaultsFrom({ ...none, meetings: 12, series: true, speakers: true, externalAi: true });
+    expect([s.series, s.speakers, s.externalAi]).toEqual([true, true, true]);
+    expect([s.schedule, s.translation]).toEqual([false, false]);
+  });
+
+  it("decides every listed extension, so the file it writes is whole", () => {
+    expect(Object.keys(defaultsFrom(none)).sort()).toEqual([...EXTENSION_IDS].sort());
+    expect(Object.keys(defaultsFrom({ ...none, meetings: 1 })).sort()).toEqual([...EXTENSION_IDS].sort());
   });
 });

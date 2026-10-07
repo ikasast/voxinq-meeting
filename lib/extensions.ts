@@ -84,12 +84,13 @@ export function isExtensionId(v: unknown): v is ExtensionId {
 }
 
 /**
- * The state from what was stored. Absent means on: every one of these was simply part of 3.x,
- * so an instance upgrading keeps everything it had until an administrator switches something off.
+ * The state from what was stored. The file is written whole when an instance first starts
+ * (lib/extensions-defaults.ts), so one it does not mention is one added since: off, like every
+ * extension on a new install, until an administrator switches it on.
  */
 export function resolveExtensions(stored: unknown): ExtensionState {
   const s = stored && typeof stored === "object" ? (stored as Record<string, unknown>) : {};
   return Object.fromEntries(
-    EXTENSION_IDS.map((id) => [id, typeof s[id] === "boolean" ? (s[id] as boolean) : true]),
+    EXTENSION_IDS.map((id) => [id, typeof s[id] === "boolean" ? (s[id] as boolean) : false]),
   ) as ExtensionState;
 }
