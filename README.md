@@ -216,8 +216,8 @@ PC, so **the phone can be put away**.
 | **End only** | finish; do the rest later |
 
 **Review.** Read and fix on the phone or the PC: correct a misheard line, fix a word misheard the
-same way everywhere with **Find & replace**, regenerate the minutes in another format or level of
-detail, and **ask** the minutes a question.
+same way everywhere with **Find & replace**, regenerate the minutes in another format, and **ask** the
+minutes a question.
 
 | Recording | Minutes |
 | --- | --- |

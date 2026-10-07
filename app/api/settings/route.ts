@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extensionEnabled } from "@/lib/extensions-store";
+import { readExtensions } from "@/lib/extensions-store";
+import { keysKeptWhileOff, withExtensions } from "@/lib/extensions-settings";
 import { apiError } from "@/lib/api";
 import {
   type AppSettings,
@@ -17,10 +18,9 @@ import { normalizeTemplates } from "@/lib/minutes-templates";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const s = await readSettings();
-  // Translation switched off as an extension reads as off here, which is what every screen and
-  // recorder asks; the choice itself stays stored for when it is switched back on.
-  if (!(await extensionEnabled("translation"))) s.sttTranslate = false;
+  // What belongs to a switched-off extension reads as unused here, which is what every screen
+  // and recorder asks; the choice itself stays stored for when it is switched back on.
+  const s = withExtensions(await readSettings(), await readExtensions());
   const me = await currentUser();
   // The screen needs to know which fields it may offer, and saying so here keeps that answer
   // in one place rather than in the component's idea of who is an administrator.
@@ -60,7 +60,6 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "uiLanguage",
   "meetingTitleFormat",
   "summaryLanguage",
-  "summaryDetail",
 ];
 
 export async function PATCH(req: NextRequest) {
@@ -74,11 +73,7 @@ export async function PATCH(req: NextRequest) {
     const v = body[key];
     if (typeof v === "string") (patch as Record<string, string>)[key] = cleanSetting(v);
   }
-  // Not while translation is switched off: the screen shows it as off, and saving that would
-  // overwrite the choice it kept.
-  if (typeof body.sttTranslate === "boolean" && (await extensionEnabled("translation"))) {
-    patch.sttTranslate = body.sttTranslate;
-  }
+  if (typeof body.sttTranslate === "boolean") patch.sttTranslate = body.sttTranslate;
   // 0 means "work it out from the card". Anything under 512 MB is a typo, not a budget, and
   // writeSettings refuses it too — this is just the earlier of the two.
   if (
@@ -127,6 +122,11 @@ export async function PATCH(req: NextRequest) {
     patch.minutesTemplates = normalizeTemplates(body.minutesTemplates);
   }
 
+  // Not what belongs to a switched-off extension: the screen was shown it as unused, and saving
+  // that would overwrite the choice kept for when the extension comes back.
+  const extensions = await readExtensions();
+  for (const key of keysKeptWhileOff(extensions)) delete patch[key];
+
   // Where the patch goes depends on what is in it. Hardware belongs to the machine and only an
   // administrator may set it; everything else is this person's own preference.
   const me = await currentUser();
@@ -140,7 +140,7 @@ export async function PATCH(req: NextRequest) {
   // With no accounts at all this is the app it has always been: one settings file, no owner.
   if (!me) {
     const next = await writeSettings(patch);
-    return NextResponse.json(toPublic(next));
+    return NextResponse.json(toPublic(withExtensions(next, extensions)));
   }
 
   const machinePatch: Partial<AppSettings> = {};
@@ -165,5 +165,5 @@ export async function PATCH(req: NextRequest) {
     Object.keys(userPatch).length > 0
       ? await writeUserSettings(me.id, userPatch)
       : await readSettings();
-  return NextResponse.json({ ...toPublic(next), isAdmin: me.isAdmin });
+  return NextResponse.json({ ...toPublic(withExtensions(next, extensions)), isAdmin: me.isAdmin });
 }

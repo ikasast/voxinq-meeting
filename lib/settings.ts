@@ -10,6 +10,8 @@ import { resolveScope } from "./db/owner";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
 import { UI_LANGUAGES } from "./i18n";
 import { DEFAULT_TITLE_FORMAT } from "./meeting-title";
+import { readExtensions } from "./extensions-store";
+import { withExtensions } from "./extensions-settings";
 import { prisma } from "./prisma";
 import { onlyUserKeys } from "./settings-scope";
 import {
@@ -82,7 +84,6 @@ export type AppSettings = {
   // and a title is read by whoever opens the list months later, wherever they are.
   meetingTitleFormat: string;
   summaryLanguage: string; // minutes output language "ja" | "en" | "zh" (generated in this language regardless of speech)
-  summaryDetail: string; // minutes verbosity "brief" | "standard" | "detailed" (controls output length + guidance)
   /**
    * What the queue may run at once, in MB of video memory. 0 = work it out from the card.
    *
@@ -126,16 +127,17 @@ function defaults(): AppSettings {
     uiLanguage: "auto",
     meetingTitleFormat: DEFAULT_TITLE_FORMAT,
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
-    summaryDetail: process.env.SUMMARY_DETAIL ?? "standard",
     vramBudgetMb: 0,
     voiceprintThreshold: 0.5,
     ollamaNumCtx: 0,
   };
 }
 
+/** Fields a settings file may still hold that nothing reads any more. */
+const LEGACY_KEYS = ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel", "summaryFormat", "summaryDetail"];
+
 const VALID_STT_LANGUAGES = ["auto", "ja", "en"];
 const VALID_SUMMARY_LANGUAGES = ["ja", "en", "zh"];
-const VALID_SUMMARY_DETAILS = ["brief", "standard", "detailed"];
 const VALID_MIC_MODES = ["standard", "room"];
 
 const VALID_PROVIDERS: LlmProviderName[] = ["ollama", "anthropic", "openai"];
@@ -215,7 +217,8 @@ export async function readMachineSettings(): Promise<AppSettings> {
     // Drop the fields profiles replaced. The spread above carries through whatever the file
     // holds, so leaving them would keep a *raw API key* on the object that toPublic hands to
     // the browser -- it strips the keys it knows about, and these are no longer among them.
-    for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel", "summaryFormat"]) {
+    // summaryDetail too: v4 writes every set of minutes as fully as "Detailed" did.
+    for (const legacy of LEGACY_KEYS) {
       delete (merged as Record<string, unknown>)[legacy];
     }
     if (!merged.sttProfiles.some((p) => p.id === merged.sttDefaultProfileId)) {
@@ -225,8 +228,6 @@ export async function readMachineSettings(): Promise<AppSettings> {
     if (!VALID_STT_LANGUAGES.includes(merged.sttLanguage)) merged.sttLanguage = base.sttLanguage;
     if (!VALID_SUMMARY_LANGUAGES.includes(merged.summaryLanguage))
       merged.summaryLanguage = base.summaryLanguage;
-    if (!VALID_SUMMARY_DETAILS.includes(merged.summaryDetail))
-      merged.summaryDetail = base.summaryDetail;
     if (!VALID_MIC_MODES.includes(merged.micMode)) merged.micMode = base.micMode;
     if (!UI_LANGUAGES.includes(merged.uiLanguage as (typeof UI_LANGUAGES)[number])) {
       merged.uiLanguage = base.uiLanguage;
@@ -289,9 +290,18 @@ function stripUndefined<T extends object>(obj: T): Partial<T> {
   return out;
 }
 
-/** Convert to LlmConfig for lib/llm. */
+/**
+ * The settings as the app acts on them: what belongs to a switched-off extension reads as unused
+ * (lib/extensions-settings.ts). Everything that does work — recording, transcribing, writing
+ * minutes, answering — reads these; the settings screen and its saves read the stored ones.
+ */
+export async function readEffectiveSettings(): Promise<AppSettings> {
+  return withExtensions(await readSettings(), await readExtensions());
+}
+
+/** Convert to LlmConfig for lib/llm. Ollama while External AI is switched off. */
 export async function getLlmConfig(): Promise<LlmConfig> {
-  const s = await readSettings();
+  const s = await readEffectiveSettings();
   return {
     provider: s.llmProvider,
     ollamaBaseUrl: s.ollamaBaseUrl,
@@ -331,11 +341,6 @@ export async function getSummaryLanguage(): Promise<string> {
   return (await readSettings()).summaryLanguage || "ja";
 }
 
-/** Minutes verbosity level (defaults to "standard"). */
-export async function getSummaryDetail(): Promise<string> {
-  return (await readSettings()).summaryDetail || "standard";
-}
-
 /** Cosine threshold for voiceprint auto-naming (settings.json `voiceprintThreshold`). */
 export async function getVoiceprintThreshold(): Promise<number> {
   return (await readSettings()).voiceprintThreshold;
@@ -356,7 +361,7 @@ export function toPublic(s: AppSettings): PublicSettings {
   // Belt and braces for the fields profiles replaced. readSettings drops them, but this is the
   // boundary to the browser and a secret should be removed at the boundary regardless of how it
   // arrived -- a settings file read some other way, or a caller building the object by hand.
-  for (const legacy of ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttRemoteModel", "summaryFormat"]) {
+  for (const legacy of LEGACY_KEYS) {
     delete (rest as Record<string, unknown>)[legacy];
   }
   return {

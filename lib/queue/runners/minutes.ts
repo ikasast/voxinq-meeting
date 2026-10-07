@@ -7,7 +7,8 @@ import { beginGeneration, endGeneration } from "@/lib/llm/generation-registry";
 import { resolveInstructions, resolveTemplate } from "@/lib/minutes-templates";
 import { resolveInclude } from "@/lib/minutes-context";
 import { gatherMinutesContext } from "@/lib/minutes-context-data";
-import { getLlmConfig, readSettings } from "@/lib/settings";
+import { readExtensions } from "@/lib/extensions-store";
+import { getLlmConfig, readEffectiveSettings } from "@/lib/settings";
 import { readNames } from "@/lib/speakers";
 import type { JobMetrics } from "../metrics";
 import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
@@ -25,7 +26,13 @@ import { type MinutesParams, parseParams, STOPPED_REASON } from "../types";
 export async function runMinutes(job: { id: string; meetingId: string | null; params: string }) {
   const meetingId = job.meetingId;
   if (!meetingId) throw new Error("a minutes job needs a meeting");
-  const { detail, provider, templateId, include } = parseParams<MinutesParams>(job.params);
+  const asked = parseParams<MinutesParams>(job.params);
+  // A run asked for before an extension was switched off is written as it now would be: by
+  // Ollama, in the built-in format, given what that format is given.
+  const extensions = await readExtensions();
+  const provider = extensions.externalAi ? asked.provider : undefined;
+  const templateId = extensions.minutesFormats ? asked.templateId : undefined;
+  const include = extensions.minutesFormats ? asked.include : undefined;
 
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
@@ -48,7 +55,7 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
   // What else it is given: what this run chose, or else what its template has on by default.
   const ctx = await gatherMinutesContext(meetingId);
   if (!ctx) throw new Error("meeting not found");
-  const settings = await readSettings();
+  const settings = await readEffectiveSettings();
   const given = new Set(
     include ??
       resolveInclude(settings.minutesTemplates, {
@@ -105,11 +112,10 @@ export async function runMinutes(job: { id: string; meetingId: string | null; pa
         previousMinutes: given.has("previous") ? (ctx.previous ?? undefined) : undefined,
         background: given.has("background") ? ctx.background : undefined,
         speakerLabels: readNames(meeting.speakerLabels),
-        detail,
         provider,
         format: resolveTemplate(settings.minutesTemplates, {
           chosenId: templateId,
-          seriesFormat: meeting.series?.summaryFormat,
+          seriesFormat: extensions.minutesFormats ? meeting.series?.summaryFormat : undefined,
           defaultId: settings.defaultMinutesTemplateId,
         }),
         instructions: resolveInstructions(settings.minutesTemplates, {

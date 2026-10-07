@@ -1,7 +1,7 @@
 import { findInstalled, listModels, loadedMb, ollamaBase } from "@/lib/llm/ollama-models";
 import { whisperModel } from "@/lib/stt/models";
 import { sttInternalUrl } from "@/lib/stt/internal";
-import { readSettings } from "@/lib/settings";
+import { readEffectiveSettings, readSettings } from "@/lib/settings";
 import type { JobKind } from "./types";
 import type { MinutesParams } from "./types";
 import type { TranscribeParams } from "./runners/transcribe";
@@ -118,7 +118,7 @@ async function ollamaModelMb(baseUrl: string, model: string): Promise<number> {
  * running is costed as the old one. It is an estimate either way.
  */
 export async function estimateVramMb(kind: JobKind, params: object): Promise<number> {
-  const s = await readSettings();
+  const s = await readEffectiveSettings();
 
   if (kind === "minutes") {
     const p = params as MinutesParams;

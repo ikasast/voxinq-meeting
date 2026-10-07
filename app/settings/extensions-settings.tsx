@@ -52,6 +52,19 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       needs: null,
     },
+    minutesFormats: {
+      name: t("Minutes formats"),
+      summary: t("Formats and writing instructions of your own, and choosing what the model is given."),
+      scenes: [
+        t("Regular meetings whose minutes should always have the same headings."),
+        t("A client meeting and an internal one, each wanting its minutes written differently."),
+        t("Leaving the previous minutes or the glossary out of what the model reads, for one run."),
+      ],
+      where: t(
+        "Settings, Minutes, to make formats; and, whenever minutes are written, a choice of format and of what the model is given. Off, minutes are written in the built-in format.",
+      ),
+      needs: null,
+    },
     corrections: {
       name: t("Suggest corrections"),
       summary: t(
@@ -92,6 +105,21 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       // A product name, the same in every language.
       needs: "Tailscale Funnel",
+    },
+    externalAi: {
+      name: t("External AI"),
+      summary: t(
+        "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.",
+      ),
+      scenes: [
+        t("There is no GPU for a local model, and meetings may be sent to a cloud service."),
+        t("A model larger than this machine can run, for long or difficult meetings."),
+        t("A server of your own: LM Studio or vLLM for minutes, a Whisper server on another machine for transcription."),
+      ],
+      where: t(
+        "Settings, LLM and Transcription: where minutes are written and where speech is recognised. Off, everything is done by Ollama and the built-in transcription.",
+      ),
+      needs: t("An API key, and agreeing to send meetings outside this machine"),
     },
   };
 }

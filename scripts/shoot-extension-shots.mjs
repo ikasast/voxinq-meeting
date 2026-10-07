@@ -4,6 +4,7 @@
 //   DATABASE_URL=… node scripts/seed-demo.mjs                       # fictional meetings
 //   DATABASE_URL=… BASE_URL=http://127.0.0.1:3100 node scripts/shoot-extension-shots.mjs
 //   LOCALE=ja node scripts/seed-demo.mjs && LOCALE=ja … node scripts/shoot-extension-shots.mjs
+//   ONLY=ask,translation …                                      # just those
 //
 // Writes public/extension-shots/<locale>/<id>.webp, which the details dialog shows. Same
 // throwaway instance as the README screenshots (docs/screenshots/README.md), with every
@@ -42,6 +43,11 @@ const W = JA
       suggest: "誤変換の候補を出す",
       transcript: "発言",
       showTranslations: "翻訳を表示",
+      regenerate: "作り直す",
+      templates: [
+        { id: "t-weekly", name: "定例会議（決定事項と ToDo）", body: "## 決定事項\n## ToDo", instructions: "" },
+        { id: "t-client", name: "取引先との打ち合わせ", body: "## 合意事項\n## 宿題", instructions: "" },
+      ],
     }
   : {
       question: "Who took on what?",
@@ -53,6 +59,11 @@ const W = JA
       suggest: "Suggest fixes",
       transcript: "Transcript",
       showTranslations: "Show translations",
+      regenerate: "Regenerate",
+      templates: [
+        { id: "t-weekly", name: "Weekly meeting (decisions and to-dos)", body: "## Decisions\n## To-dos", instructions: "" },
+        { id: "t-client", name: "Client meeting", body: "## Agreed\n## Follow-ups", instructions: "" },
+      ],
     };
 
 const prisma = new PrismaClient();
@@ -67,6 +78,15 @@ async function transcriptLines(page) {
   const b = await page.getByRole("button", { name: W.suggest }).boundingBox();
   const top = b.y - 12;
   return { clip: { x: d.x - 8, y: top, width: d.width + 16, height: d.y + d.height - top + 8 } };
+}
+
+/** Answer the settings with some of them changed: what a screen is shown, not what is stored. */
+async function settingsWith(page, change) {
+  await page.route("**/api/settings", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    route.fulfill({ response, json: { ...(await response.json()), ...change } });
+  });
 }
 
 const SHOTS = {
@@ -93,6 +113,17 @@ const SHOTS = {
     return { clip: { x: b.x - 16, y: b.y - 10, width: b.width + 32, height: 514 } };
   },
 
+  async minutesFormats(page) {
+    // Two formats of the kind somebody makes, so the choice has something in it.
+    await settingsWith(page, { minutesTemplates: W.templates, defaultMinutesTemplateId: "" });
+    await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: W.regenerate, exact: true }).first().click();
+    const select = page.locator("#regen-template");
+    await select.locator('option[value="t-weekly"]').waitFor({ state: "attached" });
+    await select.selectOption("t-weekly");
+    return select.locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
+  },
+
   async corrections(page) {
     const line = await prisma.transcript.findFirst({
       where: { meetingId: "demo-research-sync", text: { contains: W.misheard } },
@@ -113,6 +144,17 @@ const SHOTS = {
     await page.goto(`${BASE}/demo-partner-call`, { waitUntil: "networkidle" });
     await page.getByText(W.showTranslations).first().waitFor();
     return transcriptLines(page);
+  },
+
+  async externalAi(page) {
+    // Shown with Anthropic chosen: the choice, and the warning that meetings leave the machine.
+    await settingsWith(page, { llmProvider: "anthropic" });
+    await page.goto(`${BASE}/settings?tab=llm`, { waitUntil: "networkidle" });
+    const card = page.locator("section.card", { has: page.locator("#llmProvider") }).first();
+    await card.waitFor();
+    const c = await card.boundingBox();
+    const warning = await card.getByText("api.anthropic.com").first().locator("xpath=..").boundingBox();
+    return { clip: { x: c.x, y: c.y, width: c.width, height: warning.y + warning.height - c.y + 10 } };
   },
 
   async externalShare(page) {
@@ -158,7 +200,10 @@ async function main() {
     } catch {}
   });
 
+  // ONLY=ask,translation retakes just those: the others carry dates and would change for nothing.
+  const only = process.env.ONLY?.split(",").filter(Boolean);
   for (const [id, shoot] of Object.entries(SHOTS)) {
+    if (only && !only.includes(id)) continue;
     const page = await context.newPage();
     const target = await shoot(page);
     await page.waitForTimeout(400);

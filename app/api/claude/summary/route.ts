@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
   if (!meetingId) return apiError("meetingId is required", 400);
 
   // Overrides for this run only, never saved. writeMinutes validates the values.
-  const detail = field("detail");
   const provider = field("provider");
   const templateId = field("templateId");
   // Which context goes in with the transcript; absent leaves it to the template.
@@ -58,7 +57,7 @@ export async function POST(req: NextRequest) {
   // The job is the whole record that this was asked for: the screens read it, so there is
   // nothing to write on the meeting. What the meeting keeps is how the last attempt ended, and
   // that is written when this one does.
-  await enqueue({ kind: "minutes", meetingId, params: { detail, provider, templateId, ...(include ? { include } : {}) } });
+  await enqueue({ kind: "minutes", meetingId, params: { provider, templateId, ...(include ? { include } : {}) } });
   // Nudge the loop so a queue that is empty does not wait out a tick before starting.
   void tick();
 

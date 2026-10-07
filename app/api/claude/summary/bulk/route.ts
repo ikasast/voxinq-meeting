@@ -17,8 +17,8 @@ export const runtime = "nodejs";
 //
 // The queue decides what actually runs when. This only puts them in it.
 //
-// A format, a detail level and a provider can come with the batch, for this batch only — the
-// same three the single-meeting route takes, applied to every meeting in it and saved nowhere.
+// A format and a provider can come with the batch, for this batch only — the same ones the
+// single-meeting route takes, applied to every meeting in it and saved nowhere.
 const MAX_AT_ONCE = 200;
 
 export async function POST(req: NextRequest) {

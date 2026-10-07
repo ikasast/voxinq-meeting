@@ -35,8 +35,6 @@ export const OPEN_STATUSES: JobStatus[] = ["queued", "running"];
 export const STOPPED_REASON = "Minutes generation was stopped. You can regenerate them.";
 
 export type MinutesParams = {
-  /** "brief" | "standard" | "detailed" — absent uses the saved setting. */
-  detail?: string;
   /** "ollama" | "anthropic" | "openai" — absent uses the saved setting. */
   provider?: string;
   /** A saved template id, or "default" for the built-in format. */

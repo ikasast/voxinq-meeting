@@ -8,7 +8,7 @@ import { useBackGuard } from "@/app/use-back-guard";
 // Ending a meeting with minutes, or with speaker separation, asks how first.
 //
 // Both used to be a yes/no with one checkbox, and the minutes were then written however the
-// settings said: the format, the detail and the model could only be changed by writing them
+// settings said: the format and the model could only be changed by writing them
 // again afterwards. The choices here are the same ones Regenerate and Write them all offer
 // (app/minutes-options.tsx), applied to this run only. Speaker separation asks how many people
 // spoke, which is what decides whether two voices are kept apart or merged.

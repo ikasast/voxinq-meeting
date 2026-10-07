@@ -75,14 +75,15 @@ describe("the glossary", () => {
 
 describe("the chained minutes' choices", () => {
   it("go with the request only when minutes are chained", () => {
-    const minutesParams = { detail: "detailed", templateId: "tpl-1" };
+    const minutesParams = { provider: "ollama", templateId: "tpl-1" };
     expect(withDefaults({ thenMinutes: true, minutesParams }, settings).minutesParams).toEqual(minutesParams);
     expect("minutesParams" in withDefaults({ minutesParams }, settings)).toBe(false);
   });
 
-  it("are kept to the three a run can be given, as short strings", () => {
+  it("are kept to the two a run can be given, as short strings", () => {
+    // "detail" was a third until v4 wrote every set of minutes in full; one still in a queued
+    // request is dropped like anything else unknown.
     expect(minutesParamsFrom({ detail: "brief", provider: "ollama", templateId: "a", other: "x" })).toEqual({
-      detail: "brief",
       provider: "ollama",
       templateId: "a",
     });

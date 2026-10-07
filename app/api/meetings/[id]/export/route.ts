@@ -119,7 +119,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       latest
         ? `- **Minutes LLM:** ${latest.provider ?? s.llmProvider}${latest.model ? ` / ${latest.model}` : ""}${latest.provider ? "" : " (current setting — not recorded for this version)"}`
         : "- **Minutes LLM:** (no minutes generated)",
-      `- **Minutes language / detail:** ${s.summaryLanguage} / ${s.summaryDetail}`,
+      `- **Minutes language:** ${s.summaryLanguage}`,
       `- **Minutes format:** ${
         s.minutesTemplates.find((t) => t.id === s.defaultMinutesTemplateId)?.name ??
         "built-in default"

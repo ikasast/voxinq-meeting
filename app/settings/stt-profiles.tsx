@@ -46,6 +46,7 @@ export function SttProfiles({
   localModel,
   localEditor,
   notice,
+  endpoints = true,
   onChange,
   onDefaultChange,
 }: {
@@ -61,6 +62,9 @@ export function SttProfiles({
    *  rather than at the top of the card because it is about the choice in that select, and a
    *  warning above the control it is about reads as being about the page. */
   notice: ReactNode;
+  /** False while External AI is switched off: this machine is the only place speech goes, so
+   *  there is nothing to pick and nothing to add — just its own row. */
+  endpoints?: boolean;
   onChange: (next: DraftProfile[]) => void;
   onDefaultChange: (id: string) => void;
 }) {
@@ -94,6 +98,8 @@ export function SttProfiles({
 
   return (
     <div className="space-y-4">
+      {endpoints ? (
+      <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 flex-1">
           <label htmlFor="sttDefaultProfileId" className={labelClass}>
@@ -121,6 +127,8 @@ export function SttProfiles({
       </div>
 
       {notice}
+      </>
+      ) : null}
 
       <div className="overflow-x-auto rounded-md border border-[var(--border)]">
         <table className="w-full min-w-[26rem] text-sm">

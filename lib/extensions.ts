@@ -25,6 +25,12 @@ export const EXTENSIONS = [
     needs: null,
   },
   {
+    id: "minutesFormats",
+    name: "Minutes formats",
+    description: "Formats and writing instructions of your own, and choosing what the model is given.",
+    needs: null,
+  },
+  {
     id: "corrections",
     name: "Suggest corrections",
     description: "Check the transcript against the glossary, the series name and the participants, and suggest fixes.",
@@ -41,6 +47,12 @@ export const EXTENSIONS = [
     name: "Read-only sharing",
     description: "Publish a password-protected, read-only link outside the tailnet.",
     needs: "Tailscale Funnel",
+  },
+  {
+    id: "externalAi",
+    name: "External AI",
+    description: "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.",
+    needs: "An API key, and agreeing to send meetings outside this machine",
   },
 ] as const;
 

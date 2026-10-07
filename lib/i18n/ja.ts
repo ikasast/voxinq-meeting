@@ -290,7 +290,8 @@ export const ja: Record<string, string> = {
   "Generating new minutes. A new version will be added below when done…":
     "新しい議事録を作成中です。完成すると下に新しい版が追加されます…",
   Regenerate: "作り直す",
-  "Regenerate the minutes (choose detail & provider)": "議事録を作り直す（詳しさと生成元を選べます）",
+  "Regenerate the minutes": "議事録を作り直す",
+  "Choose how they are written…": "作り方を選ぶ…",
   "Regeneration failed": "作り直しに失敗しました",
   Edit: "編集",
   Cancel: "キャンセル",
@@ -303,8 +304,6 @@ export const ja: Record<string, string> = {
   "Same as settings": "設定と同じ",
   Provider: "生成元",
   "Model: {model} (from Settings)": "モデル: {model}（設定から）",
-  "Brief (shorter)": "簡潔（短め）",
-  "Detailed (fuller)": "詳細（厚め）",
   "Ollama (local)": "Ollama（ローカル）",
   Anthropic: "Anthropic",
   "OpenAI-compatible": "OpenAI 互換",
@@ -507,9 +506,6 @@ export const ja: Record<string, string> = {
   "Minutes language": "議事録の言語",
   "Minutes are generated in this language regardless of the spoken language.":
     "話された言語にかかわらず、議事録はこの言語で生成されます。",
-  "Minutes detail": "議事録の詳しさ",
-  "How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.":
-    "どこまで詳しく書くか。「詳細」は会議が長いほど分量が増えます（少し時間がかかります）。長い会議は自動で分割して要約するので、後半が落ちることはありません。",
   "Business / research background": "業務・研究の背景",
   "Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.":
     "会議ごとの目的とは別に、常に渡される背景情報です。半ページ〜1ページ程度を目安に（長すぎると精度が落ちます）。用語の解釈にだけ使われ、議事録には転記されません。",
@@ -640,6 +636,28 @@ export const ja: Record<string, string> = {
   "Publish a password-protected, read-only link outside the tailnet.": "パスワード付きの読み取り専用リンクを、tailnet の外に公開します。",
   "Extensions": "拡張機能",
   "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.": "録音・文字起こし・議事録はいつでも使えます。ここで選ぶ機能は、その上に追加するもので、この機器を使う全員に効きます。無効にすると画面から消えますがデータは残り、有効に戻せば元どおりになります。",
+  "Minutes formats": "議事録の書式",
+  "Formats and writing instructions of your own, and choosing what the model is given.":
+    "自分で作った書式と書き方の指示で議事録を書き、モデルに渡す情報も選べます。",
+  "Regular meetings whose minutes should always have the same headings.": "定例会議の議事録を、毎回同じ見出しでそろえたい。",
+  "A client meeting and an internal one, each wanting its minutes written differently.":
+    "取引先との打ち合わせと社内の会議で、議事録の書き方を変えたい。",
+  "Leaving the previous minutes or the glossary out of what the model reads, for one run.":
+    "前回の議事録や用語集を、今回だけモデルに渡さずに書かせたい。",
+  "Settings, Minutes, to make formats; and, whenever minutes are written, a choice of format and of what the model is given. Off, minutes are written in the built-in format.":
+    "設定の「議事録」で書式を作れます。議事録を作るたびに、書式とモデルに渡す情報を選べます。無効のときは、組み込みの書式で書かれます。",
+  "External AI": "外部の AI",
+  "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.":
+    "Anthropic や OpenAI 互換のサービスで議事録を書き、文字起こしにも好きなサービスを使えます。",
+  "There is no GPU for a local model, and meetings may be sent to a cloud service.":
+    "ローカルのモデルを動かす GPU がなく、会議の内容をクラウドのサービスに送ってよい。",
+  "A model larger than this machine can run, for long or difficult meetings.":
+    "長い会議や難しい会議を、この機器では動かせない大きなモデルに書かせたい。",
+  "A server of your own: LM Studio or vLLM for minutes, a Whisper server on another machine for transcription.":
+    "自分で立てたサーバーを使いたい（議事録に LM Studio や vLLM、文字起こしに別の機器の Whisper サーバー）。",
+  "Settings, LLM and Transcription: where minutes are written and where speech is recognised. Off, everything is done by Ollama and the built-in transcription.":
+    "設定の「LLM」と「文字起こし」で、議事録を書く先と文字起こしの先を選べます。無効のときは、すべて Ollama と組み込みの文字起こしで処理します。",
+  "An API key, and agreeing to send meetings outside this machine": "API キーと、会議の内容をこの機器の外に送ることへの同意",
   "Details": "詳しく",
   "When it helps": "こんな場面で",
   "Where it shows up": "どこに出るか",
@@ -940,8 +958,6 @@ export const ja: Record<string, string> = {
   "Ollama model": "Ollama のモデル",
   "Terms and names the recogniser should expect. People can add their own on top.":
     "認識時に想定させる用語や名前です。各自がこれに自分の分を足せます。",
-  Brief: "簡潔",
-  Detailed: "詳細",
   "Room (distant voices)": "会議室（離れた声を拾う）",
   "Save the defaults": "既定値を保存",
 
@@ -1255,7 +1271,6 @@ export const ja: Record<string, string> = {
   "Add {name} to this series": "{name} をこのシリーズに追加",
   "The transcription language is saved on the meeting. Microphone mode and source apply to live recording only (source can also be switched while recording).": "文字起こしの言語は会議に保存されます。マイクモードと音声ソースはリアルタイム録音にだけ使われます（音声ソースは録音中にも切り替えられます）。",
   "Generating minutes in the background. They will appear automatically when done…": "バックグラウンドで議事録を作成しています。終わると自動で表示されます…",
-  "Detail": "詳しさ",
   "Applies to this run only — saved settings are unchanged.": "今回だけに適用されます。保存済みの設定は変わりません。",
   "Trim the recording?": "録音をトリミングしますか？",
   "Only {from}–{to} is kept. The rest of the audio and {n} lines outside it are deleted, and this cannot be undone. Existing minutes are not rewritten, and speaker separation will need to be run again.":
@@ -1292,7 +1307,6 @@ export const ja: Record<string, string> = {
     "この書式で作るときに、既定でモデルへ渡す情報です。実行前にその回だけ変えられます。",
   "Applies to this batch only — saved settings are unchanged.":
     "今回のまとめて作成だけに適用されます。保存済みの設定は変わりません。",
-  "Format, detail and model…": "書式・詳細度・モデル…",
   "Hide options": "オプションを閉じる",
   "This link cannot be used": "このリンクは使えません",
   "That link has expired or has already been used.": "このリンクは期限切れか、すでに使われています。",

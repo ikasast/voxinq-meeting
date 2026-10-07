@@ -56,15 +56,8 @@ type PublicSettings = {
   uiLanguage: string;
   meetingTitleFormat: string;
   summaryLanguage: string;
-  summaryDetail: string;
   vramBudgetMb: number;
 };
-
-const SUMMARY_DETAILS: { id: string; label: string }[] = [
-  { id: "brief", label: "Brief (key points, shorter)" },
-  { id: "standard", label: "Standard" },
-  { id: "detailed", label: "Detailed (fuller for longer meetings)" },
-];
 
 const SUMMARY_LANGUAGES: { id: string; label: string }[] = [
   { id: "ja", label: "Japanese (日本語)" },
@@ -325,6 +318,7 @@ export default function SettingsPage() {
             disabled={saving}
             localModel={settings.whisperModel}
             notice={sttDest ? <RemoteSttNotice host={sttDest} /> : null}
+            endpoints={extensions.externalAi}
             localEditor={
               <>
                 <label htmlFor="whisperModel" className={labelClass}>
@@ -531,27 +525,6 @@ export default function SettingsPage() {
             </p>
           </div>
           <div>
-            <label htmlFor="summaryDetail" className={labelClass}>
-              {t("Minutes detail")}
-            </label>
-            <select
-              id="summaryDetail"
-              value={settings.summaryDetail}
-              onChange={(e) => update("summaryDetail", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {SUMMARY_DETAILS.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {settingLabel(t, d.label)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("How much detail. “Detailed” grows with longer meetings (takes a bit longer). Long meetings are auto-summarized in chunks, so the latter half is never dropped.")}
-            </p>
-          </div>
-          <div>
             <label htmlFor="llmBackground" className={labelClass}>
               {t("Business / research background")}
             </label>
@@ -571,13 +544,15 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <MinutesTemplates
-            templates={draftTemplates}
-            defaultId={settings.defaultMinutesTemplateId}
-            disabled={saving}
-            onChange={setDraftTemplates}
-            onDefaultChange={(id) => update("defaultMinutesTemplateId", id)}
-          />
+          {extensions.minutesFormats ? (
+            <MinutesTemplates
+              templates={draftTemplates}
+              defaultId={settings.defaultMinutesTemplateId}
+              disabled={saving}
+              onChange={setDraftTemplates}
+              onDefaultChange={(id) => update("defaultMinutesTemplateId", id)}
+            />
+          ) : null}
         </section>
         ) : null}
 
@@ -585,6 +560,9 @@ export default function SettingsPage() {
         {tab === "llm" ? (
         <section className="card space-y-4 p-6">
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Minutes generation (LLM)")}</h2>
+          {/* Without External AI, Ollama is the only writer: no choice, and nothing sent away. */}
+          {extensions.externalAi ? (
+          <>
           <div>
             <label htmlFor="llmProvider" className={labelClass}>
               {t("Provider")}
@@ -605,6 +583,8 @@ export default function SettingsPage() {
           </div>
 
           <ExternalProviderNotice settings={settings} />
+          </>
+          ) : null}
 
           {/* Ollama fieldset */}
           <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "ollama")}>
@@ -632,6 +612,8 @@ export default function SettingsPage() {
             />
           </fieldset>
 
+          {extensions.externalAi ? (
+          <>
           {/* Anthropic */}
           <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "anthropic")}>
             <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("Anthropic")}</legend>
@@ -742,6 +724,8 @@ export default function SettingsPage() {
               ) : null}
             </div>
           </fieldset>
+          </>
+          ) : null}
         </section>
         ) : null}
 

@@ -59,13 +59,10 @@ export const DEFAULT_MINUTES_INSTRUCTIONS = `- 発言ログをそのままコピ
 - 書くことの無い見出しも残し、本文は「特になし」とする。
 - 文体は常体・体言止め。「ですます調」を禁止（「〜です」「〜ます」「〜ました」は使わない。例:「〜を決定」「〜が課題」「次回までに〜」）。`;
 
-const DETAIL_GUIDANCE: Record<string, string> = {
-  brief:
-    "全体を短くまとめる。各見出しは要点のみの少数の箇条書きにし、細部は省く。",
-  standard: "",
-  detailed:
-    "会議の内容を充実させて詳しくまとめる。「会議の詳細」は議題ごとに、誰が何を述べ・どう議論し・どう決まったかを取りこぼさず、必要なだけ多くの箇条書きで丁寧に記述する（発言ログにある事項に限る）。",
-};
+// How thorough. There used to be three levels to choose from (brief / standard / detailed); v4
+// keeps the fullest one for every run, and anything shorter is a format's own instructions.
+const DETAIL_RULE =
+  "会議の内容を充実させて詳しくまとめる。「会議の詳細」は議題ごとに、誰が何を述べ・どう議論し・どう決まったかを取りこぼさず、必要なだけ多くの箇条書きで丁寧に記述する（発言ログにある事項に限る）。";
 
 /** What the meeting is, as recorded: its name, when it was held, who was registered for it. */
 export type MeetingFacts = { title?: string; when?: string; participants?: string[] };
@@ -89,7 +86,6 @@ export function buildSummarySystemPrompt(
     multiSpeaker?: boolean;
     language?: string;
     format?: string;
-    detail?: string;
     /** The series' shared background, if this meeting is in one. */
     seriesBackground?: string | null;
     /** How to write, from the template. Empty uses DEFAULT_MINUTES_INSTRUCTIONS. */
@@ -111,9 +107,7 @@ export function buildSummarySystemPrompt(
 
   const instructions = opts?.instructions?.trim() || DEFAULT_MINUTES_INSTRUCTIONS;
 
-  // Verbosity guidance (brief / standard / detailed).
-  const detailRule = DETAIL_GUIDANCE[opts?.detail ?? "standard"] ?? "";
-  const detailSection = detailRule ? `\n\n## 詳しさ\n${detailRule}` : "";
+  const detailSection = `\n\n## 詳しさ\n${DETAIL_RULE}`;
 
   return `あなたは会議の議事録をまとめる担当者です。
 これから渡すのは、音声認識で書き起こした未整形の発言ログです。内容を**要約して**、Markdown の議事録にしてください。${meetingSection(opts?.meeting)}${seriesSection(opts?.seriesBackground)}${agendaSection(description)}

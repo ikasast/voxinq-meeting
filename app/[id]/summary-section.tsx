@@ -71,7 +71,7 @@ export function SummarySection({
   const [genBusy, setGenBusy] = useState(false);
   const [stopping, setStopping] = useState(false);
 
-  // "Regenerate with options" panel: per-run format, detail level and provider, prefilled from
+  // "Regenerate with options" panel: per-run format and provider, prefilled from
   // the saved settings the first time it opens.
   const [showOptions, setShowOptions] = useState(false);
   const opts = useMinutesChoice(meetingId);
@@ -135,7 +135,6 @@ export function SummarySection({
   };
 
   const regenerate = async (overrides?: {
-    detail?: string;
     provider?: string;
     templateId?: string;
     include?: string[];
@@ -199,7 +198,7 @@ export function SummarySection({
               // While generating, the regenerate button becomes a Stop button.
               <StopButton onClick={stopGeneration} busy={stopping} />
             ) : (
-              // Opens the options panel (detail level + provider) — the actual run
+              // Opens the options panel (format + provider) — the actual run
               // starts from the panel's Regenerate button.
               <button
                 type="button"
@@ -209,7 +208,7 @@ export function SummarySection({
                 title={
                   waitingOn
                     ? t("{task} — this will wait its turn in the queue.", { task: waitingOn })
-                    : t("Regenerate the minutes (choose detail & provider)")
+                    : t("Regenerate the minutes")
                 }
                 aria-label={t("Regenerate")}
                 aria-expanded={showOptions}
@@ -224,7 +223,7 @@ export function SummarySection({
   );
 
   // The choices for one run, opened from Generate, Retry or Regenerate. Asking first is the point:
-  // the format, the detail and the model used to be whatever the settings said, unless the
+  // the format and the model used to be whatever the settings said, unless the
   // minutes were written twice.
   const optionsPanel =
     showOptions && !editing ? (
@@ -250,7 +249,6 @@ export function SummarySection({
                 type="button"
                 onClick={() =>
                   regenerate({
-                    detail: opts.choice.detail,
                     provider: opts.choice.provider,
                     templateId: opts.choice.templateId || undefined,
                     include: opts.choice.include,
@@ -320,7 +318,7 @@ export function SummarySection({
     <>
       {header}
 
-      {/* Options for this run only: format, detail and model (settings unchanged). */}
+      {/* Options for this run only: format and model (settings unchanged). */}
       {optionsPanel}
 
       {processing ? (

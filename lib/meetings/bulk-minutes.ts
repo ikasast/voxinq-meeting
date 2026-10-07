@@ -44,7 +44,6 @@ export function needsMinutes(row: MinutesCandidateRow): boolean {
   );
 }
 
-const DETAILS = new Set(["brief", "standard", "detailed"]);
 const PROVIDERS = new Set(["ollama", "anthropic", "openai"]);
 
 /**
@@ -57,7 +56,6 @@ const PROVIDERS = new Set(["ollama", "anthropic", "openai"]);
  */
 export function minutesOverrides(body: Record<string, unknown> | null): MinutesParams {
   const out: MinutesParams = {};
-  if (typeof body?.detail === "string" && DETAILS.has(body.detail)) out.detail = body.detail;
   if (typeof body?.provider === "string" && PROVIDERS.has(body.provider)) out.provider = body.provider;
   if (
     typeof body?.templateId === "string" &&
