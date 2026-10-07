@@ -1,5 +1,5 @@
 {
-  "version": "3.9.0",
+  "version": "3.9.1",
   "description": "Self-hosted meeting minutes: record in the browser, transcribe and summarize on your own machine",
   "homepage": "https://github.com/ikasast/voxinq-meeting",
   "license": "MIT",
@@ -34,11 +34,11 @@
   },
   "architecture": {
     "64bit": {
-      "url": "https://github.com/ikasast/voxinq-meeting/releases/download/v3.9.0/voxinq-3.9.0.tar.gz",
-      "hash": "6ee5747838303491133be874a4df12a8d9253d48f7dd48c9c6b50ce70a85f98b"
+      "url": "https://github.com/ikasast/voxinq-meeting/releases/download/v3.9.1/voxinq-3.9.1.tar.gz",
+      "hash": "c4d3f6413d65ad13cd43faa0ef2fbe3ee54a18d63cd565092bdfec50b4d2f1fd"
     }
   },
-  "extract_dir": "voxinq-3.9.0",
+  "extract_dir": "voxinq-3.9.1",
   "post_install": [
     "# The CLI's own dependencies -- the bundled PostgreSQL binaries among them. The app's are",
     "# installed by `voxinq setup`, which the notes ask the user to run: it takes minutes and",
