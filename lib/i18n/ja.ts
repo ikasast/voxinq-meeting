@@ -1105,6 +1105,24 @@ export const ja: Record<string, string> = {
   // ---- A booked meeting whose time has come ----
   "It is time for this meeting.": "この会議の時刻になりました。",
   "Notify me on this device": "この端末で通知を受け取る",
+  "Meeting reminders on this device": "この端末への予定の通知",
+  "When a booked meeting's time comes, this device shows a notification, even while you are looking at another window. Voxinq has to be open in a tab (in the background is fine): with every tab closed nothing arrives, as there is no outside push service. Saved per device (browser).":
+    "予定を入れた会議の時刻になると、この端末に通知を出します。ほかのウィンドウを見ていても届きます。Voxinq をどこかのタブで開いておく必要があります（裏のタブで構いません）。外部の通知配信サービスを使わないため、タブをすべて閉じていると届きません。端末（ブラウザ）ごとの設定です。",
+  "In the Android app, reminders come from the app itself and follow the phone's notification settings.":
+    "Android アプリでは、予定の通知はアプリ自身が出します。スマホの通知設定に従います。",
+  "Notifications need a secure connection. Open Voxinq through its https address to turn them on.":
+    "通知は安全な接続（https）でしか使えません。https のアドレスで Voxinq を開いてから有効にしてください。",
+  "This browser cannot show notifications.": "このブラウザでは通知を使えません。",
+  "Blocked for this site. Allow notifications in the browser's site settings (the icon at the left of the address bar), then come back to this page.":
+    "このサイトの通知はブロックされています。ブラウザのサイト設定（アドレスバー左のアイコン）で通知を許可してから、このページに戻ってください。",
+  "On for this device": "この端末で有効",
+  "Send a test notification": "テスト通知を送る",
+  "Sent. If nothing appeared, check the notification settings of your operating system.":
+    "送りました。何も表示されない場合は、Windows など OS 側の通知設定を確認してください。",
+  "The notification could not be shown.": "通知を表示できませんでした。",
+  "Turn on notifications": "通知を有効にする",
+  "Notifications are on. A booked meeting will look like this when its time comes.":
+    "通知は有効です。予定の会議の時刻になると、このように表示されます。",
   "Show these on this device even when the app is not the window you are looking at. Needs the browser or the installed app to be running — there is no outside push service.":
     "このアプリを見ていないときでも、この端末に通知を出します。ブラウザ（またはインストールしたアプリ）が動いている必要があります — 外部のプッシュ配信は使いません。",
 

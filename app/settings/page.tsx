@@ -16,6 +16,7 @@ import {
 } from "@/lib/stt/models";
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { DataBackup } from "./data-backup";
+import { ReminderNotifications } from "./reminder-notifications";
 import { StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
@@ -777,6 +778,7 @@ export default function SettingsPage() {
         {tab === "defaults" ? <HouseDefaults /> : null}
 
         {tab === "appearance" ? (
+        <>
         <section className="card space-y-4 p-6">
           <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Appearance")}</h2>
           <div>
@@ -886,6 +888,9 @@ export default function SettingsPage() {
             </p>
           </div>
         </section>
+        {/* Per device, like the theme above it. */}
+        <ReminderNotifications />
+        </>
         ) : null}
 
         {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}

@@ -15,6 +15,8 @@ const root = join(__dirname, "..");
 const route = readFileSync(join(root, "app/api/meetings/due/route.ts"), "utf8");
 const alert = readFileSync(join(root, "app/due-meeting-alert.tsx"), "utf8");
 const sw = readFileSync(join(root, "public/sw.js"), "utf8");
+const helpers = readFileSync(join(root, "app/device-notifications.ts"), "utf8");
+const settingsCard = readFileSync(join(root, "app/settings/reminder-notifications.tsx"), "utf8");
 
 describe("which meetings are worth interrupting for", () => {
   it("only ones whose time has passed", () => {
@@ -61,9 +63,33 @@ describe("what the reminder offers", () => {
     // A prompt nobody asked for is how a browser decides to stop asking on this site's behalf
     // for good. So the banner comes first and carries the offer.
     const ask = alert.slice(alert.indexOf("const ask ="));
-    expect(ask).toContain("Notification.requestPermission()");
-    const effects = alert.match(/useEffect\(\(\) => \{[\s\S]*?\}, \[[^\]]*\]\);/g) ?? [];
-    for (const e of effects) expect(e).not.toContain("requestPermission");
+    expect(ask).toContain("askToNotify()");
+    expect(helpers.slice(helpers.indexOf("export async function askToNotify"))).toContain(
+      "Notification.requestPermission()",
+    );
+    for (const src of [alert, settingsCard]) {
+      const effects = src.match(/useEffect\(\(\) => \{[\s\S]*?\}, \[[^\]]*\]\);/g) ?? [];
+      for (const e of effects) {
+        expect(e).not.toContain("requestPermission");
+        expect(e).not.toContain("askToNotify");
+      }
+    }
+  });
+
+  it("can be turned on in Settings before the first meeting is due", () => {
+    // The banner only appears once a meeting is due, so on a computer the first reminder could
+    // never be a notification. Settings → Appearance asks ahead, on a tap.
+    expect(settingsCard).toContain("const turnOn = async () => setState(await askToNotify());");
+    expect(settingsCard).toContain("onClick={() => void turnOn()}");
+    const settings = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
+    expect(settings.indexOf("<ReminderNotifications />")).toBeGreaterThan(settings.indexOf('{tab === "appearance"'));
+  });
+
+  it("says why when it cannot be turned on here", () => {
+    // Plain http has no notifications at all, and the Android app sets its own reminders.
+    for (const state of ['"app"', '"insecure"', '"unsupported"', '"denied"', '"granted"']) {
+      expect(settingsCard).toContain(`state === ${state}`);
+    }
   });
 
   it("does not re-notify the same meeting on every poll", () => {

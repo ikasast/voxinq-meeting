@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatDateTimeIn } from "@/lib/i18n/format";
 import { useLocale, useT } from "./locale-provider";
+import { ASKED_KEY, askToNotify, notifyState, showNotification } from "./device-notifications";
 
 // "Your meeting is starting."
 //
@@ -19,11 +20,11 @@ import { useLocale, useT } from "./locale-provider";
 // written down in the documentation rather than implied by silence.
 //
 // Permission is asked for on a tap, never on load. A prompt nobody asked for is how a browser
-// decides to stop asking on this site's behalf for good.
+// decides to stop asking on this site's behalf for good. Settings → Appearance can ask ahead of
+// the first reminder (app/settings/device-notifications.tsx); this banner offers it too.
 
 const POLL_MS = 30_000;
 const DISMISSED_KEY = "voxinq.dueDismissed";
-const ASKED_KEY = "voxinq.notifyAsked";
 
 type Due = { id: string; title: string; scheduledAt: string | null };
 
@@ -60,42 +61,23 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
 
   useEffect(() => {
     setDismissed(readDismissed());
-    if (typeof Notification === "undefined") return;
+    if (notifyState() !== "default") return;
     let asked = false;
     try {
       asked = localStorage.getItem(ASKED_KEY) === "1";
     } catch {
       // no storage: offer it, and the browser's own answer decides
     }
-    setCanAsk(Notification.permission === "default" && !asked);
+    setCanAsk(!asked);
   }, []);
 
   const notify = useCallback(
     (m: Due) => {
-      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      if (notifyState() !== "granted") return;
       if (notified.current.has(m.id)) return;
       notified.current.add(m.id);
-      // Through the service worker where there is one: a notification owned by the page dies
-      // with the tab, and this is the case where the tab is not the thing being looked at.
-      // `data.url` is what sw.js opens when it is clicked.
-      const body = t("It is time for this meeting.");
       const url = external ? `/${m.id}` : `/${m.id}/recording`;
-      void navigator.serviceWorker?.ready
-        .then((reg) =>
-          reg.showNotification(m.title, {
-            body,
-            tag: `voxinq-due-${m.id}`,
-            icon: "/icons/icon-192.png",
-            data: { url },
-          }),
-        )
-        .catch(() => {
-          try {
-            new Notification(m.title, { body, tag: `voxinq-due-${m.id}` });
-          } catch {
-            // Some browsers only allow the service-worker form. Nothing to fall back to.
-          }
-        });
+      void showNotification(m.title, t("It is time for this meeting."), url, `voxinq-due-${m.id}`);
     },
     [external, t],
   );
@@ -132,15 +114,8 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
   };
 
   const ask = async () => {
-    try {
-      localStorage.setItem(ASKED_KEY, "1");
-    } catch {
-      // fine — the browser remembers its own answer
-    }
     setCanAsk(false);
-    if (typeof Notification === "undefined") return;
-    const result = await Notification.requestPermission();
-    if (result === "granted") for (const m of showing) notify(m);
+    if ((await askToNotify()) === "granted") for (const m of showing) notify(m);
   };
 
   return (
