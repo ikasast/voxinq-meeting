@@ -21,15 +21,16 @@ export function MeetingAside({ summary, children }: { summary: string; children:
   const t = useT();
   const [open, setOpen] = useState(false);
 
-  // Open below 2xl, the bar and the cards it opened share one panel, so they read as one thing
+  // Open below 2xl, the bar and the cards it opened share one card, so they read as one thing
   // with its contents rather than as five cards in a row: the bar was a card like the others,
-  // and nothing showed that they were inside it. At 2xl there is no bar and no panel, only the
-  // rail of cards.
+  // and nothing showed that they were inside it. Inside, the cards become grey sections, as the
+  // minutes options are inside theirs. At 2xl there is no bar and no outer card, only the rail
+  // of cards as they always were — hence `max-2xl:` throughout.
   return (
     <aside
       className={`order-first 2xl:order-none ${
         open
-          ? "rounded-2xl border border-[var(--border)] bg-[var(--elevated)] p-2 2xl:rounded-none 2xl:border-0 2xl:bg-transparent 2xl:p-0"
+          ? "max-2xl:rounded-2xl max-2xl:border max-2xl:border-[var(--border)] max-2xl:bg-[var(--surface)] max-2xl:p-2 max-2xl:shadow-sm"
           : ""
       }`}
     >
@@ -63,7 +64,7 @@ export function MeetingAside({ summary, children }: { summary: string; children:
 
       <div
         id="meeting-details"
-        className={`space-y-3 ${open ? "mt-2" : "hidden"} 2xl:mt-0 2xl:block 2xl:space-y-4`}
+        className={`space-y-3 ${open ? "mt-2" : "hidden"} 2xl:mt-0 2xl:block 2xl:space-y-4 max-2xl:[&_.card]:bg-[var(--elevated)] max-2xl:[&_.card]:shadow-none`}
       >
         {children}
       </div>

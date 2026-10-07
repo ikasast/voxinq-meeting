@@ -64,10 +64,12 @@ describe("the meeting's details column", () => {
   });
 
   it("shows what it opened as inside it, below the rail's width", () => {
-    // Open, the bar and the cards share one panel. The bar used to be a card like the others,
-    // so the five read as a row of equals rather than one thing and its contents.
-    expect(asideCode).toContain("rounded-2xl border border-[var(--border)] bg-[var(--elevated)] p-2");
-    // And none of it where the rail shows: there the cards stand on their own.
-    expect(asideCode).toContain("2xl:rounded-none 2xl:border-0 2xl:bg-transparent 2xl:p-0");
+    // Open, the bar and the cards share one white card, and the cards inside become grey
+    // sections. The bar used to be a card like the others, so the five read as a row of equals
+    // rather than one thing and its contents.
+    expect(asideCode).toContain("max-2xl:bg-[var(--surface)]");
+    expect(asideCode).toContain("max-2xl:[&_.card]:bg-[var(--elevated)] max-2xl:[&_.card]:shadow-none");
+    // Only below 2xl: where the rail shows, the cards stand on their own as before.
+    expect(asideCode).not.toMatch(/[^-]2xl:\[&_\.card\]/);
   });
 });
