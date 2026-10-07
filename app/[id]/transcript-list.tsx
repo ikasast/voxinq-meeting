@@ -16,7 +16,7 @@ import {
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
-import { PencilIcon, TrashIcon } from "../icons";
+import { LockIcon, LockOpenIcon, PencilIcon, TrashIcon } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerChip, SpeakerNamesEditor, SpeakerPicker } from "./speakers-ui";
@@ -283,7 +283,10 @@ export function TranscriptList({
         { method: "POST" },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setRecInfo((await res.json()) as RecordingInfo);
+      // The answer carries the protection state but not the length, which protecting does not
+      // change; replacing the whole state lost it, and the trim button with it.
+      const next = (await res.json()) as RecordingInfo;
+      setRecInfo((prev) => ({ ...prev, ...next }));
     } catch (e) {
       setError(t("Failed to change protection: {error}", { error: (e as Error).message }));
     } finally {
@@ -918,6 +921,10 @@ export function TranscriptList({
     void runDiarization(Number.isInteger(speakers) && speakers > 0 ? speakers : undefined);
   }, [transcripts.length, runDiarization]);
 
+  // Worked out here rather than inside t(): the string scanner reads a plural choice only when
+  // its condition has no call in it, and missed both forms (they showed in English).
+  const daysLeft = recInfo?.expiresAt ? remainingDays(recInfo.expiresAt) : 0;
+
   return (
     <details open>
       <summary className="cursor-pointer text-lg font-semibold text-[var(--text-strong)]">
@@ -963,12 +970,7 @@ export function TranscriptList({
                 <span className="text-[var(--accent-sub)]">{t("protected (not auto-deleted)")}</span>
               ) : recInfo.expiresAt ? (
                 <>
-                  {t(
-                    remainingDays(recInfo.expiresAt) === 1
-                      ? "auto-deletes in 1 day"
-                      : "auto-deletes in {n} days",
-                    { n: remainingDays(recInfo.expiresAt) },
-                  )}
+                  {t(daysLeft === 1 ? "auto-deletes in 1 day" : "auto-deletes in {n} days", { n: daysLeft })}
                 </>
               ) : (
                 t("saved")
@@ -981,9 +983,16 @@ export function TranscriptList({
                 type="button"
                 onClick={() => void toggleProtect()}
                 disabled={recBusy}
-                className="rounded-md border border-[var(--border-strong)] px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+                aria-label={t("Protect the recording")}
+                aria-pressed={recInfo.protected}
+                title={
+                  recInfo.protected
+                    ? t("Protected. If unprotected, it is auto-deleted once the retention period has passed from then")
+                    : t("Protect the recording so it is not auto-deleted")
+                }
+                className={`btn-icon ${recInfo.protected ? "!text-[var(--accent-sub)]" : "!text-[var(--text-muted)]"}`}
               >
-                {recBusy ? t("Updating…") : recInfo.protected ? t("Unprotect") : t("Protect")}
+                {recInfo.protected ? <LockIcon /> : <LockOpenIcon />}
               </button>
             ) : null}
             {/* Not while it is still being recorded: the end of the recording is not known yet. */}

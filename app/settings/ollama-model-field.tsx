@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { TrashIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 import { findInstalled, loadedMb, sameModel, type InstalledModel } from "@/lib/llm/ollama-models";
 
@@ -322,9 +323,11 @@ export function OllamaModelField({
                       type="button"
                       onClick={() => setConfirming(m.name)}
                       disabled={deleting !== null}
-                      className="shrink-0 text-[var(--text-muted)] hover:text-[var(--error)] disabled:opacity-50"
+                      title={t("Remove {name}", { name: m.name })}
+                      aria-label={t("Remove {name}", { name: m.name })}
+                      className="shrink-0 rounded p-1 text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--error)] disabled:opacity-50"
                     >
-                      {t("Delete")}
+                      <TrashIcon className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </li>
