@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { tick } from "@/lib/queue/dispatcher";
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       model: settings.whisperModel,
       language: settings.sttLanguage,
       glossary: settings.sttGlossary,
-      translate: settings.sttTranslate,
+      translate: settings.sttTranslate && (await extensionEnabled("translation")),
       seriesGlossary: meeting.series?.sttGlossary,
     },
   );

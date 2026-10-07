@@ -47,6 +47,8 @@ export const SERVER_MESSAGES = [
   "That is the only administrator. Make somebody else one first.",
   "You cannot disable your own account.",
   "Only an administrator sets the defaults everybody starts from.",
+  "Only an administrator switches extensions on or off.",
+  "This feature is switched off. An administrator can switch it on under Settings, Extensions.",
 
   // Work that is already running, or cannot start.
   "Speakers are already being separated for this meeting.",

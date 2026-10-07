@@ -10,6 +10,7 @@ import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
 import { BackLink } from "../back-link";
+import { readExtensions } from "@/lib/extensions-store";
 import { MeetingListPane } from "../meeting-list-pane";
 import { PageHeader } from "../page-header";
 import { ArchiveButton } from "./archive-button";
@@ -80,6 +81,7 @@ export default async function MeetingPage({
     parseParams<{ thenMinutes?: boolean }>(transcribing.params).thenMinutes === true;
 
   const external = await isExternalRequest();
+  const extensions = await readExtensions();
   // Enrolled voice profiles, offered as suggestions when typing a participant. A name that
   // matches one becomes a candidate for automatic naming; one that does not is still fine.
   const knownSpeakers = await prisma.speakerProfile.findMany({
@@ -243,6 +245,7 @@ export default async function MeetingPage({
           one. Meetings in a series are asked about on the series page, where the whole history
           is available, so no box here. */}
       {!external &&
+      extensions.ask &&
       !seriesId &&
       (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
         <AskMinutes

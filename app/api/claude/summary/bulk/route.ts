@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { extensionOff } from "@/app/api/extension-off";
 import { tick } from "@/lib/queue/dispatcher";
 import { minutesOverrides } from "@/lib/meetings/bulk-minutes";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
@@ -21,6 +22,8 @@ export const runtime = "nodejs";
 const MAX_AT_ONCE = 200;
 
 export async function POST(req: NextRequest) {
+  const off = await extensionOff("bulkMinutes");
+  if (off) return off;
   const body = (await req.json().catch(() => null)) as
     | ({ meetingIds?: unknown } & Record<string, unknown>)
     | null;

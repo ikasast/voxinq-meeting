@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { prisma } from "@/lib/prisma";
+import { extensionEnabled } from "@/lib/extensions-store";
 import {
   dayKey,
   monthKey,
@@ -636,7 +637,7 @@ export async function MeetingListPane({
 
       {/* Recorded and not yet written up — the state a day of back-to-back meetings leaves
           behind. It acts on what the list is showing, so the filters above are the selection. */}
-      {!readOnly ? (
+      {!readOnly && (await extensionEnabled("bulkMinutes")) ? (
         <BulkMinutes
           candidates={minutesCandidates(meetings).map((c) => ({
             id: c.id,

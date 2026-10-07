@@ -1,6 +1,7 @@
 import { correctionGlossary } from "@/lib/correction-terms";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
+import { extensionOff } from "@/app/api/extension-off";
 import { suggestCorrections, type UtteranceForCorrection } from "@/lib/llm/correct";
 import { minutesInFlight } from "@/lib/meetings/minutes-state";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +14,8 @@ export const maxDuration = 120;
 // words. Suggestions only — applying one goes through PATCH /api/transcripts/[id] like a
 // manual edit, so the user decides line by line. Nothing is stored here.
 export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[id]">) {
+  const off = await extensionOff("corrections");
+  if (off) return off;
   const { id } = await ctx.params;
 
   // Uses the same GPU as minutes generation, so refuse rather than contend with it

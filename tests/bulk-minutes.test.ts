@@ -136,6 +136,7 @@ describe("the list", () => {
 
   it("offers the bulk action for what is on screen, and not to a read-only visitor", () => {
     expect(pane).toContain("minutesCandidates(meetings)");
-    expect(pane).toMatch(/\{!readOnly \? \(\s*<BulkMinutes/);
+    // And only while the extension is on (lib/extensions.ts).
+    expect(pane).toMatch(/\{!readOnly && \(await extensionEnabled\("bulkMinutes"\)\) \? \(\s*<BulkMinutes/);
   });
 });
