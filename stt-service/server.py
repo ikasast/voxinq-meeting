@@ -63,6 +63,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from translator import preload_translator, translate_to_ja, translator_state
+from retention import recording_files, sweep as sweep_recordings
 from trim import trim_recording
 
 SAMPLE_RATE = 16000
@@ -690,18 +691,8 @@ async def preload(model: str | None = None, translate: bool = False) -> dict:
 
 
 def _rec_paths(mid: str) -> dict[str, Path]:
-    return {
-        "wav": RECORDINGS_DIR / f"{mid}.wav",
-        "seg": RECORDINGS_DIR / f"{mid}.segments.json",
-        "spk": RECORDINGS_DIR / f"{mid}.speakers.json",
-        # The spans the last run was asked about, and a fingerprint of them: a cached
-        # answer belongs to the utterances it was computed for, not to a position.
-        "req": RECORDINGS_DIR / f"{mid}.request.json",
-        "key": RECORDINGS_DIR / f"{mid}.speakers.key",
-        "pcs": RECORDINGS_DIR / f"{mid}.pieces.json",
-        "emb": RECORDINGS_DIR / f"{mid}.embeddings.json",
-        "keep": RECORDINGS_DIR / f"{mid}.keep",
-    }
+    """Every file kept for a meeting's recording (retention.py has the list and why)."""
+    return recording_files(RECORDINGS_DIR, mid)
 
 
 def _read_cached_embeddings(mid: str) -> dict:
@@ -765,21 +756,12 @@ def _recording_state(mid: str) -> dict:
 
 
 def _cleanup_recordings_once() -> None:
-    """Delete the full set of unprotected recordings past the retention deadline."""
-    if RETENTION_DAYS <= 0:
-        return
-    cutoff = time.time() - RETENTION_DAYS * 86400
-    for wav in RECORDINGS_DIR.glob("*.wav"):
-        mid = wav.stem
-        p = _rec_paths(mid)
-        try:
-            if p["keep"].exists() or wav.stat().st_mtime >= cutoff:
-                continue
-            for f in (p["wav"], p["seg"], p["spk"], p["emb"]):
-                f.unlink(missing_ok=True)
-            print(f"[retention] deleted recording {mid} (older than {RETENTION_DAYS:g} days)")
-        except OSError:
-            pass
+    """Delete unprotected recordings past the retention deadline, with everything beside them."""
+    gone, stray = sweep_recordings(RECORDINGS_DIR, RETENTION_DAYS, time.time())
+    for mid in gone:
+        print(f"[retention] deleted recording {mid} (older than {RETENTION_DAYS:g} days)")
+    if stray:
+        print(f"[retention] removed {stray} file(s) left behind by recordings already deleted")
 
 
 async def _cleanup_loop() -> None:
@@ -829,6 +811,62 @@ async def recording_states(request: Request) -> dict:
             if mid:
                 out[mid] = _recording_state(mid)
     return out
+
+
+# Files kept beside a recording: its utterance boundaries and what speaker separation left.
+_SIDECARS = ("seg", "spk", "req", "key", "pcs", "emb", "model")
+
+
+def _recording_sizes(ids: list) -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    for raw in ids[:20000]:
+        mid = _safe_meeting_id(raw if isinstance(raw, str) else None)
+        if not mid:
+            continue
+        p = _rec_paths(mid)
+        try:
+            st = p["wav"].stat()
+        except OSError:  # no recording, or it went while we looked
+            continue
+        other = 0
+        for key in _SIDECARS:
+            with suppress(OSError):
+                other += p[key].stat().st_size
+        protected = p["keep"].exists()
+        out[mid] = {
+            "audio": st.st_size,
+            "other": other,
+            "seconds": _wav_duration_sec(p["wav"]),
+            "protected": protected,
+            # As in _recording_state: when the sweep will take it, or None if it never will.
+            "expiresAt": (
+                datetime.fromtimestamp(st.st_mtime + RETENTION_DAYS * 86400, tz=timezone.utc).isoformat()
+                if not protected and RETENTION_DAYS > 0
+                else None
+            ),
+        }
+    return out
+
+
+@app.post("/recordings/sizes")
+async def recording_sizes(request: Request) -> dict:
+    """How much room each meeting's recording takes. For the storage page.
+
+    Only for the meetings asked about, never a listing of the folder: a meeting id is all it
+    takes to fetch a recording from here, so a list of them would be everybody's audio.
+
+    body (JSON): {"ids": ["<meetingId>", ...]}
+    returns: {"<id>": {audio, other, seconds, protected, expiresAt}, ...} for those that have a
+    recording, sizes in bytes."""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    ids = body.get("ids") if isinstance(body, dict) else None
+    if not isinstance(ids, list):
+        return {}
+    # Thousands of stats and WAV headers: off the event loop, which is also carrying live audio.
+    return await asyncio.to_thread(_recording_sizes, ids)
 
 
 @app.post("/activity")

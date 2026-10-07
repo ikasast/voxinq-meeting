@@ -134,6 +134,10 @@ jobs:
       # and the deadline it keeps. Standard library only.
       - run: python stt-service/test_trim.py
 
+      # The retention sweep: a recording goes with every file beside it, and files an older
+      # sweep left are cleared once the period has passed. Standard library only.
+      - run: python stt-service/test_retention.py
+
   # Catches rot in the container setup (bad Dockerfile, a dependency that stopped
   # resolving) without waiting for someone to try `docker compose up`.
   #

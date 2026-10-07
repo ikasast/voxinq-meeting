@@ -3,9 +3,9 @@ import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { namesFromRequest } from "@/lib/speakers";
-import { sttHttpBase } from "@/lib/stt/client";
 import { applySeriesMembers, pruneOrphanSeries, seriesIdForName } from "@/lib/series";
 import { pruneOrphanTags } from "@/lib/tags";
+import { deleteRecording } from "@/lib/trash";
 import { RECORDING_KIND } from "@/lib/queue/types";
 
 export const runtime = "nodejs";
@@ -204,15 +204,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // Tags/series that were attached only to this meeting become orphans, so clean them up.
   await pruneOrphanTags();
   await pruneOrphanSeries();
-  // Also delete the recording (WAV, etc.) on the GPU host. Best-effort: even if STT is
-  // unreachable, the meeting delete still succeeds (recordings auto-delete on retention).
-  try {
-    await fetch(`${sttHttpBase()}/recordings/${id}`, {
-      method: "DELETE",
-      signal: AbortSignal.timeout(5000),
-    });
-  } catch {
-    // ignore
-  }
+  // Also delete the recording (WAV, etc.) on the STT service. Best-effort: even if STT is
+  // unreachable, the meeting delete still succeeds (unprotected recordings go on retention).
+  await deleteRecording(id);
   return NextResponse.json({ ok: true });
 }

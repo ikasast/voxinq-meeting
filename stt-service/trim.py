@@ -122,7 +122,7 @@ def trim_recording(
         paths["seg"].write_text(json.dumps(moved, ensure_ascii=False), encoding="utf-8")
         count = len(moved)
 
-    for key in ("spk", "emb", "key", "pcs", "req"):
+    for key in ("spk", "emb", "model", "key", "pcs", "req"):
         if key in paths:
             paths[key].unlink(missing_ok=True)
     return {

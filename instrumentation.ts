@@ -13,4 +13,8 @@ export async function register() {
 
   const { startDispatcher } = await import("./lib/queue/dispatcher");
   await startDispatcher();
+
+  // The trash, likewise: emptied on a timer, not only when somebody opens it (lib/trash.ts).
+  const { startTrashSweep } = await import("./lib/trash");
+  startTrashSweep();
 }
