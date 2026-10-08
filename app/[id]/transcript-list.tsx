@@ -1820,20 +1820,24 @@ function VoiceMarks({ marks: list }: { marks: CueMark[] }) {
           ? RabbitIcon
           : TurtleIcon;
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1" title={t("Compared with this speaker's other lines in this meeting")}>
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {/* The picture alone: the word is in the tooltip and read out, not printed. */}
       {list.map((m) => {
         const I = Icon(m);
+        const said = `${word(m)} — ${t("Compared with this speaker's other lines in this meeting")}`;
         return (
           <span
             key={m.cue}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            role="img"
+            aria-label={said}
+            title={said}
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
               m.up
                 ? "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-[var(--warning)]"
                 : "bg-[color-mix(in_srgb,var(--text-muted)_14%,transparent)] text-[var(--text-secondary)]"
             }`}
           >
             <I className="h-4 w-4 shrink-0" />
-            {word(m)}
           </span>
         );
       })}
