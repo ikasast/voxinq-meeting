@@ -28,18 +28,16 @@ export function MeetingAside({ summary, children }: { summary: string; children:
   // of cards as they always were — hence `max-2xl:` throughout.
   return (
     <aside
-      className={`order-first 2xl:order-none ${
-        open
-          ? "max-2xl:rounded-2xl max-2xl:border max-2xl:border-[var(--border)] max-2xl:bg-[var(--surface)] max-2xl:p-2 max-2xl:shadow-sm"
-          : ""
-      }`}
+      className={
+        open ? "rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-sm" : ""
+      }
     >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-controls="meeting-details"
-        className={`flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left 2xl:hidden ${
+        className={`flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left ${
           open ? "rounded-xl px-2 py-1.5 hover:bg-[var(--hover-surface)]" : "card px-4 py-3"
         }`}
       >
@@ -64,7 +62,7 @@ export function MeetingAside({ summary, children }: { summary: string; children:
 
       <div
         id="meeting-details"
-        className={`space-y-3 ${open ? "mt-2" : "hidden"} 2xl:mt-0 2xl:block 2xl:space-y-4 max-2xl:[&_.card]:bg-[var(--elevated)] max-2xl:[&_.card]:shadow-none`}
+        className={`space-y-3 ${open ? "mt-2" : "hidden"} [&_.card]:bg-[var(--elevated)] [&_.card]:shadow-none`}
       >
         {children}
       </div>

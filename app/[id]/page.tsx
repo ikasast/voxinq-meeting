@@ -26,6 +26,7 @@ import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
 import { TranscriptList } from "./transcript-list";
+import { MeetingBody } from "./meeting-body";
 
 export const dynamic = "force-dynamic";
 
@@ -194,96 +195,10 @@ export default async function MeetingPage({
         </div>
       ) : null}
 
-      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] 2xl:items-start">
-      <div className="min-w-0 space-y-6">
-
-      {/* Only on the sample, and only from inside: it names buttons an external browser is not
-          shown. Above the minutes because it is the reason somebody is on this page. */}
-      {meeting.sample && !external ? (
-        <FirstRunGuide recordingHref={`/${meeting.id}/recording`} />
-      ) : null}
-
-      <section className="card p-5">
-        <SummarySection
-          meetingId={meeting.id}
-          meetingTitle={meeting.title}
-          minutesRunning={minutesRunning}
-          lastOutcome={meeting.summaryStatus}
-          summaryError={meeting.summaryError}
-          canGenerate={meeting.transcripts.length > 0}
-          minutesAfterTranscript={minutesAfter}
-          readOnly={external}
-          summaries={meeting.summaries.map((s) => ({
-            id: s.id,
-            text: s.summaryText,
-            createdAt: s.createdAt.toISOString(),
-          }))}
-        />
-      </section>
-
-      {/* A meeting outside a series is its own scope for questions — a one-off is a series of
-          one. Meetings in a series are asked about on the series page, where the whole history
-          is available, so no box here. */}
-      {!external &&
-      extensions.ask &&
-      !seriesId &&
-      (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
-        <AskMinutes
-          meetingId={meeting.id}
-          scopeLabel={meeting.title}
-          hasMinutes={meeting.summaries.length > 0}
-          // Recorded and not written up yet is exactly when the question is about what was
-          // said, so the box appears then too — reading the meeting's own words.
-          hasTranscript={meeting.transcripts.length > 0}
-        />
-      ) : null}
-
-      <section className="card p-5">
-        <TranscriptList
-          meetingId={meeting.id}
-          meetingTitle={meeting.title}
-          meetingStartedAt={meeting.startedAt.toISOString()}
-          // null means the meeting is still being recorded somewhere: the transcript then
-          // follows along by polling instead of staying at this server-rendered snapshot.
-          meetingEndedAt={meeting.endedAt?.toISOString() ?? null}
-          upcoming={upcoming}
-          initialSpeakerLabels={meeting.speakerLabels}
-          seriesGlossary={meeting.series?.sttGlossary ?? null}
-          // Whether there is anything to check is one question with one answer, computed
-          // where both this page and the route that runs the check can see it.
-          hasCorrectionTerms={
-            correctionTerms({
-              globalGlossary: await getSttGlossary(),
-              series: meeting.series
-                ? {
-                    name: meeting.series.name,
-                    sttGlossary: meeting.series.sttGlossary,
-                    members: meeting.series.members.map((m) => m.name),
-                  }
-                : null,
-            }).length > 0
-          }
-          readOnly={external}
-          transcribeJobId={external ? null : (transcribing?.id ?? null)}
-          initialTranscripts={meeting.transcripts.map((line) => ({
-            id: line.id,
-            speakerType: line.speakerType,
-            text: line.text,
-            translation: line.translation,
-            voice: line.voice,
-            emotion: line.emotion,
-            createdAt: line.createdAt.toISOString(),
-            splitOfId: line.splitOfId,
-          }))}
-        />
-      </section>
-      </div>
-
       {/* What the meeting *is*, beside what it produced: agenda and tags, the settings it was
           actually recorded and written with, the series it belongs to, and who was there.
-          A rail on wide screens; above the minutes on anything narrower — and closed there,
-          because four cards between the top of the page and the first line of the minutes is
-          most of a phone screen. The bar keeps the numbers; see meeting-aside.tsx. */}
+          A bar above the minutes, closed until opened: the right of the page is the transcript's
+          (v4, design B), and four cards before the first line of the minutes is most of a screen. The bar keeps the numbers; see meeting-aside.tsx. */}
       <MeetingAside summary={asideSummary}>
         <ProgressCard
           ended={meeting.endedAt !== null}
@@ -328,7 +243,99 @@ export default async function MeetingPage({
           }
         />
       </MeetingAside>
-      </div>
+
+      {/* The minutes are the document; what was said is the panel beside it (meeting-body.tsx). */}
+      <MeetingBody
+        lineCount={meeting.transcripts.length}
+        transcriptFirst={meeting.summaries.length === 0}
+        document={
+          <>
+
+      {/* Only on the sample, and only from inside: it names buttons an external browser is not
+          shown. Above the minutes because it is the reason somebody is on this page. */}
+      {meeting.sample && !external ? (
+        <FirstRunGuide recordingHref={`/${meeting.id}/recording`} />
+      ) : null}
+
+      <section className="card p-5">
+        <SummarySection
+          meetingId={meeting.id}
+          meetingTitle={meeting.title}
+          minutesRunning={minutesRunning}
+          lastOutcome={meeting.summaryStatus}
+          summaryError={meeting.summaryError}
+          canGenerate={meeting.transcripts.length > 0}
+          minutesAfterTranscript={minutesAfter}
+          readOnly={external}
+          summaries={meeting.summaries.map((s) => ({
+            id: s.id,
+            text: s.summaryText,
+            createdAt: s.createdAt.toISOString(),
+          }))}
+        />
+      </section>
+
+      {/* A meeting outside a series is its own scope for questions — a one-off is a series of
+          one. Meetings in a series are asked about on the series page, where the whole history
+          is available, so no box here. */}
+      {!external &&
+      extensions.ask &&
+      !seriesId &&
+      (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
+        <AskMinutes
+          meetingId={meeting.id}
+          scopeLabel={meeting.title}
+          hasMinutes={meeting.summaries.length > 0}
+          // Recorded and not written up yet is exactly when the question is about what was
+          // said, so the box appears then too — reading the meeting's own words.
+          hasTranscript={meeting.transcripts.length > 0}
+        />
+      ) : null}
+
+          </>
+        }
+        transcript={
+      <section className="card p-5">
+        <TranscriptList
+          meetingId={meeting.id}
+          meetingTitle={meeting.title}
+          meetingStartedAt={meeting.startedAt.toISOString()}
+          // null means the meeting is still being recorded somewhere: the transcript then
+          // follows along by polling instead of staying at this server-rendered snapshot.
+          meetingEndedAt={meeting.endedAt?.toISOString() ?? null}
+          upcoming={upcoming}
+          initialSpeakerLabels={meeting.speakerLabels}
+          seriesGlossary={meeting.series?.sttGlossary ?? null}
+          // Whether there is anything to check is one question with one answer, computed
+          // where both this page and the route that runs the check can see it.
+          hasCorrectionTerms={
+            correctionTerms({
+              globalGlossary: await getSttGlossary(),
+              series: meeting.series
+                ? {
+                    name: meeting.series.name,
+                    sttGlossary: meeting.series.sttGlossary,
+                    members: meeting.series.members.map((m) => m.name),
+                  }
+                : null,
+            }).length > 0
+          }
+          readOnly={external}
+          transcribeJobId={external ? null : (transcribing?.id ?? null)}
+          initialTranscripts={meeting.transcripts.map((line) => ({
+            id: line.id,
+            speakerType: line.speakerType,
+            text: line.text,
+            translation: line.translation,
+            voice: line.voice,
+            emotion: line.emotion,
+            createdAt: line.createdAt.toISOString(),
+            splitOfId: line.splitOfId,
+          }))}
+        />
+      </section>
+        }
+      />
       </div>
       </div>
     </div>

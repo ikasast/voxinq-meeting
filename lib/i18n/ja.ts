@@ -69,6 +69,8 @@ export const ja: Record<string, string> = {
   "Fold the sidebar": "サイドバーを畳む",
   "Search meetings": "会議を検索",
   "Open the sidebar": "サイドバーを開く",
+  "Close the transcript": "発言を閉じる",
+  "Open the transcript": "発言を開く",
   "In progress": "進行中",
   "Generating minutes…": "議事録を生成中…",
   // The row's own line: how much was said, and how much was written about it. Two keys each,
