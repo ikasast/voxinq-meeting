@@ -237,3 +237,54 @@ export const StorageIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
   </Base>
 );
+
+// How a line was said (Voice cues): one picture per cue, so a glance down the transcript finds them.
+export const VolumeUpIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+  </Base>
+);
+
+export const VolumeDownIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+  </Base>
+);
+
+export const PitchUpIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M9 18V5l8-2" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="m17 13 3-3 3 3M20 10v10" />
+  </Base>
+);
+
+export const PitchDownIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M9 18V5l8-2" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="m17 17 3 3 3-3M20 20V10" />
+  </Base>
+);
+
+export const RabbitIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M13 16a3 3 0 0 1 2.24 5" />
+    <path d="M18 12h.01" />
+    <path d="M18 21h-8a4 4 0 0 1-4-4 7 7 0 0 1 7-7h.2L9.6 6.4a1 1 0 1 1 2.8-2.8L15.8 7h.2c3.3 0 6 2.7 6 6v1a2 2 0 0 1-2 2h-1a3 3 0 0 0-3 3" />
+    <path d="M20 8.54V4a2 2 0 1 0-4 0v3" />
+    <path d="M7.612 12.524a3 3 0 1 0-1.6 4.3" />
+  </Base>
+);
+
+export const TurtleIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="m12 10 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a8 8 0 1 0-16 0v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3l2-4h4Z" />
+    <path d="M4.82 7.9 8 10" />
+    <path d="M15.18 7.9 12 10" />
+    <path d="M16.93 10H20a2 2 0 0 1 0 4H2" />
+  </Base>
+);

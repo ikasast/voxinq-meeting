@@ -32,6 +32,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           translation: true,
           createdAt: true,
           audioStartMs: true,
+          voice: true,
         },
       },
     },

@@ -47,6 +47,7 @@ const W = JA
       upcoming: "予定",
       seriesGlossary: "ステージング、テナント、レート制限",
       speakerSeparation: "話者分離",
+      checkVoice: "声の様子を調べる",
       booked: "デザインレビュー — 第2回",
       templates: [
         { id: "t-weekly", name: "定例会議（決定事項と ToDo）", body: "## 決定事項\n## ToDo", instructions: "" },
@@ -67,6 +68,7 @@ const W = JA
       upcoming: "Upcoming",
       seriesGlossary: "staging, tenant, rate limit",
       speakerSeparation: "Speaker separation",
+      checkVoice: "Check the voice",
       booked: "Design Review — round two",
       templates: [
         { id: "t-weekly", name: "Weekly meeting (decisions and to-dos)", body: "## Decisions\n## To-dos", instructions: "" },
@@ -199,6 +201,19 @@ const SHOTS = {
     await page.goto(`${BASE}/demo-partner-call`, { waitUntil: "networkidle" });
     await page.getByText(W.showTranslations).first().waitFor();
     return transcriptLines(page);
+  },
+
+  async voiceCues(page) {
+    // The button, and the first lines with the marks two of them carry.
+    await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
+    const button = page.getByRole("button", { name: W.checkVoice }).first();
+    await button.waitFor();
+    const details = page.locator("details", { has: page.locator("summary", { hasText: W.transcript }) }).first();
+    const d = await details.boundingBox();
+    const b = await button.boundingBox();
+    const sixth = await details.locator("ul > li").nth(5).boundingBox();
+    const top = b.y - 12;
+    return { clip: { x: d.x - 8, y: top, width: d.width + 16, height: sixth.y + sixth.height - top + 16 } };
   },
 
   async externalAi(page) {

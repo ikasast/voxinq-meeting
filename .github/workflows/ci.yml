@@ -138,6 +138,10 @@ jobs:
       # sweep left are cleared once the period has passed. Standard library only.
       - run: python stt-service/test_retention.py
 
+      # How each line was said (Voice cues): loudness, pitch and voiced time, measured from a
+      # synthetic WAV whose pitch is known. numpy only.
+      - run: python stt-service/test_voice.py
+
   # Catches rot in the container setup (bad Dockerfile, a dependency that stopped
   # resolving) without waiting for someone to try `docker compose up`.
   #

@@ -16,7 +16,18 @@ import {
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
-import { LockIcon, LockOpenIcon, PencilIcon, TrashIcon } from "../icons";
+import {
+  LockIcon,
+  LockOpenIcon,
+  PencilIcon,
+  PitchDownIcon,
+  PitchUpIcon,
+  RabbitIcon,
+  TrashIcon,
+  TurtleIcon,
+  VolumeDownIcon,
+  VolumeUpIcon,
+} from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerChip, SpeakerNamesEditor, SpeakerPicker } from "./speakers-ui";
@@ -26,6 +37,7 @@ import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
+import { type CueMark, marks, readCues } from "@/lib/voice-cues";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -41,6 +53,8 @@ type Item = {
   // Set when this line was split off another at a speaker change — the id of the line it came
   // from. Its presence is what offers the way back.
   splitOfId?: string | null;
+  // How it was said against the speaker's own average (Voice cues): stored JSON, lib/voice-cues.ts.
+  voice?: string | null;
 };
 
 // A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
@@ -164,6 +178,7 @@ export function TranscriptList({
   // Extensions switched off keep their data but show nothing (lib/extensions.ts).
   const extensions = useExtensions();
   const [suggesting, setSuggesting] = useState(false);
+  const [voicing, setVoicing] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -426,6 +441,24 @@ export function TranscriptList({
     [transcripts, t],
   );
 
+  // Voice cues: measure the recording and mark the lines that stand out for their speaker.
+  const runVoiceCues = useCallback(async () => {
+    setVoicing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/voice-cues`, { method: "POST" });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? `HTTP ${res.status}`);
+      }
+      await reloadTranscriptRef.current();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setVoicing(false);
+    }
+  }, [meetingId]);
+
   // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
   // written until the user applies a suggestion, which then goes through the ordinary edit
   // path. This is also the only way a glossary reaches kotoba-whisper, which ignores the
@@ -592,6 +625,11 @@ export function TranscriptList({
     setSpeakerLabels(readNames(d.speakerLabels ?? null));
     listRouter.refresh();
   }, [meetingId, listRouter]);
+  // For callbacks declared above this one.
+  const reloadTranscriptRef = useRef(reloadTranscript);
+  useEffect(() => {
+    reloadTranscriptRef.current = reloadTranscript;
+  }, [reloadTranscript]);
 
   // A recognition that was already in the queue when the page opened: a file dropped on New
   // meeting, an import from the phone, a re-transcription from before a reload. Followed the
@@ -1391,6 +1429,17 @@ export function TranscriptList({
                 {t("Show translations")}
               </label>
             ) : null}
+            {!readOnly && extensions.voiceCues && endedAt && recInfo?.exists && transcripts.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => void runVoiceCues()}
+                disabled={busy || voicing}
+                className="btn-outline"
+                title={t("Mark the lines said louder, higher or faster than the speaker usually was — or quieter, lower or slower")}
+              >
+                {voicing ? t("Measuring…") : t("Check the voice")}
+              </button>
+            ) : null}
             {!readOnly && extensions.corrections && transcripts.length > 0 ? (
                 <button
                   type="button"
@@ -1526,7 +1575,7 @@ function TranscriptRow({
 }) {
   const t = useT();
   // Who said it is changed here only with Speaker separation on.
-  const speakersOn = useExtensions().speakers;
+  const { speakers: speakersOn, voiceCues: voiceOn } = useExtensions();
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
   // enough that retyping one line beats re-transcribing the whole meeting.
   const [editing, setEditing] = useState(false);
@@ -1650,6 +1699,7 @@ function TranscriptRow({
       ) : (
         <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
       )}
+      {voiceOn && !editing ? <VoiceMarks marks={marks(readCues(item.voice))} /> : null}
       {/* A proposed glossary fix, shown in place so it can be judged against the utterance it
           would replace. Applying it is an ordinary edit; nothing changes until then. */}
       {suggestion && !editing && !readOnly ? (
@@ -1739,4 +1789,58 @@ async function expectedSpeakerCount(meetingId: string): Promise<number> {
   } catch {
     return 0; // let the diarizer decide for itself rather than fail the run
   }
+}
+
+/** The cues that stood out on a line: small marks under it (lib/voice-cues.ts). */
+function VoiceMarks({ marks: list }: { marks: CueMark[] }) {
+  const t = useT();
+  if (list.length === 0) return null;
+  const word = (m: CueMark) =>
+    m.cue === "loud"
+      ? m.up
+        ? t("Louder")
+        : t("Quieter")
+      : m.cue === "pitch"
+        ? m.up
+          ? t("Higher")
+          : t("Lower")
+        : m.up
+          ? t("Faster")
+          : t("Slower");
+  const Icon = (m: CueMark) =>
+    m.cue === "loud"
+      ? m.up
+        ? VolumeUpIcon
+        : VolumeDownIcon
+      : m.cue === "pitch"
+        ? m.up
+          ? PitchUpIcon
+          : PitchDownIcon
+        : m.up
+          ? RabbitIcon
+          : TurtleIcon;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {/* The picture alone: the word is in the tooltip and read out, not printed. */}
+      {list.map((m) => {
+        const I = Icon(m);
+        const said = `${word(m)} — ${t("Compared with this speaker's other lines in this meeting")}`;
+        return (
+          <span
+            key={m.cue}
+            role="img"
+            aria-label={said}
+            title={said}
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
+              m.up
+                ? "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-[var(--warning)]"
+                : "bg-[color-mix(in_srgb,var(--text-muted)_14%,transparent)] text-[var(--text-secondary)]"
+            }`}
+          >
+            <I className="h-4 w-4 shrink-0" />
+          </span>
+        );
+      })}
+    </div>
+  );
 }

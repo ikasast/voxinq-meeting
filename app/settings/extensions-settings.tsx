@@ -147,6 +147,21 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       // A product name, the same in every language.
       needs: "Tailscale Funnel",
     },
+    voiceCues: {
+      name: t("Voice cues"),
+      summary: t(
+        "Mark the lines said louder or quieter, higher or lower, faster or slower than the speaker usually was.",
+      ),
+      scenes: [
+        t("Finding where a discussion warmed up, without listening to the whole meeting again."),
+        t("Seeing which points someone pressed hardest, by where their voice rose."),
+        t("Reading back a meeting you missed with a sense of how it went, not just what was said."),
+      ],
+      where: t(
+        "A Check the voice button above the transcript, and small marks on the lines that stood out. Each person is compared with their own lines in the same meeting, so a distant microphone or a quiet voice does not count as quiet.",
+      ),
+      needs: t("The meeting's recording"),
+    },
     externalAi: {
       name: t("External AI"),
       summary: t(

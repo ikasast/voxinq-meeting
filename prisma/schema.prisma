@@ -391,6 +391,10 @@ model Transcript {
   // came from, which keeps the first piece. It is what lets a split be undone. Null for every
   // line that was recognised as itself, which is nearly all of them.
   splitOfId    String?  @map("split_of_id")
+  // How the line was said against the same speaker's other lines in this meeting (Voice cues,
+  // an extension): JSON {"loud"?, "pitch"?, "pace"?}, each in standard deviations from that
+  // speaker's own average. Null until measured; a measure that could not be taken is absent.
+  voice        String?
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 

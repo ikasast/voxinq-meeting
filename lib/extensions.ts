@@ -67,6 +67,12 @@ export const EXTENSIONS = [
     needs: "Tailscale Funnel",
   },
   {
+    id: "voiceCues",
+    name: "Voice cues",
+    description: "Mark the lines said louder or quieter, higher or lower, faster or slower than the speaker usually was.",
+    needs: "The meeting's recording",
+  },
+  {
     id: "externalAi",
     name: "External AI",
     description: "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.",
