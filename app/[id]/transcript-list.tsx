@@ -430,10 +430,6 @@ export function TranscriptList({
     [transcripts, t],
   );
 
-  // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
-  // written until the user applies a suggestion, which then goes through the ordinary edit
-  // path. This is also the only way a glossary reaches kotoba-whisper, which ignores the
-  // initial_prompt at recognition time.
   // Voice cues: measure the recording and mark the lines that stand out for their speaker.
   const runVoiceCues = useCallback(async () => {
     setVoicing(true);
@@ -452,6 +448,10 @@ export function TranscriptList({
     }
   }, [meetingId]);
 
+  // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
+  // written until the user applies a suggestion, which then goes through the ordinary edit
+  // path. This is also the only way a glossary reaches kotoba-whisper, which ignores the
+  // initial_prompt at recognition time.
   const runSuggestions = useCallback(async () => {
     setSuggesting(true);
     setSuggestMsg(null);
