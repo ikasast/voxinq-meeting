@@ -16,7 +16,18 @@ import {
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
-import { LockIcon, LockOpenIcon, PencilIcon, TrashIcon } from "../icons";
+import {
+  LockIcon,
+  LockOpenIcon,
+  PencilIcon,
+  PitchDownIcon,
+  PitchUpIcon,
+  RabbitIcon,
+  TrashIcon,
+  TurtleIcon,
+  VolumeDownIcon,
+  VolumeUpIcon,
+} from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerChip, SpeakerNamesEditor, SpeakerPicker } from "./speakers-ui";
@@ -1796,20 +1807,36 @@ function VoiceMarks({ marks: list }: { marks: CueMark[] }) {
         : m.up
           ? t("Faster")
           : t("Slower");
+  const Icon = (m: CueMark) =>
+    m.cue === "loud"
+      ? m.up
+        ? VolumeUpIcon
+        : VolumeDownIcon
+      : m.cue === "pitch"
+        ? m.up
+          ? PitchUpIcon
+          : PitchDownIcon
+        : m.up
+          ? RabbitIcon
+          : TurtleIcon;
   return (
-    <div className="mt-1 flex flex-wrap gap-1" title={t("Compared with this speaker's other lines in this meeting")}>
-      {list.map((m) => (
-        <span
-          key={m.cue}
-          className={`rounded-full border px-1.5 py-px text-[10px] ${
-            m.up
-              ? "border-[color-mix(in_srgb,var(--warning)_45%,transparent)] text-[var(--warning)]"
-              : "border-[var(--border-strong)] text-[var(--text-muted)]"
-          }`}
-        >
-          {m.up ? "↑" : "↓"} {word(m)}
-        </span>
-      ))}
+    <div className="mt-1.5 flex flex-wrap gap-1" title={t("Compared with this speaker's other lines in this meeting")}>
+      {list.map((m) => {
+        const I = Icon(m);
+        return (
+          <span
+            key={m.cue}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+              m.up
+                ? "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-[var(--warning)]"
+                : "bg-[color-mix(in_srgb,var(--text-muted)_14%,transparent)] text-[var(--text-secondary)]"
+            }`}
+          >
+            <I className="h-4 w-4 shrink-0" />
+            {word(m)}
+          </span>
+        );
+      })}
     </div>
   );
 }
