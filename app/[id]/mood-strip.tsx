@@ -4,6 +4,7 @@ import { emotionMark, readEmotion } from "@/lib/emotion";
 import { readCues } from "@/lib/voice-cues";
 import { formatOffset } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
+import { FaceAngerIcon, FaceJoyIcon, FaceSadIcon, VolumeUpIcon } from "@/app/icons";
 
 // The meeting at a glance: one bar per line, in the order they were said. Its colour is what the
 // line sounded like (Emotion) and its height how loud it was against that speaker's usual (Voice
@@ -16,6 +17,7 @@ import { useT } from "@/app/locale-provider";
 type Line = { id: string; text: string; voice?: string | null; emotion?: string | null };
 
 const MOOD_COLOR = { joy: "--mood-joy", anger: "--mood-anger", sadness: "--mood-sad" } as const;
+const FACE = { joy: FaceJoyIcon, anger: FaceAngerIcon, sadness: FaceSadIcon } as const;
 
 /** Bar heights in px, from quiet to loud. Loudness is clamped at two deviations either way. */
 const MIN_H = 6;
@@ -64,7 +66,12 @@ export function MoodStrip({
   return (
     <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--elevated)] px-3 pb-2 pt-2.5">
       <p className="text-xs font-medium text-[var(--text-secondary)]">{t("How the meeting went")}</p>
-      <div className="mt-2 flex h-8 items-end gap-px" role="list" aria-label={t("How the meeting went")}>
+      <div
+        className="mt-2 flex h-8 items-end gap-px"
+        role="list"
+        aria-label={t("How the meeting went")}
+        title={t("Click a bar to go to its line")}
+      >
         {bars.map((b, i) => {
           const at = elapsed(i);
           const label = [
@@ -93,19 +100,38 @@ export function MoodStrip({
           );
         })}
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
-        {showEmotion ? (
-          <>
-            {(["joy", "anger", "sadness"] as const).map((e) => (
-              <span key={e} className="inline-flex items-center gap-1">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: `var(${MOOD_COLOR[e]})` }} />
-                {feeling(e)}
-              </span>
-            ))}
-          </>
+      {/* The key, as pictures: what each colour and the height mean is in their tooltips. */}
+      <div className="mt-1.5 flex items-center gap-1.5">
+        {showEmotion
+          ? (["joy", "anger", "sadness"] as const).map((e) => {
+              const Face = FACE[e];
+              return (
+                <span
+                  key={e}
+                  role="img"
+                  aria-label={feeling(e)}
+                  title={feeling(e)}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded-full"
+                  style={{
+                    color: `var(${MOOD_COLOR[e]})`,
+                    background: `color-mix(in srgb, var(${MOOD_COLOR[e]}) 14%, transparent)`,
+                  }}
+                >
+                  <Face className="h-3.5 w-3.5" />
+                </span>
+              );
+            })
+          : null}
+        {showVoice ? (
+          <span
+            role="img"
+            aria-label={t("Taller: louder than the speaker usually was")}
+            title={t("Taller: louder than the speaker usually was")}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--text-muted)_14%,transparent)] text-[var(--text-secondary)]"
+          >
+            <VolumeUpIcon className="h-3.5 w-3.5" />
+          </span>
         ) : null}
-        {showVoice ? <span>{t("Taller: louder than the speaker usually was")}</span> : null}
-        <span className="ml-auto">{t("Click a bar to go to its line")}</span>
       </div>
     </div>
   );
