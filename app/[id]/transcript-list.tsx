@@ -42,6 +42,7 @@ import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
 import { type CueMark, marks, readCues } from "@/lib/voice-cues";
 import { emotionMark, readEmotion } from "@/lib/emotion";
+import { MoodStrip } from "./mood-strip";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -1545,6 +1546,16 @@ export function TranscriptList({
         </p>
       ) : null}
 
+      {/* The meeting at a glance, from what Emotion and Voice cues found (mood-strip.tsx). */}
+      {!live && transcripts.length > 0 ? (
+        <MoodStrip
+          lines={transcripts}
+          elapsed={elapsedSeconds}
+          showEmotion={extensions.emotion}
+          showVoice={extensions.voiceCues}
+        />
+      ) : null}
+
       {transcripts.length === 0 ? (
         <p className="mt-4 text-sm text-[var(--text-muted)]">
           {/* One being made is not the same as none. */}
@@ -1643,7 +1654,10 @@ function TranscriptRow({
   };
 
   return (
-    <li className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm">
+    <li
+      id={`line-${item.id}`}
+      className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm transition-shadow"
+    >
       <div className="flex items-center gap-2">
         {canSeek ? (
           <button

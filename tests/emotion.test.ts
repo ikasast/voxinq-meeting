@@ -35,3 +35,14 @@ describe("the job", () => {
     );
   });
 });
+
+describe("the meeting at a glance", () => {
+  it("draws a louder line taller and a quieter one shorter, and an unmeasured one in between", async () => {
+    const { heightFor } = await import("@/app/[id]/mood-strip");
+    expect(heightFor(2)).toBeGreaterThan(heightFor(0));
+    expect(heightFor(-2)).toBeLessThan(heightFor(0));
+    expect(heightFor(undefined)).toBe(heightFor(0));
+    // Clamped, so one shout does not dwarf the rest.
+    expect(heightFor(6)).toBe(heightFor(2));
+  });
+});
