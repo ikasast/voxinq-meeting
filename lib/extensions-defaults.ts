@@ -42,6 +42,8 @@ export function defaultsFrom(e: Evidence): ExtensionState {
     translation: e.translation,
     externalShare: e.externalShare,
     externalAi: e.externalAi,
+    // New in v4: nothing to have been using.
+    voiceCues: false,
   };
 }
 

@@ -65,6 +65,7 @@ from fastapi.responses import FileResponse
 from translator import preload_translator, translate_to_ja, translator_state
 from retention import recording_files, sweep as sweep_recordings
 from trim import trim_recording
+import voice
 
 SAMPLE_RATE = 16000
 
@@ -1074,6 +1075,36 @@ def _trim_recording(mid: str, start_ms: int, end_ms: int, drop: list[int], expec
     with _DIA_LOCK:
         _DIA_JOBS.pop(mid, None)
     return result
+
+
+@app.post("/recordings/{meeting_id}/voice")
+async def recording_voice(meeting_id: str, request: Request) -> dict:
+    """How each line was said — loudness, pitch, voiced time — for the Voice cues extension.
+
+    body: {"utterances": [{"start": s, "end": s}, ...]} — the lines' places in the recording.
+    Answers {"lines": [...]}, one per utterance in order; null for one the recording does not
+    reach. Plain arithmetic over the WAV (voice.py): no model, nothing loaded.
+    """
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    wav = RECORDINGS_DIR / f"{mid}.wav"
+    if not wav.exists():
+        raise HTTPException(status_code=404, detail="Recording not found (meeting not yet saved, or already deleted)")
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    raw = body.get("utterances") if isinstance(body, dict) else None
+    if not isinstance(raw, list):
+        raise HTTPException(status_code=400, detail="utterances is required")
+    spans: list[tuple[float, float]] = []
+    for u in raw:
+        try:
+            spans.append((float(u["start"]), float(u["end"])))
+        except (KeyError, TypeError, ValueError):
+            spans.append((-1.0, -1.0))  # answered with null, keeping the positions aligned
+    return {"lines": await asyncio.to_thread(voice.measure, wav, spans)}
 
 
 @app.post("/recordings/{meeting_id}/trim")

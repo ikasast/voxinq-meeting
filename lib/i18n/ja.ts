@@ -676,6 +676,28 @@ export const ja: Record<string, string> = {
     "前回の議事録や用語集を、今回だけモデルに渡さずに書かせたい。",
   "Settings, Minutes, to make formats; and, whenever minutes are written, a choice of format and of what the model is given. Off, minutes are written in the built-in format.":
     "設定の「議事録」で書式を作れます。議事録を作るたびに、書式とモデルに渡す情報を選べます。無効のときは、組み込みの書式で書かれます。",
+  "Voice cues": "声の様子",
+  "Check the voice": "声の様子を調べる",
+  "Measuring…": "測っています…",
+  "Mark the lines said louder, higher or faster than the speaker usually was — or quieter, lower or slower": "その人のいつもの話し方より、大きめ・高め・速め（または小さめ・低め・ゆっくり）だった発言に印を付けます",
+  "Louder": "大きめ",
+  "Quieter": "小さめ",
+  "Higher": "高め",
+  "Lower": "低め",
+  "Faster": "速め",
+  "Slower": "ゆっくり",
+  "Compared with this speaker's other lines in this meeting": "この会議での、この人のほかの発言と比べて",
+  "Mark the lines said louder or quieter, higher or lower, faster or slower than the speaker usually was.":
+    "その人のいつもの話し方と比べて、大きめ・小さめ、高め・低め、速め・ゆっくりだった発言に印を付けます。",
+  "Finding where a discussion warmed up, without listening to the whole meeting again.":
+    "議論が熱を帯びたところを、会議を聞き直さずに見つけたい。",
+  "Seeing which points someone pressed hardest, by where their voice rose.":
+    "声が上がったところから、誰がどの点を強く主張していたかをつかみたい。",
+  "Reading back a meeting you missed with a sense of how it went, not just what was said.":
+    "出られなかった会議を、何が話されたかだけでなく、どんな様子だったかも含めて読み返したい。",
+  "A Check the voice button above the transcript, and small marks on the lines that stood out. Each person is compared with their own lines in the same meeting, so a distant microphone or a quiet voice does not count as quiet.":
+    "発言の上に「声の様子を調べる」ボタンが出て、目立った発言に小さな印が付きます。比べる相手はその人自身の同じ会議での発言なので、マイクから遠い人や声の小さい人が「小さめ」と出ることはありません。",
+  "The meeting's recording": "会議の録音",
   "External AI": "外部の AI",
   "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.":
     "Anthropic や OpenAI 互換のサービスで議事録を書き、文字起こしにも好きなサービスを使えます。",
@@ -729,6 +751,11 @@ export const ja: Record<string, string> = {
   "Only an administrator switches extensions on or off.": "拡張機能を切り替えられるのは管理者だけです。",
   "This feature is switched off. An administrator can switch it on under Settings, Extensions.":
     "この機能は無効になっています。管理者が「設定 → 拡張機能」で有効にできます。",
+  "No line has a place in the recording to measure.": "録音の中の位置が分かる発言が無いため、測れません。",
+  "Cannot reach the transcription service.": "文字起こしサービスに接続できません。",
+  "The recording is no longer kept, so how each line was said cannot be measured.":
+    "録音が残っていないため、声の様子は測れません。",
+  "Measuring the recording failed: {reason}": "録音の測定に失敗しました: {reason}",
   "Only an administrator sets the defaults everybody starts from.":
     "全員の既定値を設定できるのは管理者だけです。",
 

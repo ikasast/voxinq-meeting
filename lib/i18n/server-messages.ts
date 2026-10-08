@@ -50,6 +50,12 @@ export const SERVER_MESSAGES = [
   "Only an administrator switches extensions on or off.",
   "This feature is switched off. An administrator can switch it on under Settings, Extensions.",
 
+  // Voice cues.
+  "No line has a place in the recording to measure.",
+  "Cannot reach the transcription service.",
+  "The recording is no longer kept, so how each line was said cannot be measured.",
+  "Measuring the recording failed: {reason}",
+
   // Work that is already running, or cannot start.
   "Speakers are already being separated for this meeting.",
   "This meeting is already being re-transcribed.",
