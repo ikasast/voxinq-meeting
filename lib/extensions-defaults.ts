@@ -44,6 +44,7 @@ export function defaultsFrom(e: Evidence): ExtensionState {
     externalAi: e.externalAi,
     // New in v4: nothing to have been using.
     voiceCues: false,
+    emotion: false,
   };
 }
 

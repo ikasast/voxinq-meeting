@@ -29,6 +29,8 @@ const NO_GPU_BUDGET_MB = 4096;
  * CPU and costs nothing here — which is why a host without CUDA can diarize beside anything.
  */
 const PYANNOTE_MB = 2048;
+/** HuBERT large and its activations, in fp32, for the emotion of each line. */
+const EMOTION_MB = 2048;
 
 /** A 7B at Q4 plus its context. Used when Ollama cannot be asked. */
 const LLM_FALLBACK_MB = 5120;
@@ -149,6 +151,13 @@ export async function estimateVramMb(kind: JobKind, params: object): Promise<num
     // sherpa-onnx is the CPU backend; it is why a host without CUDA can separate speakers at all,
     // and it does not compete for the card.
     return diarizationBackend === "sherpa" ? 0 : PYANNOTE_MB;
+  }
+
+  if (kind === "emotion") {
+    // Where diarization runs on the CPU, so does this (it needs the build with torch, which is
+    // the CUDA one; anywhere else it fails rather than taking the card).
+    const { diarizationBackend } = await health();
+    return diarizationBackend === "sherpa" ? 0 : EMOTION_MB;
   }
 
   return 0;

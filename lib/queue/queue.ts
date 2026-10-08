@@ -232,7 +232,7 @@ export async function openJobsAcrossUsers(viewerId: string | null) {
 }
 
 /** Kinds whose runs are worth looking back on. Recording holds and key work are not. */
-const HISTORY_KINDS = ["minutes", "diarize", "transcribe"];
+const HISTORY_KINDS = ["minutes", "diarize", "transcribe", "emotion"];
 
 /**
  * Finished work, newest first, for the queue screen's history: how long each piece took, on

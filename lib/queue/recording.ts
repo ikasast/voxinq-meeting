@@ -7,6 +7,7 @@ import { unloadOllama } from "@/lib/llm/ollama";
 import { abortJob } from "./dispatcher";
 import { RECORDING_KIND } from "./types";
 import { cancelDiarize } from "./runners/diarize";
+import { cancelEmotion } from "./runners/emotion";
 
 // A recording's claim on the GPU.
 //
@@ -62,6 +63,7 @@ export async function preemptForRecording(): Promise<number> {
   for (const c of contenders) {
     abortJob(c.id);
     if (c.kind === "diarize" && c.meetingId) await cancelDiarize(c.meetingId);
+    if (c.kind === "emotion" && c.meetingId) await cancelEmotion(c.meetingId);
     if (c.kind === "minutes" && c.meetingId) abortGeneration(c.meetingId);
   }
   if (contenders.length === 0) return 0;

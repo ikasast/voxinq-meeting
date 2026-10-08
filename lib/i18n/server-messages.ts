@@ -56,6 +56,9 @@ export const SERVER_MESSAGES = [
   "The recording is no longer kept, so how each line was said cannot be measured.",
   "Measuring the recording failed: {reason}",
 
+  // Emotion.
+  "Emotion is already being judged for this meeting.",
+
   // Work that is already running, or cannot start.
   "Speakers are already being separated for this meeting.",
   "This meeting is already being re-transcribed.",

@@ -73,6 +73,12 @@ export const EXTENSIONS = [
     needs: "The meeting's recording",
   },
   {
+    id: "emotion",
+    name: "Emotion",
+    description: "Judge from the voice whether each line sounded joyful, angry or sad.",
+    needs: "The NVIDIA GPU build, HF_TOKEN with two models' terms accepted, and about 1.3 GB downloaded on first use",
+  },
+  {
     id: "externalAi",
     name: "External AI",
     description: "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.",

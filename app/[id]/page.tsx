@@ -291,6 +291,7 @@ export default async function MeetingPage({
             text: line.text,
             translation: line.translation,
             voice: line.voice,
+            emotion: line.emotion,
             createdAt: line.createdAt.toISOString(),
             splitOfId: line.splitOfId,
           }))}

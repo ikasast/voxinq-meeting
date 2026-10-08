@@ -49,6 +49,10 @@
   --success: #10b981;
   --warning: #f59e0b;
   --error: #ef4444;
+  /* What a line sounded like (Emotion): joy, anger, sadness. */
+  --mood-joy: #34d399;
+  --mood-anger: #f87171;
+  --mood-sad: #818cf8;
 }
 
 /* Light theme. Accent/status colors match the brand palette; neutrals are
@@ -84,6 +88,9 @@ html[data-theme="light"] {
   --success: #10b981;
   --warning: #b45309; /* #f59e0b is too faint as text on white, so one shade darker */
   --error: #ef4444;
+  --mood-joy: #059669;
+  --mood-anger: #dc2626;
+  --mood-sad: #4f46e5;
 }
 
 @theme inline {

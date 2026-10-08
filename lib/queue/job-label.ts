@@ -31,6 +31,8 @@ export function busyLabel(t: (k: string) => string, kind: string | null | undefi
       return t("Generating minutes…");
     case "diarize":
       return t("Diarizing…");
+    case "emotion":
+      return t("Judging emotion…");
     case "transcribe":
       return t("Transcribing…");
     case "recording":
