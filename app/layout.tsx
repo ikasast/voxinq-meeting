@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import Link from "next/link";
 import { Suspense } from "react";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -8,20 +7,19 @@ import { ExtensionsProvider } from "./extensions-provider";
 import { readExtensions } from "@/lib/extensions-store";
 import { NavTracker } from "./back-link";
 import { currentUser } from "@/lib/auth/session";
-import { currentLocale, serverT } from "@/lib/i18n/server";
+import { currentLocale } from "@/lib/i18n/server";
 import { hasKey } from "@/lib/crypto/key-cache";
 import { prisma } from "@/lib/prisma";
 import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
-import { BottomBar } from "./bottom-bar";
 import { LocaleProvider } from "./locale-provider";
 import { DueMeetingAlert } from "./due-meeting-alert";
+import { Sidebar } from "./sidebar";
+import { sidebarMeetings } from "./sidebar-meetings";
+import { DropToTranscribe } from "./drop-to-transcribe";
 import { LockedBanner } from "./locked-banner";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
-import { SideRail } from "./side-rail";
-import { NewMeetingLink } from "./new-meeting-link";
-import { SeriesIcon } from "./icons";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
@@ -57,90 +55,6 @@ export const viewport = {
 
 // The top bar, now only on screens too narrow for the rail. It keeps the full logo because
 // there is room for it here and it is the only place the app names itself on a phone.
-function HeaderNav({
-  external,
-  me,
-  t,
-  seriesOn,
-}: {
-  t: (key: string) => string;
-  external: boolean;
-  seriesOn: boolean;
-  me: {
-    username: string;
-    name: string | null;
-    hasImage: boolean;
-    isAdmin: boolean;
-    via: "session" | "tailnet";
-  } | null;
-}) {
-  return (
-    <header className="border-b border-[var(--border)] bg-[var(--header)] lg:hidden">
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between px-4 py-3">
-        <Link
-          href="/"
-          aria-label={t("Voxinq Meeting home")}
-          className="flex items-center"
-        >
-          {/* Show the logo per theme (.logo-dark/.logo-light in globals.css) */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.svg"
-            alt="Voxinq Meeting"
-            className="logo-dark h-9 w-auto"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo-light.svg"
-            alt="Voxinq Meeting"
-            className="logo-light h-9 w-auto"
-          />
-        </Link>
-        <nav className="flex items-center gap-2">
-          {/* External visitors cannot open Settings, so the theme control comes to them.
-              Internal users keep using Settings → Appearance, which has the same three
-              choices with labels. */}
-          {external ? <ThemeToggle /> : null}
-          {/* The bottom bar carries Series on a phone, and it is not rendered for an external
-              visitor at all — so for them the way to the series list comes up here. */}
-          {external && seriesOn ? (
-            <Link
-              href="/series"
-              aria-label={t("Series")}
-              title={t("Series")}
-              className="p-1 text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-            >
-              <SeriesIcon className="h-6 w-6" />
-            </Link>
-          ) : null}
-          {/* Only renders where it can actually install; see install-app.tsx. Offered to
-              external visitors too — installing changes how the page opens, not what it
-              lets anyone do. */}
-          <InstallApp />
-          {/* Recording and the queue are on the bottom bar now, where a thumb reaches them.
-              What is left up here is the deliberate path — setting a meeting up rather than
-              starting one — and it can afford to say so: with two icons gone there is room for
-              the word, and "+ New" alone never said new *what*.
-
-              Shown from outside too. Setting a meeting up is allowed from there, and on a phone
-              outside the tailnet this is the only way to it: the bottom bar is all recording and
-              is not rendered at all. Not on the sign-in screens, though — see NewMeetingLink. */}
-          <NewMeetingLink />
-          {me ? (
-            <AccountMenu
-              username={me.username}
-              name={me.name}
-              hasImage={me.hasImage}
-              isAdmin={me.isAdmin}
-              via={me.via}
-            />
-          ) : null}
-        </nav>
-      </div>
-    </header>
-  );
-}
-
 export default async function RootLayout({
   children,
 }: {
@@ -185,7 +99,7 @@ export default async function RootLayout({
   // Resolved here, once, and handed down. Fetching it in the browser would paint English and
   // then swap under somebody already reading.
   const locale = await currentLocale();
-  const t = await serverT();
+
   return (
     // `lang` was hard-coded to "ja" while every screen was in English, which is a lie told to
     // screen readers and to the browser's own translation offer.
@@ -219,26 +133,16 @@ export default async function RootLayout({
             <NavTracker />
           </Suspense>
           <ConfirmProvider>
-            <div className="flex min-h-full flex-1">
-              <SideRail
+            <div className="flex min-h-full flex-1 flex-col lg:flex-row">
+              {/* v4 (design B): the meetings live in the sidebar, beside one main screen. */}
+              <Sidebar
+                meetings={locked ? [] : await sidebarMeetings()}
                 external={external}
-                docsUrl={docsUrl}
-                version={appVersion}
                 isAdmin={me?.isAdmin ?? false}
-              />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <HeaderNav external={external} me={meWithImage} t={t} seriesOn={extensions.series} />
-                {/* Above everything, because until it is dealt with nothing below it can be read. */}
-                {locked ? <LockedBanner /> : null}
-                {/* Below the lock and above the page: a meeting starting is worth interrupting
-                    for, but not worth interrupting an account that cannot read anything yet. */}
-                {locked || !extensions.schedule ? null : <DueMeetingAlert external={external} />}
-                {/* The rail carries navigation on wide screens, but not the controls that only
-                  make sense per-device or per-session — those keep a home along the top. */}
-                <div className="hidden justify-end gap-2 px-4 pt-3 lg:flex">
-                  {external ? <ThemeToggle /> : null}
-                  <InstallApp />
-                  {meWithImage ? (
+                version={appVersion}
+                docsUrl={docsUrl}
+                account={
+                  meWithImage ? (
                     <AccountMenu
                       username={meWithImage.username}
                       name={meWithImage.name}
@@ -246,15 +150,25 @@ export default async function RootLayout({
                       isAdmin={meWithImage.isAdmin}
                       via={meWithImage.via}
                     />
-                  ) : null}
-                </div>
-                <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6">
-                  {children}
-                </main>
-                {/* Narrow layouts only; the rail is this on a desktop. It renders its own spacer,
-                  so nothing ends up underneath it. */}
-                <BottomBar external={external} />
+                  ) : null
+                }
+                extras={
+                  <>
+                    {external ? <ThemeToggle /> : null}
+                    <InstallApp />
+                  </>
+                }
+              />
+              <div className="flex min-w-0 flex-1 flex-col">
+                {/* Above everything, because until it is dealt with nothing below it can be read. */}
+                {locked ? <LockedBanner /> : null}
+                {/* Below the lock and above the page: a meeting starting is worth interrupting
+                    for, but not worth interrupting an account that cannot read anything yet. */}
+                {locked || !extensions.schedule ? null : <DueMeetingAlert external={external} />}
+                <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8">{children}</main>
               </div>
+              {/* A recording dropped anywhere on the page becomes a meeting (drop-to-transcribe.tsx). */}
+              {external || locked ? null : <DropToTranscribe />}
             </div>
           </ConfirmProvider>
           </ExtensionsProvider>

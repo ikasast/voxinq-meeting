@@ -315,3 +315,45 @@ export const FaceSadIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M8 11.5c0 .8-.6 1.5-.6 2.1a.6.6 0 0 0 1.2 0c0-.6-.6-1.3-.6-2.1Z" />
   </Base>
 );
+
+// The sidebar and the first screen (v4).
+export const SearchIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </Base>
+);
+
+export const PanelLeftIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18" />
+  </Base>
+);
+
+export const MenuIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M4 6h16M4 12h16M4 18h16" />
+  </Base>
+);
+
+export const CloseIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M18 6 6 18M6 6l12 12" />
+  </Base>
+);
+
+export const UploadIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="m17 8-5-5-5 5" />
+    <path d="M12 3v12" />
+  </Base>
+);
+
+export const CalendarIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18" />
+  </Base>
+);
