@@ -17,6 +17,9 @@ import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
 import {
+  FaceAngerIcon,
+  FaceJoyIcon,
+  FaceSadIcon,
   LockIcon,
   LockOpenIcon,
   PencilIcon,
@@ -38,6 +41,8 @@ import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
 import { type CueMark, marks, readCues } from "@/lib/voice-cues";
+import { emotionMark, readEmotion } from "@/lib/emotion";
+import { MoodStrip } from "./mood-strip";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -55,6 +60,8 @@ type Item = {
   splitOfId?: string | null;
   // How it was said against the speaker's own average (Voice cues): stored JSON, lib/voice-cues.ts.
   voice?: string | null;
+  // What it sounded like (Emotion): stored JSON, lib/emotion.ts.
+  emotion?: string | null;
 };
 
 // A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
@@ -179,6 +186,7 @@ export function TranscriptList({
   const extensions = useExtensions();
   const [suggesting, setSuggesting] = useState(false);
   const [voicing, setVoicing] = useState(false);
+  const [judging, setJudging] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -458,6 +466,31 @@ export function TranscriptList({
       setVoicing(false);
     }
   }, [meetingId]);
+
+  // Emotion: a queued job on the card. Asked for here, followed until it ends, then read back.
+  const runEmotion = useCallback(async () => {
+    setJudging(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/emotion`, { method: "POST" });
+      const d = (await res.json().catch(() => null)) as { jobId?: string; error?: string } | null;
+      if (!res.ok || !d?.jobId) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      for (;;) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const j = (await fetch(`/api/jobs/${d.jobId}`, { cache: "no-store" })
+          .then((r) => r.json())
+          .catch(() => null)) as { status?: string; detail?: string | null } | null;
+        if (!j || j.status === "queued" || j.status === "running") continue;
+        if (j.status !== "done") throw new Error(j.detail || t("Judging emotion failed."));
+        break;
+      }
+      await reloadTranscriptRef.current();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setJudging(false);
+    }
+  }, [meetingId, t]);
 
   // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
   // written until the user applies a suggestion, which then goes through the ordinary edit
@@ -1440,6 +1473,17 @@ export function TranscriptList({
                 {voicing ? t("Measuring…") : t("Check the voice")}
               </button>
             ) : null}
+            {!readOnly && extensions.emotion && endedAt && recInfo?.exists && transcripts.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => void runEmotion()}
+                disabled={busy || judging}
+                className="btn-outline"
+                title={t("Judged from the voice alone: how a line sounded, not what anybody felt.")}
+              >
+                {judging ? t("Judging emotion…") : t("Judge emotion")}
+              </button>
+            ) : null}
             {!readOnly && extensions.corrections && transcripts.length > 0 ? (
                 <button
                   type="button"
@@ -1500,6 +1544,16 @@ export function TranscriptList({
             {t("See the queue")}
           </Link>
         </p>
+      ) : null}
+
+      {/* The meeting at a glance, from what Emotion and Voice cues found (mood-strip.tsx). */}
+      {!live && transcripts.length > 0 ? (
+        <MoodStrip
+          lines={transcripts}
+          elapsed={elapsedSeconds}
+          showEmotion={extensions.emotion}
+          showVoice={extensions.voiceCues}
+        />
       ) : null}
 
       {transcripts.length === 0 ? (
@@ -1575,7 +1629,7 @@ function TranscriptRow({
 }) {
   const t = useT();
   // Who said it is changed here only with Speaker separation on.
-  const { speakers: speakersOn, voiceCues: voiceOn } = useExtensions();
+  const { speakers: speakersOn, voiceCues: voiceOn, emotion: emotionOn } = useExtensions();
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
   // enough that retyping one line beats re-transcribing the whole meeting.
   const [editing, setEditing] = useState(false);
@@ -1600,7 +1654,10 @@ function TranscriptRow({
   };
 
   return (
-    <li className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm">
+    <li
+      id={`line-${item.id}`}
+      className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm transition-shadow"
+    >
       <div className="flex items-center gap-2">
         {canSeek ? (
           <button
@@ -1699,7 +1756,12 @@ function TranscriptRow({
       ) : (
         <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
       )}
-      {voiceOn && !editing ? <VoiceMarks marks={marks(readCues(item.voice))} /> : null}
+      {(voiceOn || emotionOn) && !editing ? (
+        <VoiceMarks
+          marks={voiceOn ? marks(readCues(item.voice)) : []}
+          emotion={emotionOn ? emotionMark(readEmotion(item.emotion)) : null}
+        />
+      ) : null}
       {/* A proposed glossary fix, shown in place so it can be judged against the utterance it
           would replace. Applying it is an ordinary edit; nothing changes until then. */}
       {suggestion && !editing && !readOnly ? (
@@ -1791,10 +1853,33 @@ async function expectedSpeakerCount(meetingId: string): Promise<number> {
   }
 }
 
-/** The cues that stood out on a line: small marks under it (lib/voice-cues.ts). */
-function VoiceMarks({ marks: list }: { marks: CueMark[] }) {
+/** A face and a colour for each emotion a line can be labelled with. */
+const MOOD = {
+  joy: { icon: FaceJoyIcon, color: "--mood-joy" },
+  anger: { icon: FaceAngerIcon, color: "--mood-anger" },
+  sadness: { icon: FaceSadIcon, color: "--mood-sad" },
+} as const;
+
+/**
+ * How a line was said, under it: the voice cues that stood out (lib/voice-cues.ts) and, where it
+ * was clear, the emotion it sounded like (lib/emotion.ts).
+ */
+function VoiceMarks({
+  marks: list,
+  emotion,
+}: {
+  marks: CueMark[];
+  emotion: ReturnType<typeof emotionMark>;
+}) {
   const t = useT();
-  if (list.length === 0) return null;
+  if (list.length === 0 && !emotion) return null;
+  const feeling = emotion
+    ? emotion.emotion === "joy"
+      ? t("Sounded joyful")
+      : emotion.emotion === "anger"
+        ? t("Sounded angry")
+        : t("Sounded sad")
+    : null;
   const word = (m: CueMark) =>
     m.cue === "loud"
       ? m.up
@@ -1821,7 +1906,24 @@ function VoiceMarks({ marks: list }: { marks: CueMark[] }) {
           : TurtleIcon;
   return (
     <div className="mt-1.5 flex flex-wrap gap-1">
-      {/* The picture alone: the word is in the tooltip and read out, not printed. */}
+      {/* Pictures alone: the words are in the tooltips and read out, not printed. */}
+      {emotion ? (
+        <span
+          role="img"
+          aria-label={`${feeling} — ${t("Judged from the voice alone ({p}% sure): how the line sounded, not what anybody felt.", { p: Math.round(emotion.p * 100) })}`}
+          title={`${feeling} — ${t("Judged from the voice alone ({p}% sure): how the line sounded, not what anybody felt.", { p: Math.round(emotion.p * 100) })}`}
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+          style={{
+            color: `var(${MOOD[emotion.emotion].color})`,
+            background: `color-mix(in srgb, var(${MOOD[emotion.emotion].color}) 14%, transparent)`,
+          }}
+        >
+          {(() => {
+            const Face = MOOD[emotion.emotion].icon;
+            return <Face className="h-4 w-4 shrink-0" />;
+          })()}
+        </span>
+      ) : null}
       {list.map((m) => {
         const I = Icon(m);
         const said = `${word(m)} — ${t("Compared with this speaker's other lines in this meeting")}`;

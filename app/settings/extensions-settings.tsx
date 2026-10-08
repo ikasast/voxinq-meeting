@@ -162,6 +162,18 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       needs: t("The meeting's recording"),
     },
+    emotion: {
+      name: t("Emotion"),
+      summary: t("Judge from the voice whether each line sounded joyful, angry or sad."),
+      scenes: [
+        t("Looking back at where a meeting turned tense, or where it lightened."),
+        t("A first look at how a session went, before reading it line by line."),
+      ],
+      where: t(
+        "A Judge emotion button above the transcript, and a label on the lines where it was clear. It is how a line sounded, judged by a model trained on read speech — a hint, not anybody's feelings. Rules on judging emotion at work differ by country (the EU AI Act restricts it); check yours before using it on colleagues.",
+      ),
+      needs: t("The NVIDIA GPU build, HF_TOKEN with two models' terms accepted, and about 1.3 GB downloaded on first use"),
+    },
     externalAi: {
       name: t("External AI"),
       summary: t(

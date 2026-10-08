@@ -395,6 +395,9 @@ model Transcript {
   // an extension): JSON {"loud"?, "pitch"?, "pace"?}, each in standard deviations from that
   // speaker's own average. Null until measured; a measure that could not be taken is absent.
   voice        String?
+  // What the line sounded like (Emotion, an extension): JSON {"probs": [neutral, joy, anger,
+  // sadness]} from stt-service/emotion.py. Null until judged.
+  emotion      String?
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 

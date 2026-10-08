@@ -45,17 +45,18 @@ const LABELS = JSON.stringify(
 
 const PEOPLE = JA ? ["佐藤 玲", "田中 悠", "鈴木 千夏"] : ["Alex Rivera", "Sam Chen", "Jordan Lee"];
 
-// A meeting's spoken lines: [speakerKey, text, translation?, voice?]. The voice is what Voice
-// cues (an extension) would have measured — how the line stood out for its speaker. createdAt is spaced out from
+// A meeting's spoken lines: [speakerKey, text, translation?, voice?, emotion?]. The voice is what
+// Voice cues (an extension) would have measured — how the line stood out for its speaker — and
+// the emotion what Emotion would have judged: [neutral, joy, anger, sadness]. createdAt is spaced out from
 // startedAt. The translation is the Japanese line the Translation extension shows under one
 // spoken in another language.
 const SYNC_LINES = [
   ["self", "Thanks for joining, everyone. Let's start with the onboarding redesign — Sam, where are we?"],
   ["partner-0", "The new three-step flow is live in staging. In testing, drop-off fell from 40% to 18%."],
-  ["partner-1", "That's a big jump. The empty-state illustrations still need final copy, though.", null, { loud: 1.9, pitch: 1.7 }],
+  ["partner-1", "That's a big jump. The empty-state illustrations still need final copy, though.", null, { loud: 1.9, pitch: 1.7 }, [0.21, 0.71, 0.05, 0.03]],
   ["partner-0", "Right — I'll get those to design by Thursday."],
   ["self", "Let's aim to ship the redesign next Wednesday. Any blockers?"],
-  ["partner-1", "Just the analytics events — they're only half instrumented right now.", null, { loud: -0.4, pace: -1.6 }],
+  ["partner-1", "Just the analytics events — they're only half instrumented right now.", null, { loud: -0.4, pace: -1.6 }, [0.33, 0.01, 0.04, 0.62]],
   ["self", "Okay, Jordan, you own finishing the analytics before launch."],
   ["partner-0", "One more thing: on small screens the third step feels cramped."],
   ["partner-1", "We could collapse the summary card under a toggle."],
@@ -126,10 +127,10 @@ const RESEARCH_MINUTES = `## Overview
 const SYNC_LINES_JA = [
   ["self", "では始めます。まず新規登録フローの作り直しから。田中さん、状況は？"],
   ["partner-0", "新しい3ステップの画面をステージングに上げました。テストでは離脱が40%から18%まで下がっています。"],
-  ["partner-1", "だいぶ効きましたね。ただ空状態のイラストの文言がまだ確定していません。", null, { loud: 1.9, pitch: 1.7 }],
+  ["partner-1", "だいぶ効きましたね。ただ空状態のイラストの文言がまだ確定していません。", null, { loud: 1.9, pitch: 1.7 }, [0.21, 0.71, 0.05, 0.03]],
   ["partner-0", "そこは木曜までにデザインに渡します。"],
   ["self", "来週の水曜リリースを目標にしましょう。止まりそうなところはありますか。"],
-  ["partner-1", "計測イベントの実装が半分残っています。", null, { loud: -0.4, pace: -1.6 }],
+  ["partner-1", "計測イベントの実装が半分残っています。", null, { loud: -0.4, pace: -1.6 }, [0.33, 0.01, 0.04, 0.62]],
   ["self", "では鈴木さん、リリース前に計測の実装を仕上げてください。"],
   ["partner-0", "もう一点、スマホの狭い画面だと3ステップ目が窮屈です。"],
   ["partner-1", "サマリーのカードを折りたたみにするのはどうでしょう。"],
@@ -238,11 +239,12 @@ async function makeMeeting({ id, title, description, startedAt, endedAt, recorde
         ? { create: people.map((name, position) => ({ name, position, speaking: true })) }
         : undefined,
       transcripts: {
-        create: lines.map(([speakerType, text, translation, voice], i) => ({
+        create: lines.map(([speakerType, text, translation, voice, emotion], i) => ({
           speakerType,
           text,
           translation: translation ?? null,
           voice: voice ? JSON.stringify(voice) : null,
+          emotion: emotion ? JSON.stringify({ probs: emotion }) : null,
           createdAt: new Date(startedAt.getTime() + i * 90_000),
         })),
       },

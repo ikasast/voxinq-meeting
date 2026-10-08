@@ -1466,6 +1466,111 @@ async def diarize_cancel(meeting_id: str) -> dict:
     return {"status": "cancelled" if (proc or running) else "idle"}
 
 
+# ---- Emotion (an extension) ----
+# The emotion of each line, from the voice: stt-service/emotion.py, run like diarization by the
+# Python that has torch, as a process of its own so its GPU memory goes back when it ends. The
+# web app's queue decides when; this only runs what it is told.
+
+_EMO_SCRIPT = Path(__file__).parent / "emotion.py"
+_EMO_LOCK = threading.Lock()
+_EMO_JOBS: dict[str, dict] = {}  # meeting_id -> {"status": running|done|error, "lines"?, "detail"?}
+_EMO_PROCS: dict[str, subprocess.Popen] = {}
+
+
+def _emotion_job(mid: str, wav: Path, spans: list[dict]) -> None:
+    req = RECORDINGS_DIR / f"{mid}.emotion-request.json"
+    try:
+        req.write_text(json.dumps(spans), encoding="utf-8")
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "utf-8"
+        proc = subprocess.Popen(
+            [str(_DIA_PYTHON), str(_EMO_SCRIPT), str(wav), str(req)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            env=env,
+        )
+        with _EMO_LOCK:
+            _EMO_PROCS[mid] = proc
+        try:
+            out, err = proc.communicate()
+        finally:
+            with _EMO_LOCK:
+                _EMO_PROCS.pop(mid, None)
+        if proc.returncode != 0:
+            raise RuntimeError((err or "").strip()[-500:] or "emotion cancelled or failed")
+        last = [ln for ln in (out or "").splitlines() if ln.strip()][-1]
+        result = json.loads(last)
+        with _EMO_LOCK:
+            _EMO_JOBS[mid] = {"status": "done", "lines": result.get("lines") or []}
+    except Exception as e:  # noqa: BLE001
+        text = str(e)
+        job: dict = {"status": "error", "detail": text[-300:]}
+        if "No module named 'torch'" in text:
+            job["code"] = "no_torch"
+        elif _needs_hf_token(text) or "GatedRepo" in text:
+            job["code"] = "hf_token_required"
+        with _EMO_LOCK:
+            _EMO_JOBS[mid] = job
+    finally:
+        req.unlink(missing_ok=True)
+
+
+@app.post("/emotion/{meeting_id}")
+async def emotion_start(meeting_id: str, request: Request) -> dict:
+    """Start judging each line's emotion in the background. Progress: GET /emotion/{id}/status.
+
+    body: {"utterances": [{"start": s, "end": s}, ...]} — the lines, in the caller's order.
+    """
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    wav = RECORDINGS_DIR / f"{mid}.wav"
+    if not wav.exists():
+        raise HTTPException(status_code=404, detail="Recording not found (meeting not yet saved, or already deleted)")
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    spans = body.get("utterances") if isinstance(body, dict) else None
+    if not isinstance(spans, list) or not spans:
+        raise HTTPException(status_code=400, detail="utterances is required")
+    if not _DIA_PYTHON.exists():
+        raise HTTPException(status_code=500, detail="The environment with torch was not found")
+    with _EMO_LOCK:
+        if (_EMO_JOBS.get(mid) or {}).get("status") == "running":
+            return {"status": "running"}
+        _EMO_JOBS[mid] = {"status": "running"}
+    threading.Thread(target=_emotion_job, args=(mid, wav, spans), daemon=True).start()
+    return {"status": "running"}
+
+
+@app.get("/emotion/{meeting_id}/status")
+async def emotion_status(meeting_id: str) -> dict:
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    with _EMO_LOCK:
+        job = dict(_EMO_JOBS.get(mid) or {"status": "none"})
+    return job
+
+
+@app.post("/emotion/{meeting_id}/cancel")
+async def emotion_cancel(meeting_id: str) -> dict:
+    mid = _safe_meeting_id(meeting_id)
+    if not mid:
+        raise HTTPException(status_code=400, detail="invalid meeting id")
+    with _EMO_LOCK:
+        proc = _EMO_PROCS.get(mid)
+    if proc and proc.poll() is None:
+        proc.terminate()
+    with _EMO_LOCK:
+        if (_EMO_JOBS.get(mid) or {}).get("status") == "running":
+            _EMO_JOBS[mid] = {"status": "error", "detail": "cancelled"}
+    return {"status": "cancelled" if proc else "idle"}
+
+
 # ---- Re-transcription from a saved recording ----
 # Redo the realtime recognition. Re-run Whisper over the whole saved WAV and replace the
 # utterance boundaries (segments.json) with the new results.

@@ -7,6 +7,7 @@ import { runEncryptExisting } from "./runners/encrypt";
 import { sweepStaleRecordings } from "./recording";
 import { claimNext, enqueue, finishRun, openJobFor, recoverInterrupted } from "./queue";
 import { runDiarize } from "./runners/diarize";
+import { runEmotion } from "./runners/emotion";
 import { runMinutes } from "./runners/minutes";
 import { runTranscribe } from "./runners/transcribe";
 import type { MinutesParams } from "./types";
@@ -172,6 +173,11 @@ async function run(job: {
       case "diarize": {
         const r = await runDiarize(job, signals.get(job.id)?.signal);
         await finishRun(job.id, "done", r.note, r.metrics);
+        return;
+      }
+      case "emotion": {
+        const r = await runEmotion(job, signals.get(job.id)?.signal);
+        await finishRun(job.id, "done", r.note);
         return;
       }
       default:

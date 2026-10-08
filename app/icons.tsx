@@ -288,3 +288,30 @@ export const TurtleIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M16.93 10H20a2 2 0 0 1 0 4H2" />
   </Base>
 );
+
+// What a line sounded like (Emotion): a face for each of the three it can be labelled with.
+export const FaceJoyIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+    <path d="M9 9h.01M15 9h.01" />
+  </Base>
+);
+
+export const FaceAngerIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+    <path d="M7.5 8 10 9M14 9l2.5-1" />
+    <path d="M9 10h.01M15 10h.01" />
+  </Base>
+);
+
+export const FaceSadIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M16 16.5s-1.5-2-4-2-4 2-4 2" />
+    <path d="M9 9h.01M15 9h.01" />
+    <path d="M8 11.5c0 .8-.6 1.5-.6 2.1a.6.6 0 0 0 1.2 0c0-.6-.6-1.3-.6-2.1Z" />
+  </Base>
+);

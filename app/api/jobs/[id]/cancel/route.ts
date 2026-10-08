@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cancelEmotion } from "@/lib/queue/runners/emotion";
 import { currentUser } from "@/lib/auth/session";
 import { asSystem } from "@/lib/db/scope";
 import { prisma } from "@/lib/prisma";
@@ -53,6 +54,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   if (job.status === "running") {
     abortJob(job.id);
     if (job.kind === "diarize" && job.meetingId) await cancelDiarize(job.meetingId);
+    if (job.kind === "emotion" && job.meetingId) await cancelEmotion(job.meetingId);
     if (job.kind === "minutes" && job.meetingId) abortGeneration(job.meetingId);
   }
 
