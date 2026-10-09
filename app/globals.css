@@ -549,3 +549,23 @@ html[data-theme="light"] .logo-dark {
     margin: 12mm;
   }
 }
+
+/* A meeting being recorded, in the sidebar: the record button's dot fading in and out, slower
+   than animate-pulse so it reads as "on air" rather than as something asking to be clicked. */
+@keyframes recording-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.recording-dot {
+  animation: recording-breathe 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .recording-dot {
+    animation: none;
+  }
+}

@@ -170,8 +170,20 @@ export function Sidebar({
                         : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
                     }`}
                   >
-                    {/* The dots for "recording" and "no minutes" are gone for now: nothing said what
-                        they meant, and they sat where the pin goes. */}
+                    {/* Being recorded: a record button's red dot before the name, breathing slowly.
+                        Before the name rather than at the end, where the pin goes and where an
+                        unexplained dot read as nothing in particular. ("No minutes" has no mark
+                        for now.) */}
+                    {m.live ? (
+                      <span
+                        role="img"
+                        aria-label={t("Recording")}
+                        title={t("Recording")}
+                        className="recording-dot inline-block h-3 w-3 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] p-px"
+                      >
+                        <span className="block h-full w-full rounded-full bg-[var(--error)]" />
+                      </span>
+                    ) : null}
                     <span className="min-w-0 flex-1 truncate">{m.title}</span>
                   </Link>
                   {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
