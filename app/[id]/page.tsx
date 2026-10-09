@@ -9,19 +9,15 @@ import { parseParams } from "@/lib/queue/types";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { AskMinutes } from "../ask-minutes";
-import { BackLink } from "../back-link";
 import { readExtensions } from "@/lib/extensions-store";
-import { ArchiveButton } from "./archive-button";
 import { BookedTime } from "./booked-time";
-import { CloneMeetingButton } from "./clone-meeting-button";
-import { DeleteMeetingButton } from "./delete-meeting-button";
 import { DownloadMeetingButton } from "./download-meeting-button";
 import { FirstRunGuide } from "./first-run-guide";
 import { ResumeRecordingButton } from "./resume-recording-button";
-import { MeetingAside } from "./meeting-aside";
-import { MeetingFactsCard } from "./meeting-facts-card";
-import { ParticipantsCard } from "./participants-card";
-import { ProgressCard } from "./progress-card";
+import { MeetingFacts } from "./meeting-facts-card";
+import { MeetingMenu } from "./meeting-menu";
+import { ParticipantsRow } from "./participants-card";
+import { PROPS_GRID, Prop } from "./property";
 import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
@@ -30,15 +26,8 @@ import { MeetingBody } from "./meeting-body";
 
 export const dynamic = "force-dynamic";
 
-export default async function MeetingPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ q?: string; tag?: string; series?: string; date?: string; month?: string }>;
-}) {
+export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { q, tag, series, date, month } = await searchParams;
   const locale = await currentLocale();
   const meeting = await prisma.meeting.findUnique({
     where: { id },
@@ -95,25 +84,8 @@ export default async function MeetingPage({
   const seriesName = meeting.series?.name ?? null;
   const seriesId = meeting.series?.id ?? null;
 
-  // What the details bar says while the details are closed, which is every screen narrower than
-  // the rail. Three numbers rather than a label on its own: closing something is easier to
-  // accept when what it held is still readable.
   const t = await serverT();
-  const asideSummary = [
-    formatDurationIn(locale, meeting.recordedMs),
-    meeting.transcripts.length > 0
-      ? t(meeting.transcripts.length === 1 ? "1 utterance" : "{n} utterances", {
-          n: meeting.transcripts.length,
-        })
-      : null,
-    meeting.participants.length > 0
-      ? t(meeting.participants.length === 1 ? "1 person" : "{n} people", {
-          n: meeting.participants.length,
-        })
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const duration = formatDurationIn(locale, meeting.recordedMs);
 
   // The meetings are in the sidebar (v4, design B), so the page is the meeting alone.
   return (
@@ -125,44 +97,21 @@ export default async function MeetingPage({
       <MeetingBody
         header={
           <>
-      {/* Stack vertically on phones (so the title-edit box and action buttons are not crammed into one row) */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="min-w-0 sm:flex-1">
+      {/* The title, and what is done to the meeting as a whole: record into it, download it, and
+          behind "…" the rest — start the next one like it, archive it, bin it. */}
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
           {/* Editable from outside, like the agenda and the participants below: the point of
               booking a meeting from a work laptop is to name it and fill it in beforehand.
               `lib/external-writes.ts` allows exactly this PATCH; see there for what it does
               not allow. */}
           <MeetingTitle id={meeting.id} title={meeting.title} />
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {upcoming && meeting.scheduledAt && extensions.schedule ? (
-              <BookedTime
-                id={meeting.id}
-                at={meeting.scheduledAt.toISOString()}
-                label={formatDateTimeIn(locale, meeting.scheduledAt)}
-              />
-            ) : (
-              formatDateTimeIn(locale, meeting.startedAt)
-            )}
-            {meeting.endedAt ? (
-              <> – {formatDateTimeIn(locale, meeting.endedAt)}</>
-            ) : upcoming ? (
-              // Booked and not recorded yet: the date above is when it is due, and calling
-              // that "in progress" would be the app telling you a meeting is happening.
-              <> – {t("not recorded yet")}</>
-            ) : (
-              <> – {t("(in progress)")}</>
-            )}
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Desktop can navigate via the left pane, so the back button is mobile-only */}
-          <BackLink href="/" className="btn-outline lg:hidden">
-            {t("Back to list")}
-          </BackLink>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           {!meeting.endedAt && !external ? (
             // replace: ending replaces the recording screen with this page again, and two
             // entries for one page meant pressing Back twice.
-            <Link href={`/${meeting.id}/recording`} replace className="btn-ink">
+            <Link href={`/${meeting.id}/recording`} replace className="btn-ink !px-4 !py-1.5">
               {t("Recording screen")}
             </Link>
           ) : null}
@@ -170,50 +119,72 @@ export default async function MeetingPage({
             // Only rendered when the recording is still kept (the button checks STT).
             <ResumeRecordingButton meetingId={meeting.id} />
           ) : null}
-          {/* Compact icon toolbar (hover for what each does).
-              External (read-only) access keeps only the download button. */}
-          <div className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1">
-            <DownloadMeetingButton
-              meetingId={meeting.id}
+          {/* External (read-only) access keeps only the download. */}
+          <DownloadMeetingButton
+            meetingId={meeting.id}
+            title={meeting.title}
+            hasMinutes={meeting.summaries.length > 0}
+            hasTranscript={meeting.transcripts.length > 0}
+          />
+          {!external ? (
+            <MeetingMenu
+              id={meeting.id}
               title={meeting.title}
-              hasMinutes={meeting.summaries.length > 0}
-              hasTranscript={meeting.transcripts.length > 0}
+              description={meeting.description}
+              tags={tagNames}
+              series={seriesName}
+              archived={meeting.archivedAt !== null}
             />
-            {!external ? (
-              <>
-                <CloneMeetingButton
-                  description={meeting.description}
-                  tags={tagNames}
-                  series={seriesName}
-                />
-                <ArchiveButton id={meeting.id} archived={meeting.archivedAt !== null} />
-                <DeleteMeetingButton id={meeting.id} title={meeting.title} />
-              </>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       </div>
 
       {meeting.archivedAt ? (
-        <div className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+        <p className="text-sm text-[var(--text-muted)]">
           {t("Archived — hidden from the meeting list, but still found via search.")}
-        </div>
+        </p>
       ) : null}
 
-      {/* What the meeting *is*, beside what it produced: agenda and tags, the settings it was
-          actually recorded and written with, the series it belongs to, and who was there.
-          A bar above the minutes, closed until opened: the right of the page is the transcript's
-          (v4, design B), and four cards before the first line of the minutes is most of a screen. The bar keeps the numbers; see meeting-aside.tsx. */}
-      <MeetingAside summary={asideSummary}>
-        <ProgressCard
-          ended={meeting.endedAt !== null}
-          recordedMs={meeting.recordedMs}
-          transcriptCount={meeting.transcripts.length}
-          separated={meeting.diarizationEmbeddings !== null}
-          speakerCount={new Set(meeting.transcripts.map((t) => t.speakerType)).size}
-          summaryCount={meeting.summaries.length}
-          minutesRunning={minutesRunning}
-          transcribing={transcribing !== null}
+      {/* What the meeting is, as a table under its title (property.tsx): when, who, the series,
+          the agenda — always in sight, no box around any of it — and, folded, what it was
+          recorded and written with. Progress is a row only while something is under way; done,
+          it is what the rest of the page already shows. */}
+      <div className={PROPS_GRID}>
+        <Prop label={t("When")}>
+          {upcoming && meeting.scheduledAt && extensions.schedule ? (
+            <BookedTime
+              id={meeting.id}
+              at={meeting.scheduledAt.toISOString()}
+              label={formatDateTimeIn(locale, meeting.scheduledAt)}
+            />
+          ) : (
+            formatDateTimeIn(locale, meeting.startedAt)
+          )}
+          {meeting.endedAt ? (
+            <> – {formatDateTimeIn(locale, meeting.endedAt)}</>
+          ) : upcoming ? (
+            // Booked and not recorded yet: the date above is when it is due, and calling
+            // that "in progress" would be the app telling you a meeting is happening.
+            <> – {t("not recorded yet")}</>
+          ) : (
+            <> – {t("(in progress)")}</>
+          )}
+          {duration ? <span className="text-[var(--text-muted)]"> · {duration}</span> : null}
+        </Prop>
+        {transcribing || minutesRunning ? (
+          <Prop label={t("Status")}>
+            <span className="inline-flex items-center gap-2 text-[var(--accent-sub)]">
+              <span aria-hidden className="size-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+              {[transcribing ? t("Transcribing…") : null, minutesRunning ? t("Writing minutes…") : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          </Prop>
+        ) : null}
+        <ParticipantsRow
+          meetingId={meeting.id}
+          initial={meeting.participants}
+          knownNames={knownSpeakers.map((p) => p.name)}
         />
         <MeetingMeta
           id={meeting.id}
@@ -222,12 +193,7 @@ export default async function MeetingPage({
           series={seriesName}
           seriesId={seriesId}
         />
-        <ParticipantsCard
-          meetingId={meeting.id}
-          initial={meeting.participants}
-          knownNames={knownSpeakers.map((p) => p.name)}
-        />
-        <MeetingFactsCard
+        <MeetingFacts
           whisperModel={meeting.whisperModel}
           sttLanguage={meeting.sttLanguage}
           defaultWhisperModel={await getWhisperModel()}
@@ -247,7 +213,7 @@ export default async function MeetingPage({
               : null
           }
         />
-      </MeetingAside>
+      </div>
           </>
         }
         lineCount={meeting.transcripts.length}
@@ -261,7 +227,7 @@ export default async function MeetingPage({
         <FirstRunGuide recordingHref={`/${meeting.id}/recording`} />
       ) : null}
 
-      <section className="card p-5">
+      <section>
         <SummarySection
           meetingId={meeting.id}
           meetingTitle={meeting.title}
@@ -287,6 +253,7 @@ export default async function MeetingPage({
       !seriesId &&
       (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
         <AskMinutes
+          plain
           meetingId={meeting.id}
           scopeLabel={meeting.title}
           hasMinutes={meeting.summaries.length > 0}
@@ -299,7 +266,7 @@ export default async function MeetingPage({
           </>
         }
         transcript={
-      <section className="card p-5">
+      <section>
         <TranscriptList
           meetingId={meeting.id}
           meetingTitle={meeting.title}

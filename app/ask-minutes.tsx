@@ -26,6 +26,7 @@ export function AskMinutes({
   scopeLabel,
   hasMinutes = true,
   hasTranscript = false,
+  plain = false,
 }: {
   seriesId?: string;
   meetingId?: string;
@@ -37,6 +38,12 @@ export function AskMinutes({
    * series of transcripts is several times any local model's context.
    */
   hasTranscript?: boolean;
+  /**
+   * Under a meeting's minutes (v4, design B): no card, a heading like the minutes' own, the
+   * examples as quiet links, the answer set off by a rule rather than boxed. The series page
+   * still shows it as the card it was.
+   */
+  plain?: boolean;
 }) {
   // What to read. The minutes when there are any — they are the reviewed version, and the
   // dense one — and the meeting's own words when there are not, or when asked for.
@@ -78,9 +85,15 @@ export function AskMinutes({
   };
 
   return (
-    <section className="card space-y-3 p-5">
+    <section className={plain ? "space-y-3 border-t border-[var(--border)] pt-4" : "card space-y-3 p-5"}>
       <div>
-        <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
+        <h2
+          className={
+            plain
+              ? "text-sm font-semibold text-[var(--text-secondary)]"
+              : "section-title text-sm font-semibold text-[var(--text-strong)]"
+          }
+        >
           {source === "transcript" ? t("Ask about this meeting") : t("Ask about these minutes")}
         </h2>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -131,7 +144,11 @@ export function AskMinutes({
           disabled={asking || blocked}
           className="input min-w-0 flex-1"
         />
-        <button type="submit" disabled={asking || blocked || !question.trim()} className="btn-ink">
+        <button
+          type="submit"
+          disabled={asking || blocked || !question.trim()}
+          className={plain ? "btn-outline !px-4 !py-1.5" : "btn-ink"}
+        >
           {asking ? t("Thinking…") : t("Ask")}
         </button>
       </form>
@@ -143,7 +160,7 @@ export function AskMinutes({
           })}
         </p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
+        <div className={plain ? "flex flex-wrap gap-x-4 gap-y-1" : "flex flex-wrap gap-1.5"}>
           {examples.map((ex) => (
             <button
               key={ex}
@@ -153,7 +170,11 @@ export function AskMinutes({
                 void ask(ex);
               }}
               disabled={asking}
-              className="rounded-full border border-[var(--border-strong)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+              className={
+                plain
+                  ? "text-xs text-[var(--text-muted)] underline-offset-2 hover:text-[var(--foreground)] hover:underline disabled:opacity-50"
+                  : "rounded-full border border-[var(--border-strong)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+              }
             >
               {ex}
             </button>
@@ -164,7 +185,7 @@ export function AskMinutes({
       {error ? <p className="text-xs text-[var(--error)]">{error}</p> : null}
 
       {result ? (
-        <div className="rounded-md border border-[var(--border)] bg-[var(--elevated)] p-4">
+        <div className={plain ? "border-l-2 border-[var(--accent)] pl-4" : "rounded-md border border-[var(--border)] bg-[var(--elevated)] p-4"}>
           <article className="prose prose-invert minutes-prose max-w-none prose-headings:font-semibold">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.answer}</ReactMarkdown>
           </article>

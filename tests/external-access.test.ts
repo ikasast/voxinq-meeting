@@ -127,7 +127,7 @@ describe("the screen agrees with the list", () => {
 
   const page = readFileSync(join(root, "app/[id]/page.tsx"), "utf8");
 
-  const editableFromOutside = ["MeetingTitle", "MeetingMeta", "ParticipantsCard"];
+  const editableFromOutside = ["MeetingTitle", "MeetingMeta", "ParticipantsRow"];
   const readOnlyFromOutside = ["SummarySection", "TranscriptList", "MeetingListPane"];
 
   /** The props passed to `<Name …>` on the meeting page. */

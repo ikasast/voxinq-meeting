@@ -45,7 +45,8 @@ import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerMenu, SpeakerName, SpeakerNamesEditor } from "./speakers-ui";
 import { TrimRecording } from "./trim-recording";
-import { downloadText, shareText } from "./share-button";
+import { downloadText, shareText } from "./share-text";
+import { CopyButton } from "./copy-button";
 import { DropMenu, MENU_ITEM, MenuRule } from "../drop-menu";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
@@ -1075,6 +1076,9 @@ export function TranscriptList({
             </span>
           ) : null}
         </h2>
+        {/* Copying is always in sight, as it is beside the minutes: it is what is done with a
+            transcript most, so it is not one of the things behind "…". */}
+        {transcripts.length > 0 ? <CopyButton text={transcriptText} label={t("Copy transcript")} /> : null}
         {speakersTool ? toolButton("speakers", t("Speaker separation"), PeopleIcon) : null}
         {replaceTool ? toolButton("replace", t("Find & replace"), SearchIcon) : null}
         {retransTool ? toolButton("retrans", t("Re-transcribe"), RefreshIcon) : null}

@@ -211,7 +211,9 @@ describe("the ways off a page", () => {
   });
 
   it("go back to the list rather than open a new one on top", () => {
-    for (const p of ["app/[id]/page.tsx", "app/archive/page.tsx", "app/series/page.tsx", "app/series/[id]/page.tsx", "app/trash/trash-list.tsx"]) {
+    // Not on a meeting's own page any more: the sidebar is the list there (v4, design B), and on a
+    // phone it is the menu in the top bar.
+    for (const p of ["app/archive/page.tsx", "app/series/page.tsx", "app/series/[id]/page.tsx", "app/trash/trash-list.tsx"]) {
       expect(read(p), p).toMatch(/<BackLink href="\/"[^>]*>\s*\{t\("Back to list"\)\}/);
     }
     expect(read("app/layout.tsx")).toContain("<NavTracker />");
@@ -234,7 +236,7 @@ describe("the ways off a page", () => {
       "app/account-menu.tsx",
       "app/meeting-item-menu.tsx",
       "app/[id]/download-meeting-button.tsx",
-      "app/[id]/minutes-download-button.tsx",
+      "app/drop-menu.tsx",
       "app/[id]/recording/end-dialog.tsx",
       "app/install-app.tsx",
       "app/settings/stt-profiles.tsx",

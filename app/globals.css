@@ -168,7 +168,9 @@ html[data-theme="light"] .prose-invert {
 /* Minutes markdown: compact layout with a clearly ranked heading scale.
    (The typography plugin's h3 default is larger than a Tailwind-overridden h2,
    which made h3 render bigger than h2 — set the whole scale explicitly.) */
-.minutes-prose h2 {
+/* An h1 in the minutes is a section like any other, not a second title: the meeting's own name
+   is the largest thing on the page. */
+.minutes-prose :is(h1, h2) {
   font-size: 1.15rem;
   line-height: 1.4;
   margin-top: 1.7em;
@@ -176,7 +178,7 @@ html[data-theme="light"] .prose-invert {
   padding-bottom: 0.3em;
   border-bottom: 1px solid var(--border);
 }
-.minutes-prose h2:first-child {
+.minutes-prose :is(h1, h2):first-child {
   margin-top: 0.25em;
 }
 .minutes-prose h3 {

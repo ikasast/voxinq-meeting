@@ -75,7 +75,8 @@ describe("the meeting page while its recognition waits", () => {
     const page = read("app/[id]/page.tsx");
     expect(page).toContain('kind: "transcribe", meetingId: meeting.id, status: { in: ["queued", "running"] }');
     expect(page).toContain("transcribeJobId={external ? null : (transcribing?.id ?? null)}");
-    expect(page).toContain("transcribing={transcribing !== null}");
+    // And says so under the title, in the row that is there only while something is under way.
+    expect(page).toContain('transcribing ? t("Transcribing…") : null');
   });
 
   it("says the minutes are coming when they are, rather than that they cannot be written", () => {

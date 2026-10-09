@@ -2,13 +2,18 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useBackGuard } from "./use-back-guard";
 
 // A small menu that drops from the button that opened it. Drawn in a portal at a fixed position
 // worked out from the button, so neither a scrolling panel nor a card's overflow can cut it off;
-// it closes when anything scrolls or resizes, on Escape, and on a click anywhere else.
+// it closes when anything scrolls or resizes, on Escape, on Back, and on a click anywhere else.
 
 const GAP = 4;
 const PAD = 8;
+
+/** A borderless icon button: the one that opens a menu, and the ones beside it. */
+export const ICON_BUTTON =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] disabled:opacity-50";
 
 /** A row in the menu. */
 export const MENU_ITEM =
@@ -36,12 +41,18 @@ export function DropMenu({
   width?: number;
   /** Which edge of the button the menu lines up with. */
   align?: "start" | "end";
-  children: (close: () => void) => ReactNode;
+  /** `close` resolves once the menu's Back entry is gone: await it before navigating or opening
+   *  a dialog, or that Back lands after and undoes it. */
+  children: (close: () => Promise<void>) => ReactNode;
 }) {
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const close = () => setPos(null);
+  const release = useBackGuard(pos !== null, () => setPos(null));
+  const close = () => {
+    setPos(null);
+    return release();
+  };
 
   const open = () => {
     const r = button.current?.getBoundingClientRect();
@@ -81,7 +92,7 @@ export function DropMenu({
       <button
         ref={button}
         type="button"
-        onClick={() => (pos ? close() : open())}
+        onClick={() => (pos ? void close() : open())}
         title={label}
         aria-label={ariaLabel ?? label}
         aria-haspopup="menu"
@@ -93,7 +104,7 @@ export function DropMenu({
       {pos
         ? createPortal(
             <>
-              <div aria-hidden className="fixed inset-0 z-40" onClick={close} />
+              <div aria-hidden className="fixed inset-0 z-40" onClick={() => void close()} />
               <div
                 ref={menu}
                 role="menu"

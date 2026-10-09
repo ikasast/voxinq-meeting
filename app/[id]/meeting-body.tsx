@@ -66,7 +66,7 @@ export function MeetingBody({
       <div className="space-y-6">
         {header}
         {document}
-        {transcript}
+        <div className="border-t border-[var(--border)] pt-6">{transcript}</div>
       </div>
     );
   }
@@ -75,7 +75,9 @@ export function MeetingBody({
     <div className="lg:flex lg:items-start lg:gap-6">
       {/* The document: a page at a readable width, centred in whatever room the panel leaves —
           so with the panel shut it sits in the middle rather than leaving the right side bare. */}
-      <div className="min-w-0 flex-1">
+      {/* Room at the right for the panel's tab, which rides over the gap and would otherwise sit
+          on the buttons at the end of the minutes' heading. */}
+      <div className="min-w-0 flex-1 lg:pr-4">
         <div className="mx-auto w-full max-w-[50rem] space-y-6">
           {header}
           {/* A phone: the two as tabs. */}
@@ -117,7 +119,7 @@ export function MeetingBody({
         <div className="lg:h-full lg:overflow-hidden">
           <div
             inert={!panel}
-            className="lg:h-full lg:w-[min(36rem,44vw)] lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:py-6 lg:pl-6 lg:[&>section.card]:border-0 lg:[&>section.card]:bg-transparent lg:[&>section.card]:p-0 lg:[&>section.card]:shadow-none"
+            className="lg:h-full lg:w-[min(36rem,44vw)] lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:py-6 lg:pl-6"
           >
             {transcript}
           </div>

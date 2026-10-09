@@ -4,16 +4,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PlusCircleIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
+import { MENU_ITEM } from "../drop-menu";
 
 // Create a new meeting inheriting the purpose/tags/series and go straight to recording (for recurring meetings).
+// As a row of the meeting's "…" menu when `onPick` is given: it closes the menu first.
 export function CloneMeetingButton({
   description,
   tags,
   series,
+  onPick,
 }: {
   description: string | null;
   tags: string[];
   series: string | null;
+  onPick?: () => Promise<void>;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -39,6 +43,20 @@ export function CloneMeetingButton({
     }
   };
 
+  if (onPick) {
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => void onPick().then(clone)}
+        disabled={busy}
+        className={MENU_ITEM}
+      >
+        <PlusCircleIcon className="h-3.5 w-3.5" />
+        {t("New with same settings")}
+      </button>
+    );
+  }
   return (
     <button
       type="button"

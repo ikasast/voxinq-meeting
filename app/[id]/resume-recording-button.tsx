@@ -35,7 +35,7 @@ export function ResumeRecordingButton({ meetingId }: { meetingId: string }) {
       href={`/${meetingId}/recording?autostart=1&resume=1`}
       // Ending comes back here by replacing the recording screen; one entry, not two.
       replace
-      className="btn-ink"
+      className="btn-ink !px-4 !py-1.5"
       title={t("Continue recording — appends to the existing recording and transcript")}
     >
       {t("Resume recording")}
