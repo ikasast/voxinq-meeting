@@ -128,7 +128,7 @@ describe("the screen agrees with the list", () => {
   const page = readFileSync(join(root, "app/[id]/page.tsx"), "utf8");
 
   const editableFromOutside = ["MeetingTitle", "MeetingMeta", "ParticipantsRow"];
-  const readOnlyFromOutside = ["SummarySection", "TranscriptList", "MeetingListPane"];
+  const readOnlyFromOutside = ["SummarySection", "TranscriptList"];
 
   /** The props passed to `<Name …>` on the meeting page. */
   function props(name: string): string {
@@ -163,33 +163,23 @@ describe("the way to a new meeting, from outside", () => {
   // The other half that was missing. `/new` and `POST /api/meetings` were opened to outside,
   // and every link to `/new` stayed behind `!external` — the rail, the phone header, the home
   // screen and the calendar's "add a meeting on this day". Allowed, and unreachable except by
-  // typing the address.
+  // typing the address. Since v4 the sidebar's New meeting and the phone bar's + lead to the
+  // home screen, whose middle tile is `/new`.
   const read = (p: string) => readFileSync(join(root, p), "utf8");
 
-  it("is on the rail, before the internal-only block", () => {
-    const rail = read("app/side-rail.tsx");
-    const link = rail.indexOf('href="/new"');
-    expect(link).toBeGreaterThan(-1);
-    expect(link).toBeLessThan(rail.indexOf("{!external ? ("));
-  });
-
-  it("is in the phone header, which is the only way to it on a phone outside", () => {
-    // The bottom bar is all recording and is not rendered for an external visitor.
-    const layout = read("app/layout.tsx");
-    const header = layout.slice(layout.indexOf("function HeaderNav"), layout.indexOf("</header>"));
-    expect(header).toContain("<NewMeetingLink");
-    expect(header).not.toContain("external ? null");
+  it("is in the sidebar and the phone bar for everybody", () => {
+    const bar = read("app/sidebar.tsx");
+    const news = [...bar.matchAll(/title=\{t\("New meeting"\)\}|\{t\("New meeting"\)\}/g)];
+    expect(news.length).toBeGreaterThanOrEqual(2);
+    // The only condition on the sidebar as a whole is the sign-in screens.
+    expect(bar).toContain("if (isAuthPath(pathname)) return null;");
   });
 
   it("is not offered on the sign-in screens, where it would lead back to them", () => {
     // Who stands on the sign-in screen is exactly the external visitor this link now shows to.
     // The first walk-through with a real browser session found it there.
-    const link = read("app/new-meeting-link.tsx");
-    expect(link).toContain('href="/new"');
-    expect(link).toContain("isAuthPath(pathname)");
-    const rail = read("app/side-rail.tsx");
-    const at = rail.indexOf('href="/new"');
-    expect(rail.slice(Math.max(0, at - 200), at)).toContain("isAuthPath(pathname)");
+    const bar = read("app/sidebar.tsx");
+    expect(bar.indexOf("if (isAuthPath(pathname)) return null;")).toBeLessThan(bar.indexOf("const list = ("));
     expect(isAuthPath("/login")).toBe(true);
     expect(isAuthPath("/setup")).toBe(true);
     expect(isAuthPath("/reset/abc")).toBe(true);
@@ -197,11 +187,16 @@ describe("the way to a new meeting, from outside", () => {
     expect(isAuthPath("/")).toBe(false);
   });
 
-  it("is on the home screen, with only recording behind the condition", () => {
-    const home = read("app/page.tsx");
+  it("is on the home screen, with only recording and files behind the condition", () => {
+    const home = read("app/home-start.tsx");
+    const tile = home.slice(home.indexOf('href="/new"') - 40, home.indexOf('href="/new"'));
+    expect(tile).toContain("<Tile");
+    // Between the two `external ?` blocks, which are the record tile and the file tile.
+    const first = home.indexOf("{external ? (");
+    const second = home.indexOf("{external ? (", first + 1);
     const link = home.indexOf('href="/new"');
-    expect(link).toBeGreaterThan(-1);
-    expect(link).toBeLessThan(home.indexOf("external ?"));
+    expect(first).toBeLessThan(link);
+    expect(link).toBeLessThan(second);
   });
 
   it("is on a day of the calendar", () => {

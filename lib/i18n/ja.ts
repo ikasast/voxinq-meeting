@@ -19,16 +19,11 @@ export const ja: Record<string, string> = {
   // The rail's own emphasis — it is the one action the app exists for, and the capitals carry
   // that in English. Japanese does not have capitals, so the exclamation of it goes instead
   // into being the shortest label on the rail.
-  "Record NOW": "すぐ録音",
   "Record now": "すぐ録音",
-  Record: "録音",
   Queue: "順番待ち",
   People: "メンバー",
   Settings: "設定",
   Help: "ヘルプ",
-  Documentation: "ドキュメント",
-  "Documentation (opens on GitHub)": "ドキュメント（GitHub が開きます）",
-  Main: "メインメニュー",
   "Voxinq Meeting home": "Voxinq Meeting のトップへ",
   Account: "アカウント",
   Administrator: "管理者",

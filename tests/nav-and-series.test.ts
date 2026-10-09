@@ -9,13 +9,7 @@ import { describe, expect, it } from "vitest";
 const root = join(__dirname, "..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 
-describe("the rail", () => {
-  it("draws its icons at 26px and leaves the labels as they were", () => {
-    const rail = read("app/side-rail.tsx");
-    expect(rail).toContain("[&_svg]:h-[26px] [&_svg]:w-[26px]");
-    expect(rail).toContain("text-[10px]");
-  });
-
+describe("the icons", () => {
   it("uses a conversation for Meetings and a folder for Series", () => {
     const icons = read("app/icons.tsx");
     expect(icons).toContain("Tabler Icons");
@@ -39,18 +33,12 @@ describe("the rail", () => {
 });
 
 describe("on a phone", () => {
-  it("reaches the series list from the bottom bar", () => {
-    const bar = read("app/bottom-bar.tsx");
-    expect(bar).toContain('href="/series"');
-    // `/series` is shaped like a meeting's own page; without naming it, Meetings lit up too.
-    expect(bar).toContain("!TOP_LEVEL.includes(pathname)");
-  });
-
-  it("reaches it from the header when there is no bottom bar", () => {
-    const layout = read("app/layout.tsx");
-    const header = layout.slice(layout.indexOf("function HeaderNav"), layout.indexOf("</header>"));
-    // …while Series is on.
-    expect(header).toMatch(/\{external && seriesOn \? \(\s*<Link\s+href="\/series"/);
+  it("reaches the series list from the sidebar, which is the phone's drawer too", () => {
+    // Inside and out: a series page is readable from outside, and its link is behind Series
+    // being on and nothing else.
+    const bar = read("app/sidebar.tsx");
+    expect(bar).toMatch(/\{extensions\.series \? \(\s*<FootLink rail=\{rail\} href="\/series"/);
+    expect(bar).toContain("{full(true)}");
   });
 
   it("can see the version, at the bottom of Settings", () => {
