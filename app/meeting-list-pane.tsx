@@ -34,6 +34,7 @@ type MeetingCardData = {
   startedAt: Date;
   endedAt: Date | null;
   archivedAt: Date | null;
+  pinnedAt: Date | null;
   // Actual recording length (ms): the stored recorded_ms, else the transcript time span.
   durationMs: number | null;
   /** Minutes queued or running, asked of the queue when this page was built. */
@@ -430,7 +431,7 @@ export async function MeetingListPane({
         ) : null}
         {!readOnly ? (
           <div className="absolute right-1.5 top-1.5">
-            <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} />
+            <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} pinned={m.pinnedAt !== null} />
           </div>
         ) : null}
       </div>

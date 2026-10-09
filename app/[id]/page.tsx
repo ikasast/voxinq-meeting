@@ -134,6 +134,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
               tags={tagNames}
               series={seriesName}
               archived={meeting.archivedAt !== null}
+              pinned={meeting.pinnedAt !== null}
             />
           ) : null}
         </div>

@@ -19,10 +19,11 @@ export function Prop({ label, action, children }: { label: string; action?: Reac
   return (
     <>
       <div className="text-[var(--text-muted)]">{label}</div>
-      <div className="flex min-w-0 items-baseline gap-2">
-        <div className="min-w-0 flex-1 text-[var(--foreground)]">{children}</div>
-        {/* No taller than the text beside it, so a row with a pencil spaces like one without. */}
-        {action ? <div className="-my-1 self-center">{action}</div> : null}
+      {/* The pencil sits right after the value it edits, not at the far end of the row where
+          it could belong to anything. No taller than the text, so the row spaces like the rest. */}
+      <div className="flex min-w-0 items-start gap-1">
+        <div className="min-w-0 text-[var(--foreground)]">{children}</div>
+        {action ? <div className="-my-0.5 shrink-0">{action}</div> : null}
       </div>
     </>
   );

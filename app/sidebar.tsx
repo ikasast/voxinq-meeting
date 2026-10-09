@@ -11,6 +11,7 @@ import {
   PanelLeftIcon,
   PeopleIcon,
   PinIcon,
+  PinnedIcon,
   PlusCircleIcon,
   QueueIcon,
   SearchIcon,
@@ -105,10 +106,24 @@ export function Sidebar({
   const extensions = useExtensions();
   const queued = useMyQueueCount();
   const [mode, setMode] = useState<Mode>("open");
+  // What the sidebar shows while its width moves. Growing, the new contents go in at once and
+  // are uncovered as it widens; shrinking, the old ones stay until it has finished, so a strip
+  // never stands alone in a gap that is still closing. Closed, whatever was last shown slides
+  // out of sight.
+  const [shown, setShown] = useState<Mode>("open");
+  // No slide on the first paint: the saved mode is read after it, and the sidebar should simply
+  // be in it, not travel there.
+  const [ready, setReady] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const search = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setMode(readMode()), []);
+  useEffect(() => {
+    const m = readMode();
+    setMode(m);
+    setShown(m === "closed" ? "open" : m);
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   // A page opened from the drawer closes it: the drawer covers what was opened.
   useEffect(() => setDrawer(false), [pathname]);
 
@@ -118,6 +133,7 @@ export function Sidebar({
   const change = (m: Mode) => {
     setMode(m);
     saveMode(m);
+    if (m === "open" || (m === "rail" && mode === "closed")) setShown(m);
   };
 
   const activeId = pathname.split("/")[1] ?? "";
@@ -137,7 +153,10 @@ export function Sidebar({
         <p className="px-2 py-3 text-xs text-[var(--text-muted)]">{t("No meetings yet.")}</p>
       ) : (
         groups.map((g) => (
-          <div key={g.key} className="mt-3">
+          <div
+            key={g.key}
+            className={g.key === "pinned" ? "mt-3 border-b border-[var(--border)] pb-3" : "mt-3"}
+          >
             <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-muted)]">{g.label}</p>
             <ul>
               {g.items.map((m) => (
@@ -145,28 +164,18 @@ export function Sidebar({
                   <Link
                     href={`/${m.id}`}
                     aria-current={m.id === activeId ? "page" : undefined}
-                    className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+                    className={`flex items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-sm ${
                       m.id === activeId
                         ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-strong)]"
                         : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
                     }`}
                   >
+                    {/* The dots for "recording" and "no minutes" are gone for now: nothing said what
+                        they meant, and they sat where the pin goes. */}
                     <span className="min-w-0 flex-1 truncate">{m.title}</span>
-                    {m.live ? (
-                      <span
-                        className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-[var(--error)]"
-                        title={t("Recording")}
-                        aria-label={t("Recording")}
-                      />
-                    ) : m.noMinutes ? (
-                      <span
-                        className="h-2 w-2 shrink-0 rounded-full bg-[var(--warning)]"
-                        title={t("No minutes")}
-                        aria-label={t("No minutes")}
-                      />
-                    ) : null}
                   </Link>
-                  {/* Out of sight until the row is pointed at; it covers the row's dot meanwhile. */}
+                  {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
+                      one when the row is pointed at, to pin it. From outside, only the mark. */}
                   {!external ? (
                     <button
                       type="button"
@@ -174,14 +183,19 @@ export function Sidebar({
                       title={m.pinned ? t("Unpin") : t("Pin")}
                       aria-label={`${m.pinned ? t("Unpin") : t("Pin")}: ${m.title}`}
                       aria-pressed={m.pinned}
-                      className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded bg-[var(--hover-surface)] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${
+                      className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded hover:bg-[var(--hover-surface)] ${
                         m.pinned
-                          ? "text-[var(--accent)] hover:text-[var(--text-muted)]"
-                          : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                          ? "text-[var(--accent)]"
+                          : "text-[var(--text-muted)] opacity-0 hover:text-[var(--foreground)] group-hover:opacity-100 focus-visible:opacity-100"
                       }`}
                     >
-                      <PinIcon className="h-3.5 w-3.5" />
+                      {m.pinned ? <PinnedIcon className="h-3.5 w-3.5" /> : <PinIcon className="h-3.5 w-3.5" />}
                     </button>
+                  ) : m.pinned ? (
+                    <PinnedIcon
+                      aria-hidden
+                      className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--accent)]"
+                    />
                   ) : null}
                 </li>
               ))}
@@ -352,8 +366,16 @@ export function Sidebar({
       ) : null}
 
       {/* A wide screen: beside the page, open, folded to a strip, or closed. */}
-      <aside className="sticky top-0 hidden h-dvh shrink-0 lg:block">
-        {mode === "open" ? full(false) : mode === "rail" ? rail : null}
+      <aside
+        inert={mode === "closed"}
+        onTransitionEnd={(e) => {
+          if (e.target === e.currentTarget && mode !== "closed") setShown(mode);
+        }}
+        className={`sticky top-0 hidden h-dvh shrink-0 overflow-hidden lg:block ${
+          ready ? "transition-[width] duration-300 ease-out motion-reduce:transition-none" : ""
+        } ${mode === "open" ? "w-72" : mode === "rail" ? "w-14" : "w-0"}`}
+      >
+        {shown === "rail" ? rail : full(false)}
       </aside>
       {mode === "closed" ? (
         <div className="fixed left-3 top-3 z-30 hidden lg:block">

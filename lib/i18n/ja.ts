@@ -277,6 +277,8 @@ export const ja: Record<string, string> = {
   Pinned: "ピン留め",
   Pin: "ピン留めする",
   Unpin: "ピン留めを外す",
+  "Pin to the sidebar": "サイドバーにピン留め",
+  "Unpin from the sidebar": "サイドバーのピン留めを外す",
   "Resize the transcript": "発言パネルの幅を変更",
   "Drag to change the width; double-click to reset it": "ドラッグで幅を変更・ダブルクリックで元に戻す",
   "Copy failed": "コピーに失敗しました",
