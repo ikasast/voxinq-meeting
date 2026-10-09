@@ -120,6 +120,11 @@ export default async function MeetingPage({
     <div className="space-y-4">
       <div>
       <div className="min-w-0 space-y-6">
+
+      {/* The minutes are the document; what was said is the panel beside it (meeting-body.tsx). */}
+      <MeetingBody
+        header={
+          <>
       {/* Stack vertically on phones (so the title-edit box and action buttons are not crammed into one row) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:flex-1">
@@ -243,9 +248,8 @@ export default async function MeetingPage({
           }
         />
       </MeetingAside>
-
-      {/* The minutes are the document; what was said is the panel beside it (meeting-body.tsx). */}
-      <MeetingBody
+          </>
+        }
         lineCount={meeting.transcripts.length}
         transcriptFirst={meeting.summaries.length === 0}
         document={

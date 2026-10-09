@@ -15,11 +15,14 @@ import { useT } from "../locale-provider";
 const PANEL_KEY = "voxinq.transcriptPanel";
 
 export function MeetingBody({
+  header,
   document,
   transcript,
   lineCount,
   transcriptFirst,
 }: {
+  /** The title, its actions and the meeting's details: the top of the document. */
+  header: ReactNode;
   document: ReactNode;
   transcript: ReactNode;
   lineCount: number;
@@ -61,6 +64,7 @@ export function MeetingBody({
   if (transcriptFirst) {
     return (
       <div className="space-y-6">
+        {header}
         {document}
         {transcript}
       </div>
@@ -69,27 +73,33 @@ export function MeetingBody({
 
   return (
     <div className="lg:flex lg:items-start lg:gap-6">
-      {/* A phone: the two as tabs. */}
-      <div role="tablist" className="mb-4 flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-1 lg:hidden">
-        {(["minutes", "transcript"] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            onClick={() => setTab(k)}
-            className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium ${
-              tab === k
-                ? "bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
-                : "text-[var(--text-secondary)]"
-            }`}
-          >
-            {k === "minutes" ? t("Minutes") : `${t("Transcript")} · ${lineCount}`}
-          </button>
-        ))}
+      {/* The document: a page at a readable width, centred in whatever room the panel leaves —
+          so with the panel shut it sits in the middle rather than leaving the right side bare. */}
+      <div className="min-w-0 flex-1">
+        <div className="mx-auto w-full max-w-[50rem] space-y-6">
+          {header}
+          {/* A phone: the two as tabs. */}
+          <div role="tablist" className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-1 lg:hidden">
+            {(["minutes", "transcript"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={tab === k}
+                onClick={() => setTab(k)}
+                className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium ${
+                  tab === k
+                    ? "bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
+                    : "text-[var(--text-secondary)]"
+                }`}
+              >
+                {k === "minutes" ? t("Minutes") : `${t("Transcript")} · ${lineCount}`}
+              </button>
+            ))}
+          </div>
+          <div className={`space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""}`}>{document}</div>
+        </div>
       </div>
-
-      <div className={`min-w-0 flex-1 space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""}`}>{document}</div>
 
       {/* A wide screen: the panel at the right, sliding open and shut. Its width is what moves —
           the contents keep theirs, so nothing re-wraps on the way — and the one tab that opens
@@ -97,7 +107,7 @@ export function MeetingBody({
       <aside
         ref={aside}
         aria-label={t("Transcript")}
-        className={`relative min-w-0 lg:sticky lg:top-0 lg:-my-6 lg:h-dvh lg:shrink-0 lg:transition-[width] lg:duration-300 lg:ease-out motion-reduce:lg:transition-none ${
+        className={`relative min-w-0 max-lg:mt-6 lg:sticky lg:top-0 lg:-my-6 lg:h-dvh lg:shrink-0 lg:transition-[width] lg:duration-300 lg:ease-out motion-reduce:lg:transition-none ${
           tab === "minutes" ? "max-lg:hidden" : ""
         } ${panel ? "lg:w-[min(36rem,44vw)]" : "lg:w-0"}`}
       >
