@@ -3,15 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { type LinkStatus, type SttHandle, startMic, sttHttpBase } from "@/lib/stt/client";
-import {
-  type NativeHandle,
-  type NativeSaved,
-  attachNative,
-  hasNativeRecorder,
-  nativeState,
-  startNative,
-} from "@/lib/stt/native";
+import { sttHttpBase } from "@/lib/stt/client";
 import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
 import { useConfirmEx } from "../../confirm-dialog";
@@ -21,6 +13,8 @@ import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
 import { readRestSeconds, subscribeRestSeconds } from "@/app/rest-screen";
 import { backGuards, useBackGuard } from "@/app/use-back-guard";
+import { useRecorder } from "@/app/recorder";
+import { type LinkState, runningTime, STATUS_DOT, statusText } from "@/app/recording-status";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
 type Contender = { id: string; kind: string; meetingId: string | null; title: string | null };
@@ -47,47 +41,9 @@ function fromServer(line: ServerLine): TranscriptEntry {
   };
 }
 
-/** The running time: "05:09" under an hour, "1:05:09" from then on. */
-function runningTime(totalSeconds: number): string {
-  const [hours, minutes, seconds] = [
-    Math.floor(totalSeconds / 3600),
-    Math.floor(totalSeconds / 60) % 60,
-    totalSeconds % 60,
-  ];
-  const clock = [minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
-  return hours > 0 ? `${hours}:${clock}` : clock;
-}
-
-type LinkState = LinkStatus | "idle";
-
-/**
- * What the status line says. Each word is spelled out in a t() call of its own so the
- * translation check can see all five.
- */
-export function statusText(t: (k: string) => string, status: LinkState): string {
-  switch (status) {
-    case "connecting":
-      return t("Preparing"); // the model is loading; audio is kept and caught up on once it is ready
-    case "open":
-      return t("Listening");
-    case "reconnecting":
-      return t("Reconnecting");
-    case "error":
-      return t("Error");
-    default:
-      return t("Stopped");
-  }
-}
-
-/** The dot beside it: red and pulsing while listening, amber while getting there. */
-const STATUS_DOT: Record<LinkState, string> = {
-  open: "bg-[var(--error)] animate-pulse",
-  connecting: "bg-[var(--warning)] animate-pulse",
-  reconnecting: "bg-[var(--warning)] animate-pulse",
-  error: "bg-[var(--error)]",
-  closed: "bg-[var(--border-strong)]",
-  idle: "bg-[var(--border-strong)]",
-};
+// The running time, the status line and its dot are in app/recording-status.ts, shared with
+// the bar that shows a recording on every other page.
+export { statusText };
 
 /** How long a toast stays up. What it said stays in the error bar until dismissed. */
 const TOAST_MS = 4500;
@@ -102,13 +58,20 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([]);
 
-  const [status, setStatus] = useState<LinkState>("idle");
+  // The recording is the app's (app/recorder.tsx), and goes on when this screen is left; this
+  // screen is its control panel. What it says about it is this meeting's only if the recording
+  // was started for this meeting.
+  const recorder = useRecorder();
+  const { session: recSession, current: recCurrent, start: recStart, stop: recStop, subscribe: recSubscribe, setQuiet } =
+    recorder;
+  const mine = recSession?.meetingId === meetingId;
+  const status: LinkState = mine ? recorder.status : "idle";
   const active = status === "connecting" || status === "open" || status === "reconnecting";
-  const [partial, setPartial] = useState<string>("");
-  const [level, setLevel] = useState(0); // input audio level (RMS 0..1)
+  const partial = mine ? recorder.partial : "";
+  const level = mine ? recorder.level : 0;
   // Set while the input is hitting the rails. Clipping cannot be undone afterwards, so this is
   // shown during the meeting rather than reported as a quality problem later.
-  const [clipping, setClipping] = useState(false);
+  const clipping = mine && recorder.clipping;
   const [source, setSource] = useState<"mic" | "display" | "both">("mic");
   const sourceRef = useRef(source);
   const [displaySupported, setDisplaySupported] = useState(true);
@@ -178,65 +141,20 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   // so the server render says 0 and the page settles on the device's answer.
   const restAfter = useSyncExternalStore(subscribeRestSeconds, readRestSeconds, () => 0);
   const [resting, setResting] = useState(false);
-  // The level meter fires ~10 times a second and re-renders the page each time. Nothing is on
-  // screen to show it while resting, and the point of resting is to stop spending.
-  const restingRef = useRef(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"none" | "summary">("none");
 
-  const handleRef = useRef<SttHandle | null>(null);
-  // Inside the Android app the recording is the app's, in a service of its own: the screen can
-  // go off, and this page can even be closed, without it stopping (lib/stt/native.ts).
-  const [native, setNative] = useState(false);
-  const nativeRef = useRef<NativeHandle | null>(null);
   const linesBoxRef = useRef<HTMLDivElement>(null);
 
-  // Leaving this page stops a browser recording (the cleanup below), and Back used to do that
-  // without a word: a swipe from the screen edge mid-meeting, and the meeting went unrecorded
-  // until somebody looked. While recording, Back asks first, and so does a link elsewhere in the
-  // app. Not in the Android app, whose recording carries on without the page.
-  const guardLeaving = active && !native;
-  const askToLeave = useCallback(async () => {
-    const { ok } = await confirm({
-      title: t("Stop recording?"),
-      message: t(
-        "Leaving this screen stops the recording. The meeting is not ended: open its recording screen again to carry on.",
-      ),
-      confirmLabel: t("Stop and leave"),
-      danger: true,
-    });
-    return ok;
-  }, [confirm, t]);
-  useBackGuard(guardLeaving, async () => {
-    // Back on the resting screen wakes it, as a tap does.
-    if (restingRef.current) {
-      setResting(false);
-      return "stay";
-    }
-    if (!(await askToLeave())) return "stay";
-    window.history.back();
+  // Back on the resting screen wakes it, as a tap does. Leaving this screen otherwise stops
+  // nothing any more: the recording is the app's (app/recorder.tsx), and the bar at the bottom
+  // of every other page says it is running and leads back here. It used to ask "Stop
+  // recording?" on Back and on every link, because leaving was the end of it.
+  useBackGuard(resting, () => {
+    setResting(false);
+    return "stay";
   });
-  useEffect(() => {
-    if (!guardLeaving) return;
-    const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
-      if (!a || a.target || a.hasAttribute("download")) return;
-      const url = new URL(a.href, window.location.href);
-      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
-      // Before the router sees it: capture on the document runs ahead of React's handlers.
-      e.preventDefault();
-      e.stopPropagation();
-      void askToLeave().then(async (ok) => {
-        if (!ok) return;
-        await backGuards().unwind();
-        router.push(`${url.pathname}${url.search}${url.hash}`);
-      });
-    };
-    document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
-  }, [guardLeaving, askToLeave, router]);
 
   /**
    * Off this page, replacing it in the history. The guard's entry goes first: a replace that
@@ -445,82 +363,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     window.setTimeout(() => setToast((shown) => (shown === message ? null : shown)), TOAST_MS);
   }, []);
 
-  // Store a finished line, then list it under the id and time the server gave it.
-  const keepLine = useCallback(
-    async (speaker: string, said: string, seq?: number, audio?: { startMs: number; endMs: number }) => {
-      const text = said.trim();
-      if (!text) return;
-      let problem: string;
-      try {
-        const res = await fetch("/api/transcripts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            meetingId,
-            speakerType: speaker,
-            text,
-            audioStartMs: audio?.startMs,
-            audioEndMs: audio?.endMs,
-          }),
-        });
-        if (res.ok) {
-          const row = (await res.json()) as { id: string; createdAt: string };
-          setTranscripts((lines) => [...lines, { id: row.id, speaker, text, at: new Date(row.createdAt), seq }]);
-          return;
-        }
-        problem = `HTTP ${res.status}`;
-      } catch (e) {
-        problem = (e as Error).message;
-      }
-      announce(t("Failed to save utterance: {error}", { error: problem }));
-    },
-    [meetingId, announce, t],
-  );
-
-  // A translation arrives after its utterance (it runs on the CPU while Whisper keeps the
-  // GPU), so it is matched back to the line by seq and saved onto the stored row.
-  const applyTranslation = useCallback((seq: number, ja: string) => {
-    setTranscripts((prev) => {
-      const row = prev.find((t) => t.seq === seq);
-      if (row) {
-        void fetch(`/api/transcripts/${row.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ translation: ja }),
-        }).catch(() => {});
-      }
-      return prev.map((t) => (t.seq === seq ? { ...t, translation: ja } : t));
-    });
-  }, []);
-
-  const handlers = useMemo(
-    () => ({
-      onPartial: (text: string) => setPartial(text),
-      onFinal: (
-        speakerKey: string,
-        text: string,
-        seq?: number,
-        audio?: { startMs: number; endMs: number },
-      ) => {
-        setPartial("");
-        void keepLine(speakerKey, text, seq, audio);
-      },
-      onTranslation: applyTranslation,
-      onStatus: (s: LinkStatus) => setStatus(s),
-      onError: (message: string) => announce(message),
-      // Skipped while the screen rests: the meter is not on screen, and this is the one thing
-      // on this page that re-renders it ten times a second.
-      onLevel: (rms: number) => {
-        if (!restingRef.current) setLevel(rms);
-      },
-      onClipping: () => {
-        setClipping(true);
-        window.setTimeout(() => setClipping(false), 4000);
-      },
-    }),
-    [keepLine, applyTranslation, announce],
-  );
-
   // The transcript as the server has it. In the app, lines are saved by the app's recorder
   // while this page is hidden, and reading them back is simpler than replaying each one.
   const resync = useCallback(async () => {
@@ -529,72 +371,48 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     const data = (await res.json()) as { transcripts: ServerLine[] };
     const rows = data.transcripts.map(fromServer);
     const ids = new Set(rows.map((r) => r.id));
-    // A line the app reported while this request was in flight is kept, not dropped.
+    // A line the recorder reported while this request was in flight is kept, not dropped.
     setTranscripts((prev) =>
       [...rows, ...prev.filter((r) => !ids.has(r.id))].sort((a, b) => a.at.getTime() - b.at.getTime()),
     );
   }, [meetingId]);
 
-  // What the app's recorder reports. It saves each line itself, so a line arrives here already
-  // saved — the page shows it and does not save it a second time.
-  const nativeHandlers = useMemo(
-    () => ({
-      onPartial: (text: string) => setPartial(text),
-      onSaved: (row: NativeSaved) => {
-        setPartial("");
-        setTranscripts((prev) =>
-          prev.some((r) => r.id === row.id)
-            ? prev
-            : [
-                ...prev,
-                { id: row.id, speaker: row.speaker, text: row.text, at: new Date(row.createdAt), seq: row.seq },
-              ],
-        );
-      },
-      onTranslation: (seq: number, text: string, id?: string) =>
-        setTranscripts((prev) =>
-          prev.map((r) => ((id ? r.id === id : r.seq === seq) ? { ...r, translation: text } : r)),
-        ),
-      onStatus: (s: LinkStatus) => setStatus(s),
-      onError: (message: string) => announce(message),
-      onLevel: (rms: number) => {
-        if (!restingRef.current) setLevel(rms);
-      },
-      onClipping: () => {
-        setClipping(true);
-        window.setTimeout(() => setClipping(false), 4000);
-      },
-      onResync: () => void resync(),
-      // Stop in the app's notification has ended the meeting; go where the end buttons go.
-      onEnded: () => {
-        handleRef.current = null;
-        nativeRef.current = null;
-        endedRef.current = true;
-        setEnded(true);
-        void leave(`/${meetingId}`);
-      },
-    }),
-    [announce, resync, leave, meetingId],
+  // What the recording reports about this meeting: each line as it is saved (by the recorder,
+  // or by the app's own), translations a beat later, and the app's Stop having ended it.
+  useEffect(
+    () =>
+      recSubscribe((e) => {
+        if (e.meetingId !== meetingId) return;
+        if (e.kind === "saved") {
+          const { line } = e;
+          setTranscripts((prev) =>
+            prev.some((r) => r.id === line.id)
+              ? prev
+              : [...prev, { id: line.id, speaker: line.speaker, text: line.text, at: new Date(line.at), seq: line.seq }],
+          );
+        } else if (e.kind === "translation") {
+          setTranscripts((prev) =>
+            prev.map((r) => ((e.id ? r.id === e.id : r.seq === e.seq) ? { ...r, translation: e.text } : r)),
+          );
+        } else if (e.kind === "resync") {
+          void resync();
+        } else if (e.kind === "ended") {
+          // Stop in the app's notification has ended the meeting; go where the end buttons go.
+          endedRef.current = true;
+          setEnded(true);
+          void leave(`/${meetingId}`);
+        } else {
+          announce(e.message);
+        }
+      }),
+    [recSubscribe, meetingId, resync, leave, announce],
   );
 
-  // In the app, ask whether it is already recording this meeting — this page reloaded, or was
-  // opened again from the recording's notification — and pick that up rather than start another.
+  // Back on this screen while it records (from the bar, or reopened from the app's
+  // notification): the setup advice is folded away, as it is when recording starts here.
   useEffect(() => {
-    if (!hasNativeRecorder()) return;
-    let cancelled = false;
-    void nativeState().then((s) => {
-      if (cancelled) return;
-      setNative(true);
-      if (!s?.recording || s.meetingId !== meetingId || handleRef.current) return;
-      const h = attachNative(nativeHandlers, s.status);
-      handleRef.current = h;
-      nativeRef.current = h;
-      setTipsOpen(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [meetingId, nativeHandlers]);
+    if (mine) setTipsOpen(false);
+  }, [mine]);
 
   // Ready = the model this meeting will use is the one resident on the STT service.
   const modelReady = Boolean(loadedModel) && loadedModel === activeModel;
@@ -624,16 +442,21 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     [],
   );
 
-  /** Hand the GPU back. Safe to call when nothing was ever reserved. */
-  const release = useCallback(() => {
-    void fetch(`/api/queue/recording?meetingId=${encodeURIComponent(meetingId)}`, {
-      method: "DELETE",
-      keepalive: true,
-    }).catch(() => {});
-  }, [meetingId]);
 
   const startRecording = useCallback(async () => {
-    if (handleRef.current || endedRef.current) return; // never (re)start an ended meeting
+    // As it is now, not as it was when this callback was made: switching the source stops and
+    // starts again in one go.
+    const now = recCurrent();
+    if (now?.meetingId === meetingId || endedRef.current) return; // never (re)start an ended meeting
+    // One recording at a time: the other one is on, and the bar below every page says which.
+    if (now) {
+      announce(
+        t("“{title}” is being recorded. Stop it before recording another meeting.", {
+          title: now.title || t("Meeting"),
+        }),
+      );
+      return;
+    }
     try {
       const model = activeModel;
 
@@ -697,36 +520,25 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         micMode: sttMicModeRef.current,
         translate: sttTranslateRef.current,
       };
-      if (hasNativeRecorder()) {
-        // The app records with its own microphone, in a service the screen cannot stop. The
-        // check's microphone is closed rather than handed over, so the two do not compete.
-        checked?.getTracks().forEach((track) => track.stop());
-        const h = await startNative(nativeHandlers, { ...options, title: title || undefined });
-        handleRef.current = h;
-        nativeRef.current = h;
-      } else {
-        handleRef.current = await startMic(handlers, {
-          ...options,
-          micStream: checked ?? undefined,
-          source: sourceRef.current,
-        });
-      }
+      // The app's recorder or this browser's microphone: the recorder knows which it is in.
+      await recStart({
+        meetingId,
+        title,
+        startedAt: startedAt?.getTime() ?? null,
+        options,
+        micStream: checked ?? undefined,
+        source: sourceRef.current,
+      });
       if (!live) setAwaitingTranscript(true);
     } catch (e) {
       announce(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
-      setStatus("error");
     }
-  }, [handlers, nativeHandlers, title, meetingId, announce, activeModel, confirm, deferred, claimCard]);
+  }, [recCurrent, recStart, title, startedAt, meetingId, announce, activeModel, confirm, deferred, claimCard, t]);
 
+  // Stops taking audio; the meeting goes on, and recording again adds to it.
   const stopRecording = useCallback(async () => {
-    const h = handleRef.current;
-    handleRef.current = null;
-    nativeRef.current = null;
-    await h?.stop().catch(() => {});
-    setStatus("idle");
-    setPartial("");
-    setLevel(0);
-  }, []);
+    if (mine) await recStop();
+  }, [mine, recStop]);
 
   // Change recording source. Remembered per device; if recording, re-record with the new source (appended to the meeting).
   const changeSource = useCallback(
@@ -736,12 +548,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
       try {
         localStorage.setItem("voxinq.source", next);
       } catch {}
-      if (handleRef.current) {
+      if (mine) {
         await stopRecording();
         await startRecording();
       }
     },
-    [stopRecording, startRecording],
+    [mine, stopRecording, startRecording],
   );
 
   // One-tap recording: when arriving with ?autostart=1, try to auto-start recording after settings/meeting load.
@@ -931,56 +743,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     void leave("/");
   }, [busy, confirm, title, meetingId, leave, closeMeeting, t]);
 
-  // Warn before leaving while recording. Not in the app: there, leaving the page leaves the
-  // recording running, and the warning would be a dialog guarding nothing.
-  useEffect(() => {
-    const recording = status === "open" || status === "connecting";
-    if (!recording || native) return;
-    const askFirst = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", askFirst);
-    return () => window.removeEventListener("beforeunload", askFirst);
-  }, [status, native]);
-
-  // While recording, prevent screen sleep (stops mic capture from halting when a phone screen turns off).
-  // Wake Lock is auto-released when the page is hidden, so re-acquire on return.
-  useEffect(() => {
-    const recording = status === "open" || status === "connecting" || status === "reconnecting";
-    // In the Android app the recording does not need the screen, so the screen may sleep.
-    if (!recording || native) return;
-    const nav = navigator as unknown as {
-      wakeLock?: { request(type: "screen"): Promise<{ release: () => Promise<void> }> };
-    };
-    if (!nav.wakeLock) return;
-    let sentinel: { release: () => Promise<void> } | null = null;
-    let cancelled = false;
-    const acquire = async () => {
-      try {
-        const s = await nav.wakeLock!.request("screen");
-        if (cancelled) {
-          void s.release().catch(() => {});
-          return;
-        }
-        sentinel = s;
-      } catch {
-        // Ignore unsupported/denied (recording continues even without Wake Lock)
-      }
-    };
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void acquire();
-    };
-    void acquire();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      cancelled = true;
-      document.removeEventListener("visibilitychange", onVisible);
-      void sentinel?.release().catch(() => {});
-      sentinel = null;
-    };
-  }, [status, native]);
-
   // Rest the screen after a while of nobody touching it.
   //
   // The wake lock above keeps the screen on for the whole meeting, because letting it sleep
@@ -990,9 +752,12 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
   //
   // Nothing about the recording changes. The lock is still held, the microphone is still open,
   // audio is still going up. Only the picture is gone, and one touch brings it back.
+  // The level meter fires ~10 times a second and re-renders the page each time. Nothing is on
+  // screen to show it while resting, and the point of resting is to stop spending.
   useEffect(() => {
-    restingRef.current = resting;
-  }, [resting]);
+    setQuiet(resting);
+    return () => setQuiet(false);
+  }, [resting, setQuiet]);
 
   useEffect(() => {
     if (!active) setResting(false);
@@ -1016,34 +781,6 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
     };
   }, [active, restAfter, resting]);
 
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      // In the app the recording belongs to the app's service and outlives this page: leaving
-      // lets go of it, and the notification is the way back. Stopping is Stop's job.
-      if (nativeRef.current) {
-        nativeRef.current.detach();
-        nativeRef.current = null;
-        handleRef.current = null;
-        return;
-      }
-      void handleRef.current?.stop();
-      release();
-    };
-  }, [meetingId, release]);
-
-  // Leaving the page by closing the tab or typing an address does not unmount anything, so the
-  // effect above never runs — `pagehide` is the one that fires for both, and `keepalive` is what
-  // lets the request outlive the document. The queue sweep still backstops a browser that dies
-  // without either.
-  useEffect(() => {
-    // Except while the app records: its recording goes on without the page, and keeps the GPU.
-    const onHide = () => {
-      if (!nativeRef.current) release();
-    };
-    window.addEventListener("pagehide", onHide);
-    return () => window.removeEventListener("pagehide", onHide);
-  }, [release]);
 
   const elapsedSec = startedAt ? Math.max(0, Math.floor((nowMs - startedAt.getTime()) / 1000)) : 0;
 
@@ -1190,11 +927,14 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
             {displaySupported ? <option value="both">{t("Mic + PC audio")}</option> : null}
           </select>
 
-          {/* No link to the meeting page here: navigating away unmounts this page and drops
-              the recording. Leave the meeting via the end actions at the bottom. */}
-          <div className="min-w-0 flex-1 truncate text-right text-sm font-medium text-[var(--text-strong)]">
+          {/* The meeting's own page, where the lines arrive too. Going there does not stop the
+              recording: it is the app's, and the bar at the bottom of that page leads back. */}
+          <Link
+            href={`/${meetingId}`}
+            className="min-w-0 flex-1 truncate text-right text-sm font-medium text-[var(--text-strong)] hover:underline"
+          >
             {title || t("Meeting")}
-          </div>
+          </Link>
         </div>
       </div>
 
@@ -1251,7 +991,7 @@ export default function RecordingPage({ params }: { params: Promise<{ id: string
         {speakersOn ? (
           <li>{t("Distinguish speakers after the meeting via “Diarize” on the detail page, or per line.")}</li>
         ) : null}
-        {native ? (
+        {recorder.nativeAvailable ? (
           <li>
             {t(
               "In the app, recording carries on with the screen off or another app in front. Stop it here, or from the app's notification.",

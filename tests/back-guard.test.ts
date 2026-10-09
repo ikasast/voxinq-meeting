@@ -190,9 +190,11 @@ describe("the ways off a page", () => {
     // The one replace left is leave() itself.
     expect(page.split("router.replace(").length - 1).toBe(1);
     expect(page).toContain("await backGuards().unwind();\n      router.replace(to);");
-    expect(page).toContain("useBackGuard(guardLeaving,");
-    // Links elsewhere in the app ask too, before the router sees the click.
-    expect(page).toContain('document.addEventListener("click", onClick, true)');
+    // Back wakes a resting screen. It no longer asks "Stop recording?", and links no longer
+    // ask either: leaving stops nothing, because the recording is the app's (app/recorder.tsx).
+    expect(page).toContain("useBackGuard(resting,");
+    expect(page).not.toContain('document.addEventListener("click", onClick, true)');
+    expect(read("app/layout.tsx")).toContain("<RecorderProvider>");
   });
 
   it("do not leave a blank new-meeting form one Back away", () => {

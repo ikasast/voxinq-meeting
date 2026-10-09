@@ -55,6 +55,7 @@ import { useExtensions } from "@/app/extensions-provider";
 import { type CueMark, marks, readCues } from "@/lib/voice-cues";
 import { emotionMark, readEmotion } from "@/lib/emotion";
 import { MoodStrip } from "./mood-strip";
+import { useRecorderApi, useRecorderState } from "@/app/recorder";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -926,6 +927,7 @@ export function TranscriptList({
   const router = useRouter();
   const [endedAt, setEndedAt] = useState<string | null>(meetingEndedAt);
   const [liveOffline, setLiveOffline] = useState(false);
+  const { subscribe: recSubscribe } = useRecorderApi();
   // What the server last told us, as the base for merging: see lib/live-merge.
   const serverSnapshot = useRef<ServerSnapshot>(new Map());
 
@@ -996,14 +998,24 @@ export function TranscriptList({
       }
     };
 
+    // Recorded in this tab (app/recorder.tsx): fetch a line the moment it is saved, rather than
+    // up to four seconds later.
+    const off = recSubscribe((e) => {
+      if (e.meetingId === meetingId && e.kind === "saved" && !stopped) {
+        clearTimeout(timer);
+        void tick();
+      }
+    });
+
     void tick();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       stopped = true;
       clearTimeout(timer);
+      off();
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [endedAt, upcoming, meetingId, meetingStartedAt, router]);
+  }, [endedAt, upcoming, meetingId, meetingStartedAt, router, recSubscribe]);
 
   const live = !endedAt && !upcoming;
 
@@ -1680,6 +1692,8 @@ export function TranscriptList({
           ))}
         </ul>
       )}
+      {/* After the last line: what is being heard right now, while this tab records. */}
+      {live ? <Hearing meetingId={meetingId} /> : null}
     </div>
   );
 }
@@ -1906,6 +1920,23 @@ function TranscriptRow({
         </div>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * What is being heard and is not a line yet, when this tab is recording the meeting. Its own
+ * component, so the list above does not re-render each time a word is added to it.
+ */
+function Hearing({ meetingId }: { meetingId: string }) {
+  const t = useT();
+  const { session, partial } = useRecorderState();
+  if (session?.meetingId !== meetingId || !partial) return null;
+  return (
+    <p className="mt-3 flex items-baseline gap-2 text-sm italic text-[var(--text-muted)]">
+      <span aria-hidden className="recording-dot inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--error)] not-italic" />
+      <span className="sr-only">{t("Recognizing:")}</span>
+      {partial}
+    </p>
   );
 }
 

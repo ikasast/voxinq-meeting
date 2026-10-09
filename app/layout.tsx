@@ -3,6 +3,8 @@ import localFont from "next/font/local";
 import { Suspense } from "react";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
+import { RecorderProvider } from "./recorder";
+import { RecordingBar } from "./recording-bar";
 import { ExtensionsProvider } from "./extensions-provider";
 import { readExtensions } from "@/lib/extensions-store";
 import { NavTracker } from "./back-link";
@@ -133,6 +135,9 @@ export default async function RootLayout({
             <NavTracker />
           </Suspense>
           <ConfirmProvider>
+          {/* The recording lives above every page, so leaving the recording screen does not
+              stop it (recorder.tsx); the bar below shows it from everywhere else. */}
+          <RecorderProvider>
             <div className="flex min-h-full flex-1 flex-col lg:flex-row">
               {/* v4 (design B): the meetings live in the sidebar, beside one main screen. */}
               <Sidebar
@@ -169,7 +174,9 @@ export default async function RootLayout({
               </div>
               {/* A recording dropped anywhere on the page becomes a meeting (drop-to-transcribe.tsx). */}
               {external || locked ? null : <DropToTranscribe />}
+              {external || locked ? null : <RecordingBar />}
             </div>
+          </RecorderProvider>
           </ConfirmProvider>
           </ExtensionsProvider>
         </LocaleProvider>
