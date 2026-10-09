@@ -140,6 +140,9 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const [nativeAvailable, setNativeAvailable] = useState(false);
 
   const handle = useRef<SttHandle | null>(null);
+  // A start still opening the microphone and the connection. Stop can be pressed in that time —
+  // the button already says Stop — and must stop what it is about to become, not nothing.
+  const starting = useRef<Promise<SttHandle> | null>(null);
   const nativeHandle = useRef<NativeHandle | null>(null);
   const sessionRef = useRef<RecordingSession | null>(null);
   const quiet = useRef(false);
@@ -328,19 +331,29 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       begin({ meetingId: r.meetingId, title: r.title, startedAt: r.startedAt, native });
       setStatus("connecting");
       try {
+        let attempt: Promise<SttHandle>;
         if (native) {
           // The app records with its own microphone; the check's is closed so the two do not compete.
           r.micStream?.getTracks().forEach((track) => track.stop());
-          const h = await startNative(appHandlers(r.meetingId), { ...r.options, title: r.title || undefined });
-          handle.current = h;
-          nativeHandle.current = h;
+          attempt = startNative(appHandlers(r.meetingId), { ...r.options, title: r.title || undefined });
         } else {
-          handle.current = await startMic(micHandlers(r.meetingId), {
+          attempt = startMic(micHandlers(r.meetingId), {
             ...r.options,
             micStream: r.micStream,
             source: r.source,
           });
         }
+        starting.current = attempt;
+        let h: SttHandle;
+        try {
+          h = await attempt;
+        } finally {
+          starting.current = null;
+        }
+        // Stopped while it was starting: stop() has the handle and is stopping it.
+        if (sessionRef.current?.meetingId !== r.meetingId) return;
+        handle.current = h;
+        if (native) nativeHandle.current = h as NativeHandle;
       } catch (e) {
         releaseCard(r.meetingId);
         finish();
@@ -352,8 +365,9 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   );
 
   const stop = useCallback(async () => {
-    const h = handle.current;
     const s = sessionRef.current;
+    const pending = starting.current;
+    const h = handle.current ?? (pending ? await pending.catch(() => null) : null);
     handle.current = null;
     nativeHandle.current = null;
     await h?.stop().catch(() => {});

@@ -8,9 +8,9 @@ import { useRecorder } from "./recorder";
 import { runningTime, statusText } from "./recording-status";
 
 // A recording that is running while you are somewhere else (v4, design B): a small bar floating
-// at the bottom of every page but the recording screen itself. The meeting's name leads to its
-// page, where the lines arrive; the recording screen is one tap away for ending it; Stop stops
-// taking audio and leaves the meeting open, as the button on the recording screen does.
+// at the bottom of every page but the meeting's own, where the dock is (recording-dock.tsx).
+// The meeting's name leads back there; Stop stops taking audio and leaves the meeting open, as
+// the dock's button does.
 //
 // Leaving the recording screen used to stop the recording. Now the recording is the app's
 // (recorder.tsx), and this bar is how you know it is still going.
@@ -28,7 +28,8 @@ export function RecordingBar() {
     return () => window.clearInterval(tick);
   }, [s]);
 
-  if (!s || pathname === `/${s.meetingId}/recording`) return null;
+  // Not on the meeting's own page, where the dock is the recording's controls.
+  if (!s || pathname === `/${s.meetingId}` || pathname === `/${s.meetingId}/recording`) return null;
 
   const listening = r.status === "open";
   const trouble = r.status === "error" || r.status === "closed";
@@ -80,16 +81,10 @@ export function RecordingBar() {
           {statusText(t, r.status)}
         </span>
       )}
-      <Link
-        href={`/${s.meetingId}/recording`}
-        className="shrink-0 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
-      >
-        {t("Recording screen")}
-      </Link>
       <button
         type="button"
         onClick={() => void r.stop()}
-        title={t("Stop recording. The meeting stays open; end it from the recording screen.")}
+        title={t("Stop recording. The meeting stays open; end it on its page.")}
         aria-label={t("Stop recording")}
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--error)] text-white hover:opacity-90"
       >

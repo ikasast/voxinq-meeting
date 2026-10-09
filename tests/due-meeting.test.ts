@@ -56,7 +56,9 @@ describe("what the reminder offers", () => {
   });
 
   it("points the notification at whichever page that browser can use", () => {
-    expect(alert).toContain('external ? `/${m.id}` : `/${m.id}/recording`');
+    // The meeting page, inside or out: it is the recording screen where recording works, and
+    // the meeting where it does not.
+    expect(alert).toContain("const url = `/${m.id}`;");
   });
 
   it("asks for notification permission on a tap, never on load", () => {

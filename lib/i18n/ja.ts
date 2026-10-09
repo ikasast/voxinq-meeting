@@ -97,7 +97,6 @@ export const ja: Record<string, string> = {
   Reconnecting: "再接続中",
   Error: "エラー",
   Stopped: "停止中",
-  "Error:": "エラー:",
   "● Model ready": "● モデル準備完了",
   "◌ Loading model…": "◌ モデル読み込み中…",
   "Start recording": "録音を開始",
@@ -105,12 +104,10 @@ export const ja: Record<string, string> = {
   "Generate minutes": "議事録を作成",
   "Starting…": "開始中…",
   "End only": "終了のみ",
-  "View minutes": "議事録を見る",
   Diarize: "話者を分離",
   "Speaker separation": "話者分離",
   "Work out who spoke each line, and give them names":
     "どの発言を誰が話したかを判定し、名前を付けます",
-  "Recording screen": "録音画面",
   "Re-transcribe": "文字起こしをやり直す",
   Minutes: "議事録",
   "End the meeting and start generating minutes in the background":
@@ -120,9 +117,6 @@ export const ja: Record<string, string> = {
   "Recording is not available from an external network": "外部ネットワークからは録音できません",
   "STT_WS_URL is not set on the server.": "サーバーに STT_WS_URL が設定されていません。",
   "This meeting has ended": "この会議は終了しています",
-  "This meeting has already ended. Recording cannot be restarted.":
-    "この会議は終了済みです。録音は再開できません。",
-  "Settings for this recording": "この録音の設定",
   Microphone: "マイク",
   "Mic + PC audio": "マイク + PC音声",
   "Recording source (PC audio captures online-meeting sound). Changeable while recording.":
@@ -132,11 +126,6 @@ export const ja: Record<string, string> = {
   "Auto-detect": "自動判定",
   Room: "会議室",
   Standard: "標準",
-  "Loaded and run once the meeting ends": "会議終了後に読み込んで実行します",
-  "Loaded on the GPU — transcription starts immediately":
-    "GPU に読み込み済み — すぐに文字起こしが始まります",
-  "Still loading; audio is buffered and transcribed once it is ready":
-    "読み込み中です。音声は保持され、準備でき次第まとめて文字起こしします",
   "Input audio level (movement means sound is arriving)": "入力レベル（動いていれば音が届いています）",
   "The input is clipping — turn the source down; recognition cannot recover a clipped word":
     "入力が割れています — 音源を下げてください。割れた音は認識で復元できません",
@@ -144,11 +133,6 @@ export const ja: Record<string, string> = {
     "休止画面です。録音は続いています。触れると録音画面に戻ります。",
   "Recording — touch to show": "録音中 — 触れると表示",
   Transcript: "発言",
-  "Speakers can be distinguished after the meeting": "話者は会議終了後に分けられます",
-  'Press "Start recording" below. Text appears when the meeting ends, not during it.':
-    "下の「録音を開始」を押してください。文字は会議終了後にまとめて出ます。",
-  'Press "Start recording" below to begin transcription.':
-    "下の「録音を開始」を押すと文字起こしが始まります。",
   "Something else is using the GPU": "GPU を他の処理が使っています",
   "Interrupt and transcribe live": "中断して会議中に文字起こし",
   "Record only": "録音だけする",
@@ -157,14 +141,7 @@ export const ja: Record<string, string> = {
     "中断すると、この会議を話しながら文字起こしします。中断した処理はキューの先頭に戻り、会議が終わると最初からやり直します。",
   "Recording only leaves it alone. The audio is kept and transcribed after the meeting — nothing is lost, but no text appears while you talk.":
     "「録音だけする」なら、動いている処理はそのままです。音声は保存され、会議の後に文字起こしされるので失われるものはありませんが、話している間は文字が出ません。",
-  "Model:": "モデル:",
-  "Language:": "言語:",
-  "Mic mode:": "マイクモード:",
-  "Source:": "ソース:",
   "PC audio": "PC音声",
-  "· at meeting end": "· 会議終了後",
-  "● ready": "● 準備完了",
-  "◌ loading…": "◌ 読み込み中…",
   "Before you start": "始める前に",
   "Pick the recording source from the menu above (mic / PC audio / both).":
     "上のメニューから録音ソースを選んでください（マイク / PC音声 / 両方）。",
@@ -265,10 +242,12 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "End the meeting": "会議を終える",
+  "Stop recording. The meeting stays open; end it on its page.": "録音を止めます。会議は終わらず、会議ページから終了できます。",
+  "What is said appears here once recording starts.": "録音を始めると、ここに発言が流れます。",
   "Open the meeting": "会議を開く",
   "Recognizing:": "認識中:",
   "Recording “{title}”": "「{title}」を録音中",
-  "Stop recording. The meeting stays open; end it from the recording screen.": "録音を止めます。会議は終わらず、録音画面から終了できます。",
   "“{title}” is being recorded. Stop it before recording another meeting.": "「{title}」を録音中です。別の会議を録音するには、先にそちらを止めてください。",
   Pinned: "ピン留め",
   Pin: "ピン留めする",
@@ -1195,8 +1174,6 @@ export const ja: Record<string, string> = {
     "画面を消灯します。録音は続き、触れば戻ります。「設定 → 表示」で一定時間後に自動で消すこともできます。",
   "Rest screen": "画面を消す",
   Meeting: "会議",
-  "Accessing from an external network, so recording is unavailable (recording works over Tailscale only). Viewing/generating minutes, diarization, and sharing still work here.":
-    "外部ネットワークからのアクセスのため録音は使えません（録音は Tailscale 経由のみ）。議事録の閲覧・生成、話者分離、共有はここでも使えます。",
 
   // ---- Record NOW ----
   "Failed to start recording: {error}": "録音を開始できませんでした: {error}",
@@ -1336,8 +1313,6 @@ export const ja: Record<string, string> = {
   "Failed to start minutes generation: {error}": "議事録の作成を開始できませんでした: {error}",
   "Failed to end the meeting: {error}": "会議を終了できませんでした: {error}",
   "Transcription failed: {error}. The recording is saved — use \"Re-transcribe\" on the meeting page.": "文字起こしに失敗しました: {error}。録音は保存されています。会議のページの「文字起こしをやり直す」を使ってください。",
-  "Recording. This machine has no GPU acceleration, so speech is recognized once — when you end the meeting — rather than as you speak. The transcript appears then, at full quality.": "録音中です。このマシンにはGPUによる高速化が無いため、音声は話すそばからではなく、会議を終了したときにまとめて認識されます。発言はそのとき、本来の精度で表示されます。",
-  "Loading the speech model (the first time can take about a minute). Recording has already started and will be transcribed together once loading completes.": "音声モデルを読み込んでいます（初回は1分ほどかかることがあります）。録音はすでに始まっていて、読み込みが終わるとまとめて文字起こしされます。",
   "End the meeting without keeping it. It moves to the trash, where it can be restored for 30 days, and its recording is not protected.": "会議を保存せずに終了します。会議はゴミ箱に移り、30日間は元に戻せます。録音は保護されません。",
   "Discard": "破棄する",
   "End without saving": "保存せずに終了",

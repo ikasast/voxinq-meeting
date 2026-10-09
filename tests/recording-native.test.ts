@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 const root = join(__dirname, "..");
 const recorder = readFileSync(join(root, "app/recorder.tsx"), "utf8");
-const page = readFileSync(join(root, "app/[id]/recording/page.tsx"), "utf8");
+const page = readFileSync(join(root, "app/[id]/recording-dock.tsx"), "utf8");
 
 function between(src: string, from: string, to: string): string {
   const a = src.indexOf(from);

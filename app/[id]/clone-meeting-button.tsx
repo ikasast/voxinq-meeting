@@ -37,7 +37,7 @@ export function CloneMeetingButton({
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const m = (await res.json()) as { id: string };
-      router.push(`/${m.id}/recording?autostart=1`);
+      router.push(`/${m.id}?autostart=1`);
     } catch {
       setBusy(false);
     }

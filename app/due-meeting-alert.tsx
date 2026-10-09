@@ -76,7 +76,7 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
       if (notifyState() !== "granted") return;
       if (notified.current.has(m.id)) return;
       notified.current.add(m.id);
-      const url = external ? `/${m.id}` : `/${m.id}/recording`;
+      const url = `/${m.id}`;
       void showNotification(m.title, t("It is time for this meeting."), url, `voxinq-due-${m.id}`);
     },
     [external, t],
@@ -143,7 +143,7 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
           {/* Recording needs the transcription service, which an external browser cannot
               reach — so from out there the reminder is a reminder and nothing more. */}
           {!external ? (
-            <Link href={`/${m.id}/recording`} className="btn-ink shrink-0 !px-4 !py-1.5 text-sm">
+            <Link href={`/${m.id}`} className="btn-ink shrink-0 !px-4 !py-1.5 text-sm">
               {t("Start recording")}
             </Link>
           ) : null}

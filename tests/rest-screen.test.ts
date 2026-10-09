@@ -16,7 +16,7 @@ import { REST_SCREEN_SECONDS, defaultRestSeconds, restSecondsFrom } from "../app
 
 const root = join(__dirname, "..");
 const page = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
-const rec = readFileSync(join(root, "app/[id]/recording/page.tsx"), "utf8");
+const rec = readFileSync(join(root, "app/[id]/recording-dock.tsx"), "utf8");
 
 const card = readFileSync(join(root, "app/settings/rest-screen-setting.tsx"), "utf8");
 const phone = { app: false, touchFirst: true };

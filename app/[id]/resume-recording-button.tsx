@@ -32,7 +32,7 @@ export function ResumeRecordingButton({ meetingId }: { meetingId: string }) {
   if (!exists) return null;
   return (
     <Link
-      href={`/${meetingId}/recording?autostart=1&resume=1`}
+      href={`/${meetingId}?autostart=1&resume=1`}
       // Ending comes back here by replacing the recording screen; one entry, not two.
       replace
       className="btn-ink !px-4 !py-1.5"

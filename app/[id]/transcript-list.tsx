@@ -927,7 +927,7 @@ export function TranscriptList({
   const router = useRouter();
   const [endedAt, setEndedAt] = useState<string | null>(meetingEndedAt);
   const [liveOffline, setLiveOffline] = useState(false);
-  const { subscribe: recSubscribe } = useRecorderApi();
+  const { subscribe: recSubscribe, current: recCurrent } = useRecorderApi();
   // What the server last told us, as the base for merging: see lib/live-merge.
   const serverSnapshot = useRef<ServerSnapshot>(new Map());
 
@@ -1018,6 +1018,19 @@ export function TranscriptList({
   }, [endedAt, upcoming, meetingId, meetingStartedAt, router, recSubscribe]);
 
   const live = !endedAt && !upcoming;
+
+  // While this tab records the meeting, the page follows the newest line down — as long as it
+  // is already at the bottom. Scrolled up to read something, it stays put.
+  const lineCount = useRef(transcripts.length);
+  useEffect(() => {
+    const grew = transcripts.length > lineCount.current;
+    lineCount.current = transcripts.length;
+    if (!grew || recCurrent()?.meetingId !== meetingId) return;
+    const root = window.document.documentElement;
+    if (window.innerHeight + window.scrollY >= root.scrollHeight - 320) {
+      window.scrollTo({ top: root.scrollHeight, behavior: "smooth" });
+    }
+  }, [transcripts.length, meetingId, recCurrent]);
 
   // "Diarize" on the recording page lands here with ?autodiarize=1: start diarization once
   // (progress is shown inline in the toolbar) and drop the param from the URL so a reload
@@ -1662,7 +1675,11 @@ export function TranscriptList({
       {transcripts.length === 0 ? (
         <p className="mt-4 text-sm text-[var(--text-muted)]">
           {/* One being made is not the same as none. */}
-          {retransing && retransStatus ? retransStatus : t("No transcript.")}
+          {retransing && retransStatus
+            ? retransStatus
+            : live
+              ? t("What is said appears here once recording starts.")
+              : t("No transcript.")}
         </p>
       ) : (
         <ul className="mt-3">

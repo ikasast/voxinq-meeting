@@ -240,7 +240,7 @@ export default function NewMeetingForm({
         // ignore
       }
       const qs = new URLSearchParams({ model, mic: micMode, source });
-      router.replace(`/${meeting.id}/recording?${qs}`);
+      router.replace(`/${meeting.id}?${qs}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("Failed to create meeting."));
       setSubmitting(false);

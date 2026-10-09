@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 const root = join(__dirname, "..");
 const CALLERS = [
   "app/[id]/transcript-list.tsx",
-  "app/[id]/recording/page.tsx",
+  "app/[id]/recording-dock.tsx",
   "app/new/new-meeting-form.tsx",
 ];
 
