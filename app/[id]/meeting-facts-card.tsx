@@ -1,14 +1,16 @@
-import Link from "next/link";
-import { SeriesIcon } from "../icons";
 import { serverT } from "@/lib/i18n/server";
 import { extensionEnabled } from "@/lib/extensions-store";
+import { PROPS_WIDE } from "./property";
 
 // The settings this meeting was actually recorded and written with.
 //
 // They were only visible by opening Settings, which shows what is configured *now* — not what
 // this meeting used. A meeting recorded with a different model, or written by a different LLM,
 // or shaped by a series' own format and glossary, otherwise gives no way to tell.
-export async function MeetingFactsCard({
+//
+// The last row of the meeting's details (property.tsx), folded: it answers a question asked
+// rarely, and the series itself already has a row of its own above.
+export async function MeetingFacts({
   whisperModel,
   sttLanguage,
   defaultWhisperModel,
@@ -42,50 +44,31 @@ export async function MeetingFactsCard({
     });
   }
 
+  if (series && (await extensionEnabled("series"))) {
+    // Why this meeting's minutes are shaped the way they are, and why those proper nouns came
+    // out right — both live on the series and were invisible from here.
+    if (series.summaryFormat && (await extensionEnabled("minutesFormats"))) {
+      rows.push({ label: t("Format"), value: t("Uses this series’ own minutes format.") });
+    }
+    if (series.glossary?.trim()) rows.push({ label: t("Glossary"), value: series.glossary.trim() });
+  }
+
   return (
-    <section className="card p-4">
-      <h2 className="mb-2 text-sm font-semibold text-[var(--text-strong)]">{t("This meeting")}</h2>
-      <dl className="flex flex-col gap-1.5 text-xs">
+    <details className={`${PROPS_WIDE} group`}>
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)] [&::-webkit-details-marker]:hidden">
+        <span aria-hidden className="transition-transform group-open:rotate-90">
+          ›
+        </span>
+        {t("Models, language and glossary")}
+      </summary>
+      <dl className="mt-2 grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
         {rows.map((r) => (
-          <div key={r.label} className="flex gap-2">
-            <dt className="w-28 shrink-0 text-[var(--text-muted)]">{r.label}</dt>
-            <dd className="min-w-0 break-words">{r.value}</dd>
+          <div key={r.label} className="contents">
+            <dt className="text-[var(--text-muted)]">{r.label}</dt>
+            <dd className="min-w-0 break-words text-[var(--text-secondary)]">{r.value}</dd>
           </div>
         ))}
       </dl>
-
-      {series && (await extensionEnabled("series")) ? (
-        <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <div className="flex gap-2 text-xs">
-            <dt className="w-28 shrink-0 text-[var(--text-muted)]">{t("Series")}</dt>
-            <dd className="min-w-0">
-              <Link
-                href={`/series/${series.id}`}
-                className="inline-flex items-center gap-1 text-[var(--accent-sub)] hover:underline"
-                title={t("Open the series page (timeline & defaults)")}
-              >
-                <SeriesIcon className="h-3.5 w-3.5 shrink-0" />
-                {series.name}
-              </Link>
-            </dd>
-          </div>
-          {/* Why this meeting's minutes are shaped the way they are, and why those proper nouns
-              came out right — both live on the series and were invisible from here. */}
-          {series.summaryFormat && (await extensionEnabled("minutesFormats")) ? (
-            <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-              {t("Uses this series’ own minutes format.")}
-            </p>
-          ) : null}
-          {series.glossary?.trim() ? (
-            <div className="mt-1.5 flex gap-2 text-xs">
-              <dt className="w-28 shrink-0 text-[var(--text-muted)]">{t("Glossary")}</dt>
-              <dd className="min-w-0 break-words text-[var(--text-secondary)]">
-                {series.glossary.trim()}
-              </dd>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
+    </details>
   );
 }

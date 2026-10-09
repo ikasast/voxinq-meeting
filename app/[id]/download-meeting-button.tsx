@@ -122,7 +122,7 @@ export function DownloadMeetingButton({
       <button
         type="button"
         onClick={toggleOpen}
-        className="btn-icon"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
         title={t("Download meeting (minutes / transcript / info / recording)")}
         aria-label={t("Download meeting")}
         aria-expanded={open}

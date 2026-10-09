@@ -26,7 +26,7 @@ const LOCALE = process.env.LOCALE === "ja" ? "ja" : "en";
 const JA = LOCALE === "ja";
 const OUT = path.join(process.cwd(), "public", "extension-shots", LOCALE);
 
-// The same 1600 as the README shots: the three-column layout the app is designed around.
+// The same 1600 as the README shots: sidebar, minutes and the transcript panel side by side.
 const VIEWPORT = { width: 1600, height: 1000 };
 const SCALE = 2;
 // The dialog is at most 672 CSS px wide; twice that stays sharp on a 2× screen.
@@ -42,13 +42,11 @@ const W = JA
       writeAll: "まとめて作成",
       suggest: "誤変換の候補を出す",
       transcript: "発言",
-      showTranslations: "翻訳を表示",
       regenerate: "作り直す",
       upcoming: "予定",
       seriesGlossary: "ステージング、テナント、レート制限",
       speakerSeparation: "話者分離",
-      checkVoice: "声の様子を調べる",
-      judgeEmotion: "感情を推定",
+      more: "その他",
       booked: "デザインレビュー — 第2回",
       templates: [
         { id: "t-weekly", name: "定例会議（決定事項と ToDo）", body: "## 決定事項\n## ToDo", instructions: "" },
@@ -64,13 +62,11 @@ const W = JA
       writeAll: "Write them all",
       suggest: "Suggest fixes",
       transcript: "Transcript",
-      showTranslations: "Show translations",
       regenerate: "Regenerate",
       upcoming: "Upcoming",
       seriesGlossary: "staging, tenant, rate limit",
       speakerSeparation: "Speaker separation",
-      checkVoice: "Check the voice",
-      judgeEmotion: "Judge emotion",
+      more: "More",
       booked: "Design Review — round two",
       templates: [
         { id: "t-weekly", name: "Weekly meeting (decisions and to-dos)", body: "## Decisions\n## To-dos", instructions: "" },
@@ -80,16 +76,47 @@ const W = JA
 
 const prisma = new PrismaClient();
 
-/**
- * The transcript from its toolbar down: the lines and what the extension put on them. The
- * speaker and search panels above belong to other features and only make the picture taller.
- */
+/** The transcript of a meeting (v4): the panel at the right, or — on a meeting with no minutes
+ *  yet — the page itself, below the empty minutes. */
+async function transcriptBox(page) {
+  const panel = page.locator(`aside[aria-label="${W.transcript}"]`);
+  await page.locator('li[id^="line-"]').first().waitFor();
+  if (await panel.count()) return { box: panel, panel: true };
+  return { box: page.locator("section", { has: page.locator('li[id^="line-"]') }).last(), panel: false };
+}
+
+/** From the transcript's heading down to its `rows`-th line, or its last if it has fewer. The
+ *  panel scrolls inside itself, so its picture is cut from the screen. */
+async function panelDown(page, rows) {
+  // Nothing pointed at or focused: a line's tools would float over its text.
+  await page.mouse.move(1, 1);
+  await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+  const { box, panel } = await transcriptBox(page);
+  const b = await box.boundingBox();
+  const lines = box.locator('li[id^="line-"]');
+  const n = Math.min(rows, await lines.count());
+  const last = await lines.nth(n - 1).boundingBox();
+  const top = panel ? 0 : b.y - 12;
+  // In the page it is as wide as the page; at most 1000px keeps the text readable in the dialog.
+  const width = panel ? b.width : Math.min(b.width + 16, 1000);
+  return { clip: { x: b.x - (panel ? 0 : 8), y: top, width, height: last.y + last.height + 16 - top } };
+}
+
+/** The transcript's "…" menu, where the checks and the translation toggle live. */
+async function transcriptMenuItem(page, name) {
+  const { box } = await transcriptBox(page);
+  await box.getByRole("button", { name: W.more, exact: true }).first().click();
+  return page.getByRole("menuitem", { name }).or(page.getByRole("menuitemcheckbox", { name }));
+}
+
 async function transcriptLines(page) {
-  const details = page.locator("details", { has: page.locator("summary", { hasText: W.transcript }) }).first();
-  const d = await details.boundingBox();
-  const b = await page.getByRole("button", { name: W.suggest }).boundingBox();
-  const top = b.y - 12;
-  return { clip: { x: d.x - 8, y: top, width: d.width + 16, height: d.y + d.height - top + 8 } };
+  return panelDown(page, 6);
+}
+
+/** Something drawn without a card of its own, with room left around it. */
+async function padded(locator, by = 16) {
+  const b = await locator.boundingBox();
+  return { clip: { x: b.x - by, y: b.y - by, width: b.width + 2 * by, height: b.height + 2 * by } };
 }
 
 /** Answer the settings with some of them changed: what a screen is shown, not what is stored. */
@@ -106,16 +133,17 @@ const SHOTS = {
     await page.route("**/api/ask", (route) =>
       route.fulfill({ json: { answer: W.answer, used: 1, omitted: 0, withoutMinutes: 0 } }),
     );
-    await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
-    const box = page.locator("section.card", { has: page.locator('input[maxlength="500"]') }).first();
+    // A meeting outside a series: one in a series is asked about on the series page.
+    await page.goto(`${BASE}/demo-research-sync`, { waitUntil: "networkidle" });
+    const box = page.locator("section", { has: page.locator('input[maxlength="500"]') }).last();
     await box.locator("input").fill(W.question);
     await box.locator("input").press("Enter");
     await box.getByText(W.answer.split("**")[1]).first().waitFor();
-    return box;
+    return padded(box);
   },
 
   async bulkMinutes(page) {
-    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/?list=1`, { waitUntil: "networkidle" });
     const bar = page
       .getByRole("button", { name: W.writeAll })
       .locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
@@ -126,25 +154,12 @@ const SHOTS = {
   },
 
   async speakers(page) {
-    // The panel — the run, the names it found — and the first lines with their speakers.
+    // The panel opened from its icon above the transcript — the run, the names it found — and
+    // the first lines with their speakers.
     await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
-    const panel = page
-      .getByRole("button", { name: W.speakerSeparation })
-      .first()
-      .locator("xpath=ancestor::div[contains(@class,'rounded-lg')][1]");
-    await panel.waitFor();
-    // What sits between the panel and the lines (find and replace, re-transcription, the
-    // toolbar) is other features; set aside for the picture so the two halves are together.
-    await panel.evaluate((el) => {
-      for (let next = el.nextElementSibling; next && next.tagName !== "UL"; next = next.nextElementSibling) {
-        next.style.display = "none";
-      }
-    });
-    const details = page.locator("details", { has: page.locator("summary", { hasText: W.transcript }) }).first();
-    const d = await details.boundingBox();
-    const p = await panel.boundingBox();
-    const third = await details.locator("ul > li").nth(2).boundingBox();
-    return { clip: { x: d.x - 8, y: p.y - 12, width: d.width + 16, height: third.y + third.height - p.y + 20 } };
+    await (await transcriptBox(page)).box.getByRole("button", { name: W.speakerSeparation, exact: true }).click();
+    await page.waitForTimeout(200);
+    return panelDown(page, 3);
   },
 
   async series(page) {
@@ -163,8 +178,9 @@ const SHOTS = {
 
   async schedule(page) {
     // The calendar, and under it Upcoming with tomorrow's booked meeting in it.
-    await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-    const booked = page.getByText(W.booked).first();
+    await page.goto(`${BASE}/?list=1`, { waitUntil: "networkidle" });
+    // In the page, not the sidebar, which lists the same meeting under Upcoming.
+    const booked = page.locator("main").getByText(W.booked).first();
     await booked.waitFor();
     const calendar = page.locator("div.rounded-lg", { has: page.locator("table, [role=grid]") }).first();
     const c = await calendar.boundingBox();
@@ -180,7 +196,7 @@ const SHOTS = {
     const select = page.locator("#regen-template");
     await select.locator('option[value="t-weekly"]').waitFor({ state: "attached" });
     await select.selectOption("t-weekly");
-    return select.locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
+    return padded(select.locator("xpath=ancestor::div[contains(@class,'border-y')][1]"));
   },
 
   async corrections(page) {
@@ -194,41 +210,27 @@ const SHOTS = {
       }),
     );
     await page.goto(`${BASE}/demo-research-sync`, { waitUntil: "networkidle" });
-    await page.getByRole("button", { name: W.suggest }).click();
+    await (await transcriptMenuItem(page, W.suggest)).click();
     await page.getByText(W.fixed(line.text)).first().waitFor();
     return transcriptLines(page);
   },
 
   async translation(page) {
+    // Translations are shown by default; the toggle is in the transcript's "…" menu.
     await page.goto(`${BASE}/demo-partner-call`, { waitUntil: "networkidle" });
-    await page.getByText(W.showTranslations).first().waitFor();
-    return transcriptLines(page);
+    return panelDown(page, 3);
   },
 
   async voiceCues(page) {
-    // The button, and the first lines with the marks two of them carry.
+    // The strip over the transcript and the first lines, with the marks two of them carry.
     await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
-    const button = page.getByRole("button", { name: W.checkVoice }).first();
-    await button.waitFor();
-    const details = page.locator("details", { has: page.locator("summary", { hasText: W.transcript }) }).first();
-    const d = await details.boundingBox();
-    const b = await button.boundingBox();
-    const sixth = await details.locator("ul > li").nth(5).boundingBox();
-    const top = b.y - 12;
-    return { clip: { x: d.x - 8, y: top, width: d.width + 16, height: sixth.y + sixth.height - top + 16 } };
+    return panelDown(page, 6);
   },
 
   async emotion(page) {
-    // The button, and the first lines: one that sounded joyful, one that sounded sad.
+    // The strip over the transcript and the first lines: one that sounded joyful, one sad.
     await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
-    const button = page.getByRole("button", { name: W.judgeEmotion }).first();
-    await button.waitFor();
-    const details = page.locator("details", { has: page.locator("summary", { hasText: W.transcript }) }).first();
-    const d = await details.boundingBox();
-    const b = await button.boundingBox();
-    const sixth = await details.locator("ul > li").nth(5).boundingBox();
-    const top = b.y - 12;
-    return { clip: { x: d.x - 8, y: top, width: d.width + 16, height: sixth.y + sixth.height - top + 16 } };
+    return panelDown(page, 6);
   },
 
   async externalAi(page) {
@@ -282,6 +284,8 @@ async function main() {
   await context.addInitScript(() => {
     try {
       localStorage.setItem("voxinq.theme", "light");
+      localStorage.setItem("voxinq.transcriptPanel", "open");
+      localStorage.setItem("voxinq.transcriptWidth", "640");
     } catch {}
   });
 

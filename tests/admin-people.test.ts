@@ -116,16 +116,16 @@ describe("an administrator and the shared queue", () => {
 
 describe("reaching the people screen", () => {
   const menu = readFileSync(join(root, "app/account-menu.tsx"), "utf8");
-  const rail = readFileSync(join(root, "app/side-rail.tsx"), "utf8");
+  const rail = readFileSync(join(root, "app/sidebar.tsx"), "utf8");
 
-  it("is in the account menu, not only in the rail", () => {
-    // The rail is desktop-only. Leaving the link there alone would give an administrator no way
-    // to reach it from the device they actually carry — the same gap the queue had.
+  it("is in the account menu, not only in the sidebar", () => {
+    // The sidebar can be folded or shut. The account menu is the other way in, the same gap the
+    // queue once had.
     expect(menu).toContain('href="/admin"');
     expect(menu).toContain("{isAdmin ? (");
   });
 
   it("is not shown to anybody else, in either place", () => {
-    expect(rail).toContain("{isAdmin ? (");
+    expect(rail).toContain("{!external && isAdmin ? (");
   });
 });

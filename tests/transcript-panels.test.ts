@@ -4,19 +4,15 @@ import { describe, expect, it } from "vitest";
 
 // Where the transcript's controls sit, and what they depend on.
 //
-// Find & replace and Re-transcribe were pills in the toolbar, and the panels they opened
-// rendered several screens below it. On a phone, tapping one appeared to do nothing at all.
-// They are their own rows now and open inside their own headers, so how far down the page
-// they sit no longer separates a control from what it controls.
+// Find & replace and Re-transcribe were once pills in a toolbar whose panels rendered several
+// screens below it; on a phone, tapping one appeared to do nothing. Then they became folding
+// rows, each a box with its own header — which, inside the transcript's own card and above lines
+// that were boxes too, made the panel read as cards inside cards.
 //
-// Diarize used to sit in a toolbar at the top while the names it produces rendered below the
-// status lines, and keeping those two together meant keeping every other block out from
-// between them — an ordering nothing but this test held. They are one block now: asking for
-// speakers and naming them are the same job, so they open and fold together.
-//
-// What is left in the row below is the work that changes nothing: take the transcript away,
-// show the translations beside it, check it against the glossary. It sits under the two
-// blocks that do rewrite it.
+// Now (v4) they are icons beside the heading, and the one that is pressed opens its panel right
+// under it: a fold between two rules, never another box. Asking for speakers and naming them
+// are one job, so Diarize and the names it produces share a panel. The work that changes
+// nothing — take the transcript away, show the translations, check it — waits behind "…".
 
 const root = join(__dirname, "..");
 const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
@@ -28,43 +24,69 @@ const at = (marker: string) => {
   return i;
 };
 
-describe("the transcript's blocks", () => {
-  it("run from what changes the transcript to what only takes it away", () => {
+describe("the transcript's tools", () => {
+  it("open under the heading, above the recording and the lines", () => {
+    const button = at('toolButton("speakers"');
     const speakers = at("{/* Speaker separation");
     const replace = at("{/* Find and replace");
     const retrans = at("{/* Re-transcription");
-    const tools = at("{/* What to do with the transcript");
+    const player = at("<audio");
+    const lines = at("<TranscriptRow");
     expect(
-      speakers < replace && replace < retrans && retrans < tools,
-      "the blocks are no longer in the order the screen is meant to read in",
+      button < speakers && speakers < replace && replace < retrans && retrans < player && player < lines,
+      "a panel no longer opens where the button that opens it is",
     ).toBe(true);
   });
 
-  it("keeps Diarize and the names it produces in one block", () => {
+  it("open one at a time, and none to begin with", () => {
+    // Three folds, each open or shut on its own, were most of what made the panel busy; a
+    // speaker fold open by default was always the first thing on the page.
+    expect(list).toMatch(/const \[tool, setTool\] = useState<Tool>\(null\)/);
+    for (const k of ["speakers", "replace", "retrans"]) {
+      expect(list).toContain(`{tool === "${k}" && `);
+    }
+  });
+
+  it("are folds rather than boxes inside the card", () => {
+    expect(list.match(/<ToolPanel\s/g)).toHaveLength(3);
+    expect(list).not.toContain("<Disclosure");
+    const panel = list.slice(at("function ToolPanel("));
+    expect(panel.slice(0, panel.indexOf("\n}\n"))).not.toMatch(/rounded-lg border|bg-\[var\(--elevated\)\]/);
+  });
+
+  it("keeps Diarize and the names it produces in one panel", () => {
     const block = list.slice(at("{/* Speaker separation"), at("{/* Find and replace"));
-    // Both halves of the same job. Before, an ordering rule kept everything else out from
-    // between them; now there is nowhere between them to get into.
-    expect(block, "the Diarize button left the speaker block").toContain('{t("Diarize")}');
-    expect(block, "the speaker names left the block Diarize is in").toContain("showSpeakerTools");
+    expect(block, "the Diarize button left the speaker panel").toContain('{t("Diarize")}');
+    expect(block, "the speaker names left the panel Diarize is in").toContain("showSpeakerTools");
   });
 
-  it("opens the speaker block by default", () => {
-    // On a meeting that has just been recorded this is the next thing wanted, and a fold that
-    // hides it is a fold nobody opens.
-    expect(list).toMatch(/const \[diarOpen, setDiarOpen\] = useState\(true\)/);
-    expect(list.slice(at("{/* Speaker separation"))).toMatch(/open=\{diarOpen\}/);
+  it("put sharing, the checks and the translations behind the menu in the heading", () => {
+    const menu = list.slice(at("{/* What to do with the transcript"), at("{/* Speaker separation"));
+    expect(menu).toContain("<DropMenu");
+    for (const what of ["shareText", "downloadText", "runVoiceCues", "runEmotion", "runSuggestions", "Show translations"]) {
+      expect(menu, `${what} left the menu`).toContain(what);
+    }
+  });
+});
+
+describe("a line", () => {
+  const row = list.slice(at("function TranscriptRow("), at("function ToolPanel("));
+
+  it("names its speaker once, in colour, with no tag around it", () => {
+    // The name was a coloured chip, and a picker beside it said the name again.
+    expect(row).toContain("<SpeakerName");
+    expect(row).not.toContain("SpeakerPicker");
+    expect(row).not.toContain("SpeakerChip");
+    expect(list).toContain("sameSpeaker={i > 0 && transcripts[i - 1].speakerType === line.speakerType}");
   });
 
-  it("are headers rather than buttons somewhere else", () => {
-    // Three <Disclosure> sections, each carrying its own title: speakers, replace, re-transcribe.
-    expect(list.match(/<Disclosure\s/g)).toHaveLength(3);
+  it("can still be given to someone else when its name is left out", () => {
+    expect(row).toMatch(/canReassign && sameSpeaker \? \(\s*<SpeakerMenu/);
   });
 
-  it("puts sharing and the glossary check below what rewrites the transcript", () => {
-    const tools = list.slice(at("{/* What to do with the transcript"));
-    expect(tools).toContain("ShareButton");
-    expect(tools).toContain("runSuggestions");
-    expect(tools).toContain("Show translations");
+  it("is not a box", () => {
+    const li = row.slice(row.indexOf("<li"), row.indexOf(">", row.indexOf("<li")));
+    expect(li).not.toMatch(/\bborder\b|bg-\[var\(--elevated\)\]/);
   });
 });
 

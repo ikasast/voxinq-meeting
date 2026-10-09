@@ -5,12 +5,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDateTimeIn } from "@/lib/i18n/format";
-import { PencilIcon, RefreshIcon } from "../icons";
+import { DotsIcon, DownloadIcon, PencilIcon, RefreshIcon, ShareIcon } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
-import { CopySummaryButton } from "./copy-summary-button";
-import { MinutesDownloadButton } from "./minutes-download-button";
-import { ShareButton } from "./share-button";
+import { CopyButton } from "./copy-button";
+import { downloadText, shareText } from "./share-text";
+import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
 import { useLocale, useT } from "@/app/locale-provider";
 import { MinutesChoiceFields, useMinutesChoice } from "@/app/minutes-options";
 
@@ -70,6 +70,8 @@ export function SummarySection({
   const [error, setError] = useState<string | null>(null);
   const [genBusy, setGenBusy] = useState(false);
   const [stopping, setStopping] = useState(false);
+  // A word on what just happened that needs no more than a moment ("Copied").
+  const [notice, setNotice] = useState<string | null>(null);
 
   // "Regenerate with options" panel: per-run format and provider, prefilled from
   // the saved settings the first time it opens.
@@ -176,23 +178,41 @@ export function SummarySection({
     }
   };
 
+  // One quiet line between the meeting's details and the minutes: what this is and which
+  // version, and what can be done with it. Copying is always in sight, because it is what is done
+  // with minutes most; sharing and the file formats wait behind "…".
   const header = (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">{t("Minutes")}</h2>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[var(--border)] pt-4">
+      <h2 className="text-sm font-semibold text-[var(--text-secondary)]">{t("Minutes")}</h2>
+      {/* Version history (when there are 2 or more) */}
+      {current && summaries.length > 1 && !editing ? (
+        <>
+          <select
+            value={current.id}
+            onChange={(e) => setSelectedId(e.target.value)}
+            aria-label={t("Version:")}
+            className="rounded-md border border-transparent bg-transparent px-1 py-0.5 text-xs text-[var(--text-muted)] hover:border-[var(--border-strong)] focus:border-[var(--accent)] focus:outline-none"
+          >
+            {summaries.map((s, i) => (
+              <option key={s.id} value={s.id}>
+                {formatDateTimeIn(locale, s.createdAt)}
+                {i === 0 ? ` (${t("latest")})` : ""}
+              </option>
+            ))}
+          </select>
+          {!isLatest ? <span className="text-xs text-[var(--warning)]">{t("Viewing an older version")}</span> : null}
+        </>
+      ) : null}
+      <span className="flex-1" />
+      {notice ? <span className="text-xs text-[var(--text-muted)]">{notice}</span> : null}
       {current && !editing ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-0.5">
+          <CopyButton text={current.text} label={t("Copy minutes")} />
           {!readOnly ? (
-            <button type="button" onClick={startEdit} className="btn-icon" title={t("Edit")} aria-label={t("Edit")}>
-              <PencilIcon />
+            <button type="button" onClick={startEdit} className={ICON_BUTTON} title={t("Edit")} aria-label={t("Edit")}>
+              <PencilIcon className="h-4 w-4" />
             </button>
           ) : null}
-          <CopySummaryButton text={current.text} />
-          <ShareButton text={current.text} title={`${meetingTitle} minutes`} />
-          <MinutesDownloadButton
-            meetingId={meetingId}
-            text={current.text}
-            filename={`${meetingTitle}-minutes.md`}
-          />
           {canGenerate && !readOnly ? (
             processing ? (
               // While generating, the regenerate button becomes a Stop button.
@@ -204,7 +224,7 @@ export function SummarySection({
                 type="button"
                 onClick={toggleOptions}
                 disabled={genBusy}
-                className="btn-icon-accent"
+                className={`${ICON_BUTTON} ${showOptions ? "bg-[var(--hover-surface)]" : ""} !text-[var(--accent)]`}
                 title={
                   waitingOn
                     ? t("{task} — this will wait its turn in the queue.", { task: waitingOn })
@@ -217,6 +237,65 @@ export function SummarySection({
               </button>
             )
           ) : null}
+          <DropMenu label={t("More")} trigger={<DotsIcon className="h-4 w-4" />} className={ICON_BUTTON} width={224}>
+            {(close) => (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={MENU_ITEM}
+                  onClick={() => {
+                    void close();
+                    void shareText(current.text, `${meetingTitle} minutes`).then((how) => {
+                      if (how === "shared") return;
+                      setNotice(how === "copied" ? t("Copied") : t("Copy failed"));
+                      setTimeout(() => setNotice(null), 2500);
+                    });
+                  }}
+                >
+                  <ShareIcon className="h-3.5 w-3.5" />
+                  {t("Share minutes")}
+                </button>
+                <MenuRule />
+                {/* All three are the same document in another format, so they sit together.
+                    Markdown is written from the text already on the page, so it works without a
+                    round trip and on a read-only share. */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={MENU_ITEM}
+                  onClick={() => {
+                    void close();
+                    downloadText(current.text, `${meetingTitle}-minutes.md`, "text/markdown");
+                  }}
+                >
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  Markdown (.md)
+                </button>
+                <a
+                  role="menuitem"
+                  href={`/api/meetings/${meetingId}/export?format=docx`}
+                  onClick={() => void close()}
+                  className={MENU_ITEM}
+                >
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  Word (.docx)
+                </a>
+                <a
+                  role="menuitem"
+                  href={`/${meetingId}/print`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => void close()}
+                  title={t("Opens a print view — choose “Save as PDF” as the destination")}
+                  className={MENU_ITEM}
+                >
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  {t("PDF (print)")}
+                </a>
+              </>
+            )}
+          </DropMenu>
         </div>
       ) : null}
     </div>
@@ -227,7 +306,7 @@ export function SummarySection({
   // minutes were written twice.
   const optionsPanel =
     showOptions && !editing ? (
-        <div className="mt-3 space-y-3 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3">
+        <div className="mt-3 space-y-3 border-y border-[var(--border)] py-3">
           <MinutesChoiceFields
             idPrefix="regen"
             choice={opts.choice}
@@ -268,7 +347,7 @@ export function SummarySection({
   if (!current) {
     return (
       <>
-        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">{t("Minutes")}</h2>
+        {header}
         {processing ? (
           <div className="mt-4 space-y-2">
             <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
@@ -322,37 +401,17 @@ export function SummarySection({
       {optionsPanel}
 
       {processing ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-sm text-[var(--accent-sub)]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--accent-sub)]">
           <Spinner />
           <span className="mr-auto">{t("Generating new minutes. A new version will be added below when done…")}</span>
           {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
         </div>
       ) : lastOutcome === "error" && !minutesRunning ? (
-        <div className="mt-3 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
+        <div className="mt-3 text-sm text-[var(--error)]">
           {summaryError
             ? t("The last regeneration failed: {reason}", { reason: summaryError })
             : t("The last regeneration failed.")}{" "}
           {t("Showing the previous version — use the ↻ button to retry.")}
-        </div>
-      ) : null}
-
-      {/* Version history (when there are 2 or more) */}
-      {summaries.length > 1 && !editing ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-          <span>{t("Version:")}</span>
-          <select
-            value={current.id}
-            onChange={(e) => setSelectedId(e.target.value)}
-            className="rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-2 py-1 text-xs text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none"
-          >
-            {summaries.map((s, i) => (
-              <option key={s.id} value={s.id}>
-                {formatDateTimeIn(locale, s.createdAt)}
-                {i === 0 ? ` (${t("latest")})` : ""}
-              </option>
-            ))}
-          </select>
-          {!isLatest ? <span className="text-[var(--warning)]">{t("Viewing an older version")}</span> : null}
         </div>
       ) : null}
 

@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* `light:` for the few colours that need a different shade on the light theme. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
 /* ============================================================
    Voxinq Meeting theme
    Built around the cyan of the brand icon; layers are conveyed by
@@ -20,6 +23,10 @@
   --border: #2f3d54;
   --border-strong: #3d4d6a;
   --header: #0b1220;
+  /* A meeting's page (--paper) and what frames it: the sidebar and the transcript panel
+     (--panel). Dark keeps the page darkest; light makes it white against grey. */
+  --paper: #0b1220;
+  --panel: #1b2536;
 
   /* Text */
   --foreground: #e5e7eb;
@@ -67,6 +74,8 @@ html[data-theme="light"] {
   --border: #dfe5ee;
   --border-strong: #c6d0de;
   --header: #ffffff;
+  --paper: #ffffff;
+  --panel: #f5f7fa;
 
   --foreground: #1f2937;
   --text-strong: #0b1220;
@@ -122,6 +131,15 @@ body {
   background: var(--background);
 }
 
+/* A meeting's page is paper: white behind the minutes, edge to edge between the sidebar and the
+   transcript panel (meeting-body.tsx sets data-paper). */
+body:has([data-paper]) {
+  background: var(--paper) !important;
+}
+main:has([data-paper]) {
+  max-width: none;
+}
+
 /* Links/emphasis inside Markdown (minutes) lean toward the brand colors */
 .prose-invert {
   --tw-prose-invert-links: var(--accent-sub);
@@ -165,7 +183,9 @@ html[data-theme="light"] .prose-invert {
 /* Minutes markdown: compact layout with a clearly ranked heading scale.
    (The typography plugin's h3 default is larger than a Tailwind-overridden h2,
    which made h3 render bigger than h2 — set the whole scale explicitly.) */
-.minutes-prose h2 {
+/* An h1 in the minutes is a section like any other, not a second title: the meeting's own name
+   is the largest thing on the page. */
+.minutes-prose :is(h1, h2) {
   font-size: 1.15rem;
   line-height: 1.4;
   margin-top: 1.7em;
@@ -173,7 +193,7 @@ html[data-theme="light"] .prose-invert {
   padding-bottom: 0.3em;
   border-bottom: 1px solid var(--border);
 }
-.minutes-prose h2:first-child {
+.minutes-prose :is(h1, h2):first-child {
   margin-top: 0.25em;
 }
 .minutes-prose h3 {
@@ -527,5 +547,25 @@ html[data-theme="light"] .logo-dark {
      The old 16mm sides, plus the screen padding above, left the text in a narrow ribbon. */
   @page {
     margin: 12mm;
+  }
+}
+
+/* A meeting being recorded, in the sidebar: the record button's dot fading in and out, slower
+   than animate-pulse so it reads as "on air" rather than as something asking to be clicked. */
+@keyframes recording-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+.recording-dot {
+  animation: recording-breathe 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .recording-dot {
+    animation: none;
   }
 }

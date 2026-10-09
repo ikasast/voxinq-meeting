@@ -37,17 +37,17 @@ describe("the corner of the screen", () => {
 describe("reaching the queue from a phone", () => {
   const layout = read("app/layout.tsx");
   const counter = read("app/use-my-queue-count.ts");
-  const rail = read("app/side-rail.tsx");
+  const rail = read("app/sidebar.tsx");
 
   it("has a way in that is not the address bar", () => {
-    // The rail that carries the queue is desktop-only, so on a phone there was no link to it
-    // anywhere — on the screen that answers "has my minutes finished yet".
-    //
-    // It was an icon in the top bar; it is a labelled slot on the bottom bar now, which is the
-    // same promise kept somewhere a thumb reaches. What this test holds is the promise, so it
-    // has to name wherever the link currently lives.
-    expect(read("app/bottom-bar.tsx")).toContain('href="/queue"');
-    expect(layout).toContain("<BottomBar external={external} />");
+    // The rail that carried the queue was desktop-only, so on a phone there was once no link to
+    // it anywhere — on the screen that answers "has my minutes finished yet". It was an icon in
+    // the top bar, then a slot on a bottom bar; since v4 it is in the sidebar's foot, and the
+    // phone's drawer is that same sidebar. What this test holds is the promise, so it names
+    // wherever the link currently lives.
+    expect(rail).toContain('href="/queue"');
+    expect(rail).toContain("{full(true)}");
+    expect(layout).toContain("<Sidebar");
   });
 
   it("counts your own work, not the machine's", () => {

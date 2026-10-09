@@ -208,6 +208,7 @@ model Meeting {
   recordedMs                Int?      @map("recorded_ms") // actual recorded audio length in ms (set on end from the WAV); null for older meetings
   deletedAt                 DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
   archivedAt                DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
+  pinnedAt                  DateTime? @map("pinned_at") // pinned to the top of the sidebar; null = not pinned
   createdAt                 DateTime  @default(now()) @map("created_at")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 

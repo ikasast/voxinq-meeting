@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useT } from "@/app/locale-provider";
+import { useLocale, useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
+import { PencilIcon } from "@/app/icons";
+import { PROP_BUTTON, PROPS_WIDE, Prop } from "./property";
 
 export type Participant = { name: string; speaking: boolean };
 
@@ -17,7 +19,10 @@ export type Participant = { name: string; speaking: boolean };
 //
 // Attending and speaking are separate on purpose. Someone can sit through a meeting without
 // saying a word; unticking them should not remove them from the record of who was there.
-export function ParticipantsCard({
+//
+// A row of the meeting's details (property.tsx): the names on one line, and the list with its
+// ticks opened under it to change them.
+export function ParticipantsRow({
   meetingId,
   initial,
   knownNames,
@@ -31,6 +36,8 @@ export function ParticipantsCard({
 }) {
   const [people, setPeople] = useState<Participant[]>(initial);
   const t = useT();
+  const locale = useLocale();
+  const [editing, setEditing] = useState(false);
   const speakersOn = useExtensions().speakers;
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -98,58 +105,81 @@ export function ParticipantsCard({
   const suggestions = knownNames.filter((n) => !people.some((p) => p.name === n));
 
   return (
-    <section className="card p-4">
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Participants")}</h2>
-        {saving ? <span className="text-xs text-[var(--text-muted)]">{t("Saving…")}</span> : null}
-      </div>
-
-      {people.length === 0 ? (
-        <p className="text-xs text-[var(--text-muted)]">
-          {readOnly ? t("Nobody recorded.") : t("Add who was there. Ticked names are the ones expected to speak.")}
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {people.map((p) => (
-            <li key={p.name} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={p.speaking}
-                disabled={readOnly}
-                onChange={() =>
-                  setPeople((prev) =>
-                    prev.map((q) => (q.name === p.name ? { ...q, speaking: !q.speaking } : q)),
-                  )
-                }
-                title={p.speaking ? t("Expected to speak") : t("Attended, but did not speak")}
-                aria-label={t("{name} spoke", { name: p.name })}
-                className="accent-[var(--accent)]"
-              />
+    <>
+      <Prop
+        label={t("Participants")}
+        action={
+          !readOnly ? (
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              aria-expanded={editing}
+              title={t("Edit participants")}
+              aria-label={t("Edit participants")}
+              className={`${PROP_BUTTON} ${editing ? "bg-[var(--hover-surface)] !text-[var(--accent)]" : ""}`}
+            >
+              <PencilIcon className="h-3.5 w-3.5" />
+            </button>
+          ) : null
+        }
+      >
+        {people.length === 0 ? (
+          <span className="text-[var(--text-muted)]">{readOnly ? t("Nobody recorded.") : t("Not set")}</span>
+        ) : (
+          people.map((p, i) => (
+            <span key={p.name}>
+              {i > 0 ? (locale === "ja" ? "、" : ", ") : null}
               <span
-                className={`min-w-0 flex-1 truncate ${
-                  p.speaking ? "" : "text-[var(--text-muted)] line-through"
-                }`}
+                className={p.speaking ? "" : "text-[var(--text-muted)]"}
+                title={p.speaking ? undefined : t("Attended, but did not speak")}
               >
                 {p.name}
               </span>
-              {!readOnly ? (
-                <button
-                  type="button"
-                  onClick={() => setPeople((prev) => prev.filter((q) => q.name !== p.name))}
-                  className="text-xs text-[var(--text-muted)] hover:text-[var(--error)]"
-                  title={t("Remove")}
-                  aria-label={t("Remove {name}", { name: p.name })}
-                >
-                  ✕
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
+            </span>
+          ))
+        )}
+        {saving ? <span className="ml-2 text-xs text-[var(--text-muted)]">{t("Saving…")}</span> : null}
+      </Prop>
 
-      {!readOnly ? (
-        <>
+      {editing && !readOnly ? (
+        <div className={`${PROPS_WIDE} border-y border-[var(--border)] py-3`}>
+          {people.length === 0 ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              {t("Add who was there. Ticked names are the ones expected to speak.")}
+            </p>
+          ) : null}
+          {people.length > 0 ? (
+            <ul className="flex flex-col gap-1">
+              {people.map((p) => (
+                <li key={p.name} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={p.speaking}
+                    onChange={() =>
+                      setPeople((prev) =>
+                        prev.map((q) => (q.name === p.name ? { ...q, speaking: !q.speaking } : q)),
+                      )
+                    }
+                    title={p.speaking ? t("Expected to speak") : t("Attended, but did not speak")}
+                    aria-label={t("{name} spoke", { name: p.name })}
+                    className="accent-[var(--accent)]"
+                  />
+                  <span className={`min-w-0 flex-1 truncate ${p.speaking ? "" : "text-[var(--text-muted)]"}`}>
+                    {p.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPeople((prev) => prev.filter((q) => q.name !== p.name))}
+                    className="text-xs text-[var(--text-muted)] hover:text-[var(--error)]"
+                    title={t("Remove")}
+                    aria-label={t("Remove {name}", { name: p.name })}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {suggestions.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1">
               {suggestions.map((n) => (
@@ -176,26 +206,33 @@ export function ParticipantsCard({
                 }
               }}
               placeholder={t("Add a name")}
+              autoFocus
               className="input min-w-0 flex-1 !py-1 text-sm"
             />
-            <button type="button" onClick={() => add()} className="btn-outline !px-2 !py-1 text-xs">
+            <button type="button" onClick={() => add()} className="btn-outline !px-3 !py-1 text-xs">
               {t("Add")}
             </button>
           </div>
-        </>
+          <div className="mt-2 flex items-center gap-2">
+            {people.length > 0 && speakersOn ? (
+              <p className="min-w-0 flex-1 text-xs text-[var(--text-muted)]">
+                {t("{speakers} of {total} expected to speak — diarization is told to look for {n}.", {
+                  speakers,
+                  total: people.length,
+                  n: speakers || t("as many as it finds"),
+                })}
+              </p>
+            ) : (
+              <span className="flex-1" />
+            )}
+            <button type="button" onClick={() => setEditing(false)} className="btn-outline !px-3 !py-1 text-xs">
+              {t("Done")}
+            </button>
+          </div>
+        </div>
       ) : null}
 
-      {people.length > 0 && speakersOn ? (
-        <p className="mt-2 text-xs text-[var(--text-muted)]">
-          {t("{speakers} of {total} expected to speak — diarization is told to look for {n}.", {
-            speakers,
-            total: people.length,
-            n: speakers || t("as many as it finds"),
-          })}
-        </p>
-      ) : null}
-
-      {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
-    </section>
+      {error ? <p className={`${PROPS_WIDE} text-xs text-[var(--error)]`}>{error}</p> : null}
+    </>
   );
 }

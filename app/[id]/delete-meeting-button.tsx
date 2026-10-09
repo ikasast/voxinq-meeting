@@ -5,9 +5,20 @@ import { useState } from "react";
 import { useConfirm } from "../confirm-dialog";
 import { TrashIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
+import { MENU_ITEM } from "../drop-menu";
 
 // Delete button on the detail page. Confirm -> DELETE -> back to the list.
-export function DeleteMeetingButton({ id, title }: { id: string; title: string }) {
+// As a row of the meeting's "…" menu when `onPick` is given: the menu goes first, so the
+// confirmation's Back entry sits on the page and not on top of the menu's.
+export function DeleteMeetingButton({
+  id,
+  title,
+  onPick,
+}: {
+  id: string;
+  title: string;
+  onPick?: () => Promise<void>;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
   const [deleting, setDeleting] = useState(false);
@@ -40,6 +51,20 @@ export function DeleteMeetingButton({ id, title }: { id: string; title: string }
     }
   };
 
+  if (onPick) {
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => void onPick().then(remove)}
+        disabled={deleting}
+        className={`${MENU_ITEM} !text-[var(--error)]`}
+      >
+        <TrashIcon className="h-3.5 w-3.5" />
+        {t("Move to Trash")}
+      </button>
+    );
+  }
   return (
     <button
       type="button"

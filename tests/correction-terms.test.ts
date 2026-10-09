@@ -85,9 +85,11 @@ describe("the button is not hidden by the thing it configures", () => {
   it("is offered whenever there is a transcript", () => {
     const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
     const at = list.indexOf("runSuggestions()");
-    const gate = list.slice(Math.max(0, at - 300), at);
-    expect(gate).toContain("transcripts.length > 0 ?");
+    const gate = list.slice(list.lastIndexOf("extensions.corrections ?", at), at);
     expect(gate).not.toContain("hasCorrectionTerms ?");
+    // It is in the transcript's "…" menu, and the menu is there whenever there is a transcript.
+    const menu = list.lastIndexOf("<DropMenu", at);
+    expect(list.slice(Math.max(0, menu - 200), menu)).toContain("transcripts.length > 0 ?");
   });
 
   it("says what it wants instead", () => {

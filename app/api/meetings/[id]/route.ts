@@ -41,16 +41,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     series?: unknown;
     speakerLabels?: unknown;
     archived?: unknown;
+    pinned?: unknown;
     scheduledAt?: unknown;
   }>(req);
 
   // From outside the private network this route is open so a meeting can be *set up* — its
   // title, agenda, series and tags. The same route also archives and renames speakers, and
   // neither is setting a meeting up: archiving takes something off the list, and speaker names
-  // belong to a transcript that was made in here. Refused rather than ignored, so a caller
-  // that tries is told, not left thinking it worked.
+  // belong to a transcript that was made in here. Pinning arranges the sidebar of the people in
+  // here, so it is theirs too. Refused rather than ignored, so a caller that tries is told, not
+  // left thinking it worked.
   if (await isExternalRequest()) {
-    for (const field of ["archived", "speakerLabels"] as const) {
+    for (const field of ["archived", "pinned", "speakerLabels"] as const) {
       if (body?.[field] !== undefined) {
         return apiError(`${field} cannot be changed from outside your private network`, 403);
       }
@@ -62,6 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     description?: string | null;
     speakerLabels?: string;
     archivedAt?: Date | null;
+    pinnedAt?: Date | null;
     tags?: { set: []; connectOrCreate: { where: { name: string }; create: { name: string } }[] };
     series?: { connect: { id: string } } | { disconnect: true };
     scheduledAt?: Date;
@@ -71,6 +74,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body?.archived !== undefined) {
     // Archive hides a meeting from the list but keeps it in the DB (still searchable).
     data.archivedAt = body.archived ? new Date() : null;
+  }
+
+  if (body?.pinned !== undefined) {
+    // Pinned meetings head the sidebar, whenever they were.
+    data.pinnedAt = body.pinned ? new Date() : null;
   }
 
   if (body?.title !== undefined) {

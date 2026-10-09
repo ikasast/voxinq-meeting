@@ -1,10 +1,9 @@
 "use client";
 
 import { emotionMark, readEmotion } from "@/lib/emotion";
-import { readCues } from "@/lib/voice-cues";
+import { STANDS_OUT, readCues } from "@/lib/voice-cues";
 import { formatOffset } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
-import { FaceAngerIcon, FaceJoyIcon, FaceSadIcon, VolumeUpIcon } from "@/app/icons";
 
 // The meeting at a glance: one bar per line, in the order they were said. Its colour is what the
 // line sounded like (Emotion) and its height how loud it was against that speaker's usual (Voice
@@ -17,7 +16,6 @@ import { FaceAngerIcon, FaceJoyIcon, FaceSadIcon, VolumeUpIcon } from "@/app/ico
 type Line = { id: string; text: string; voice?: string | null; emotion?: string | null };
 
 const MOOD_COLOR = { joy: "--mood-joy", anger: "--mood-anger", sadness: "--mood-sad" } as const;
-const FACE = { joy: FaceJoyIcon, anger: FaceAngerIcon, sadness: FaceSadIcon } as const;
 
 /** Bar heights in px, from quiet to loud. Loudness is clamped at two deviations either way. */
 const MIN_H = 6;
@@ -63,76 +61,43 @@ export function MoodStrip({
   const feeling = (e: NonNullable<(typeof bars)[number]["mood"]>["emotion"]) =>
     e === "joy" ? t("Sounded joyful") : e === "anger" ? t("Sounded angry") : t("Sounded sad");
 
+  // A thin strip above the lines and nothing more: no box, no heading, no key. What a colour or a
+  // height means is in each bar's tooltip, with the line it stands for.
   return (
-    <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--elevated)] px-3 pb-2 pt-2.5">
-      <p className="text-xs font-medium text-[var(--text-secondary)]">{t("How the meeting went")}</p>
-      <div
-        className="mt-2 flex h-8 items-end gap-px"
-        role="list"
-        aria-label={t("How the meeting went")}
-        title={t("Click a bar to go to its line")}
-      >
-        {bars.map((b, i) => {
-          const at = elapsed(i);
-          const label = [
-            at !== null ? formatOffset(at) : null,
-            b.mood ? feeling(b.mood.emotion) : null,
-            b.text.length > 40 ? `${b.text.slice(0, 40)}…` : b.text,
-          ]
-            .filter(Boolean)
-            .join(" · ");
-          return (
-            <button
-              key={b.id}
-              type="button"
-              role="listitem"
-              onClick={() => jump(b.id)}
-              title={label}
-              aria-label={label}
-              className="min-w-0 flex-1 rounded-sm transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-              style={{
-                height: `${heightFor(b.loud)}px`,
-                background: b.mood
-                  ? `var(${MOOD_COLOR[b.mood.emotion]})`
-                  : "color-mix(in srgb, var(--text-muted) 35%, transparent)",
-              }}
-            />
-          );
-        })}
-      </div>
-      {/* The key, as pictures: what each colour and the height mean is in their tooltips. */}
-      <div className="mt-1.5 flex items-center gap-1.5">
-        {showEmotion
-          ? (["joy", "anger", "sadness"] as const).map((e) => {
-              const Face = FACE[e];
-              return (
-                <span
-                  key={e}
-                  role="img"
-                  aria-label={feeling(e)}
-                  title={feeling(e)}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded-full"
-                  style={{
-                    color: `var(${MOOD_COLOR[e]})`,
-                    background: `color-mix(in srgb, var(${MOOD_COLOR[e]}) 14%, transparent)`,
-                  }}
-                >
-                  <Face className="h-3.5 w-3.5" />
-                </span>
-              );
-            })
-          : null}
-        {showVoice ? (
-          <span
-            role="img"
-            aria-label={t("Taller: louder than the speaker usually was")}
-            title={t("Taller: louder than the speaker usually was")}
-            className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--text-muted)_14%,transparent)] text-[var(--text-secondary)]"
-          >
-            <VolumeUpIcon className="h-3.5 w-3.5" />
-          </span>
-        ) : null}
-      </div>
+    <div
+      className="mt-3 flex h-7 items-end gap-px"
+      role="list"
+      aria-label={t("How the meeting went")}
+      title={t("Click a bar to go to its line")}
+    >
+      {bars.map((b, i) => {
+        const at = elapsed(i);
+        const label = [
+          at !== null ? formatOffset(at) : null,
+          b.mood ? feeling(b.mood.emotion) : null,
+          typeof b.loud === "number" && Math.abs(b.loud) >= STANDS_OUT ? (b.loud > 0 ? t("Louder") : t("Quieter")) : null,
+          b.text.length > 40 ? `${b.text.slice(0, 40)}…` : b.text,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        return (
+          <button
+            key={b.id}
+            type="button"
+            role="listitem"
+            onClick={() => jump(b.id)}
+            title={label}
+            aria-label={label}
+            className="min-w-0 flex-1 rounded-sm transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+            style={{
+              height: `${heightFor(b.loud)}px`,
+              background: b.mood
+                ? `var(${MOOD_COLOR[b.mood.emotion]})`
+                : "color-mix(in srgb, var(--text-muted) 35%, transparent)",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

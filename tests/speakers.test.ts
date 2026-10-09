@@ -89,6 +89,6 @@ describe("speaker lists", () => {
     expect(toneOf("self")).not.toEqual(toneOf("partner-0"));
     expect(toneOf("partner-0")).toEqual(toneOf("partner-6"));
     expect(toneOf("partner-0")).not.toEqual(toneOf("partner-1"));
-    expect(toneOf("odd").chip).toContain("stone");
+    expect(toneOf("odd").text).toContain("stone");
   });
 });
