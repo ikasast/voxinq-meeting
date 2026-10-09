@@ -17,15 +17,25 @@ import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
 import {
+  CheckIcon,
+  CloseIcon,
+  DotsIcon,
+  DownloadIcon,
   FaceAngerIcon,
   FaceJoyIcon,
   FaceSadIcon,
   LockIcon,
   LockOpenIcon,
   PencilIcon,
+  PeopleIcon,
+  PersonIcon,
   PitchDownIcon,
   PitchUpIcon,
   RabbitIcon,
+  RefreshIcon,
+  SearchIcon,
+  ShareIcon,
+  SpellCheckIcon,
   TrashIcon,
   TurtleIcon,
   VolumeDownIcon,
@@ -33,9 +43,10 @@ import {
 } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
-import { SpeakerChip, SpeakerNamesEditor, SpeakerPicker } from "./speakers-ui";
+import { SpeakerMenu, SpeakerName, SpeakerNamesEditor } from "./speakers-ui";
 import { TrimRecording } from "./trim-recording";
-import { ShareButton } from "./share-button";
+import { downloadText, shareText } from "./share-button";
+import { DropMenu, MENU_ITEM, MenuRule } from "../drop-menu";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
@@ -67,6 +78,16 @@ type Item = {
 // A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
 // the user applies it, and applying goes through the ordinary utterance-edit path.
 type Suggestion = { transcriptId: string; before: string; after: string };
+
+/** The tools above the lines that open a panel under them. */
+type Tool = "speakers" | "replace" | "retrans" | null;
+
+/** An icon button beside the heading: no outline of its own, so the row stays one quiet line. */
+const HEAD_BUTTON =
+  "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] disabled:opacity-50";
+/** A smaller one, on a line or beside the player. */
+const ROW_BUTTON =
+  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] disabled:opacity-50";
 
 // State of the recording (WAV) saved on the GPU host. exists=false means not-yet-saved or expired/deleted.
 type RecordingInfo = {
@@ -142,8 +163,10 @@ export function TranscriptList({
   const diarJobRef = useRef<string | null>(null); // the queued job, so Stop can cancel it
   const [diarStatus, setDiarStatus] = useState<string | null>(null);
   const [needsHfToken, setNeedsHfToken] = useState(false);
-  const [replaceOpen, setReplaceOpen] = useState(false);
-  const [diarOpen, setDiarOpen] = useState(true);
+  // Which of the tools above the lines is open: one at a time, none to begin with.
+  const [tool, setTool] = useState<Tool>(null);
+  // A word on what just happened that needs no more than a moment ("Copied").
+  const [notice, setNotice] = useState<string | null>(null);
   const [findText, setFindText] = useState("");
   const [replaceText, setReplaceText] = useState("");
   const [replaceCase, setReplaceCase] = useState(false);
@@ -177,7 +200,6 @@ export function TranscriptList({
   const [sttProfiles, setSttProfiles] = useState<PublicSttProfile[]>([]);
   const [defaultProfileId, setDefaultProfileId] = useState("");
   const [remoteHost, setRemoteHost] = useState<string | null>(null);
-  const [retransOpen, setRetransOpen] = useState(false);
   const [profiles, setProfiles] = useState<{ name: string }[]>([]);
   const [profileBusy, setProfileBusy] = useState(false);
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
@@ -1005,105 +1027,189 @@ export function TranscriptList({
   // its condition has no call in it, and missed both forms (they showed in English).
   const daysLeft = recInfo?.expiresAt ? remainingDays(recInfo.expiresAt) : 0;
 
+  // The three that open something open it under the heading, one at a time; the rest only take
+  // the transcript away or check it, and wait behind "…".
+  const speakersTool = !readOnly && extensions.speakers && (canDiarize || showSpeakerTools);
+  const replaceTool = transcripts.length > 0 && !readOnly;
+  const retransTool = Boolean(recInfo?.exists) && !readOnly;
+  const canMeasure = !readOnly && Boolean(endedAt) && Boolean(recInfo?.exists) && transcripts.length > 0;
+  const toolButton = (k: NonNullable<Tool>, label: string, Icon: typeof SearchIcon) => (
+    <button
+      type="button"
+      onClick={() => setTool((v) => (v === k ? null : k))}
+      aria-pressed={tool === k}
+      title={label}
+      aria-label={label}
+      className={`${HEAD_BUTTON} ${tool === k ? "bg-[var(--hover-surface)] !text-[var(--accent)]" : ""}`}
+    >
+      <Icon className="h-4 w-4" />
+    </button>
+  );
+  const running = [
+    voicing ? t("Measuring…") : null,
+    judging ? t("Judging emotion…") : null,
+    suggesting ? t("Checking…") : null,
+  ].filter(Boolean);
+
   return (
-    <details open>
-      <summary className="cursor-pointer text-lg font-semibold text-[var(--text-strong)]">
-        {t("Transcript")} ({transcripts.length})
-        {live ? (
-          <span
-            className="ml-2 inline-flex items-center gap-1.5 align-middle text-xs font-medium text-[var(--text-muted)]"
-            title={
-              liveOffline
-                ? t("Cannot reach the server — retrying")
-                : t("This meeting is being recorded; new utterances appear as they are transcribed")
-            }
-          >
+    <div>
+      <div className="flex items-center gap-0.5">
+        <h2 className="flex min-w-0 flex-1 items-baseline gap-2 text-base font-semibold text-[var(--text-strong)]">
+          {t("Transcript")}
+          <span className="text-sm font-normal tabular-nums text-[var(--text-muted)]">{transcripts.length}</span>
+          {live ? (
             <span
-              className={`inline-block h-2 w-2 rounded-full ${
-                liveOffline ? "bg-[var(--text-muted)]" : "animate-pulse bg-red-500"
-              }`}
-            />
-            {liveOffline ? t("Reconnecting…") : t("Live")}
-          </span>
-        ) : null}
-      </summary>
-
-      {/* Recording player + protection state (only when a recording remains) */}
-      {recInfo?.exists ? (
-        <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--elevated)] px-3 py-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <audio
-              ref={audioRef}
-              controls
-              preload="metadata"
-              src={`${sttHttpBase()}/recordings/${meetingId}/audio`}
-              className="h-9 min-w-0 flex-1"
-            />
-          </div>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {t("Click a timestamp to play from that point.")}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span>
-              {t("Recording:")}{" "}
-              {recInfo.protected ? (
-                <span className="text-[var(--accent-sub)]">{t("protected (not auto-deleted)")}</span>
-              ) : recInfo.expiresAt ? (
-                <>
-                  {t(daysLeft === 1 ? "auto-deletes in 1 day" : "auto-deletes in {n} days", { n: daysLeft })}
-                </>
-              ) : (
-                t("saved")
-              )}
-            </span>
-            {/* Not from outside: keeping a recording is not on the external allow-list, so
-                this answered 403 — a button that cannot do the thing it names. */}
-            {!readOnly ? (
-              <button
-                type="button"
-                onClick={() => void toggleProtect()}
-                disabled={recBusy}
-                aria-label={t("Protect the recording")}
-                aria-pressed={recInfo.protected}
-                title={
-                  recInfo.protected
-                    ? t("Protected. If unprotected, it is auto-deleted once the retention period has passed from then")
-                    : t("Protect the recording so it is not auto-deleted")
-                }
-                className={`btn-icon ${recInfo.protected ? "!text-[var(--accent-sub)]" : "!text-[var(--text-muted)]"}`}
-              >
-                {recInfo.protected ? <LockIcon /> : <LockOpenIcon />}
-              </button>
-            ) : null}
-            {/* Not while it is still being recorded: the end of the recording is not known yet. */}
-            {!readOnly && !live && recInfo.durationSec ? (
-              <TrimRecording
-                meetingId={meetingId}
-                durationSec={recInfo.durationSec}
-                linePositions={linePositions}
-                audioRef={audioRef}
+              className="inline-flex items-center gap-1.5 self-center text-xs font-medium text-[var(--text-muted)]"
+              title={
+                liveOffline
+                  ? t("Cannot reach the server — retrying")
+                  : t("This meeting is being recorded; new utterances appear as they are transcribed")
+              }
+            >
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  liveOffline ? "bg-[var(--text-muted)]" : "animate-pulse bg-red-500"
+                }`}
               />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+              {liveOffline ? t("Reconnecting…") : t("Live")}
+            </span>
+          ) : null}
+        </h2>
+        {speakersTool ? toolButton("speakers", t("Speaker separation"), PeopleIcon) : null}
+        {replaceTool ? toolButton("replace", t("Find & replace"), SearchIcon) : null}
+        {retransTool ? toolButton("retrans", t("Re-transcribe"), RefreshIcon) : null}
+        {/* What to do with the transcript once it reads correctly: take it away, show the
+            translations beside it, or have it checked. None of these change a word of it. */}
+        {transcripts.length > 0 ? (
+          <DropMenu label={t("More")} trigger={<DotsIcon className="h-4 w-4" />} className={HEAD_BUTTON} width={224}>
+            {(close) => (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={MENU_ITEM}
+                  onClick={() => {
+                    close();
+                    void shareText(transcriptText, `${meetingTitle} transcript`).then((how) => {
+                      if (how === "shared") return;
+                      setNotice(how === "copied" ? t("Copied") : t("Copy failed"));
+                      setTimeout(() => setNotice(null), 2500);
+                    });
+                  }}
+                >
+                  <ShareIcon className="h-3.5 w-3.5" />
+                  {t("Share transcript")}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={MENU_ITEM}
+                  onClick={() => {
+                    close();
+                    downloadText(transcriptText, `${meetingTitle}-transcript.txt`);
+                  }}
+                >
+                  <DownloadIcon className="h-3.5 w-3.5" />
+                  {t("Save to file")}
+                </button>
+                {(canMeasure && (extensions.voiceCues || extensions.emotion)) ||
+                (!readOnly && extensions.corrections) ? (
+                  <MenuRule />
+                ) : null}
+                {canMeasure && extensions.voiceCues ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={MENU_ITEM}
+                    disabled={busy || voicing}
+                    title={t("Mark the lines said louder, higher or faster than the speaker usually was — or quieter, lower or slower")}
+                    onClick={() => {
+                      close();
+                      void runVoiceCues();
+                    }}
+                  >
+                    <VolumeUpIcon className="h-3.5 w-3.5" />
+                    {voicing ? t("Measuring…") : t("Check the voice")}
+                  </button>
+                ) : null}
+                {canMeasure && extensions.emotion ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={MENU_ITEM}
+                    disabled={busy || judging}
+                    title={t("Judged from the voice alone: how a line sounded, not what anybody felt.")}
+                    onClick={() => {
+                      close();
+                      void runEmotion();
+                    }}
+                  >
+                    <FaceJoyIcon className="h-3.5 w-3.5" />
+                    {judging ? t("Judging emotion…") : t("Judge emotion")}
+                  </button>
+                ) : null}
+                {!readOnly && extensions.corrections ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={MENU_ITEM}
+                    disabled={busy || suggesting}
+                    title={
+                      hasCorrectionTerms
+                        ? t(
+                            "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
+                          )
+                        : t(
+                            "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.",
+                          )
+                    }
+                    onClick={() => {
+                      close();
+                      void runSuggestions();
+                    }}
+                  >
+                    <SpellCheckIcon className="h-3.5 w-3.5" />
+                    {suggesting ? t("Checking…") : t("Suggest fixes")}
+                  </button>
+                ) : null}
+                {hasTranslations && extensions.translation ? (
+                  <>
+                    <MenuRule />
+                    <button
+                      type="button"
+                      role="menuitemcheckbox"
+                      aria-checked={showTranslation}
+                      className={MENU_ITEM}
+                      onClick={() => {
+                        close();
+                        setShowTranslation((v) => !v);
+                      }}
+                    >
+                      <span className="inline-flex h-3.5 w-3.5 items-center justify-center">
+                        {showTranslation ? <CheckIcon className="h-3.5 w-3.5 text-[var(--accent)]" /> : null}
+                      </span>
+                      {t("Show translations")}
+                    </button>
+                  </>
+                ) : null}
+              </>
+            )}
+          </DropMenu>
+        ) : null}
+      </div>
 
-      {/* Speaker separation — the usual next step once a meeting has a recording: how
-          many voices to look for, the run itself, and the names that come out of it. Open
-          by default, because on a meeting with a recording it is the thing most likely to
-          be wanted next; it is one click to fold away on a phone. */}
-      {!readOnly && extensions.speakers && (canDiarize || showSpeakerTools) ? (
-        <Disclosure
+      {/* Speaker separation — how many voices to look for, the run itself, and the names that
+          come out of it: asking for speakers and naming them are one job, so they are one panel. */}
+      {tool === "speakers" && speakersTool ? (
+        <ToolPanel
           title={t("Speaker separation")}
           hint={t("Work out who spoke each line, and give them names")}
-          open={diarOpen}
-          onToggle={() => setDiarOpen((v) => !v)}
+          onClose={() => setTool(null)}
         >
           {canDiarize ? (
             <div className="flex flex-wrap items-center gap-2">
-          {transcripts.length > 0 && (recInfo?.exists || diarizing) ? (
-            <>
-              <label className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
+              <label
+                className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
                 title={t("How many voices to look for. Left empty, the participant list decides.")}
               >
                 {t("Speakers")}
@@ -1123,7 +1229,7 @@ export function TranscriptList({
                   type="button"
                   onClick={() => void stopDiarization()}
                   disabled={stoppingDiar}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-5 py-2.5 text-sm font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-4 py-1.5 text-sm font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
                 >
                   <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
                   {stoppingDiar ? t("Stopping…") : t("Stop")}
@@ -1133,7 +1239,7 @@ export function TranscriptList({
                   type="button"
                   onClick={() => void runDiarization()}
                   disabled={busy}
-                  className="btn-ink"
+                  className="btn-ink !px-4 !py-1.5"
                   title={t(
                     "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)",
                   )}
@@ -1148,103 +1254,70 @@ export function TranscriptList({
                   type="button"
                   onClick={() => void undoSplit()}
                   disabled={busy || undoingSplit}
-                  className="btn-outline"
-                  title={t(
-                    "Put lines that were divided at a speaker change back together as they were",
-                  )}
+                  className="btn-outline !px-4 !py-1.5"
+                  title={t("Put lines that were divided at a speaker change back together as they were")}
                 >
                   {undoingSplit ? t("Undoing…") : t("Undo split")}
                 </button>
               ) : null}
-            </>
-          ) : null}
             </div>
           ) : null}
           {showSpeakerTools ? (
-            <div className={canDiarize ? "mt-4 border-t border-[var(--border)] pt-4" : ""}>
-          <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--elevated)] p-4">
-            <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-              {t("Speaker names (edits apply to all lines)")}
-            </p>
-            <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
+            <div className={canDiarize ? "mt-4" : ""}>
+              <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                {t("Speaker names (edits apply to all lines)")}
+              </p>
+              <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
 
-            {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void saveVoiceProfiles()}
-                disabled={profileBusy || busy}
-                className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-              >
-                {profileBusy ? t("Saving…") : t("Save voice profiles")}
-              </button>
-              <span className="text-xs text-[var(--text-muted)]">
-                {t(
-                  "Enrolls each named speaker’s voiceprint from this meeting; future auto-diarize runs will name them automatically.",
-                )}
-              </span>
-            </div>
-            {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
-            {profiles.length > 0 ? (
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] text-[var(--text-muted)]">{t("Enrolled:")}</span>
-                {profiles.map((p) => (
-                  <span
-                    key={p.name}
-                    className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--surface)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
-                  >
-                    {p.name}
-                    <button
-                      type="button"
-                      onClick={() => void deleteProfile(p.name)}
-                      aria-label={`Delete voice profile ${p.name}`}
-                      title={t("Delete this voice profile")}
-                      className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+              {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void saveVoiceProfiles()}
+                  disabled={profileBusy || busy}
+                  className="rounded-md border border-[var(--border-strong)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+                >
+                  {profileBusy ? t("Saving…") : t("Save voice profiles")}
+                </button>
+                <span className="text-xs text-[var(--text-muted)]">
+                  {t(
+                    "Enrolls each named speaker’s voiceprint from this meeting; future auto-diarize runs will name them automatically.",
+                  )}
+                </span>
               </div>
-            ) : null}
-          </div>
+              {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
+              {profiles.length > 0 ? (
+                <p className="mt-2 text-xs text-[var(--text-muted)]">
+                  {t("Enrolled:")}{" "}
+                  {profiles.map((p, i) => (
+                    <span key={p.name} className="whitespace-nowrap text-[var(--text-secondary)]">
+                      {i > 0 ? ", " : ""}
+                      {p.name}
+                      <button
+                        type="button"
+                        onClick={() => void deleteProfile(p.name)}
+                        aria-label={`Delete voice profile ${p.name}`}
+                        title={t("Delete this voice profile")}
+                        className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--error)]"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
             </div>
           ) : null}
-        </Disclosure>
-      ) : null}
-
-      {diarStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p> : null}
-      {diarWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{diarWarn}</p> : null}
-
-      {needsHfToken ? (
-        <div className="mt-2 rounded-lg border border-[var(--warning)] bg-[var(--elevated)] p-3 text-xs">
-          <p className="font-medium text-[var(--text-strong)]">
-            {t("Speaker separation needs a Hugging Face token")}
-          </p>
-          <p className="mt-1 text-[var(--text-secondary)]">
-            The model that tells speakers apart is free, but its authors require you to accept
-            their terms first. It is a one-time setup of a few minutes; everything else — recording,
-            transcription, minutes — works without it.
-          </p>
-          <a
-            className="mt-2 inline-block text-[var(--accent)] underline"
-            href="https://github.com/ikasast/voxinq-meeting/blob/release/docs/setup.md#diarization-needs-a-hugging-face-token"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t("How to set it up →")}
-          </a>
-        </div>
+        </ToolPanel>
       ) : null}
 
       {/* Find and replace — for a term misheard the same way throughout. Rewriting text moves
           no positions, so the recording's utterance boundaries stay valid. */}
-      {transcripts.length > 0 && !readOnly ? (
-        <Disclosure
+      {tool === "replace" && replaceTool ? (
+        <ToolPanel
           title={t("Find & replace")}
           hint={t("Fix a term that was misheard the same way throughout")}
-          open={replaceOpen}
-          onToggle={() => setReplaceOpen((v) => !v)}
+          onClose={() => setTool(null)}
         >
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block">
@@ -1351,17 +1424,16 @@ export function TranscriptList({
           {replaceMsg ? (
             <p className="mt-2 text-xs text-[var(--accent-sub)]">{replaceMsg}</p>
           ) : null}
-        </Disclosure>
+        </ToolPanel>
       ) : null}
 
       {/* Re-transcription — separate from diarization: it re-runs speech recognition and
-          replaces the whole transcript. Collapsed by default. */}
-      {recInfo?.exists && !readOnly ? (
-        <Disclosure
+          replaces the whole transcript. */}
+      {tool === "retrans" && retransTool ? (
+        <ToolPanel
           title={t("Re-transcribe")}
           hint={t("Recognise the recording again and replace the transcript")}
-          open={retransOpen}
-          onToggle={() => setRetransOpen((v) => !v)}
+          onClose={() => setTool(null)}
         >
           {transcripts.length === 0 && !retransing ? (
             <p className="mb-2 text-xs text-[var(--text-muted)]">
@@ -1426,84 +1498,41 @@ export function TranscriptList({
               {t("Re-recognizes the whole recording and replaces the transcript.")}
             </span>
           </div>
-          {retransStatus ? (
-            <p className="mt-2 text-xs text-[var(--accent-sub)]">{retransStatus}</p>
-          ) : null}
-          {retransWarn ? (
-            <p className="mt-2 text-xs text-[var(--warning)]">{retransWarn}</p>
-          ) : null}
-        </Disclosure>
+        </ToolPanel>
       ) : null}
 
-      {/* What to do with the transcript once it reads correctly: take it away, show the
-          translations beside it, or have the glossary terms checked. Below the blocks that
-          rewrite it, because none of these change a word of it. */}
-      {transcripts.length > 0 || recInfo?.exists ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          {transcripts.length > 0 ? (
-            <ShareButton
-              text={transcriptText}
-              title={`${meetingTitle} transcript`}
-              label={t("Share transcript")}
-              filename={`${meetingTitle}-transcript.txt`}
-            />
-          ) : (
-            <span />
-          )}
-          <div className="flex flex-wrap items-center gap-2">
-            {hasTranslations && extensions.translation ? (
-              <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                <input
-                  type="checkbox"
-                  checked={showTranslation}
-                  onChange={(e) => setShowTranslation(e.target.checked)}
-                  className="h-3.5 w-3.5 accent-[var(--accent)]"
-                />
-                {t("Show translations")}
-              </label>
-            ) : null}
-            {!readOnly && extensions.voiceCues && endedAt && recInfo?.exists && transcripts.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => void runVoiceCues()}
-                disabled={busy || voicing}
-                className="btn-outline"
-                title={t("Mark the lines said louder, higher or faster than the speaker usually was — or quieter, lower or slower")}
-              >
-                {voicing ? t("Measuring…") : t("Check the voice")}
-              </button>
-            ) : null}
-            {!readOnly && extensions.emotion && endedAt && recInfo?.exists && transcripts.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => void runEmotion()}
-                disabled={busy || judging}
-                className="btn-outline"
-                title={t("Judged from the voice alone: how a line sounded, not what anybody felt.")}
-              >
-                {judging ? t("Judging emotion…") : t("Judge emotion")}
-              </button>
-            ) : null}
-            {!readOnly && extensions.corrections && transcripts.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => void runSuggestions()}
-                  disabled={busy || suggesting}
-                  className="btn-outline"
-                  title={
-                    hasCorrectionTerms
-                      ? t(
-                          "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
-                        )
-                      : t(
-                          "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.",
-                        )
-                  }
-                >
-                  {suggesting ? t("Checking…") : t("Suggest fixes")}
-                </button>
-            ) : null}
-          </div>
+      {/* What is going on, and what came of it. Outside the panels, so closing one does not
+          hide a run it started. */}
+      {diarStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p> : null}
+      {diarWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{diarWarn}</p> : null}
+      {retransStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{retransStatus}</p> : null}
+      {retransWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{retransWarn}</p> : null}
+      {running.length > 0 ? (
+        <p className="mt-2 flex items-center gap-2 text-xs text-[var(--accent-sub)]">
+          <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+          {running.join(" · ")}
+        </p>
+      ) : null}
+      {notice ? <p className="mt-2 text-xs text-[var(--text-muted)]">{notice}</p> : null}
+
+      {needsHfToken ? (
+        <div className="mt-2 rounded-lg border border-[var(--warning)] bg-[var(--elevated)] p-3 text-xs">
+          <p className="font-medium text-[var(--text-strong)]">
+            {t("Speaker separation needs a Hugging Face token")}
+          </p>
+          <p className="mt-1 text-[var(--text-secondary)]">
+            The model that tells speakers apart is free, but its authors require you to accept
+            their terms first. It is a one-time setup of a few minutes; everything else — recording,
+            transcription, minutes — works without it.
+          </p>
+          <a
+            className="mt-2 inline-block text-[var(--accent)] underline"
+            href="https://github.com/ikasast/voxinq-meeting/blob/release/docs/setup.md#diarization-needs-a-hugging-face-token"
+            target="_blank"
+            rel="noreferrer"
+          >
+            {t("How to set it up →")}
+          </a>
         </div>
       ) : null}
 
@@ -1546,6 +1575,64 @@ export function TranscriptList({
         </p>
       ) : null}
 
+      {/* The recording: play it, and from any line's time. Kept or not, and trimmed, from the
+          line under the player. */}
+      {recInfo?.exists ? (
+        <div className="mt-3">
+          <audio
+            ref={audioRef}
+            controls
+            preload="metadata"
+            src={`${sttHttpBase()}/recordings/${meetingId}/audio`}
+            className="h-9 w-full"
+          />
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
+            <span>{t("Click a timestamp to play from that point.")}</span>
+            <span aria-hidden>·</span>
+            <span>
+              {t("Recording:")}{" "}
+              {recInfo.protected ? (
+                <span className="text-[var(--accent-sub)]">{t("protected (not auto-deleted)")}</span>
+              ) : recInfo.expiresAt ? (
+                <>
+                  {t(daysLeft === 1 ? "auto-deletes in 1 day" : "auto-deletes in {n} days", { n: daysLeft })}
+                </>
+              ) : (
+                t("saved")
+              )}
+            </span>
+            {/* Not from outside: keeping a recording is not on the external allow-list, so
+                this answered 403 — a button that cannot do the thing it names. */}
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={() => void toggleProtect()}
+                disabled={recBusy}
+                aria-label={t("Protect the recording")}
+                aria-pressed={recInfo.protected}
+                title={
+                  recInfo.protected
+                    ? t("Protected. If unprotected, it is auto-deleted once the retention period has passed from then")
+                    : t("Protect the recording so it is not auto-deleted")
+                }
+                className={`${ROW_BUTTON} ${recInfo.protected ? "!text-[var(--accent-sub)]" : ""}`}
+              >
+                {recInfo.protected ? <LockIcon className="h-3.5 w-3.5" /> : <LockOpenIcon className="h-3.5 w-3.5" />}
+              </button>
+            ) : null}
+            {/* Not while it is still being recorded: the end of the recording is not known yet. */}
+            {!readOnly && !live && recInfo.durationSec ? (
+              <TrimRecording
+                meetingId={meetingId}
+                durationSec={recInfo.durationSec}
+                linePositions={linePositions}
+                audioRef={audioRef}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* The meeting at a glance, from what Emotion and Voice cues found (mood-strip.tsx). */}
       {!live && transcripts.length > 0 ? (
         <MoodStrip
@@ -1562,44 +1649,48 @@ export function TranscriptList({
           {retransing && retransStatus ? retransStatus : t("No transcript.")}
         </p>
       ) : (
-        <ul className="mt-4 space-y-2">
-          {transcripts.map((t, i) => (
+        <ul className="mt-3">
+          {transcripts.map((line, i) => (
             <TranscriptRow
-              key={t.id}
-              item={t}
+              key={line.id}
+              item={line}
               elapsed={elapsedSeconds(i)}
               labels={speakerLabels}
               reassignKeys={reassignKeys}
               showSpeaker={multiSpeaker}
+              sameSpeaker={i > 0 && transcripts[i - 1].speakerType === line.speakerType}
               canSeek={Boolean(recInfo?.exists)}
               onSeek={() => seekTo(wavPosition(i))}
-              onReassign={(speaker) => void setLineSpeaker(t.id, speaker)}
-              onDelete={() => void deleteTranscript(t.id)}
-              onEdit={(text) => editTranscript(t.id, text)}
-              suggestion={suggestionByT.get(t.id) ?? null}
+              onReassign={(speaker) => void setLineSpeaker(line.id, speaker)}
+              onDelete={() => void deleteTranscript(line.id)}
+              onEdit={(text) => editTranscript(line.id, text)}
+              suggestion={suggestionByT.get(line.id) ?? null}
               onApplySuggestion={() => {
-                const s = suggestionByT.get(t.id);
+                const s = suggestionByT.get(line.id);
                 if (s) void applySuggestion(s);
               }}
-              onDismissSuggestion={() => dismissSuggestion(t.id)}
+              onDismissSuggestion={() => dismissSuggestion(line.id)}
               showTranslation={showTranslation && extensions.translation}
               readOnly={readOnly}
             />
           ))}
         </ul>
       )}
-    </details>
+    </div>
   );
 }
 
-// A single utterance. Shows elapsed time within the recording (0:00 origin); click to seek there.
-// The wall-clock time is available in the tooltip. Speaker is shown only with multiple speakers.
+// A single utterance, laid out like a line of a script: who said it and when at the left, what
+// they said at the right. When the same person goes on, the name is left out and only the time
+// stays. The time is from the start of the recording (0:00); with a recording it plays from
+// there, and the clock time is in its tooltip. The speaker is shown only with two or more.
 function TranscriptRow({
   item,
   elapsed,
   labels,
   reassignKeys,
   showSpeaker,
+  sameSpeaker,
   canSeek,
   onSeek,
   onReassign,
@@ -1617,6 +1708,8 @@ function TranscriptRow({
   labels: SpeakerNames;
   reassignKeys: string[];
   showSpeaker: boolean;
+  /** Said by whoever said the line before: the name is not repeated. */
+  sameSpeaker: boolean;
   canSeek: boolean;
   onSeek: () => void;
   onReassign: (nextKey: string) => void;
@@ -1630,6 +1723,7 @@ function TranscriptRow({
   const t = useT();
   // Who said it is changed here only with Speaker separation on.
   const { speakers: speakersOn, voiceCues: voiceOn, emotion: emotionOn } = useExtensions();
+  const canReassign = showSpeaker && !readOnly && speakersOn;
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
   // enough that retyping one line beats re-transcribing the whole meeting.
   const [editing, setEditing] = useState(false);
@@ -1654,187 +1748,191 @@ function TranscriptRow({
   };
 
   return (
+    // Focusable so that on a touch screen, which has no hover, tapping a line shows its tools.
     <li
       id={`line-${item.id}`}
-      className="group rounded border border-[var(--border)] bg-[var(--elevated)] px-3 py-2 text-sm transition-shadow"
+      tabIndex={-1}
+      className={`group relative grid gap-x-3 rounded-md px-1.5 py-1.5 text-sm outline-none transition-shadow hover:bg-[color-mix(in_srgb,var(--hover-surface)_45%,transparent)] focus-within:bg-[color-mix(in_srgb,var(--hover-surface)_45%,transparent)] ${
+        showSpeaker ? "grid-cols-[5rem_minmax(0,1fr)]" : "grid-cols-[2.75rem_minmax(0,1fr)]"
+      } ${showSpeaker && !sameSpeaker ? "mt-2 first:mt-0" : ""}`}
     >
-      <div className="flex items-center gap-2">
+      <div className="min-w-0 pt-0.5">
+        {showSpeaker && !sameSpeaker ? (
+          <SpeakerName
+            who={item.speakerType}
+            names={labels}
+            known={reassignKeys}
+            onPick={canReassign ? onReassign : undefined}
+          />
+        ) : null}
         {canSeek ? (
           <button
             type="button"
             onClick={onSeek}
             title={t("Play from here ({time})", { time: formatTime(item.createdAt) })}
-            className="text-xs tabular-nums text-[var(--accent-sub)] hover:underline"
+            className="block text-[11px] tabular-nums text-[var(--text-muted)] hover:text-[var(--accent)] hover:underline"
           >
-            ▶ {formatOffset(elapsed)}
+            {formatOffset(elapsed)}
           </button>
         ) : (
-          <span
-            className="text-xs tabular-nums text-[var(--text-muted)]"
-            title={formatTime(item.createdAt)}
-          >
+          <span className="block text-[11px] tabular-nums text-[var(--text-muted)]" title={formatTime(item.createdAt)}>
             {formatOffset(elapsed)}
           </span>
         )}
-        {showSpeaker ? <SpeakerChip who={item.speakerType} names={labels} /> : null}
-        <span className="grow" />
-        {showSpeaker && !readOnly && speakersOn ? (
-          <SpeakerPicker
-            current={item.speakerType}
-            known={reassignKeys}
-            names={labels}
-            onPick={onReassign}
-          />
+      </div>
+
+      <div className="min-w-0">
+        {editing ? (
+          <div className="space-y-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter saves (the common case is a short correction); Shift+Enter adds a line.
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void save();
+                } else if (e.key === "Escape") {
+                  setEditing(false);
+                }
+              }}
+              rows={Math.min(8, Math.max(2, draft.split("\n").length + 1))}
+              autoFocus
+              disabled={saving}
+              className="input resize-y text-sm"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <span className="mr-auto text-[11px] text-[var(--text-muted)]">
+                {t("Enter to save · Shift+Enter for a new line · Esc to cancel")}
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                disabled={saving}
+                className="rounded-md border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+              >
+                {t("Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={saving || !draft.trim()}
+                className="rounded-md bg-[var(--accent-solid)] px-2.5 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+              >
+                {saving ? t("Saving…") : "Save"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+            {item.text}
+            {voiceOn || emotionOn ? (
+              <VoiceMarks
+                marks={voiceOn ? marks(readCues(item.voice)) : []}
+                emotion={emotionOn ? emotionMark(readEmotion(item.emotion)) : null}
+              />
+            ) : null}
+          </p>
+        )}
+        {/* A proposed glossary fix, shown in place so it can be judged against the utterance it
+            would replace. Applying it is an ordinary edit; nothing changes until then. */}
+        {suggestion && !editing && !readOnly ? (
+          <div className="mt-1 border-l-2 border-[var(--accent)] pl-2 text-xs">
+            <p className="whitespace-pre-wrap text-[var(--foreground)]">
+              <span className="mr-1.5 font-medium text-[var(--accent-sub)]">{t("Suggested fix")}</span>
+              {suggestion.after}
+            </p>
+            <div className="mt-0.5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onApplySuggestion}
+                className="font-semibold text-[var(--accent)] hover:underline"
+              >
+                {t("Apply")}
+              </button>
+              <button type="button" onClick={onDismissSuggestion} className="text-[var(--text-muted)] hover:underline">
+                {t("Dismiss")}
+              </button>
+            </div>
+          </div>
         ) : null}
-        {/* Fix or drop a misheard line so the minutes are built from the right words. Kept
-            quiet until the row is hovered on desktop; always visible on touch, which has no
-            hover. */}
-        {!readOnly && !editing ? (
-          <>
-            <button
-              type="button"
-              onClick={startEdit}
-              title={t("Edit this utterance")}
-              aria-label={t("Edit this utterance")}
-              className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-            >
-              <PencilIcon className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              title={t("Delete this utterance (it will no longer feed minutes generation)")}
-              aria-label={t("Delete this utterance")}
-              className="shrink-0 rounded p-1 text-[var(--text-muted)] opacity-100 hover:bg-[var(--hover-surface)] hover:text-[var(--error)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-            </button>
-          </>
+        {/* Japanese translation, shown under the original rather than replacing it — the
+            transcript stays the record of what was actually said. */}
+        {showTranslation && item.translation ? (
+          <p className="mt-1 border-l-2 border-[var(--border-strong)] pl-2 text-xs whitespace-pre-wrap text-[var(--text-muted)]">
+            {item.translation}
+          </p>
         ) : null}
       </div>
-      {editing ? (
-        <div className="mt-1 space-y-2">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter saves (the common case is a short correction); Shift+Enter adds a line.
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void save();
-              } else if (e.key === "Escape") {
-                setEditing(false);
-              }
-            }}
-            rows={Math.min(8, Math.max(2, draft.split("\n").length + 1))}
-            autoFocus
-            disabled={saving}
-            className="input resize-y text-sm"
-          />
-          <div className="flex items-center justify-end gap-2">
-            <span className="mr-auto text-[11px] text-[var(--text-muted)]">
-              {t("Enter to save · Shift+Enter for a new line · Esc to cancel")}
-            </span>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              disabled={saving}
-              className="rounded-md border border-[var(--border-strong)] px-2.5 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-            >
-              {t("Cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={saving || !draft.trim()}
-              className="rounded-md bg-[var(--accent-solid)] px-2.5 py-1 text-xs font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-            >
-              {saving ? t("Saving…") : "Save"}
-            </button>
-          </div>
+
+      {/* Fix or drop a misheard line so the minutes are built from the right words, or — where
+          the name is left out — give it to someone else. Out of the way until the line is
+          pointed at or tapped, then floating over its corner rather than taking a column. */}
+      {!readOnly && !editing ? (
+        <div className="absolute right-1 top-1 hidden items-center rounded-md border border-[var(--border)] bg-[var(--elevated)] shadow-sm group-hover:flex group-focus-within:flex">
+          {canReassign && sameSpeaker ? (
+            <SpeakerMenu
+              who={item.speakerType}
+              names={labels}
+              known={reassignKeys}
+              onPick={onReassign}
+              trigger={<PersonIcon className="h-3.5 w-3.5" />}
+              align="end"
+              className={ROW_BUTTON}
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={startEdit}
+            title={t("Edit this utterance")}
+            aria-label={t("Edit this utterance")}
+            className={ROW_BUTTON}
+          >
+            <PencilIcon className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            title={t("Delete this utterance (it will no longer feed minutes generation)")}
+            aria-label={t("Delete this utterance")}
+            className={`${ROW_BUTTON} hover:!text-[var(--error)]`}
+          >
+            <TrashIcon className="h-3.5 w-3.5" />
+          </button>
         </div>
-      ) : (
-        <p className="mt-1 whitespace-pre-wrap">{item.text}</p>
-      )}
-      {(voiceOn || emotionOn) && !editing ? (
-        <VoiceMarks
-          marks={voiceOn ? marks(readCues(item.voice)) : []}
-          emotion={emotionOn ? emotionMark(readEmotion(item.emotion)) : null}
-        />
-      ) : null}
-      {/* A proposed glossary fix, shown in place so it can be judged against the utterance it
-          would replace. Applying it is an ordinary edit; nothing changes until then. */}
-      {suggestion && !editing && !readOnly ? (
-        <div className="mt-1.5 rounded border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-2 py-1.5">
-          <p className="text-[11px] font-medium text-[var(--accent-sub)]">{t("Suggested fix")}</p>
-          <p className="mt-0.5 text-xs whitespace-pre-wrap text-[var(--foreground)]">
-            {suggestion.after}
-          </p>
-          <div className="mt-1 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onApplySuggestion}
-              className="rounded-md bg-[var(--accent-solid)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
-            >
-              {t("Apply")}
-            </button>
-            <button
-              type="button"
-              onClick={onDismissSuggestion}
-              className="rounded-md border border-[var(--border-strong)] px-2 py-0.5 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
-            >
-              {t("Dismiss")}
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {/* Japanese translation, shown under the original rather than replacing it — the
-          transcript stays the record of what was actually said. */}
-      {showTranslation && item.translation ? (
-        <p className="mt-1 border-l-2 border-[var(--border-strong)] pl-2 text-xs whitespace-pre-wrap text-[var(--text-muted)]">
-          {item.translation}
-        </p>
       ) : null}
     </li>
   );
 }
 
 /**
- * A section that opens where its header is.
- *
- * These were two pills in the toolbar above, and the panels they opened rendered several
- * screens further down, past the speaker names -- so on a phone, tapping one appeared to do
- * nothing. The toolbar is for things that happen when you press them; these are things that
- * open, so they are their own rows and they open in place.
+ * What one of the tools above the lines opens: right under them, with a rule above and below and
+ * nothing boxed inside — a fold, not another card.
  */
-function Disclosure({
+function ToolPanel({
   title,
   hint,
-  open,
-  onToggle,
+  onClose,
   children,
 }: {
   title: string;
   hint: string;
-  open: boolean;
-  onToggle: () => void;
+  onClose: () => void;
   children: React.ReactNode;
 }) {
+  const t = useT();
   return (
-    <div className="mt-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--elevated)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        title={hint}
-        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-[var(--text-strong)] hover:bg-[var(--hover-surface)]"
-      >
-        <span>{title}</span>
-        <span aria-hidden className="text-xs text-[var(--text-muted)]">
-          {open ? "▲" : "▼"}
-        </span>
-      </button>
-      {open ? <div className="border-t border-[var(--border)] p-4">{children}</div> : null}
+    <div className="mt-2 border-y border-[var(--border)] py-3">
+      <div className="mb-3 flex items-start gap-2">
+        <p className="min-w-0 flex-1 text-sm font-medium text-[var(--text-strong)]">
+          {title}
+          <span className="ml-2 text-xs font-normal text-[var(--text-muted)]">{hint}</span>
+        </p>
+        <button type="button" onClick={onClose} title={t("Close")} aria-label={t("Close")} className={ROW_BUTTON}>
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {children}
     </div>
   );
 }
@@ -1905,22 +2003,19 @@ function VoiceMarks({
           ? RabbitIcon
           : TurtleIcon;
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
+    <span className="ml-1.5 inline-flex items-center gap-1 align-[-2px]">
       {/* Pictures alone: the words are in the tooltips and read out, not printed. */}
       {emotion ? (
         <span
           role="img"
           aria-label={`${feeling} — ${t("Judged from the voice alone ({p}% sure): how the line sounded, not what anybody felt.", { p: Math.round(emotion.p * 100) })}`}
           title={`${feeling} — ${t("Judged from the voice alone ({p}% sure): how the line sounded, not what anybody felt.", { p: Math.round(emotion.p * 100) })}`}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full"
-          style={{
-            color: `var(${MOOD[emotion.emotion].color})`,
-            background: `color-mix(in srgb, var(${MOOD[emotion.emotion].color}) 14%, transparent)`,
-          }}
+          className="inline-flex"
+          style={{ color: `var(${MOOD[emotion.emotion].color})` }}
         >
           {(() => {
             const Face = MOOD[emotion.emotion].icon;
-            return <Face className="h-4 w-4 shrink-0" />;
+            return <Face className="h-3.5 w-3.5 shrink-0" />;
           })()}
         </span>
       ) : null}
@@ -1933,16 +2028,12 @@ function VoiceMarks({
             role="img"
             aria-label={said}
             title={said}
-            className={`inline-flex h-6 w-6 items-center justify-center rounded-full ${
-              m.up
-                ? "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-[var(--warning)]"
-                : "bg-[color-mix(in_srgb,var(--text-muted)_14%,transparent)] text-[var(--text-secondary)]"
-            }`}
+            className={`inline-flex ${m.up ? "text-[var(--warning)]" : "text-[var(--text-muted)]"}`}
           >
-            <I className="h-4 w-4 shrink-0" />
+            <I className="h-3.5 w-3.5 shrink-0" />
           </span>
         );
       })}
-    </div>
+    </span>
   );
 }

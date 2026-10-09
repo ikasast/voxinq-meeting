@@ -1,52 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { type SpeakerNames, freshVoice, nameOf, speakersInOrder, toneOf } from "@/lib/speakers";
 import { useT } from "@/app/locale-provider";
+import { DropMenu, MENU_ITEM, MenuRule } from "@/app/drop-menu";
+import { CheckIcon } from "@/app/icons";
 
-// The small pieces a transcript uses to show and change who said what: a coloured tag on a line,
-// a picker that gives the line to someone else, and the row of fields that names the speakers.
+// The small pieces a transcript uses to show and change who said what: a line's speaker in their
+// colour, the menu that gives the line to someone else, and the row of fields that names them.
 
-/** The picker's last entry. Not a key a line could ever have, so it cannot collide with one. */
-const ADD_VOICE = "+voice";
-
-/** A speaker's name on a line, in their colour. */
-export function SpeakerChip({ who, names }: { who: string; names: SpeakerNames }) {
-  return <span className={`rounded px-1.5 text-xs ${toneOf(who).chip}`}>{nameOf(who, names)}</span>;
+/**
+ * Who said a line: their name in their colour, as text — no tag around it. Where the line can be
+ * given to someone else, the name is the button that does it (SpeakerMenu).
+ */
+export function SpeakerName({
+  who,
+  names,
+  known,
+  onPick,
+}: {
+  who: string;
+  names: SpeakerNames;
+  /** The meeting's speakers, to choose from. */
+  known?: string[];
+  /** Without it, the name is only shown. */
+  onPick?: (speaker: string) => void;
+}) {
+  const t = useT();
+  const name = nameOf(who, names);
+  const look = `block max-w-full truncate text-left text-xs font-semibold ${toneOf(who).text}`;
+  if (!onPick) return <span className={look}>{name}</span>;
+  return (
+    <SpeakerMenu
+      who={who}
+      names={names}
+      known={known}
+      onPick={onPick}
+      trigger={name}
+      ariaLabel={`${name} — ${t("Change the speaker of this utterance")}`}
+      className={`${look} hover:underline`}
+    />
+  );
 }
 
 /**
- * Gives a line to another speaker. The last entry hands it to a voice nobody has yet, for when
- * separation merged two people into one.
+ * Gives a line to another speaker: the meeting's speakers, and last a voice nobody has yet, for
+ * when separation merged two people into one. Opened from the name, or from the row's tools on a
+ * line whose name is left out because the same person went on.
  */
-export function SpeakerPicker({
-  current,
-  known,
+export function SpeakerMenu({
+  who,
   names,
+  known = [],
   onPick,
+  trigger,
+  ariaLabel,
+  align = "start",
+  className,
 }: {
-  current: string;
-  known: string[];
+  who: string;
   names: SpeakerNames;
+  known?: string[];
   onPick: (speaker: string) => void;
+  trigger: ReactNode;
+  ariaLabel?: string;
+  /** Under a name it starts where the name does; from a row's tools at the right, it ends there. */
+  align?: "start" | "end";
+  className: string;
 }) {
   const t = useT();
   // The line's own speaker is listed even when the meeting no longer knows it (older data).
-  const choices = speakersInOrder([...known, current], names);
+  const choices = speakersInOrder([...known, who], names);
   return (
-    <select
-      value={current}
-      onChange={(e) => onPick(e.target.value === ADD_VOICE ? freshVoice(choices) : e.target.value)}
-      title={t("Change the speaker of this utterance")}
-      className="rounded border border-[var(--border-strong)] bg-[var(--elevated)] px-1 py-0.5 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+    <DropMenu
+      label={t("Change the speaker of this utterance")}
+      ariaLabel={ariaLabel}
+      align={align}
+      width={200}
+      trigger={trigger}
+      className={className}
     >
-      {choices.map((speaker) => (
-        <option key={speaker} value={speaker}>
-          {nameOf(speaker, names)}
-        </option>
-      ))}
-      <option value={ADD_VOICE}>{t("+ New speaker")}</option>
-    </select>
+      {(close) => (
+        <>
+          {choices.map((speaker) => (
+            <button
+              key={speaker}
+              type="button"
+              role="menuitemradio"
+              aria-checked={speaker === who}
+              onClick={() => {
+                close();
+                if (speaker !== who) onPick(speaker);
+              }}
+              className={MENU_ITEM}
+            >
+              <span className={`h-2 w-2 shrink-0 rounded-full ${toneOf(speaker).mark}`} />
+              <span className="min-w-0 flex-1 truncate">{nameOf(speaker, names)}</span>
+              {speaker === who ? <CheckIcon className="h-3.5 w-3.5 text-[var(--accent)]" /> : null}
+            </button>
+          ))}
+          <MenuRule />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              close();
+              onPick(freshVoice(choices));
+            }}
+            className={MENU_ITEM}
+          >
+            {t("+ New speaker")}
+          </button>
+        </>
+      )}
+    </DropMenu>
   );
 }
 

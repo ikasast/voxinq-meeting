@@ -145,9 +145,9 @@ export function TrimRecording({
         onClick={() => setOpen(true)}
         aria-label={t("Trim the recording…")}
         title={t("Trim the recording…")}
-        className="btn-icon"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
       >
-        <ScissorsIcon />
+        <ScissorsIcon className="h-3.5 w-3.5" />
       </button>
     );
   }
@@ -187,7 +187,7 @@ export function TrimRecording({
   );
 
   return (
-    <div className="mt-3 w-full rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
+    <div className="mt-2 w-full border-y border-[var(--border)] py-3">
       <p className="text-sm font-medium text-[var(--text-strong)]">{t("Trim the recording")}</p>
       <p className="mt-1 text-xs text-[var(--text-muted)]">
         {t(

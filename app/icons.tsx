@@ -324,6 +324,15 @@ export const SearchIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+/** Letters with a tick under them: the transcript checked against the glossary. */
+export const SpellCheckIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="m5 15 5-11 5 11" />
+    <path d="M7 11h6" />
+    <path d="m14 19 2.5 2.5L21 17" />
+  </Base>
+);
+
 export const PanelLeftIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <rect x="3" y="3" width="18" height="18" rx="2" />

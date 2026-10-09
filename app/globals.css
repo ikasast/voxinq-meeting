@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* `light:` for the few colours that need a different shade on the light theme. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
 /* ============================================================
    Voxinq Meeting theme
    Built around the cyan of the brand icon; layers are conveyed by

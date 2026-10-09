@@ -106,21 +106,23 @@ export function freshVoice(keys: Iterable<string>): string {
   return voiceKey(next);
 }
 
-// The colour a speaker is shown in: `chip` for their name tag, `mark` for the dot beside the
-// name field. The microphone has its own; voices take the next colour round the ring. Written
-// out whole because Tailwind only generates classes it can find spelled out in the source.
-type Tone = { chip: string; mark: string };
+// The colour a speaker is shown in: `text` for their name on a line — the colour alone, no tag
+// around it — and `mark` for the dot beside the name in a list. The microphone has its own;
+// voices take the next colour round the ring. Each `text` has a light-theme shade, because the
+// one that reads on the dark ground is too pale on white. Written out whole because Tailwind
+// only generates classes it can find spelled out in the source.
+type Tone = { text: string; mark: string };
 
-const MIC_TONE: Tone = { chip: "bg-blue-100 text-blue-800", mark: "bg-blue-600" };
+const MIC_TONE: Tone = { text: "text-blue-400 light:text-blue-700", mark: "bg-blue-600" };
 const VOICE_TONES: Tone[] = [
-  { chip: "bg-teal-100 text-teal-800", mark: "bg-teal-600" },
-  { chip: "bg-orange-100 text-orange-800", mark: "bg-orange-600" },
-  { chip: "bg-purple-100 text-purple-800", mark: "bg-purple-600" },
-  { chip: "bg-pink-100 text-pink-800", mark: "bg-pink-600" },
-  { chip: "bg-lime-100 text-lime-800", mark: "bg-lime-600" },
-  { chip: "bg-indigo-100 text-indigo-800", mark: "bg-indigo-600" },
+  { text: "text-teal-400 light:text-teal-700", mark: "bg-teal-600" },
+  { text: "text-orange-400 light:text-orange-700", mark: "bg-orange-600" },
+  { text: "text-purple-400 light:text-purple-700", mark: "bg-purple-600" },
+  { text: "text-pink-400 light:text-pink-700", mark: "bg-pink-600" },
+  { text: "text-lime-400 light:text-lime-700", mark: "bg-lime-600" },
+  { text: "text-indigo-300 light:text-indigo-700", mark: "bg-indigo-600" },
 ];
-const OTHER_TONE: Tone = { chip: "bg-stone-100 text-stone-700", mark: "bg-stone-400" };
+const OTHER_TONE: Tone = { text: "text-stone-400 light:text-stone-600", mark: "bg-stone-400" };
 
 export function toneOf(key: string): Tone {
   if (key === MIC_SPEAKER) return MIC_TONE;
