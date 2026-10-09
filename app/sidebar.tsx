@@ -10,6 +10,7 @@ import {
   MenuIcon,
   PanelLeftIcon,
   PeopleIcon,
+  PinIcon,
   PlusCircleIcon,
   QueueIcon,
   SearchIcon,
@@ -46,12 +47,13 @@ function saveMode(m: Mode) {
 
 type Group = { key: string; label: string; items: SidebarMeeting[] };
 
-/** Upcoming first, then by when they were, in this device's own days. */
+/** Pinned first, then upcoming, then by when they were, in this device's own days. */
 function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const day = 86_400_000;
   const groups: Group[] = [
+    { key: "pinned", label: t("Pinned"), items: [] },
     { key: "upcoming", label: t("Upcoming"), items: [] },
     { key: "today", label: t("Today"), items: [] },
     { key: "yesterday", label: t("Yesterday"), items: [] },
@@ -60,11 +62,21 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
   ];
   for (const m of meetings) {
     const at = new Date(m.at).getTime();
-    const g = m.upcoming ? 0 : at >= today ? 1 : at >= today - day ? 2 : at >= today - 6 * day ? 3 : 4;
+    const g = m.pinned
+      ? 0
+      : m.upcoming
+        ? 1
+        : at >= today
+          ? 2
+          : at >= today - day
+            ? 3
+            : at >= today - 6 * day
+              ? 4
+              : 5;
     groups[g].items.push(m);
   }
   // Soonest first among the booked; the rest arrive newest first already.
-  groups[0].items.sort((a, b) => a.at.localeCompare(b.at));
+  groups[1].items.sort((a, b) => a.at.localeCompare(b.at));
   return groups.filter((g) => g.items.length > 0);
 }
 
@@ -110,6 +122,15 @@ export function Sidebar({
 
   const activeId = pathname.split("/")[1] ?? "";
 
+  const togglePin = async (m: SidebarMeeting) => {
+    const res = await fetch(`/api/meetings/${m.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !m.pinned }),
+    }).catch(() => null);
+    if (res?.ok) router.refresh();
+  };
+
   const list = (
     <nav aria-label={t("Meetings")} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
       {groups.length === 0 ? (
@@ -120,14 +141,14 @@ export function Sidebar({
             <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-muted)]">{g.label}</p>
             <ul>
               {g.items.map((m) => (
-                <li key={m.id}>
+                <li key={m.id} className="group relative">
                   <Link
                     href={`/${m.id}`}
                     aria-current={m.id === activeId ? "page" : undefined}
                     className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
                       m.id === activeId
                         ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-strong)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
                     }`}
                   >
                     <span className="min-w-0 flex-1 truncate">{m.title}</span>
@@ -145,6 +166,23 @@ export function Sidebar({
                       />
                     ) : null}
                   </Link>
+                  {/* Out of sight until the row is pointed at; it covers the row's dot meanwhile. */}
+                  {!external ? (
+                    <button
+                      type="button"
+                      onClick={() => void togglePin(m)}
+                      title={m.pinned ? t("Unpin") : t("Pin")}
+                      aria-label={`${m.pinned ? t("Unpin") : t("Pin")}: ${m.title}`}
+                      aria-pressed={m.pinned}
+                      className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded bg-[var(--hover-surface)] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 ${
+                        m.pinned
+                          ? "text-[var(--accent)] hover:text-[var(--text-muted)]"
+                          : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                      }`}
+                    >
+                      <PinIcon className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -153,7 +191,7 @@ export function Sidebar({
       )}
       <Link
         href="/?list=1"
-        className="mt-3 block rounded-md px-2 py-1.5 text-xs text-[var(--accent-sub)] hover:bg-[var(--surface-hover)]"
+        className="mt-3 block rounded-md px-2 py-1.5 text-xs text-[var(--accent-sub)] hover:bg-[var(--hover-surface)]"
       >
         {t("All meetings")}
       </Link>
@@ -189,7 +227,7 @@ export function Sidebar({
   );
 
   const full = (inDrawer: boolean) => (
-    <div className="flex h-full w-72 flex-col border-r border-[var(--border)] bg-[var(--surface)]">
+    <div className="flex h-full w-72 flex-col border-r border-[var(--border)] bg-[var(--panel)]">
       <div className="flex items-center gap-1 px-3 pb-2 pt-3">
         <Link href="/" aria-label={t("Voxinq Meeting home")} className="mr-auto flex items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -252,7 +290,7 @@ export function Sidebar({
   );
 
   const rail = (
-    <div className="flex h-full w-14 flex-col items-center gap-1 border-r border-[var(--border)] bg-[var(--surface)] py-3">
+    <div className="flex h-full w-14 flex-col items-center gap-1 border-r border-[var(--border)] bg-[var(--panel)] py-3">
       <IconButton label={t("Open the sidebar")} onClick={() => change("open")}>
         <PanelLeftIcon className="h-5 w-5" />
       </IconButton>
@@ -335,7 +373,7 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+      className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
     >
       {children}
     </button>
@@ -364,7 +402,7 @@ function FootLink({
   } ${
     active
       ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-strong)]"
-      : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--foreground)]"
+      : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
   } [&_svg]:h-[18px] [&_svg]:w-[18px]`;
   const inner = (
     <>

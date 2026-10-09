@@ -93,7 +93,7 @@ describe("editing a meeting from outside", () => {
     // a meeting off the list and speaker names belong to a transcript made in here — neither
     // is setup, and both would otherwise ride in on the same PATCH.
     expect(route).toContain("isExternalRequest");
-    expect(route).toMatch(/\["archived", "speakerLabels"\]/);
+    expect(route).toMatch(/\["archived", "pinned", "speakerLabels"\]/);
     expect(route).toContain("403");
   });
 });

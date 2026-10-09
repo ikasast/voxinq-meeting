@@ -13,6 +13,18 @@ import { useT } from "../locale-provider";
 // recording, holds edits — and two copies of it would be two of everything.
 
 const PANEL_KEY = "voxinq.transcriptPanel";
+const WIDTH_KEY = "voxinq.transcriptWidth";
+/** The panel's width before anyone drags it, and the limits a drag keeps to. */
+const DEFAULT_WIDTH = "min(36rem,44vw)";
+const MIN_WIDTH = 320;
+const maxWidth = () => Math.min(960, window.innerWidth * 0.6);
+const clamp = (w: number) => Math.round(Math.min(Math.max(w, MIN_WIDTH), maxWidth()));
+function saveWidth(w: number | null) {
+  try {
+    if (w === null) localStorage.removeItem(WIDTH_KEY);
+    else localStorage.setItem(WIDTH_KEY, String(w));
+  } catch {}
+}
 
 export function MeetingBody({
   header,
@@ -49,9 +61,16 @@ export function MeetingBody({
     };
   }, [transcriptFirst]);
 
+  // Dragged wider or narrower by its left edge, and remembered per device. Null is the default.
+  const [width, setWidth] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<{ x: number; w: number; last: number } | null>(null);
+
   useEffect(() => {
     try {
       setPanel(localStorage.getItem(PANEL_KEY) !== "closed");
+      const w = Number(localStorage.getItem(WIDTH_KEY));
+      if (w > 0) setWidth(clamp(w));
     } catch {}
   }, []);
   const togglePanel = (open: boolean) => {
@@ -72,7 +91,9 @@ export function MeetingBody({
   }
 
   return (
-    <div className="lg:flex lg:items-start lg:gap-6">
+    // data-paper: the page behind a meeting is white (globals.css), with the sidebar and this
+    // panel the grey around it.
+    <div data-paper className={`lg:flex lg:items-start lg:gap-6 ${dragging ? "select-none" : ""}`}>
       {/* The document: a page at a readable width, centred in whatever room the panel leaves —
           so with the panel shut it sits in the middle rather than leaving the right side bare. */}
       {/* Room at the right for the panel's tab, which rides over the gap and would otherwise sit
@@ -106,20 +127,68 @@ export function MeetingBody({
       {/* A wide screen: the panel at the right, sliding open and shut. Its width is what moves —
           the contents keep theirs, so nothing re-wraps on the way — and the one tab that opens
           and closes it rides on its edge. */}
+      {/* It reaches the right edge of the window, past the page's own padding, so shut it is the
+          tab alone on that edge rather than a tab hanging in the air. */}
       <aside
         ref={aside}
         aria-label={t("Transcript")}
-        className={`relative min-w-0 max-lg:mt-6 lg:sticky lg:top-0 lg:-my-6 lg:h-dvh lg:shrink-0 lg:transition-[width] lg:duration-300 lg:ease-out motion-reduce:lg:transition-none ${
-          tab === "minutes" ? "max-lg:hidden" : ""
-        } ${panel ? "lg:w-[min(36rem,44vw)]" : "lg:w-0"}`}
+        style={{ "--tw": width ? `${width}px` : DEFAULT_WIDTH } as React.CSSProperties}
+        className={`relative min-w-0 max-lg:mt-6 lg:sticky lg:top-0 lg:-my-6 lg:-mr-8 lg:h-dvh lg:shrink-0 lg:bg-[var(--panel)] ${
+          dragging ? "" : "lg:transition-[width] lg:duration-300 lg:ease-out motion-reduce:lg:transition-none"
+        } ${tab === "minutes" ? "max-lg:hidden" : ""} ${panel ? "lg:w-[var(--tw)]" : "lg:w-0"}`}
       >
         {tabTop !== null ? (
           <PanelTab open={panel} onClick={() => togglePanel(!panel)} count={lineCount} top={tabTop} />
         ) : null}
+        {/* The left edge, to drag. Double-click puts the width back. */}
+        {panel ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("Resize the transcript")}
+            title={t("Drag to change the width; double-click to reset it")}
+            tabIndex={0}
+            onPointerDown={(e) => {
+              if (e.button !== 0) return;
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              const w = aside.current?.getBoundingClientRect().width ?? MIN_WIDTH;
+              drag.current = { x: e.clientX, w, last: w };
+              setDragging(true);
+            }}
+            onPointerMove={(e) => {
+              const d = drag.current;
+              if (!d) return;
+              d.last = clamp(d.w + d.x - e.clientX);
+              setWidth(d.last);
+            }}
+            onPointerUp={() => {
+              const d = drag.current;
+              drag.current = null;
+              setDragging(false);
+              if (d) saveWidth(d.last);
+            }}
+            onDoubleClick={() => {
+              setWidth(null);
+              saveWidth(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+              e.preventDefault();
+              const now = aside.current?.getBoundingClientRect().width ?? MIN_WIDTH;
+              const next = clamp(now + (e.key === "ArrowLeft" ? 32 : -32));
+              setWidth(next);
+              saveWidth(next);
+            }}
+            className={`absolute inset-y-0 left-0 z-10 hidden w-2 -translate-x-1/2 cursor-col-resize outline-none hover:bg-[color-mix(in_srgb,var(--accent)_45%,transparent)] focus-visible:bg-[color-mix(in_srgb,var(--accent)_45%,transparent)] lg:block ${
+              dragging ? "bg-[color-mix(in_srgb,var(--accent)_45%,transparent)]" : ""
+            }`}
+          />
+        ) : null}
         <div className="lg:h-full lg:overflow-hidden">
           <div
             inert={!panel}
-            className="lg:h-full lg:w-[min(36rem,44vw)] lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:py-6 lg:pl-6"
+            className="lg:h-full lg:w-[var(--tw)] lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:py-6 lg:pl-6 lg:pr-8"
           >
             {transcript}
           </div>
@@ -151,7 +220,7 @@ function PanelTab({
       aria-label={label}
       aria-expanded={open}
       style={{ top }}
-      className={`absolute right-full z-20 hidden flex-col items-center gap-1 rounded-l-xl border border-r-0 border-[var(--border)] bg-[var(--surface)] px-2 py-3 text-xs font-medium text-[var(--text-secondary)] shadow-md hover:text-[var(--foreground)] lg:flex`}
+      className={`absolute right-full z-20 hidden flex-col items-center gap-1 rounded-l-xl border border-r-0 border-[var(--border)] bg-[var(--panel)] px-2 py-3 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--foreground)] lg:flex`}
     >
       <span aria-hidden className="text-sm leading-none">
         {open ? "›" : "‹"}

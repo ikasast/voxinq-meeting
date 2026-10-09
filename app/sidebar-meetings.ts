@@ -15,22 +15,39 @@ export type SidebarMeeting = {
   live: boolean;
   /** Recorded and ended, with lines but no minutes. */
   noMinutes: boolean;
+  /** Kept at the top of the sidebar. */
+  pinned: boolean;
 };
 
+const SELECT = {
+  id: true,
+  title: true,
+  startedAt: true,
+  endedAt: true,
+  scheduledAt: true,
+  pinnedAt: true,
+  _count: { select: { transcripts: true, summaries: true } },
+} as const;
+
 export async function sidebarMeetings(): Promise<SidebarMeeting[]> {
-  const rows = await prisma.meeting.findMany({
-    where: { deletedAt: null, archivedAt: null },
-    orderBy: { startedAt: "desc" },
-    take: 80,
-    select: {
-      id: true,
-      title: true,
-      startedAt: true,
-      endedAt: true,
-      scheduledAt: true,
-      _count: { select: { transcripts: true, summaries: true } },
-    },
-  });
+  // The recent ones, and the pinned ones however old: a pin is for the meeting that has fallen
+  // out of the recent list.
+  const [recent, pinned] = await Promise.all([
+    prisma.meeting.findMany({
+      where: { deletedAt: null, archivedAt: null },
+      orderBy: { startedAt: "desc" },
+      take: 80,
+      select: SELECT,
+    }),
+    prisma.meeting.findMany({
+      where: { deletedAt: null, archivedAt: null, pinnedAt: { not: null } },
+      orderBy: { pinnedAt: "asc" },
+      take: 40,
+      select: SELECT,
+    }),
+  ]);
+  const seen = new Set(recent.map((m) => m.id));
+  const rows = [...recent, ...pinned.filter((m) => !seen.has(m.id))];
   return rows.map((m) => {
     const upcoming = m.scheduledAt !== null && m.endedAt === null && m._count.transcripts === 0;
     return {
@@ -40,6 +57,7 @@ export async function sidebarMeetings(): Promise<SidebarMeeting[]> {
       upcoming,
       live: m.endedAt === null && !upcoming && m._count.transcripts > 0,
       noMinutes: m.endedAt !== null && m._count.transcripts > 0 && m._count.summaries === 0,
+      pinned: m.pinnedAt !== null,
     };
   });
 }

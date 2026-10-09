@@ -23,6 +23,10 @@
   --border: #2f3d54;
   --border-strong: #3d4d6a;
   --header: #0b1220;
+  /* A meeting's page (--paper) and what frames it: the sidebar and the transcript panel
+     (--panel). Dark keeps the page darkest; light makes it white against grey. */
+  --paper: #0b1220;
+  --panel: #1b2536;
 
   /* Text */
   --foreground: #e5e7eb;
@@ -70,6 +74,8 @@ html[data-theme="light"] {
   --border: #dfe5ee;
   --border-strong: #c6d0de;
   --header: #ffffff;
+  --paper: #ffffff;
+  --panel: #f5f7fa;
 
   --foreground: #1f2937;
   --text-strong: #0b1220;
@@ -123,6 +129,15 @@ body {
   font-family: var(--font-inter), var(--font-jp), system-ui, sans-serif;
   color: var(--foreground);
   background: var(--background);
+}
+
+/* A meeting's page is paper: white behind the minutes, edge to edge between the sidebar and the
+   transcript panel (meeting-body.tsx sets data-paper). */
+body:has([data-paper]) {
+  background: var(--paper) !important;
+}
+main:has([data-paper]) {
+  max-width: none;
 }
 
 /* Links/emphasis inside Markdown (minutes) lean toward the brand colors */

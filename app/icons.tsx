@@ -333,6 +333,14 @@ export const SpellCheckIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const PinIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5-1.5l1.5-4l4-4" />
+    <path d="M9 15l-4.5 4.5" />
+    <path d="M14.5 4l5.5 5.5" />
+  </Base>
+);
+
 export const PanelLeftIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <rect x="3" y="3" width="18" height="18" rx="2" />
