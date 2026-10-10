@@ -22,6 +22,7 @@ import { DropToTranscribe } from "./drop-to-transcribe";
 import { LockedBanner } from "./locked-banner";
 import { ExternalNotice } from "./external-notice";
 import { ServiceAlert } from "./health-status";
+import { AppUpdate } from "./app-update";
 import { InstallApp } from "./install-app";
 import { Tooltips } from "./tooltips";
 import { version as appVersion } from "../package.json";
@@ -177,6 +178,8 @@ export default async function RootLayout({
                     when a service is not answering — and nothing at all while they are. */}
                 {external ? <ExternalNotice /> : null}
                 {locked ? null : <ServiceAlert showStt={!external} />}
+                {/* In the Android app, when it is behind this server: the update (app-update.tsx). */}
+                <AppUpdate serverVersion={appVersion} />
                 <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8">{children}</main>
               </div>
               {/* A recording dropped anywhere on the page becomes a meeting (drop-to-transcribe.tsx). */}

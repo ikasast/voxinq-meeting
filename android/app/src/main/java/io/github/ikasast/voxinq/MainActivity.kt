@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -86,6 +87,9 @@ class MainActivity : ComponentActivity() {
         fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data))
         fileCallback = null
     }
+
+    /** An update asked for while the app was not yet allowed to install one. */
+    private var pendingUpdate: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -165,6 +169,13 @@ class MainActivity : ComponentActivity() {
         // Lines saved while nobody was looking are not replayed one by one: the page reloads
         // the transcript instead.
         if (RecorderBus.state.recording) RecorderBus.post(message("resync"))
+        // Back from allowing the app to install updates: carry on with the one that asked.
+        pendingUpdate?.let { version ->
+            if (Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()) {
+                pendingUpdate = null
+                Updater.start(this, version)
+            }
+        }
     }
 
     override fun onStop() {
@@ -288,6 +299,26 @@ class MainActivity : ComponentActivity() {
                 }
             }
             "stop" -> if (RecorderBus.state.recording) RecorderService.stop(this) else RecorderBus.post(message("stopped"))
+            // The page offers an update when the app is behind the server (Updater).
+            "update" -> {
+                val version = msg.optString("version")
+                if (Updater.apkUrl(version) == null) return
+                if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+                    // Android asks once whether this app may install apps. The settings screen is
+                    // where that is answered; coming back to the app carries on (onStart).
+                    pendingUpdate = version
+                    RecorderBus.post(message("update", "state" to "permission"))
+                    try {
+                        startActivity(
+                            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")),
+                        )
+                    } catch (_: ActivityNotFoundException) {
+                        RecorderBus.post(message("update", "state" to "failed", "reason" to "settings"))
+                    }
+                } else {
+                    Updater.start(this, version)
+                }
+            }
         }
     }
 
