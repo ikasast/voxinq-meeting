@@ -1356,8 +1356,9 @@ export function TranscriptList({
       ) : null}
 
       {/* The recording: play it, and from any line's time. Kept or not, and trimmed, from the
-          line under the player. */}
-      {recInfo?.exists ? (
+          line under the player. Not while it is still being recorded: the file has no end yet, so
+          the player could only say 0:00 / 0:00. */}
+      {recInfo?.exists && !live ? (
         <div className="mt-3">
           <audio
             ref={audioRef}
@@ -1369,37 +1370,40 @@ export function TranscriptList({
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
             <span>{t("Click a timestamp to play from that point.")}</span>
             <span aria-hidden>·</span>
-            <span>
-              {t("Recording:")}{" "}
-              {recInfo.protected ? (
-                <span className="text-[var(--accent-sub)]">{t("protected (not auto-deleted)")}</span>
-              ) : recInfo.expiresAt ? (
-                <>
-                  {t(daysLeft === 1 ? "auto-deletes in 1 day" : "auto-deletes in {n} days", { n: daysLeft })}
-                </>
-              ) : (
-                t("saved")
-              )}
+            {/* With its lock, so that on a phone the lock does not wrap onto a line of its own. */}
+            <span className="inline-flex items-center gap-1">
+              <span>
+                {t("Recording:")}{" "}
+                {recInfo.protected ? (
+                  <span className="text-[var(--accent-sub)]">{t("protected (not auto-deleted)")}</span>
+                ) : recInfo.expiresAt ? (
+                  <>
+                    {t(daysLeft === 1 ? "auto-deletes in 1 day" : "auto-deletes in {n} days", { n: daysLeft })}
+                  </>
+                ) : (
+                  t("saved")
+                )}
+              </span>
+              {/* Not from outside: keeping a recording is not on the external allow-list, so
+                  this answered 403 — a button that cannot do the thing it names. */}
+              {!readOnly ? (
+                <button
+                  type="button"
+                  onClick={() => void toggleProtect()}
+                  disabled={recBusy}
+                  aria-label={t("Protect the recording")}
+                  aria-pressed={recInfo.protected}
+                  title={
+                    recInfo.protected
+                      ? t("Protected. If unprotected, it is auto-deleted once the retention period has passed from then")
+                      : t("Protect the recording so it is not auto-deleted")
+                  }
+                  className={`${ROW_BUTTON} ${recInfo.protected ? "!text-[var(--accent-sub)]" : ""}`}
+                >
+                  {recInfo.protected ? <LockIcon className="h-3.5 w-3.5" /> : <LockOpenIcon className="h-3.5 w-3.5" />}
+                </button>
+              ) : null}
             </span>
-            {/* Not from outside: keeping a recording is not on the external allow-list, so
-                this answered 403 — a button that cannot do the thing it names. */}
-            {!readOnly ? (
-              <button
-                type="button"
-                onClick={() => void toggleProtect()}
-                disabled={recBusy}
-                aria-label={t("Protect the recording")}
-                aria-pressed={recInfo.protected}
-                title={
-                  recInfo.protected
-                    ? t("Protected. If unprotected, it is auto-deleted once the retention period has passed from then")
-                    : t("Protect the recording so it is not auto-deleted")
-                }
-                className={`${ROW_BUTTON} ${recInfo.protected ? "!text-[var(--accent-sub)]" : ""}`}
-              >
-                {recInfo.protected ? <LockIcon className="h-3.5 w-3.5" /> : <LockOpenIcon className="h-3.5 w-3.5" />}
-              </button>
-            ) : null}
             {/* Not while it is still being recorded: the end of the recording is not known yet. */}
             {!readOnly && !live && recInfo.durationSec ? (
               <TrimRecording

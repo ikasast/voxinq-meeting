@@ -67,6 +67,12 @@ describe("the trim route", () => {
     expect(list).toContain("!readOnly && !live && recInfo.durationSec");
   });
 
+  it("is not shown at all while the meeting is still recording", () => {
+    // The file has no end yet: the player could only say 0:00 / 0:00.
+    const list = read("app/[id]/transcript-list.tsx");
+    expect(list).toContain("{recInfo?.exists && !live ? (");
+  });
+
   it("stays after the recording is protected, whose answer has no length in it", () => {
     const list = read("app/[id]/transcript-list.tsx");
     expect(list).toContain("setRecInfo((prev) => ({ ...prev, ...next }))");
