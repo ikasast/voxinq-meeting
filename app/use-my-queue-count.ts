@@ -2,18 +2,28 @@
 
 import { useEffect, useState } from "react";
 
+/** One job in the queue, as /api/jobs gives it. A title only for your own. */
+export type QueuedJob = {
+  id: string;
+  kind: string;
+  status: string;
+  mine?: boolean;
+  title?: string | null;
+  meetingId?: string | null;
+};
+
 /**
- * How much of the queue is yours, polled.
+ * The queue, polled: everybody's open work, and how much of it is yours.
  *
- * One hook, because the rail's badge and the bottom bar's badge are two views of one thing, and
- * two implementations of "how many" would eventually disagree about it in front of somebody.
+ * One hook, because the sidebar's badge and its "now running" line are two views of one thing,
+ * and two implementations of "how many" would eventually disagree about it in front of somebody.
  *
- * It counts **your own** open work, not the machine's. A badge on a navigation item is read as
- * "things of yours", and the queue lists everybody: three waiting jobs that all belong to
+ * `mine` counts **your own** open work, not the machine's. A badge on a navigation item is read
+ * as "things of yours", and the queue lists everybody: three waiting jobs that all belong to
  * somebody else is not a notification, it is a wrong answer to what a badge is asked.
  */
-export function useMyQueueCount(): number {
-  const [mine, setMine] = useState(0);
+export function useQueue(): { jobs: QueuedJob[]; mine: number } {
+  const [jobs, setJobs] = useState<QueuedJob[]>([]);
 
   useEffect(() => {
     let stop = false;
@@ -21,8 +31,8 @@ export function useMyQueueCount(): number {
       try {
         const res = await fetch("/api/jobs", { cache: "no-store" });
         if (!res.ok || stop) return;
-        const d = (await res.json()) as { jobs: { mine?: boolean }[] };
-        setMine(d.jobs.filter((j) => j.mine).length);
+        const d = (await res.json()) as { jobs: QueuedJob[] };
+        setJobs(d.jobs);
       } catch {
         // Not worth showing. The next poll is five seconds away.
       }
@@ -35,5 +45,10 @@ export function useMyQueueCount(): number {
     };
   }, []);
 
-  return mine;
+  return { jobs, mine: jobs.filter((j) => j.mine).length };
+}
+
+/** How much of the queue is yours. */
+export function useMyQueueCount(): number {
+  return useQueue().mine;
 }

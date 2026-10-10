@@ -32,7 +32,7 @@ export default async function QueuePage() {
   }));
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div data-paper className="mx-auto max-w-3xl space-y-4 pt-2 lg:pt-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
           {t("Queue")}
@@ -47,7 +47,7 @@ export default async function QueuePage() {
           Refreshes with the page rather than polling — it only changes when something ends. */}
       <section className="space-y-2 pt-4">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-strong)]">{t("History")}</h2>
+          <h2 className="text-sm font-semibold text-[var(--text-secondary)]">{t("History")}</h2>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
             {me?.isAdmin
               ? t("Finished work on this machine, newest first (up to {n}).", { n: 40 })

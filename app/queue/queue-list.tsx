@@ -106,7 +106,7 @@ export function QueueList({
 
   if (jobs.length === 0) {
     return (
-      <p className="rounded-md border border-dashed border-[var(--border)] p-6 text-sm text-[var(--text-muted)]">
+      <p className="border-y border-[var(--border)] py-6 text-sm text-[var(--text-muted)]">
         {t(
           "Nothing queued. Minutes, speaker separation and re-transcription wait here for the GPU when one is already using it.",
         )}
@@ -121,7 +121,7 @@ export function QueueList({
   return (
     <div className="space-y-2">
       {error ? <p className="text-xs text-[var(--warning)]">{error}</p> : null}
-      <ul className="overflow-hidden rounded-lg border border-[var(--border)]">
+      <ul className="border-t border-[var(--border)]">
         {jobs.map((job, i) => {
           const running = job.status === "running";
           // A meeting in progress, holding the card. It is in this list so the reason nothing
@@ -131,7 +131,7 @@ export function QueueList({
           return (
             <li
               key={job.id}
-              className="flex items-center gap-3 border-b border-[var(--border)] px-3 py-2.5 last:border-b-0"
+              className="flex items-center gap-3 border-b border-[var(--border)] px-2 py-2.5"
             >
               <span
                 className={`w-6 shrink-0 text-center text-xs tabular-nums ${

@@ -18,7 +18,8 @@ import {
   SeriesIcon,
 } from "./icons";
 import { isAuthPath } from "./auth-paths";
-import { useMyQueueCount } from "./use-my-queue-count";
+import { type QueuedJob, useQueue } from "./use-my-queue-count";
+import { busyLabel } from "@/lib/queue/job-label";
 import { useT } from "./locale-provider";
 import { useRecorderState } from "./recorder";
 import { useExtensions } from "./extensions-provider";
@@ -105,7 +106,7 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const extensions = useExtensions();
-  const queued = useMyQueueCount();
+  const { jobs: queueJobs, mine: queued } = useQueue();
   const [mode, setMode] = useState<Mode>("open");
   // What the sidebar shows while its width moves. Growing, the new contents go in at once and
   // are uncovered as it widens; shrinking, the old ones stay until it has finished, so a strip
@@ -297,6 +298,7 @@ export function Sidebar({
       </div>
       {list}
       <div className="border-t border-[var(--border)] px-2 py-2">
+        <QueueNow jobs={queueJobs} />
         {footLinks(false)}
         <div className="mt-2 flex items-center gap-2 px-2">
           {account}
@@ -411,6 +413,38 @@ function LiveDot({ id, live }: { id: string; live: boolean }) {
     >
       <span className="block h-full w-full rounded-full bg-[var(--error)]" />
     </span>
+  );
+}
+
+/**
+ * What the GPU is doing now, and how much is waiting behind it — one line over the sidebar's
+ * foot, there only while there is something (v4). It used to take opening the queue page to
+ * learn why your minutes had not started; the page is still one tap away, for reordering,
+ * cancelling and what already ran. Somebody else's work is named by its kind alone.
+ */
+function QueueNow({ jobs }: { jobs: QueuedJob[] }) {
+  const t = useT();
+  const running = jobs.find((j) => j.status === "running");
+  const waiting = jobs.filter((j) => j.status === "queued").length;
+  if (!running && waiting === 0) return null;
+  const what = running
+    ? `${busyLabel(t, running.kind)}${running.mine && running.title ? ` ${running.title}` : ""}`
+    : t("Waiting for the GPU");
+  return (
+    <Link
+      href="/queue"
+      title={t("Open the queue")}
+      className="mb-1 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
+    >
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? "animate-pulse bg-[var(--accent)]" : "bg-[var(--text-muted)]"}`}
+      />
+      <span className="min-w-0 flex-1 truncate">{what}</span>
+      {waiting > 0 ? (
+        <span className="shrink-0 tabular-nums text-[var(--text-muted)]">{t("+{n} waiting", { n: waiting })}</span>
+      ) : null}
+    </Link>
   );
 }
 
