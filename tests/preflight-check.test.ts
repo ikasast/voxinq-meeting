@@ -7,33 +7,32 @@ const root = join(__dirname, "..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
 
 describe("what the microphone is asked for", () => {
-  it("turns processing off in room mode, which is the point of room mode", () => {
-    const c = micConstraints("mic", "room");
+  it("turns processing off, to hear a room and a speakerphone's far end", () => {
+    const c = micConstraints("mic");
     expect(c.echoCancellation).toBe(false);
     expect(c.noiseSuppression).toBe(false);
     expect(c.autoGainControl).toBe(true);
   });
 
-  it("leaves processing on for a normal recording", () => {
-    const c = micConstraints("mic", "standard");
-    expect(c.echoCancellation).toBe(true);
-    expect(c.noiseSuppression).toBe(true);
-  });
-
-  it("forces echo cancellation for mic + PC audio, room mode or not", () => {
+  it("forces echo cancellation for mic + PC audio", () => {
     // Without it the mic re-records the PC audio coming out of the speakers, and every word
     // lands in the transcript twice.
-    expect(micConstraints("both", "room").echoCancellation).toBe(true);
-    expect(micConstraints("both", "standard").echoCancellation).toBe(true);
+    expect(micConstraints("both").echoCancellation).toBe(true);
+  });
+
+  it("is no longer a setting", () => {
+    // v4: Standard was right for one person on a headset and silently wrong for a table or a
+    // speakerphone. Nothing reads a mode any more; the app is still told Room (see plan.ts).
+    for (const f of ["lib/settings.ts", "lib/settings-scope.ts", "app/api/settings/route.ts", "app/settings/page.tsx", "app/settings/house-defaults.tsx", "app/[id]/recording-dock.tsx", "lib/stt/client.ts"]) {
+      expect(read(f), f).not.toContain("micMode");
+    }
   });
 
   it("is one function, so the check and the recording ask for the same thing", () => {
     // A check that ran with different processing than the recording would be a check of
     // something else — and silence caused by processing is exactly what it exists to catch.
-    expect(read("lib/stt/client.ts")).toContain("micConstraints(source, opts?.micMode)");
-    expect(read("app/[id]/recording/preflight-check.tsx")).toContain(
-      "micConstraints(source, micMode)",
-    );
+    expect(read("lib/stt/client.ts")).toContain("micConstraints(source)");
+    expect(read("app/[id]/recording/preflight-check.tsx")).toContain("micConstraints(source)");
   });
 });
 
@@ -83,9 +82,8 @@ describe("the check itself", () => {
   });
 
   it("drops a check that no longer describes what would be recorded", () => {
-    // Changing the source or the mic mode changes the constraints, so what is open was a check
-    // of something else.
-    expect(src).toMatch(/\}, \[source, micMode\]\)/);
+    // Changing the source changes the constraints, so what is open was a check of something else.
+    expect(src).toMatch(/\}, \[source\]\)/);
   });
 
   it("stops sitting on the microphone if nobody starts recording", () => {
@@ -119,12 +117,12 @@ describe("hearing a room, not a handset", () => {
   const check = readFileSync(join(root, "app/[id]/recording/preflight-check.tsx"), "utf8");
   const server = readFileSync(join(root, "stt-service/server.py"), "utf8");
 
-  it("makes room mode louder, not just less processed", () => {
+  it("makes it louder, not just less processed", () => {
     // Turning the browser's processing off was the whole of room mode, and it does not raise a
     // level. Reported from an iPhone: even in Room, nothing was recognised unless somebody
     // spoke at the distance they would hold a phone at.
     expect(constraints).toContain("export const ROOM_GAIN");
-    expect(client).toContain("(room ? ROOM_GAIN : 1)");
+    expect(client).toContain("* ROOM_GAIN;");
   });
 
   it("puts the gain before the limiter that was already there", () => {
@@ -137,7 +135,7 @@ describe("hearing a room, not a handset", () => {
     // Otherwise the check answers a different question from the one it appears to: room mode
     // exists because the raw level is too low, so measuring before the gain would call a
     // working room silent.
-    expect(check).toContain("boost.gain.value = isRoomMode(micMode) ? ROOM_GAIN : 1");
+    expect(check).toContain("boost.gain.value = ROOM_GAIN;");
   });
 
   it("uses the recogniser's own threshold rather than a second one", () => {

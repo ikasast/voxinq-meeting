@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HEARD_RMS, ROOM_GAIN, isRoomMode, micConstraints } from "@/lib/stt/mic-constraints";
+import { HEARD_RMS, ROOM_GAIN, micConstraints } from "@/lib/stt/mic-constraints";
 import { useT } from "@/app/locale-provider";
 
 // Is the microphone actually hearing anything?
@@ -40,12 +40,10 @@ export type PreflightState = "idle" | "checking" | "heard" | "silent" | "error";
 
 export function PreflightCheck({
   source,
-  micMode,
   onStream,
   disabled = false,
 }: {
   source: string;
-  micMode?: string;
   /** The open microphone, for the recording to take over. Null when it is released. */
   onStream: (stream: MediaStream | null) => void;
   disabled?: boolean;
@@ -85,8 +83,8 @@ export function PreflightCheck({
   // recording indicator lit on a page nobody is looking at.
   useEffect(() => () => release(false), [release]);
 
-  // Changing the source or the mic mode changes what would be asked for, so what is open is no
-  // longer a check of the thing that would be recorded.
+  // Changing the source changes what would be asked for, so what is open is no longer a check of
+  // the thing that would be recorded.
   useEffect(() => {
     if (streamRef.current) {
       release(false);
@@ -95,7 +93,7 @@ export function PreflightCheck({
       setPeak(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, micMode]);
+  }, [source]);
 
   const start = useCallback(async () => {
     setError(null);
@@ -103,7 +101,7 @@ export function PreflightCheck({
     setState("checking");
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: micConstraints(source, micMode),
+        audio: micConstraints(source),
       });
       streamRef.current = stream;
       onStreamRef.current(stream);
@@ -113,10 +111,10 @@ export function PreflightCheck({
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       // Through the same gain the recording will apply. Measuring before it would answer a
-      // question nobody asked — room mode exists precisely because the raw level is too low,
-      // so a check that ignored the gain would call a working room silent.
+      // question nobody asked — the gain exists precisely because the raw level is too low, so a
+      // check that ignored it would call a working room silent.
       const boost = ctx.createGain();
-      boost.gain.value = isRoomMode(micMode) ? ROOM_GAIN : 1;
+      boost.gain.value = ROOM_GAIN;
       ctx.createMediaStreamSource(stream).connect(boost);
       boost.connect(analyser);
       const buf = new Float32Array(analyser.fftSize);
@@ -150,7 +148,7 @@ export function PreflightCheck({
       );
       release(false);
     }
-  }, [source, micMode, release, t]);
+  }, [source, release, t]);
 
   const stop = useCallback(() => {
     setState(peak >= HEARD ? "heard" : "silent");
@@ -231,9 +229,6 @@ export function PreflightCheck({
             "Nothing loud enough came through — the loudest moment was {peak}, and {needs} is where speech starts being recognised. Check that the right input is selected and not muted — a headset with its own mute switch, or another app holding the microphone, both look like this.",
             { peak: peak.toFixed(3), needs: HEARD },
           )}
-          {!isRoomMode(micMode)
-            ? " " + t("Speaking from across a room needs Mic mode: Room.")
-            : ""}
         </p>
       ) : null}
 

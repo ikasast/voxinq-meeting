@@ -38,7 +38,6 @@ export type AppSettings = {
   whisperModel: string;
   sttLanguage: string; // "auto" | "ja" | "en" (auto = keep the spoken language)
   sttGlossary: string; // terms/proper nouns for Whisper initial_prompt (short text)
-  micMode: string; // "standard" | "room" (room = tuned to pick up distant voices in a meeting room)
   // Translate non-Japanese utterances into Japanese alongside the transcript. Off by default:
   // it downloads a ~1.2GB translation model (M2M100, MIT) to the STT host on first use.
   sttTranslate: boolean;
@@ -105,7 +104,6 @@ function defaults(): AppSettings {
     whisperModel: process.env.WHISPER_MODEL ?? "large-v3-turbo",
     sttLanguage: process.env.WHISPER_LANGUAGE ?? "auto",
     sttGlossary: "",
-    micMode: "standard",
     sttTranslate: false,
     // Seeded from the environment so an install can come up already configured; see
     // migrateSttSettings for what happens to a single endpoint saved before profiles existed.
@@ -138,7 +136,6 @@ const LEGACY_KEYS = ["sttProvider", "sttRemoteBaseUrl", "sttRemoteApiKey", "sttR
 
 const VALID_STT_LANGUAGES = ["auto", "ja", "en"];
 const VALID_SUMMARY_LANGUAGES = ["ja", "en", "zh"];
-const VALID_MIC_MODES = ["standard", "room"];
 
 const VALID_PROVIDERS: LlmProviderName[] = ["ollama", "anthropic", "openai"];
 
@@ -228,7 +225,6 @@ export async function readMachineSettings(): Promise<AppSettings> {
     if (!VALID_STT_LANGUAGES.includes(merged.sttLanguage)) merged.sttLanguage = base.sttLanguage;
     if (!VALID_SUMMARY_LANGUAGES.includes(merged.summaryLanguage))
       merged.summaryLanguage = base.summaryLanguage;
-    if (!VALID_MIC_MODES.includes(merged.micMode)) merged.micMode = base.micMode;
     if (!UI_LANGUAGES.includes(merged.uiLanguage as (typeof UI_LANGUAGES)[number])) {
       merged.uiLanguage = base.uiLanguage;
     }

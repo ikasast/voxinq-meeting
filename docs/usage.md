@@ -75,7 +75,7 @@ recording starts immediately.
 ## Record a meeting
 
 1. **New meeting** → set the title, purpose, and the recording settings for this meeting
-   (model, language, mic mode, source). They are shown, not hidden behind a disclosure,
+   (model, language, source). They are shown, not hidden behind a disclosure,
    because picking the wrong model is silent and costly.
 2. **Set up meeting** → creates the meeting, opens the recording screen and starts loading
    the transcription model. Recording does *not* start yet.
@@ -157,7 +157,7 @@ the recording to the app, which holds the microphone in a service of its own. So
 - **Losing the network costs nothing.** Audio is written to the phone before it is sent, and sent
   when the connection comes back — an outage of twenty minutes included. If the system kills the
   app mid-meeting, what it had recorded is sent the next time the app is opened.
-- The microphone check, Room mode and the level meter are the page's own and behave as they do in
+- The microphone check, the microphone's handling and the level meter are the page's own and behave as they do in
   a browser. The page reloads the transcript when you come back to it, rather than having missed
   anything while it was hidden.
 
@@ -172,18 +172,15 @@ is no way for a web page to reach the audio another app is playing. **The Androi
 one either**, deliberately: what Android would let it capture is media, never a call
 ([why](android-app.md#not-capturing-what-the-phone-plays)).
 
-What works instead is the speakerphone, and **it needs one setting changed first**:
+What works instead is the speakerphone: put the call on speakerphone, and record with
+**Microphone**. Nothing needs changing first.
 
-1. **Settings → Mic mode → Room.**
-2. Put the call on speakerphone, and record with **Microphone**.
-
-The Room setting is doing two things, and only one of them is about distance. It also raises
-the captured level four-fold, which is the half that matters when somebody is across a table
-rather than against your ear. As for the echo: in the normal mode the browser's echo
-cancellation is on, and its whole job is to remove sound coming from this device's own speaker
-from the microphone signal — which on a speakerphone call is precisely the other person's
-voice. Recording that way captures your half of the conversation and quietly deletes the rest.
-Room mode turns echo cancellation off, so both halves are recorded.
+That is because of how the microphone is recorded. The browser's echo cancellation exists to
+remove sound coming from this device's own speaker from the microphone signal — which on a
+speakerphone call is precisely the other person's voice. Recording with it on would capture your
+half of the conversation and quietly delete the rest, so it is off, and the captured level is
+raised four-fold, which is what lets a voice from across a table be heard at all. Until 4.0
+this was a setting, "Room" mic mode, and forgetting it lost the other half of the call.
 
 Quality is lower than capturing the audio directly, since it has been through a speaker and a
 microphone, but it transcribes well enough to be useful. It is also the only way, and not just

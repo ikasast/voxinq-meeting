@@ -22,7 +22,6 @@ import { useExtensions } from "../extensions-provider";
 type Defaults = {
   summaryLanguage: string;
   sttLanguage: string;
-  micMode: string;
   sttTranslate: boolean;
   sttGlossary: string;
   llmProvider: string;
@@ -53,14 +52,6 @@ const FIELDS: {
       { value: "auto", label: "Auto-detect" },
       { value: "ja", label: "Japanese (fixed)" },
       { value: "en", label: "English (fixed)" },
-    ],
-  },
-  {
-    key: "micMode",
-    label: "Microphone mode",
-    options: [
-      { value: "standard", label: "Standard" },
-      { value: "room", label: "Room (distant voices)" },
     ],
   },
   { key: "sttTranslate", label: "Japanese translation under each line", kind: "boolean" },
@@ -94,7 +85,6 @@ function fieldLabel(t: (k: string) => string, label: string): string {
   const table: Record<string, string> = {
     "Minutes language": t("Minutes language"),
     "Transcription language": t("Transcription language"),
-    "Microphone mode": t("Microphone mode"),
     "Japanese translation under each line": t("Japanese translation under each line"),
     Glossary: t("Glossary"),
     "Minutes are written by": t("Minutes are written by"),
@@ -105,11 +95,9 @@ function fieldLabel(t: (k: string) => string, label: string): string {
     "Japanese (日本語)": t("Japanese (日本語)"),
     English: t("English"),
     "Chinese (中文)": t("Chinese (中文)"),
-    Standard: t("Standard"),
     "Auto-detect": t("Auto-detect"),
     "Japanese (fixed)": t("Japanese (fixed)"),
     "English (fixed)": t("English (fixed)"),
-    "Room (distant voices)": t("Room (distant voices)"),
     Ollama: t("Ollama"),
     Anthropic: t("Anthropic"),
     "OpenAI-compatible": t("OpenAI-compatible"),

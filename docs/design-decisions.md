@@ -139,8 +139,8 @@ which is after the point where knowing is any use.
 Two things make the check worth trusting:
 
 **It asks for the microphone with the constraints the recording will use**, from one shared
-function. Echo cancellation and noise suppression are off in room mode and forced on for
-mic + PC audio, and silence *caused* by those settings is exactly the failure being looked
+function. Echo cancellation and noise suppression are off (once only in "room" mode, which
+since 4.0 is the only one) and forced on for mic + PC audio, and silence *caused* by those settings is exactly the failure being looked
 for — so a check that ran with different ones would be a check of something else.
 
 **It hands its microphone to the recording rather than releasing it.** Some phones fail the

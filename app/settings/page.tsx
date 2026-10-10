@@ -38,7 +38,6 @@ type PublicSettings = {
   whisperModel: string;
   sttLanguage: string;
   sttGlossary: string;
-  micMode: string;
   sttTranslate: boolean;
   sttProfiles: PublicSttProfile[];
   sttDefaultProfileId: string;
@@ -69,10 +68,6 @@ const STT_LANGUAGES: { id: string; label: string }[] = [
   { id: "auto", label: "Auto-detect (keep the spoken language)" },
   { id: "ja", label: "Japanese (fixed)" },
   { id: "en", label: "English (fixed)" },
-];
-const MIC_MODES: { id: string; label: string }[] = [
-  { id: "standard", label: "Standard (close talk / calls)" },
-  { id: "room", label: "Room (pick up distant voices)" },
 ];
 const LLM_PROVIDERS: { id: PublicSettings["llmProvider"]; label: string }[] = [
   { id: "ollama", label: "Ollama (default)" },
@@ -138,8 +133,6 @@ function settingLabel(t: (k: string) => string, label: string): string {
     "Auto-detect (keep the spoken language)": t("Auto-detect (keep the spoken language)"),
     "Japanese (fixed)": t("Japanese (fixed)"),
     "English (fixed)": t("English (fixed)"),
-    "Standard (close talk / calls)": t("Standard (close talk / calls)"),
-    "Room (pick up distant voices)": t("Room (pick up distant voices)"),
     "Ollama (default)": t("Ollama (default)"),
     "Anthropic (Claude API — sends your transcripts off this machine)":
       t("Anthropic (Claude API — sends your transcripts off this machine)"),
@@ -448,30 +441,6 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div>
-            <label htmlFor="micMode" className={labelClass}>
-              {t("Microphone mode")}
-            </label>
-            <select
-              id="micMode"
-              value={settings.micMode}
-              onChange={(e) => update("micMode", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {MIC_MODES.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {settingLabel(t, m.label)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t(
-                "“Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.",
-              )}{" "}
-              {t("Placing the device in the center of the table helps.")}
-            </p>
-          </div>
 
           {extensions.translation ? (
           <div>

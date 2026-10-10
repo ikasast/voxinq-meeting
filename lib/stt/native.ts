@@ -59,7 +59,6 @@ export type NativeStartOptions = {
   initialPrompt?: string;
   translate?: boolean;
   liveTranscript?: boolean;
-  micMode?: string;
 };
 
 type Message = { type: string; [key: string]: unknown };
@@ -213,7 +212,9 @@ export async function startNative(handlers: NativeHandlers, opts: NativeStartOpt
   if (!bridge()) throw new Error("The app's recorder is not available");
   const handle = subscribe(handlers);
   handlers.onStatus("connecting");
-  send({ type: "start", wsUrl: sttWsUrl(), ...opts });
+  // Room, always (lib/stt/mic-constraints.ts). Said rather than assumed: an app from before 4.0
+  // reads it and records at the handset's level without it.
+  send({ type: "start", wsUrl: sttWsUrl(), ...opts, micMode: "room" });
   return handle;
 }
 

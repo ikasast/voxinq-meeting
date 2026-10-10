@@ -1,6 +1,6 @@
 import { antiAliasStages } from "@/lib/audio/lowpass";
 import { fromDiarizer, MIC_SPEAKER } from "@/lib/speakers";
-import { ROOM_GAIN, isRoomMode, micConstraints, streamIsLive } from "./mic-constraints";
+import { ROOM_GAIN, micConstraints, streamIsLive } from "./mic-constraints";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
 // Assumes in-person meetings and single-phone recording, handling a single mic input.
@@ -83,7 +83,6 @@ export async function startMic(
     meetingId?: string;
     language?: string;
     initialPrompt?: string;
-    micMode?: string;
     source?: string; // "mic"(既定) | "display"(PC音声) | "both"(両方をミックス)
     translate?: boolean; // translate non-Japanese utterances into Japanese (CPU-side)
     /** False records without recognising, leaving the GPU to whatever already has it. */
@@ -126,7 +125,7 @@ export async function startMic(
         streamIsLive(opts?.micStream)
           ? (opts!.micStream as MediaStream)
           : await navigator.mediaDevices.getUserMedia({
-              audio: micConstraints(source, opts?.micMode),
+              audio: micConstraints(source),
             }),
       );
     }
@@ -168,15 +167,14 @@ export async function startMic(
   limiter.release.value = 0.15;
   limiter.connect(node);
 
-  // Room mode is louder here rather than in the constraints, because a constraint cannot ask
-  // for "louder" — only for the browser's automatic gain, which on a phone is tuned for a
-  // handset held to the ear and works against far-field capture rather than for it.
-  const room = isRoomMode(opts?.micMode);
+  // Louder here rather than in the constraints, because a constraint cannot ask for "louder" —
+  // only for the browser's automatic gain, which on a phone is tuned for a handset held to the
+  // ear and works against far-field capture rather than for it.
   const srcNodes = streams.map((s) => ctx.createMediaStreamSource(s));
   srcNodes.forEach((sn) => {
     const gain = ctx.createGain();
     // Two sources summing need room; one on its own does not have to be quieter than it was.
-    gain.gain.value = (streams.length > 1 ? 0.7 : 1) * (room ? ROOM_GAIN : 1);
+    gain.gain.value = (streams.length > 1 ? 0.7 : 1) * ROOM_GAIN;
     sn.connect(gain);
     gain.connect(limiter);
   });

@@ -47,7 +47,6 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "whisperModel",
   "sttLanguage",
   "sttGlossary",
-  "micMode",
   "sttDefaultProfileId",
   "llmProvider",
   "ollamaBaseUrl",

@@ -201,7 +201,7 @@ If the check says sound is arriving and the transcript is still empty, the probl
 along: see "Transcript stays on Preparing" and "No text appears while recording" below.
 
 > The microphone opened by the check is handed to the recording, so what you tested is what
-> records. If you change the source or the mic mode afterwards, the check is discarded — the
+> records. If you change the source afterwards, the check is discarded — the
 > constraints would no longer match — and running it again takes a few seconds.
 
 ## No text appears while recording

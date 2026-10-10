@@ -31,7 +31,7 @@ What it does **not** bring:
 - **Call audio.** Android's playback capture (`MediaProjection` with `AudioPlaybackCapture`)
   only reaches audio played as media, games or an unknown usage. Calls — the phone's own, and
   VoIP apps like Zoom, Teams and Meet — play as voice communication, which Android leaves out on
-  purpose. A call is still recorded on speakerphone in Room mode. What playback capture could add
+  purpose. A call is still recorded on speakerphone. What playback capture could add
   is *media* another app plays, such as a recorded webinar — which was built, and then
   [declined](#not-capturing-what-the-phone-plays).
 - **iOS.** It would need ReplayKit and a paid developer account.
@@ -118,9 +118,11 @@ On the web side, one addition:
 
 - `AudioRecord` at 16 kHz, mono, 16-bit — already the format the service wants, so there is
   nothing to resample.
-- **Standard** mode keeps echo cancellation and noise suppression on, as the browser does.
-  **Room** mode turns them off and raises the level four times (`ROOM_GAIN`) ahead of a limiter,
-  the same as `lib/stt/mic-constraints.ts`, so the phone hears a room the way the page does.
+- Echo cancellation and noise suppression are off and the level is raised four times
+  (`ROOM_GAIN`) ahead of a limiter, the same as `lib/stt/mic-constraints.ts`, so the phone hears a
+  room the way the page does. This is the app's **Room** mode; since 4.0 the page always asks for
+  it (`micMode: "room"`), and **Standard**, which kept the processing on, is only reached by a
+  server from before 4.0 that still had the setting.
 - The level meter and the clipping warning are computed on each 100 ms frame and passed to the
   page, as the worklet does now.
 - The microphone check before a meeting stays in the page. It runs while the page is visible,
@@ -184,7 +186,7 @@ is the failure this feature exists to prevent:
   lets a microphone service start from the user's press on a notification's button; whether a press
   relayed from a watch counts the same depends on the watch's app, which is why the next two exist.
 - With no page, the settings come from the server: `POST /api/meetings/{id}/record` decides the
-  model, language, glossary, microphone mode and where to connect exactly as the recording page
+  model, language, glossary and where to connect exactly as the recording page
   would (`lib/recording/plan.ts`). The one thing it cannot do is ask about a GPU something else is
   using, so it records only — the audio is transcribed after the meeting — rather than take the card.
 - If Android refuses the start, or accepts it and hands over silence (`isClientSilenced`, checked two
@@ -263,8 +265,7 @@ what remained was narrow enough not to be worth six hundred lines, a screen-reco
 and a media-projection service type in an app that is installed as an APK.
 
 For a meeting somebody is *attending* on the phone, the answer is unchanged and written down in
-[usage](usage.md#recording-an-online-meeting-you-are-attending-on-a-phone): speakerphone, with the
-microphone in **Room** mode.
+[usage](usage.md#recording-an-online-meeting-you-are-attending-on-a-phone): speakerphone.
 
 The work is not lost — it is on the `android-phone-audio` branch and in closed pull request #283 —
 if a use for live media capture turns up later.
