@@ -91,6 +91,7 @@ export function MeetingTitle({
             if (e.key === "Escape") cancel();
           }}
           maxLength={200}
+          aria-label={t("Title")}
           autoFocus
           disabled={pending}
           className="input w-full text-xl font-semibold sm:w-auto sm:flex-1"

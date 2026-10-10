@@ -28,7 +28,7 @@ export function DeleteMeetingButton({
     const ok = await confirm({
       title,
       message: t("Move this meeting to the trash. You can restore it within 30 days."),
-      confirmLabel: t("Delete"),
+      confirmLabel: t("Move to Trash"),
       danger: true,
     });
     if (!ok) return;

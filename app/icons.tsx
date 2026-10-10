@@ -145,24 +145,6 @@ export const DotsIcon = (p: SVGProps<SVGSVGElement>) => (
 // https://tabler.io/icons). A meeting is a conversation; a series is where the meetings that
 // keep happening are kept together. The two bars and the ↻ they replace said neither — the ↻
 // said "repeats", which is a property of a series rather than what one is.
-export const MeetingsIcon = (p: SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    width="20"
-    height="20"
-    aria-hidden
-    {...p}
-  >
-    <path d="M21 14l-3 -3h-7a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1h9a1 1 0 0 1 1 1v10" />
-    <path d="M14 15v2a1 1 0 0 1 -1 1h-7l-3 3v-10a1 1 0 0 1 1 -1h2" />
-  </svg>
-);
-
 export const SeriesIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg
     viewBox="0 0 24 24"
