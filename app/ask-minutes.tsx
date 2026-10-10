@@ -211,7 +211,8 @@ export function AskMinutes({
                           {turn.answer.withoutMinutes > 0
                             ? t(", {n} without minutes not covered", { n: turn.answer.withoutMinutes })
                             : ""}
-                          .
+                          {/* The sentence's end, in the reader's language: "。" in Japanese. */}
+                          {t(".")}
                         </>
                       )}
                     </p>

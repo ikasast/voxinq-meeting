@@ -40,7 +40,10 @@ const W = JA
       misheard: "エンベリング",
       fixed: (text) => text.replace("エンベリング", "エンベディング"),
       writeAll: "まとめて作成",
-      suggest: "誤変換の候補を出す",
+      askTitle: "この議事録について質問する",
+      fixWording: "表記の修正",
+      suggest: "用語集から候補を出す",
+      glossary: "エンベディング、計測イベント",
       transcript: "発言",
       regenerate: "作り直す",
       upcoming: "予定",
@@ -60,7 +63,10 @@ const W = JA
       misheard: "in bedding",
       fixed: (text) => text.replace("in bedding", "embedding"),
       writeAll: "Write them all",
-      suggest: "Suggest fixes",
+      askTitle: "Ask about these minutes",
+      fixWording: "Fix wording",
+      suggest: "Suggest from the glossary",
+      glossary: "embedding, analytics events",
       transcript: "Transcript",
       regenerate: "Regenerate",
       upcoming: "Upcoming",
@@ -133,20 +139,21 @@ const SHOTS = {
     await page.route("**/api/ask", (route) =>
       route.fulfill({ json: { answer: W.answer, used: 1, omitted: 0, withoutMinutes: 0 } }),
     );
-    // A meeting outside a series: one in a series is asked about on the series page.
+    // The chat at the bottom right (v4), on a meeting outside a series: its own minutes.
     await page.goto(`${BASE}/demo-research-sync`, { waitUntil: "networkidle" });
-    const box = page.locator("section", { has: page.locator('input[maxlength="500"]') }).last();
+    await page.getByRole("button", { name: W.askTitle }).click();
+    const box = page.getByRole("dialog", { name: W.askTitle });
     await box.locator("input").fill(W.question);
     await box.locator("input").press("Enter");
     await box.getByText(W.answer.split("**")[1]).first().waitFor();
-    return padded(box);
+    return box;
   },
 
   async bulkMinutes(page) {
     await page.goto(`${BASE}/?list=1`, { waitUntil: "networkidle" });
     const bar = page
       .getByRole("button", { name: W.writeAll })
-      .locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
+      .locator("xpath=ancestor::div[contains(@class,'border-y')][1]");
     await bar.waitFor();
     // The bar and the cards under it, one of them marked No minutes: what the bar is about.
     const b = await bar.boundingBox();
@@ -163,17 +170,14 @@ const SHOTS = {
   },
 
   async series(page) {
-    // The series page: what it is for, who is in it, and its meetings in order.
+    // The series page (v4): its details as a table under the title, and its meetings as rows.
     await page.goto(`${BASE}/series/demo-series-sync`, { waitUntil: "networkidle" });
+    const paper = await page.locator("[data-paper]").first().boundingBox();
     const title = await page.locator("h1").first().boundingBox();
-    const settings = await page
-      .getByText(W.seriesGlossary)
-      .first()
-      .locator("xpath=ancestor::section[1]")
-      .boundingBox();
-    // Down to the first meeting of its timeline, under the settings card.
-    const bottom = settings.y + settings.height + 150;
-    return { clip: { x: settings.x - 16, y: title.y - 16, width: settings.width + 32, height: bottom - title.y + 16 } };
+    // Down to the second of its meetings.
+    const rows = page.locator("[data-paper] ul > li");
+    const last = await rows.nth(Math.min(1, (await rows.count()) - 1)).boundingBox();
+    return { clip: { x: paper.x - 16, y: title.y - 16, width: paper.width + 32, height: last.y + last.height - title.y + 32 } };
   },
 
   async schedule(page) {
@@ -182,8 +186,13 @@ const SHOTS = {
     // In the page, not the sidebar, which lists the same meeting under Upcoming.
     const booked = page.locator("main").getByText(W.booked).first();
     await booked.waitFor();
-    const calendar = page.locator("div.rounded-lg", { has: page.locator("table, [role=grid]") }).first();
-    const c = await calendar.boundingBox();
+    // Folded behind its month (v4): opened, as it is when a day is picked.
+    const fold = page.locator("main details").first();
+    await fold.evaluate((d) => {
+      d.open = true;
+    });
+    await page.waitForTimeout(200);
+    const c = await fold.boundingBox();
     const card = await booked.locator("xpath=ancestor::li[1]").boundingBox();
     return { clip: { x: c.x - 16, y: c.y - 10, width: c.width + 32, height: card.y + card.height - c.y + 20 } };
   },
@@ -209,10 +218,19 @@ const SHOTS = {
         json: { suggestions: [{ transcriptId: line.id, before: line.text, after: W.fixed(line.text) }], checked: 3 },
       }),
     );
+    // The glossary has to have something in it for its button to be offered.
+    await page.request.patch(`${BASE}/api/settings`, { data: { sttGlossary: W.glossary } });
     await page.goto(`${BASE}/demo-research-sync`, { waitUntil: "networkidle" });
-    await (await transcriptMenuItem(page, W.suggest)).click();
-    await page.getByText(W.fixed(line.text)).first().waitFor();
-    return transcriptLines(page);
+    const { box } = await transcriptBox(page);
+    await box.getByRole("button", { name: W.fixWording, exact: true }).click();
+    await box.getByRole("button", { name: W.suggest }).click();
+    await box.locator("ins").first().waitFor();
+    // From the transcript's heading down to the end of Fix wording's list of changes.
+    await page.mouse.move(1, 1);
+    const b = await box.boundingBox();
+    const list = await box.locator("ul").first().boundingBox();
+    const bottom = list.y + list.height + 56;
+    return { clip: { x: b.x, y: b.y, width: b.width, height: bottom - b.y } };
   },
 
   async translation(page) {
@@ -237,11 +255,10 @@ const SHOTS = {
     // Shown with Anthropic chosen: the choice, and the warning that meetings leave the machine.
     await settingsWith(page, { llmProvider: "anthropic" });
     await page.goto(`${BASE}/settings?tab=llm`, { waitUntil: "networkidle" });
-    const card = page.locator("section.card", { has: page.locator("#llmProvider") }).first();
-    await card.waitFor();
-    const c = await card.boundingBox();
-    const warning = await card.getByText("api.anthropic.com").first().locator("xpath=..").boundingBox();
-    return { clip: { x: c.x, y: c.y, width: c.width, height: warning.y + warning.height - c.y + 10 } };
+    // The provider's row of the settings table (v4), with the warning under it.
+    const row = page.locator("#llmProvider").locator("xpath=ancestor::div[contains(@class,'border-b')][1]");
+    await row.getByText("api.anthropic.com").first().waitFor();
+    return padded(row, 12);
   },
 
   async externalShare(page) {
@@ -258,9 +275,11 @@ const SHOTS = {
       }),
     );
     await page.goto(`${BASE}/settings?tab=remote`, { waitUntil: "networkidle" });
-    const card = page.locator("section.card", { hasText: "voxinq.example.ts.net" }).first();
-    await card.waitFor();
-    return card;
+    const section = page.locator("section", { hasText: "voxinq.example.ts.net" }).last();
+    await section.waitFor();
+    // Close at the top: the page's own heading sits right above it.
+    const b = await section.boundingBox();
+    return { clip: { x: b.x - 16, y: b.y - 4, width: b.width + 32, height: b.height + 20 } };
   },
 };
 

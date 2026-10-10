@@ -192,7 +192,7 @@ export function SpellingFix({
             setFind(e.target.value);
             edited();
           }}
-          placeholder="ネクサス"
+          placeholder={t("e.g. Voxing")}
           aria-label={t("Find")}
           disabled={busy !== null}
         />

@@ -222,6 +222,8 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "e.g. Voxing": "例: ボクシンク",
+  ".": "。",
   "Downloading… {percent}%": "ダウンロード中… {percent}%",
   "Confirm the update on the screen that opens.": "開いた画面で更新を確定してください。",
   "Allow Voxinq to install apps, then come back.": "Voxinq にアプリのインストールを許可して、この画面に戻ってください。",

@@ -95,7 +95,9 @@ export function MoodStrip({
   // Nothing judged yet: no strip, rather than a row of grey bars that looks like a finding.
   if (!lines.some((l) => readEmotion(l.emotion))) return null;
   const buckets = moodBuckets(points);
-  if (buckets.length === 0) return null;
+  // Nothing stood out anywhere — a short or even meeting: no strip, rather than a row of grey
+  // bars that reads as a finding and says only how busy each minute was.
+  if (!buckets.some((b) => b.standout)) return null;
   const busiest = Math.max(1, ...buckets.map((b) => b.count));
 
   const jump = (id: string) => {
