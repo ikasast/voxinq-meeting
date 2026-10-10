@@ -28,11 +28,14 @@ import { PROPS_GRID, Prop } from "@/app/[id]/property";
 export default function NewMeetingForm({
   external = false,
   date,
+  series: fromSeries,
   titleFormat,
 }: {
   external?: boolean;
   /** "2026-09-18" from the calendar. Books the meeting on that day rather than recording now. */
   date?: string;
+  /** From a series' "Next meeting": filled in, and shown for a moment so a wrong one is seen. */
+  series?: string;
   /** Which shape the default title takes — this reader's setting, resolved on the server. */
   titleFormat?: string;
 }) {
@@ -46,7 +49,7 @@ export default function NewMeetingForm({
   const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
   const [title, setTitle] = useState(dayTitle);
   const [description, setDescription] = useState("");
-  const [series, setSeries] = useState("");
+  const [series, setSeries] = useState(fromSeries ?? "");
   // Empty means "record it now", which is how every meeting was made until this existed.
   // A day picked in the calendar fills it in: arriving here from "+ Add a meeting on this day"
   // and finding the date blank would make the click look like it did nothing. The hour is a
@@ -163,7 +166,9 @@ export default function NewMeetingForm({
               maxLength={60}
               disabled={submitting}
               aria-label={t("Series")}
-              className="input"
+              // Arrived with a series: it blinks a few times, because filing the meeting under
+              // the wrong one is easy to do from the wrong page and hard to notice afterwards.
+              className={`input ${fromSeries ? "flash-pick" : ""}`}
             />
             <datalist id="series-options">
               {seriesOptions.map((s) => (

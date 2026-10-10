@@ -91,7 +91,7 @@ describe("the calendar over the list", () => {
 
   it("carries the picked day into the new-meeting form", () => {
     expect(src).toContain("href={`/new?date=${activeDate}`}");
-    expect(newPage).toContain("searchParams: Promise<{ date?: string }>");
+    expect(newPage).toContain("searchParams: Promise<{ date?: string; series?: string }>");
     expect(form).toContain("`${date}T09:00`");
   });
 

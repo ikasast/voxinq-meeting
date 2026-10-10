@@ -1,3 +1,4 @@
+import { extensionEnabled } from "@/lib/extensions-store";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
@@ -89,6 +90,7 @@ export default async function MeetingPage({
     meeting.scheduledAt !== null && meeting.endedAt === null && meeting.transcripts.length === 0;
   const tagNames = meeting.tags.map((t) => t.name);
   const seriesName = meeting.series?.name ?? null;
+  const seriesOn = await extensionEnabled("series");
   const seriesId = meeting.series?.id ?? null;
 
   const t = await serverT();
@@ -137,9 +139,7 @@ export default async function MeetingPage({
             <MeetingMenu
               id={meeting.id}
               title={meeting.title}
-              description={meeting.description}
-              tags={tagNames}
-              series={seriesName}
+              series={seriesOn ? seriesName : null}
               archived={meeting.archivedAt !== null}
               pinned={meeting.pinnedAt !== null}
             />
