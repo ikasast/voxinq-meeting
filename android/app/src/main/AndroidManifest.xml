@@ -19,6 +19,9 @@
     <!-- To set the meeting notices again: a reboot forgets every alarm the phone held. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Updating itself from the page's offer (Updater). Android still asks the person, once to
+         allow it and again for each install. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- No backup: the app holds the session cookie for the user's server. -->
     <application
@@ -93,5 +96,10 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- Where Android reports on an update the app installed (Updater). -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false" />
+
     </application>
 </manifest>

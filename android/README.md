@@ -64,10 +64,16 @@ adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
 **Updates install over the app**, keeping the server address and anything not yet sent — as long
-as the APK is signed with the same key. To be told when there is one, point an updater such as
-[Obtainium](https://github.com/ImranR98/Obtainium) at this repository's releases and let it watch.
-There is no automatic silent update outside the Play Store: an updater notices the new version, and
-the install is still a tap.
+as the APK is signed with the same key.
+
+**The app offers its own updates** (from 4.0.0-beta.3). When the server it talks to runs a newer
+version, the page shows **Update** at the top. The app downloads that version's APK from its
+release and opens Android's installer; Android asks once whether Voxinq may install apps, and then
+to confirm each update. It follows the server, not GitHub's newest: the app matches what it talks
+to. There is no silent update outside the Play Store, so the confirmation is always a tap.
+
+An app older than that shows a link to the release instead. [Obtainium](https://github.com/ImranR98/Obtainium)
+still works too, if you prefer it watching the releases.
 
 **A debug build cannot be updated into a signed one** — different key, so Android refuses. Uninstall
 the debug app once (`adb uninstall io.github.ikasast.voxinq`), then install the signed APK.
