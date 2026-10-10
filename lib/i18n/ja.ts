@@ -222,6 +222,25 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Who can use this server, and how they sign in.": "このサーバーを使える人と、そのサインイン方法。",
+  "Accounts are disabled, never deleted: they hold meetings.": "アカウントは無効にするだけで、削除はしません（会議を持っているため）。",
+  "What they sign in with. Nothing is sent to it.": "サインインに使うアドレス。メールは送られません。",
+  "Tailnet login": "tailnet のログイン",
+  "Signs them in from inside the tailnet, with no password.": "tailnet の中からは、パスワードなしでサインインできます。",
+  "Meetings that keep happening. What they share is set once, on the series.":
+    "繰り返し開く会議。共通の事項はシリーズで一度だけ設定します。",
+  "each meeting's minutes are written with the previous one's": "議事録は前回の議事録をふまえて書かれます",
+  "Copied onto each new meeting in the series, so speaker separation knows who to expect.":
+    "シリーズの新しい会議に写され、話者分離で誰が話すかの手がかりになります。",
+  "Read with each meeting's minutes. Only you see it, but it is not encrypted.":
+    "各会議の議事録づくりで読まれます。見えるのはあなただけですが、暗号化はされません。",
+  "Empty: the global setting.": "空欄なら全体の設定を使います。",
+  "Added to the global glossary.": "全体の用語集に追加されます。",
+  "Edit the regular members": "常任メンバーを編集",
+  ", ": "、",
+  "Edit the shared background": "共通の背景を編集",
+  "Edit the minutes format": "議事録の書式を編集",
+  "Edit the glossary": "用語集を編集",
   "New minutes use this; {action} can pick another. A series with its own keeps that.":
     "新しい議事録はこれを使います。「{action}」では別の書式も選べます。独自の書式を持つシリーズはそちらを使います。",
   "New work uses this. Re-transcribe can pick another for one run.":
@@ -520,16 +539,9 @@ export const ja: Record<string, string> = {
   "Add someone": "メンバーを追加",
   "Loading…": "読み込み中…",
   "Display name (optional)": "表示名（任意）",
-  "Tailnet login (optional)": "tailnet のログイン（任意）",
   "An administrator": "管理者にする",
   "Issue a one-time link so they can set their own password":
     "本人がパスワードを設定できるワンタイムリンクを発行します",
-  "What they type to sign in. Nothing is sent to it — hand them the link below instead.":
-    "本人がログインに入力するアドレスです。ここには何も送られません — 下のリンクを手渡してください。",
-  "Accounts are disabled, never deleted. An account holds meetings, and deleting one would either destroy them or hand them to somebody who was never in the room.":
-    "アカウントは無効化するもので、削除しません。アカウントは会議を保持しているので、削除は「消す」か「その場にいなかった人に渡す」のどちらかにしかなりません。",
-  "Fill this in and they are signed in automatically from inside the tailnet, with no password at all. Leave it empty and give them a reset link instead.":
-    "ここを埋めると tailnet の内側では自動でログインし、パスワードは不要になります。空欄のままなら、代わりにリセットリンクを渡してください。",
 
   // ---- Settings ----
   "(models, glossary, API keys — off by default so a restore does not disturb this machine’s configuration)":
@@ -984,8 +996,6 @@ export const ja: Record<string, string> = {
   "Sign out everywhere": "すべての端末からログアウト",
 
   // ---- Managing people ----
-  "Who can use this server, and how they get in. Not what any of them have recorded — running the machine is a different thing from reading what is on it.":
-    "このサーバーを使えるのは誰か、どうやって入るか。誰が何を録音したかは含みません — 機械を運用することと、その中身を読むことは別だからです。",
 
   OK: "OK",
 
@@ -1120,23 +1130,11 @@ export const ja: Record<string, string> = {
   "Failed to restore": "復元に失敗しました",
 
   // ---- A series ----
-  "1 meeting in this series. When minutes are generated, the previous meeting’s minutes are passed to the LLM as context.":
-    "このシリーズには 1 件の会議があります。議事録を生成するとき、前回の議事録が文脈として LLM に渡されます。",
-  "{n} meetings in this series. When minutes are generated, the previous meeting’s minutes are passed to the LLM as context.":
-    "このシリーズには {n} 件の会議があります。議事録を生成するとき、前回の議事録が文脈として LLM に渡されます。",
-  "No minutes yet ({n}).": "議事録はまだありません（{n}）。",
   "No meetings in this series yet.": "このシリーズにはまだ会議がありません。",
-  "Series defaults": "シリーズの既定値",
-  "Apply to every meeting in this series, overriding the global Settings.":
-    "このシリーズのすべての会議に適用され、全体の設定より優先されます。",
   "Series name": "シリーズ名",
-  "Minutes format (empty = use the global setting)": "議事録の形式（空欄なら全体の設定を使用）",
   "…heading structure the minutes must follow for this series":
     "…このシリーズの議事録が従うべき見出し構成",
-  "Transcription glossary (appended to the global glossary)":
-    "文字起こしの用語集（全体の用語集に追加されます）",
   "Terms and proper nouns that come up in this series": "このシリーズで出てくる用語や固有名詞",
-  "Transcription glossary": "文字起こしの用語集",
   "Global setting": "全体の設定",
 
   // ---- Asking about the minutes ----
@@ -1256,8 +1254,6 @@ export const ja: Record<string, string> = {
   "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.":
     "探す語が必要です。「設定 → 文字起こし」の用語、またはこの会議が属するシリーズに登録してください。",
   // ---- The series list, and what a series holds in common ----
-  "A series is a meeting that keeps happening. What every instance of it has in common — the background, the regular members, the minutes format, the terms — is set once on its own page and applied to each meeting filed under it.":
-    "シリーズとは、繰り返し開かれる会議のことです。毎回共通する事項 — 背景・常任メンバー・議事録の形式・用語 — はシリーズのページで一度だけ設定し、そのシリーズに入れた各会議に適用されます。",
   "1 meeting": "会議 1件",
   "{n} meetings": "会議 {n}件",
   "1 member": "メンバー 1人",
@@ -1266,11 +1262,7 @@ export const ja: Record<string, string> = {
   "Shared background": "共通の背景",
   "What every meeting in this series has in common: what it is for, who the parties are, what was settled long ago.":
     "このシリーズのどの会議にも共通すること: 何のための会議か、関係者は誰か、以前から決まっていること。",
-  "Passed to the LLM alongside each meeting's own agenda when minutes are written, and read for proper nouns when the transcript is checked against the glossary.":
-    "議事録を作るときに、各会議自身の議題と並べて LLM に渡されます。発言を用語集と突き合わせるときにも固有名詞として読まれます。",
   "Regular members": "常任メンバー",
-  "Copied onto each new meeting filed under this series, so diarization knows how many voices to expect and enrolled voiceprints name them. Who was actually there is still edited per meeting.":
-    "このシリーズに入れた新しい会議へ複写されます。話者分離が想定する人数になり、登録済みの声紋があれば名前も付きます。実際に誰がいたかは会議ごとに直せます。",
 
   // ---- A booked meeting whose time has come ----
   "It is time for this meeting.": "この会議の時刻になりました。",
@@ -1344,14 +1336,12 @@ export const ja: Record<string, string> = {
   "New series": "新しいシリーズ",
   "Create": "作成",
   "Could not create the series.": "シリーズを作成できませんでした。",
-  "Create one with New series, or by naming it on a meeting under Purpose & agenda.": "「新しいシリーズ」から作るか、会議の「目的と議題」でシリーズ名を入れると作られます。",
   "No series yet. Create one with New series, or by naming it on a meeting under Purpose & agenda.": "シリーズはまだありません。「新しいシリーズ」から作るか、会議の「目的と議題」でシリーズ名を入れると作られます。",
   "Delete this series": "このシリーズを削除",
   "Delete this series? It has no meetings, so nothing else is removed.": "このシリーズを削除しますか？会議が1件も無いので、ほかに消えるものはありません。",
   "Enter a name for the series.": "シリーズの名前を入力してください。",
   "A series with that name already exists.": "その名前のシリーズは既にあります。",
   "Only a series with no meetings in it can be deleted.": "会議が1件も無いシリーズだけ削除できます。",
-  "Only you can see this, but it is not encrypted. Anything confidential belongs on the meeting instead.": "あなた以外には見えませんが、暗号化はされません。機密は会議の側に書いてください。",
   "Add {name} to this series": "{name} をこのシリーズに追加",
   "Generating minutes in the background. They will appear automatically when done…": "バックグラウンドで議事録を作成しています。終わると自動で表示されます…",
   "Applies to this run only — saved settings are unchanged.": "今回だけに適用されます。保存済みの設定は変わりません。",
@@ -1408,7 +1398,6 @@ export const ja: Record<string, string> = {
   "You cannot disable your own account": "自分のアカウントは無効にできません",
   "Enable": "有効にする",
   "Disable": "無効にする",
-  "+ Add someone": "＋ 人を追加",
   "match: title": "一致: タイトル",
   "match: purpose": "一致: 目的",
   "match: transcript": "一致: 発言",

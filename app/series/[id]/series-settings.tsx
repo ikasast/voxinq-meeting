@@ -4,9 +4,18 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useT } from "../../locale-provider";
 import { useExtensions } from "../../extensions-provider";
+import { PencilIcon } from "../../icons";
+import { PROP_BUTTON, PROPS_GRID, PROPS_WIDE, Prop } from "../../[id]/property";
 
-// Per-series defaults: rename the series and set a minutes format / STT glossary that
-// override the global settings for every meeting in the series.
+/** Which field the editor opens on. */
+type Focus = "name" | "members" | "description" | "format" | "glossary";
+
+// What every meeting in a series shares, as rows of the series' details (v4) — the same table a
+// meeting's page has under its title: the regular members, the shared background, the minutes
+// format and the glossary. Each row's pencil opens one editor for all of them, on that row's
+// field, in place of the rows — the series' name among them.
+//
+// They apply to every meeting filed under the series, over the global Settings.
 export function SeriesSettings({
   id,
   name,
@@ -34,7 +43,7 @@ export function SeriesSettings({
 }) {
   const t = useT();
   const router = useRouter();
-  const [editing, setEditing] = useState(startEditing);
+  const [editing, setEditing] = useState<Focus | null>(startEditing ? "description" : null);
   const [draftName, setDraftName] = useState(name);
   const [draftFormat, setDraftFormat] = useState(summaryFormat ?? "");
   // A series' own format is one of the formats Minutes formats adds; switched off, it is kept
@@ -61,6 +70,17 @@ export function SeriesSettings({
   // a phone it stayed on screen — see ParticipantsCard.)
   const suggestions = knownNames.filter((n) => !draftMembers.includes(n));
 
+  const cancel = () => {
+    setDraftName(name);
+    setDraftFormat(summaryFormat ?? "");
+    setDraftGlossary(sttGlossary ?? "");
+    setDraftDescription(description ?? "");
+    setDraftMembers(members);
+    setMemberInput("");
+    setError(null);
+    setEditing(null);
+  };
+
   const save = async () => {
     setPending(true);
     setError(null);
@@ -80,7 +100,7 @@ export function SeriesSettings({
         const d = await res.json().catch(() => null);
         throw new Error(d?.error ?? `HTTP ${res.status}`);
       }
-      setEditing(false);
+      setEditing(null);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("Failed to save"));
@@ -89,71 +109,32 @@ export function SeriesSettings({
     }
   };
 
-  return (
-    <section className="card p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="section-title text-lg font-semibold text-[var(--text-strong)]">
-          {t("Series defaults")}
-        </h2>
-        {!editing && !readOnly ? (
-          <button type="button" onClick={() => setEditing(true)} className="btn-outline">
-            {t("Edit")}
-          </button>
-        ) : null}
-      </div>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {t("Apply to every meeting in this series, overriding the global Settings.")}
-      </p>
+  const pencil = (focus: Focus, label: string) =>
+    readOnly ? undefined : (
+      <button type="button" onClick={() => setEditing(focus)} title={label} aria-label={label} className={PROP_BUTTON}>
+        <PencilIcon className="h-3.5 w-3.5" />
+      </button>
+    );
 
-      {editing ? (
-        <div className="mt-3 space-y-3">
-          <div>
-            <label htmlFor="series-name" className="label">
-              {t("Series name")}
-            </label>
+  if (editing) {
+    return (
+      <div className={`${PROPS_WIDE} space-y-3 border-y border-[var(--border)] py-3`}>
+        <div className={PROPS_GRID}>
+          <Prop label={t("Series name")} fill>
             <input
-              id="series-name"
               type="text"
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
               maxLength={60}
+              autoFocus={editing === "name"}
               disabled={pending}
-              className="input mt-1 max-w-sm"
+              aria-label={t("Series name")}
+              className="input"
             />
-          </div>
-          <div>
-            <label htmlFor="series-description" className="label">
-              {t("Shared background")}
-            </label>
-            <textarea
-              id="series-description"
-              value={draftDescription}
-              onChange={(e) => setDraftDescription(e.target.value)}
-              rows={5}
-              maxLength={4000}
-              disabled={pending}
-              placeholder={t(
-                "What every meeting in this series has in common: what it is for, who the parties are, what was settled long ago.",
-              )}
-              className="input mt-1 resize-y"
-            />
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t(
-                "Passed to the LLM alongside each meeting's own agenda when minutes are written, and read for proper nouns when the transcript is checked against the glossary.",
-              )}
-            </p>
-            {/* A series is one person's now, so nobody else reads this — but unlike a transcript
-                it is not encrypted, and that is worth saying where it is typed. */}
-            <p className="mt-1 text-xs text-[var(--warning)]">
-              {t("Only you can see this, but it is not encrypted. Anything confidential belongs on the meeting instead.")}
-            </p>
-          </div>
-          <div>
-            <label htmlFor="series-member" className="label">
-              {t("Regular members")}
-            </label>
+          </Prop>
+          <Prop label={t("Regular members")} fill>
             {draftMembers.length > 0 ? (
-              <ul className="mt-1 flex flex-wrap gap-1.5">
+              <ul className="mb-1.5 flex flex-wrap gap-1.5">
                 {draftMembers.map((m) => (
                   <li
                     key={m}
@@ -174,7 +155,7 @@ export function SeriesSettings({
               </ul>
             ) : null}
             {suggestions.length > 0 ? (
-              <div className="mt-1.5 flex flex-wrap gap-1">
+              <div className="mb-1.5 flex flex-wrap gap-1">
                 {suggestions.map((n) => (
                   <button
                     key={n}
@@ -189,128 +170,111 @@ export function SeriesSettings({
                 ))}
               </div>
             ) : null}
-            <div className="mt-1 flex gap-1">
+            <div className="flex gap-1">
               <input
-                id="series-member"
                 value={memberInput}
                 onChange={(e) => setMemberInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key !== "Enter") return;
+                  if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
                   e.preventDefault();
                   addMember();
                 }}
+                autoFocus={editing === "members"}
                 disabled={pending}
                 placeholder={t("Add a name")}
+                aria-label={t("Add a name")}
                 className="input min-w-0 flex-1 !py-1 text-sm"
               />
-              <button
-                type="button"
-                onClick={addMember}
-                disabled={pending}
-                className="btn-outline !px-2 !py-1 text-xs"
-              >
+              <button type="button" onClick={addMember} disabled={pending} className="btn-outline !px-2 !py-1 text-xs">
                 {t("Add")}
               </button>
             </div>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t(
-                "Copied onto each new meeting filed under this series, so diarization knows how many voices to expect and enrolled voiceprints name them. Who was actually there is still edited per meeting.",
-              )}
+              {t("Copied onto each new meeting in the series, so speaker separation knows who to expect.")}
             </p>
-          </div>
-          {formats ? (
-          <div>
-            <label htmlFor="series-format" className="label">
-              {t("Minutes format (empty = use the global setting)")}
-            </label>
+          </Prop>
+          <Prop label={t("Shared background")} fill>
             <textarea
-              id="series-format"
-              value={draftFormat}
-              onChange={(e) => setDraftFormat(e.target.value)}
-              rows={6}
+              value={draftDescription}
+              onChange={(e) => setDraftDescription(e.target.value)}
+              rows={5}
+              maxLength={4000}
+              autoFocus={editing === "description"}
               disabled={pending}
-              placeholder={
-                "## Summary\n" +
-                t("…heading structure the minutes must follow for this series")
-              }
-              className="input mt-1 resize-y font-mono text-xs"
+              aria-label={t("Shared background")}
+              placeholder={t(
+                "What every meeting in this series has in common: what it is for, who the parties are, what was settled long ago.",
+              )}
+              className="input resize-y"
             />
-          </div>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              {t("Read with each meeting's minutes. Only you see it, but it is not encrypted.")}
+            </p>
+          </Prop>
+          {formats ? (
+            <Prop label={t("Minutes format")} fill>
+              <textarea
+                value={draftFormat}
+                onChange={(e) => setDraftFormat(e.target.value)}
+                rows={6}
+                autoFocus={editing === "format"}
+                disabled={pending}
+                aria-label={t("Minutes format")}
+                placeholder={"## Summary\n" + t("…heading structure the minutes must follow for this series")}
+                className="input resize-y font-mono text-xs"
+              />
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("Empty: the global setting.")}</p>
+            </Prop>
           ) : null}
-          <div>
-            <label htmlFor="series-glossary" className="label">
-              {t("Transcription glossary (appended to the global glossary)")}
-            </label>
+          <Prop label={t("Glossary")} fill>
             <textarea
-              id="series-glossary"
               value={draftGlossary}
               onChange={(e) => setDraftGlossary(e.target.value)}
               rows={2}
+              autoFocus={editing === "glossary"}
               disabled={pending}
+              aria-label={t("Glossary")}
               placeholder={t("Terms and proper nouns that come up in this series")}
-              className="input mt-1 resize-y"
+              className="input resize-y"
             />
-          </div>
-          {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setDraftName(name);
-                setDraftFormat(summaryFormat ?? "");
-                setDraftGlossary(sttGlossary ?? "");
-                setDraftDescription(description ?? "");
-                setDraftMembers(members);
-                setMemberInput("");
-                setError(null);
-                setEditing(false);
-              }}
-              disabled={pending}
-              className="btn-outline"
-            >
-              {t("Cancel")}
-            </button>
-            <button type="button" onClick={save} disabled={pending} className="btn-ink">
-              {pending ? t("Saving…") : t("Save")}
-            </button>
-          </div>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{t("Added to the global glossary.")}</p>
+          </Prop>
         </div>
-      ) : (
-        <dl className="mt-3 space-y-2 text-sm">
-          <div>
-            <dt className="text-xs text-[var(--text-muted)]">{t("Shared background")}</dt>
-            <dd className="whitespace-pre-wrap text-[var(--text-secondary)]">
-              {description?.trim() || t("Not set")}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-[var(--text-muted)]">{t("Regular members")}</dt>
-            <dd className="text-[var(--text-secondary)]">
-              {members.length > 0 ? members.join(" / ") : t("Not set")}
-            </dd>
-          </div>
-          {formats ? (
-          <div>
-            <dt className="text-xs text-[var(--text-muted)]">{t("Minutes format")}</dt>
-            <dd className="text-[var(--text-secondary)]">
-              {summaryFormat ? (
-                <pre className="mt-1 whitespace-pre-wrap rounded-md border border-[var(--border)] bg-[var(--elevated)] p-2 font-mono text-xs">
-                  {summaryFormat}
-                </pre>
-              ) : (
-                t("Global setting")
-              )}
-            </dd>
-          </div>
-          ) : null}
-          <div>
-            <dt className="text-xs text-[var(--text-muted)]">
-              {t("Transcription glossary")}
-            </dt>
-            <dd className="text-[var(--text-secondary)]">{sttGlossary || t("Global setting")}</dd>
-          </div>
-        </dl>
-      )}
-    </section>
+        {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={cancel} disabled={pending} className="btn-outline">
+            {t("Cancel")}
+          </button>
+          <button type="button" onClick={() => void save()} disabled={pending || !draftName.trim()} className="btn-ink">
+            {pending ? t("Saving…") : t("Save")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const notSet = <span className="text-[var(--text-muted)]">{t("Not set")}</span>;
+  return (
+    <>
+      <Prop label={t("Regular members")} action={pencil("members", t("Edit the regular members"))}>
+        {members.length > 0 ? members.join(t(", ")) : notSet}
+      </Prop>
+      <Prop label={t("Shared background")} action={pencil("description", t("Edit the shared background"))}>
+        {description?.trim() ? <span className="line-clamp-3 whitespace-pre-wrap">{description.trim()}</span> : notSet}
+      </Prop>
+      {formats ? (
+        <Prop label={t("Minutes format")} action={pencil("format", t("Edit the minutes format"))}>
+          {summaryFormat?.trim() ? (
+            <span className="line-clamp-2 whitespace-pre-wrap font-mono text-xs">{summaryFormat.trim()}</span>
+          ) : (
+            <span className="text-[var(--text-muted)]">{t("Global setting")}</span>
+          )}
+        </Prop>
+      ) : null}
+      <Prop label={t("Glossary")} action={pencil("glossary", t("Edit the glossary"))}>
+        {sttGlossary?.trim() || <span className="text-[var(--text-muted)]">{t("Global setting")}</span>}
+      </Prop>
+    </>
   );
 }
+

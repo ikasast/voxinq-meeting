@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useConfirmEx } from "../../confirm-dialog";
 import { useT } from "../../locale-provider";
+import { ICON_BUTTON } from "../../drop-menu";
+import { TrashIcon } from "../../icons";
 
 // Offered only while nothing is filed under the series. See the DELETE route for why a series
 // with meetings in it — even trashed ones — is not deletable at all.
@@ -32,11 +34,17 @@ export function DeleteSeriesButton({ id, name }: { id: string; name: string }) {
   };
 
   return (
-    <div className="flex items-center justify-end gap-2">
+    <span className="inline-flex items-center gap-2">
       {error ? <span className="text-xs text-[var(--error)]">{error}</span> : null}
-      <button type="button" onClick={() => void remove()} className="btn-outline text-xs text-[var(--error)]">
-        {t("Delete this series")}
+      <button
+        type="button"
+        onClick={() => void remove()}
+        title={t("Delete this series")}
+        aria-label={t("Delete this series")}
+        className={`${ICON_BUTTON} hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)] hover:!text-[var(--error)]`}
+      >
+        <TrashIcon className="h-4 w-4" />
       </button>
-    </div>
+    </span>
   );
 }

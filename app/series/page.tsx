@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { extensionEnabled } from "@/lib/extensions-store";
-import { BackLink } from "@/app/back-link";
 import { currentUser } from "@/lib/auth/session";
 import { formatDateTimeIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
@@ -60,45 +59,30 @@ export default async function SeriesListPage() {
     });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div data-paper className="mx-auto max-w-[50rem] space-y-4 pt-2 lg:pt-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
           <SeriesIcon className="h-5 w-5" />
           {t("Series")}
         </h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <NewSeriesButton />
-          <BackLink href="/" className="btn-outline">
-            {t("Back to list")}
-          </BackLink>
-        </div>
+        <NewSeriesButton />
       </div>
       <p className="text-sm text-[var(--text-muted)]">
-        {t(
-          "A series is a meeting that keeps happening. What every instance of it has in common — the background, the regular members, the minutes format, the terms — is set once on its own page and applied to each meeting filed under it.",
-        )}
+        {t("Meetings that keep happening. What they share is set once, on the series.")}
       </p>
 
-      {series.length > 0 ? (
-        <p className="text-xs text-[var(--text-muted)]">
-          {t("Create one with New series, or by naming it on a meeting under Purpose & agenda.")}
-        </p>
-      ) : null}
-
       {series.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
+        <p className="border-y border-[var(--border)] py-6 text-sm text-[var(--text-muted)]">
           {t("No series yet. Create one with New series, or by naming it on a meeting under Purpose & agenda.")}
         </p>
       ) : (
-        <ul className="space-y-2">
+        // Rows between hairlines, like the meeting list (v4), rather than a card each.
+        <ul className="border-t border-[var(--border)]">
           {series.map((s) => (
-            <li key={s.id}>
-              <Link
-                href={`/series/${s.id}`}
-                className="card flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-4 hover:border-[var(--accent)]"
-              >
+            <li key={s.id} className="border-b border-[var(--border)]">
+              <Link href={`/series/${s.id}`} className="flex items-baseline gap-3 px-2 py-3 hover:bg-[var(--panel)]">
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 font-medium text-[var(--text-strong)]">
+                  <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--text-strong)]">
                     <SeriesIcon className="h-4 w-4 shrink-0 text-[var(--accent-sub)]" />
                     <span className="truncate">{s.name}</span>
                   </span>
@@ -108,7 +92,7 @@ export default async function SeriesListPage() {
                     </span>
                   ) : null}
                 </span>
-                <span className="shrink-0 text-xs text-[var(--text-muted)]">
+                <span className="shrink-0 text-right text-xs tabular-nums text-[var(--text-muted)]">
                   {t(s._count.meetings === 1 ? "1 meeting" : "{n} meetings", {
                     n: s._count.meetings,
                   })}
@@ -117,11 +101,11 @@ export default async function SeriesListPage() {
                         n: s._count.members,
                       })}`
                     : ""}
-                  {s.meetings[0]
-                    ? ` · ${t("last met {when}", {
-                        when: formatDateTimeIn(locale, s.meetings[0].startedAt),
-                      })}`
-                    : ""}
+                  {s.meetings[0] ? (
+                    <span className="block">
+                      {t("last met {when}", { when: formatDateTimeIn(locale, s.meetings[0].startedAt) })}
+                    </span>
+                  ) : null}
                 </span>
               </Link>
             </li>
