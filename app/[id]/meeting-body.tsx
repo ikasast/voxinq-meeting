@@ -102,7 +102,7 @@ export function MeetingBody({
         <div className="mx-auto w-full max-w-[50rem] space-y-6">
           {header}
           {/* A phone: the two as tabs. */}
-          <div role="tablist" className="flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-1 lg:hidden">
+          <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1 lg:hidden">
             {(["minutes", "transcript"] as const).map((k) => (
               <button
                 key={k}
@@ -110,9 +110,9 @@ export function MeetingBody({
                 role="tab"
                 aria-selected={tab === k}
                 onClick={() => setTab(k)}
-                className={`flex-1 rounded-full px-3 py-1.5 text-sm font-medium ${
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium ${
                   tab === k
-                    ? "bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
+                    ? "bg-[var(--surface)] text-[var(--text-strong)] shadow-sm"
                     : "text-[var(--text-secondary)]"
                 }`}
               >

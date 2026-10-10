@@ -20,6 +20,8 @@ import { Sidebar } from "./sidebar";
 import { sidebarMeetings } from "./sidebar-meetings";
 import { DropToTranscribe } from "./drop-to-transcribe";
 import { LockedBanner } from "./locked-banner";
+import { ExternalNotice } from "./external-notice";
+import { ServiceAlert } from "./health-status";
 import { InstallApp } from "./install-app";
 import { version as appVersion } from "../package.json";
 import { isExternalRequest } from "@/lib/is-tailnet";
@@ -170,6 +172,10 @@ export default async function RootLayout({
                 {/* Below the lock and above the page: a meeting starting is worth interrupting
                     for, but not worth interrupting an account that cannot read anything yet. */}
                 {locked || !extensions.schedule ? null : <DueMeetingAlert external={external} />}
+                {/* Outside the private network, say what can be done from here; anywhere, say
+                    when a service is not answering — and nothing at all while they are. */}
+                {external ? <ExternalNotice /> : null}
+                {locked ? null : <ServiceAlert showStt={!external} />}
                 <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 lg:px-8">{children}</main>
               </div>
               {/* A recording dropped anywhere on the page becomes a meeting (drop-to-transcribe.tsx). */}

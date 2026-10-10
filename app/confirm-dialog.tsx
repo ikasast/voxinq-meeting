@@ -126,7 +126,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => finish(true)}
                 className={
                   opts.danger
-                    ? "inline-flex items-center rounded-full bg-[var(--error)] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                    ? "btn-danger"
                     : "btn-ink"
                 }
               >

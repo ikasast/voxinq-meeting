@@ -1,5 +1,6 @@
 "use client";
 
+import { NotesIcon, PeopleIcon } from "../../icons";
 import { useEffect, useState } from "react";
 import { type MinutesChoice, MinutesChoiceFields, useMinutesChoice } from "@/app/minutes-options";
 import { useT } from "@/app/locale-provider";
@@ -135,6 +136,7 @@ export function EndDialog({
             {t("Cancel")}
           </button>
           <button type="button" autoFocus onClick={confirm} className="btn-ink">
+            {kind === "minutes" ? <NotesIcon /> : <PeopleIcon />}
             {kind === "minutes" ? t("Generate minutes") : t("Diarize")}
           </button>
         </div>

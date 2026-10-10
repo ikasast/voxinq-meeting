@@ -143,7 +143,8 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
           {/* Recording needs the transcription service, which an external browser cannot
               reach — so from out there the reminder is a reminder and nothing more. */}
           {!external ? (
-            <Link href={`/${m.id}`} className="btn-ink shrink-0 !px-4 !py-1.5 text-sm">
+            <Link href={`/${m.id}`} className="btn-ink shrink-0 text-sm">
+              <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-[var(--error)]" />
               {t("Start recording")}
             </Link>
           ) : null}

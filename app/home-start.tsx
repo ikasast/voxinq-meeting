@@ -103,18 +103,18 @@ function Tile({
 }) {
   // A row on a phone, where three tall cards would push everything else off the screen; a card
   // from there up.
-  const cls = `flex items-center gap-4 rounded-2xl border p-4 text-left transition-colors sm:min-h-36 sm:flex-col sm:items-start sm:justify-between sm:gap-6 sm:p-5 ${
+  const cls = `flex items-center gap-4 rounded-lg border p-4 text-left transition-colors sm:min-h-36 sm:flex-col sm:items-start sm:justify-between sm:gap-6 sm:p-5 ${
     disabled
       ? "cursor-not-allowed border-[var(--border)] bg-[var(--surface)] opacity-60"
       : primary
-        ? "border-transparent bg-[var(--accent-solid)] text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+        ? "border-[var(--btn-primary-border)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)] hover:bg-[var(--btn-primary-hover)]"
         : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)] hover:bg-[var(--surface-hover)]"
   }`;
   const inner = (
     <>
       <span
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full [&_svg]:h-6 [&_svg]:w-6 ${
-          primary ? "bg-white/20" : "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent-sub)]"
+          primary ? "bg-[var(--surface)] text-[var(--error)]" : "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--accent-sub)]"
         }`}
       >
         {icon}

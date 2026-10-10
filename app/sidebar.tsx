@@ -271,7 +271,7 @@ export function Sidebar({
       <div className="space-y-2 px-3">
         <Link
           href="/"
-          className="flex items-center justify-center gap-2 rounded-full bg-[var(--accent-solid)] px-4 py-2 text-sm font-medium text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+          className="btn-ink w-full"
         >
           <PlusCircleIcon className="h-4 w-4" />
           {t("New meeting")}
@@ -316,7 +316,7 @@ export function Sidebar({
         href="/"
         title={t("New meeting")}
         aria-label={t("New meeting")}
-        className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-solid)] text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+        className="btn-icon-accent mt-1"
       >
         <PlusCircleIcon className="h-5 w-5" />
       </Link>
@@ -352,7 +352,7 @@ export function Sidebar({
           href="/"
           title={t("New meeting")}
           aria-label={t("New meeting")}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-solid)] text-[var(--accent-contrast)]"
+          className="btn-icon-accent"
         >
           <PlusCircleIcon className="h-5 w-5" />
         </Link>

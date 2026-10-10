@@ -1,5 +1,6 @@
 "use client";
 
+import { NotesIcon } from "./icons";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useT } from "./locale-provider";
@@ -99,6 +100,7 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
           onClick={() => setOpen((v) => !v)}
           className="btn-outline !px-3 !py-1 !text-xs"
         >
+          {open ? null : <NotesIcon />}
           {open ? t("Close") : t("Write them all")}
         </button>
       </div>
@@ -178,6 +180,7 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
               disabled={sending || chosen.size === 0}
               className="btn-ink !px-3 !py-1.5 !text-xs"
             >
+              <NotesIcon />
               {sending
                 ? t("Sending…")
                 : t("Queue {n} for minutes", { n: chosen.size })}

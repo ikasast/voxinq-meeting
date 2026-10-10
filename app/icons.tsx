@@ -361,6 +361,23 @@ export const ChevronUpIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+/** A page with lines: minutes. */
+export const NotesIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <rect x="5" y="3" width="14" height="18" rx="2" />
+    <path d="M9 7h6" />
+    <path d="M9 11h6" />
+    <path d="M9 15h4" />
+  </Base>
+);
+
+export const SendIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M10 14 21 3" />
+    <path d="m21 3-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1Z" />
+  </Base>
+);
+
 export const PanelLeftIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <rect x="3" y="3" width="18" height="18" rx="2" />
