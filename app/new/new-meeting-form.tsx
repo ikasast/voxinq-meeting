@@ -2,60 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { defaultMeetingTitle } from "@/lib/meeting-title";
 import { dayFromKey } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
-import {
-  WHISPER_MODELS,
-  effectiveSttLanguage,
-  isJapaneseOnlyModel,
-  isKnownWhisperModel,
-} from "@/lib/stt/models";
-import { preloadSttIfIdle } from "@/lib/stt/preload";
+import { CalendarIcon, MicIcon } from "@/app/icons";
+import { PROPS_GRID, Prop } from "@/app/[id]/property";
 
-// The labels are keys, translated where the lists are rendered — a module-level constant has
-// no hook to reach the language with. The same shape as the meeting list's bands.
-const MIC_MODES: { id: string; label: string }[] = [
-  { id: "standard", label: "Standard (close talk / calls)" },
-  { id: "room", label: "Room (pick up distant voices)" },
-];
-const SOURCES: { id: string; label: string }[] = [
-  { id: "mic", label: "Microphone" },
-  { id: "display", label: "PC audio" },
-  { id: "both", label: "Microphone + PC audio" },
-];
-
-/** The five choice labels, spelled out so the table's test can find them. */
-function choiceLabel(t: (k: string) => string, label: string): string {
-  const table: Record<string, string> = {
-    "Standard (close talk / calls)": t("Standard (close talk / calls)"),
-    "Room (pick up distant voices)": t("Room (pick up distant voices)"),
-    Microphone: t("Microphone"),
-    "PC audio": t("PC audio"),
-    "Microphone + PC audio": t("Microphone + PC audio"),
-    // Whisper models: the name is an identifier and stays, the bracket is prose. The same rows
-    // the settings screen uses, so the two pickers say the same thing.
-    "large-v3-turbo (default; fast and accurate)": t("large-v3-turbo (default; fast and accurate)"),
-    "large-v3 (accurate)": t("large-v3 (accurate)"),
-    "small (light)": t("small (light)"),
-    "kotoba-whisper-v2.0 (Japanese only)": t("kotoba-whisper-v2.0 (Japanese only)"),
-  };
-  return table[label] ?? label;
-}
-
-const AUDIO_EXT = /\.(wav|mp3|m4a|aac|ogg|oga|flac|webm|mp4|mov|mkv|opus)$/i;
-
-type Phase = null | "creating" | "uploading";
+// A new meeting (v4): its name and, if wanted, when it is, its series and what it is for — in
+// the same table the meeting's own page shows them in, since that is where they will be read.
+//
+// What this form used to ask besides — the model, the language, the microphone mode and the
+// source for this one recording — comes from Settings now, and the source is chosen on the
+// meeting page beside the record button, where it can also be changed mid-meeting. The box to
+// drop a recording on went too: a file dropped anywhere in the app becomes a meeting
+// (drop-to-transcribe.tsx), and the start screen has a button for one.
 
 /**
  * @param external Reached from outside the private network. The transcription service is not
  *   reachable from there, so recording is not on offer — but setting a meeting up is the part
  *   that needs no GPU and no audio, and it is the part someone does from a work laptop the
- *   evening before. The form keeps the title, the agenda, the series and the time; it drops
- *   the recording source, the model warm-up and the drop-a-file path, and it always lands on
- *   the meeting rather than the recording screen.
+ *   evening before. It always lands on the meeting.
  */
 export default function NewMeetingForm({
   external = false,
@@ -87,42 +55,9 @@ export default function NewMeetingForm({
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Shown when the user starts a recording while minutes are still generating: recording
-  // needs the GPU, so we offer to interrupt the in-progress minutes first.
-
-  // Recording settings for this meeting only; not saved to the settings file.
-  const [sttLanguage, setSttLanguage] = useState("auto"); // saved on the meeting
-  const [model, setModel] = useState("large-v3-turbo");
-  const [micMode, setMicMode] = useState("standard");
-  const [source, setSource] = useState("mic");
-  const [displaySupported, setDisplaySupported] = useState(true);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
-  // Controls the user has changed; the settings response must not overwrite these.
-  const touched = useRef<Set<string>>(new Set());
-
-  // Upload-from-file flow (skip live recording).
-  const [phase, setPhase] = useState<Phase>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const translateRef = useRef(false);
 
   useEffect(() => {
-    const supported =
-      typeof navigator !== "undefined" &&
-      !!navigator.mediaDevices &&
-      typeof navigator.mediaDevices.getDisplayMedia === "function";
-    setDisplaySupported(supported);
-    try {
-      const saved = localStorage.getItem("voxinq.source");
-      if (saved === "mic" || (supported && (saved === "display" || saved === "both"))) {
-        setSource(saved);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  useEffect(() => {
+    if (!seriesOn) return;
     let cancelled = false;
     fetch("/api/series")
       .then((r) => (r.ok ? r.json() : null))
@@ -130,123 +65,20 @@ export default function NewMeetingForm({
         if (!cancelled && list) setSeriesOptions(list.map((s) => s.name));
       })
       .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => (r.ok ? r.json() : null))
-      .then(
-        (
-          s: {
-            whisperModel?: string;
-            micMode?: string;
-            sttTranslate?: boolean;
-          } | null,
-        ) => {
-        if (cancelled || !s) return;
-        // Only fill in fields the user has not touched yet. This response can land after the
-        // form is already being filled in (the first request after a restart is slow), and
-        // silently reverting a chosen model would send the recording to the wrong one.
-        if (s.whisperModel && !touched.current.has("model")) setModel(s.whisperModel);
-        if (s.micMode && !touched.current.has("micMode")) setMicMode(s.micMode);
-        translateRef.current = Boolean(s.sttTranslate);
-        setSettingsLoaded(true);
-        },
-      )
-      .catch(() => setSettingsLoaded(true));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [seriesOn]);
 
-  // Start loading the Whisper model that this meeting will actually use — a cold load takes
-  // tens of seconds, and filling in this form covers most of it. Keyed on `model`, so picking
-  // a different one here warms that one instead.
+  // Booked for later, or made from outside: an entry under Upcoming, not a recording about to start.
+  const later = Boolean(scheduledAt) || external;
+
+  // Create it and open it. Not yet recording: the meeting page is the recording screen, with the
+  // microphone check and the source beside the record button, and recording starts there when
+  // it is pressed. Booked for later, it lands on the same page to fill in calmly beforehand.
   //
-  // Delayed, because the value arrives from settings before the user has had a chance to
-  // change it. Warming it immediately meant that anyone whose habitual choice differs from
-  // the settings default paid for two full model loads on every meeting — the service
-  // releases one model to load another, so the pair thrash. Once the user has picked a model
-  // themselves it is authoritative, so warm it promptly.
-  useEffect(() => {
-    if (!settingsLoaded) return;
-    const chosen = touched.current.has("model");
-    const timer = setTimeout(
-      () => void preloadSttIfIdle(model, translateRef.current),
-      chosen ? 300 : 4000,
-    );
-    return () => clearTimeout(timer);
-  }, [settingsLoaded, model]);
-
-  const createMeeting = async (fallbackTitle: string) => {
-    const res = await fetch("/api/meetings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: title.trim() || fallbackTitle,
-        description: description.trim(),
-        series: series.trim(),
-        sttLanguage,
-        whisperModel: model,
-        // datetime-local has no zone; it is wall-clock time on this device, which is what
-        // somebody writing "Tuesday at 14:00" means. new Date() reads it as local.
-        scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
-      }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      throw new Error(data?.error ?? `HTTP ${res.status}`);
-    }
-    return (await res.json()) as { id: string };
-  };
-
-  // Set up the meeting: create it and open the recording screen ready to go. Recording is
-  // started by hand there — auto-starting meant capture began while the model was still
-  // loading and before the settings could be checked.
-  //
-  // Every way out of this form replaces it in the history: the meeting exists now, and Back to
-  // a blank form — which makes another meeting if sent — is not a way back to anything.
-  const startRecording = async () => {
-    setSubmitting(true);
-    // From outside the private network there is no recording to set up for: the STT service is
-    // not reachable, so the meeting is created and that is the end of the journey. Same landing
-    // as a booked meeting, which is what this is.
-    if (external) {
-      try {
-        const meeting = await createMeeting(dayTitle);
-        router.replace(`/${meeting.id}`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t("Could not create the meeting"));
-        setSubmitting(false);
-      }
-      return;
-    }
-    // A meeting booked for later is not about to be recorded, so do not spend a model load on
-    // it -- the warm-up is there to hide the wait before pressing record, and that is days off.
-    if (!scheduledAt) {
-      // Load the model for real now: from here the only thing left is pressing record, so this
-      // is the last moment a warm-up can still hide the load time (and the last moment the
-      // delayed warm-up above may not have fired yet).
-      void preloadSttIfIdle(model, translateRef.current);
-    }
-    try {
-      const meeting = await createMeeting(dayTitle);
-      if (scheduledAt) {
-        // Straight to the meeting, not the recording screen: it has not happened yet, and the
-        // point of booking it was to fill in the agenda and participants calmly beforehand.
-        router.replace(`/${meeting.id}`);
-        return;
-      }
-      try {
-        localStorage.setItem("voxinq.source", source);
-      } catch {
-        // ignore
-      }
-      const qs = new URLSearchParams({ model, mic: micMode, source });
-      router.replace(`/${meeting.id}?${qs}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("Failed to create meeting."));
-      setSubmitting(false);
-    }
-  };
-
+  // Every way out of this form replaces it in the history: the meeting exists now, and Back to a
+  // blank form — which makes another meeting if sent — is not a way back to anything.
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -254,148 +86,38 @@ export default function NewMeetingForm({
       setError(t("Please enter a title."));
       return;
     }
-    // Nothing is asked about the GPU here. The recording screen asks, when record is pressed,
-    // about whatever is using the card at that moment -- and interrupting there puts the work
-    // back in the queue to run after the meeting. A question here used to stop running minutes
-    // for good, before anything was being recorded, and knew about minutes alone.
-    await startRecording();
-  };
-
-  // A dropped recording: create the meeting, hand the server the file, and let the queue do the
-  // rest — recognise it, then write it up.
-  //
-  // The browser used to do all of it: upload straight to the transcription service, sit on the
-  // status endpoint until it finished, post the lines back, then ask for minutes. Three things
-  // were wrong with that. Closing the tab lost the result of work that had already run; the
-  // recognition started immediately rather than taking its turn, so a file dropped during a
-  // recording fought it for the card; and none of it worked from outside the private network,
-  // where the transcription service is not reachable at all.
-  //
-  // What the tab waits for now is the upload, which is the only part it holds.
-  const handleFile = async (file: File) => {
-    if (phase || submitting) return;
-    setError(null);
-    if (!file.type.startsWith("audio/") && !file.type.startsWith("video/") && !AUDIO_EXT.test(file.name)) {
-      setError(t("Please drop an audio file (wav, mp3, m4a, ...)."));
-      return;
-    }
-    setPhase("creating");
+    setSubmitting(true);
     try {
-      const meeting = await createMeeting(file.name);
-
-      setPhase("uploading");
-      const up = await fetch(`/api/meetings/${meeting.id}/recording`, {
-        method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
-        body: file,
-      });
-      if (!up.ok) {
-        const d = (await up.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(d?.error ?? `Upload failed (HTTP ${up.status})`);
-      }
-      // The meeting is over: it happened before the file existed. (Storing the file has already
-      // wound its start back by the recording's length; ending it records that length.)
-      await fetch(`/api/meetings/${meeting.id}/end`, { method: "POST" }).catch(() => {});
-
-      // The model and language are this form's own choice. Everything else -- the glossary,
-      // joined from the host's terms and the series' own, and whether to translate -- the
-      // server fills in from the settings, which is where this page was reading them from.
-      // It cannot lose a race with a settings response that has not arrived yet.
-      const queued = await fetch(`/api/meetings/${meeting.id}/transcribe`, {
+      const res = await fetch("/api/meetings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model,
-          language: effectiveSttLanguage(model, sttLanguage) ?? sttLanguage,
-          thenMinutes: true,
+          title: title.trim() || dayTitle,
+          description: description.trim(),
+          series: series.trim(),
+          // datetime-local has no zone; it is wall-clock time on this device, which is what
+          // somebody writing "Tuesday at 14:00" means. new Date() reads it as local.
+          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
         }),
       });
-      if (!queued.ok) {
-        const d = (await queued.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(d?.error ?? `Could not queue the transcription (HTTP ${queued.status})`);
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
+      const meeting = (await res.json()) as { id: string };
       router.replace(`/${meeting.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("Failed to process the file."));
-      setPhase(null);
+      setError(err instanceof Error ? err.message : t("Failed to create meeting."));
+      setSubmitting(false);
     }
   };
 
-  const selectClass = "input mt-1";
-  const busy = Boolean(phase) || submitting;
-  const phaseLabel =
-    phase === "creating"
-      ? t("Creating meeting…")
-      : phase === "uploading"
-        ? t("Uploading the recording…")
-        : null;
-
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <form data-paper onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-6 pt-2 lg:pt-6">
       <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("New meeting")}</h1>
 
-      {/* Drag & drop an existing recording to skip live capture. Not from outside the private
-          network: the upload goes to the STT service, which is not reachable from there, so
-          the box would accept a file and then fail on it. */}
-      {external ? null : (
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          const f = e.dataTransfer.files?.[0];
-          if (f) void handleFile(f);
-        }}
-        className={`rounded-xl border-2 border-dashed p-6 text-center transition ${
-          dragOver
-            ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
-            : "border-[var(--border-strong)]"
-        } ${busy ? "opacity-60" : ""}`}
-      >
-        {phase ? (
-          <p className="flex items-center justify-center gap-2 text-sm text-[var(--accent-sub)]">
-            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[var(--border-strong)] border-t-[var(--accent)]" />
-            {phaseLabel}
-          </p>
-        ) : (
-          <>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {t("Drop an audio file here to transcribe and summarize (no live recording).")}
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">wav / mp3 / m4a / etc.</p>
-            <button
-              type="button"
-              onClick={() => fileInput.current?.click()}
-              disabled={busy}
-              className="btn-outline mt-3"
-            >
-              {t("Choose file")}
-            </button>
-            <input
-              ref={fileInput}
-              type="file"
-              accept="audio/*,video/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void handleFile(f);
-                e.target.value = "";
-              }}
-            />
-          </>
-        )}
-      </div>
-      )}
-
-      <form onSubmit={onSubmit} className="card space-y-4 p-6">
-        <div>
-          <label htmlFor="title" className="label">
-            {t("Title")}
-          </label>
+      <div className={`${PROPS_GRID} !items-center`}>
+        <Prop label={t("Title")} fill>
           <input
             id="title"
             type="text"
@@ -404,205 +126,83 @@ export default function NewMeetingForm({
             placeholder={t("Weekly research sync #2")}
             maxLength={200}
             autoFocus
-            disabled={busy}
-            className="input mt-1"
+            disabled={submitting}
+            aria-label={t("Title")}
+            className="input"
           />
-        </div>
-
-        <div>
-          <label htmlFor="description" className="label">
-            {t("Purpose / agenda (metadata)")}
-          </label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={t("Purpose, agenda, and background of the meeting. Improves minutes quality.")}
-            rows={4}
-            disabled={busy}
-            className="input mt-1 resize-y"
-          />
-        </div>
-
-        {seriesOn ? (
-        <div>
-          <label htmlFor="series" className="label">
-            {t("Series (recurring meetings, optional)")}
-          </label>
-          <input
-            id="series"
-            type="text"
-            list="series-options"
-            value={series}
-            onChange={(e) => setSeries(e.target.value)}
-            placeholder={t("e.g. Weekly sync — links meetings so minutes carry context")}
-            maxLength={60}
-            disabled={busy}
-            className="input mt-1"
-          />
-          <datalist id="series-options">
-            {seriesOptions.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </div>
-        ) : null}
+        </Prop>
 
         {schedule ? (
-        <div>
-          <label htmlFor="scheduled" className="label">
-            {t("When (optional)")}
-          </label>
-          <input
-            id="scheduled"
-            type="datetime-local"
-            value={scheduledAt}
-            onChange={(e) => setScheduledAt(e.target.value)}
-            disabled={busy}
-            className="input mt-1"
-          />
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {/* One sentence, one key. Splicing a translated word into an untranslated sentence
-                is how a screen ends up reading "puts the meeting under 予定" in English. */}
-            {t("Leave empty to record now. Filling it in puts the meeting under Upcoming so the title, agenda and settings can be sorted out ahead of time — then it is one tap to start when the meeting comes round.")}
-          </p>
-        </div>
+          <Prop label={t("When")} fill>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <input
+                id="scheduled"
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                disabled={submitting}
+                aria-label={t("When")}
+                className="input !w-auto"
+              />
+              <span className="text-xs text-[var(--text-muted)]">
+                {scheduledAt ? t("Goes under Upcoming") : t("Empty: record now")}
+              </span>
+            </div>
+          </Prop>
         ) : null}
 
-        {/* Recording settings for this meeting only. Defaults come from settings; changes here are
-            not saved. Always expanded: picking the wrong model here is silent and costly, so these
-            must be visible before the meeting is set up, not hidden behind a disclosure. */}
-        <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-          <p className="text-sm font-medium text-[var(--text-secondary)]">
-            {t("Recording settings (this meeting only)")}
-          </p>
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {t("Defaults come from the app settings. Changes here apply to this meeting only and do not change the settings. (Model and language also apply to dropped files.)")}
-          </p>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="model" className="label">
-                {t("Transcription model")}
-              </label>
-              <select
-                id="model"
-                value={model}
-                onChange={(e) => {
-                  touched.current.add("model");
-                  setModel(e.target.value);
-                }}
-                disabled={busy}
-                className={selectClass}
-              >
-                {WHISPER_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {choiceLabel(t, m.label)}
-                  </option>
-                ))}
-                {isKnownWhisperModel(model) ? null : (
-                  <option value={model}>{model} (from settings)</option>
-                )}
-              </select>
-              {/* A Japanese-only model transcribes any other language into garbage — and with a
-                  glossary prompt it can return nothing at all, which looks like a broken mic. */}
-              {isJapaneseOnlyModel(model) ? (
-                <p className="mt-1 text-xs text-[var(--warning)]">
-                  {sttLanguage === "en"
-                    ? t("This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead.")
-                    : t("Japanese-only model: transcription is forced to Japanese. Use large-v3-turbo for meetings in any other language.")}
-                </p>
-              ) : null}
-            </div>
+        {seriesOn ? (
+          <Prop label={t("Series")} fill>
+            <input
+              id="series"
+              type="text"
+              list="series-options"
+              value={series}
+              onChange={(e) => setSeries(e.target.value)}
+              placeholder={t("e.g. Weekly sync — links meetings so minutes carry context")}
+              maxLength={60}
+              disabled={submitting}
+              aria-label={t("Series")}
+              className="input"
+            />
+            <datalist id="series-options">
+              {seriesOptions.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </Prop>
+        ) : null}
 
-            <div>
-              <label htmlFor="sttLanguage" className="label">
-                {t("Transcription language")}
-              </label>
-              <select
-                id="sttLanguage"
-                value={sttLanguage}
-                onChange={(e) => setSttLanguage(e.target.value)}
-                disabled={busy}
-                className={selectClass}
-              >
-                <option value="auto">{t("Auto (follow settings default)")}</option>
-                <option value="ja">{t("Japanese")}</option>
-                <option value="en">{t("English")}</option>
-              </select>
-            </div>
+        <div className="self-start pt-2 text-[var(--text-muted)]">{t("Purpose")}</div>
+        <textarea
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={t("Purpose, agenda, and background of the meeting. Improves minutes quality.")}
+          rows={4}
+          disabled={submitting}
+          aria-label={t("Purpose")}
+          className="input resize-y"
+        />
+      </div>
 
-            <div>
-              <label htmlFor="micMode" className="label">
-                {t("Microphone mode")}
-              </label>
-              <select
-                id="micMode"
-                value={micMode}
-                onChange={(e) => {
-                  touched.current.add("micMode");
-                  setMicMode(e.target.value);
-                }}
-                disabled={busy}
-                className={selectClass}
-              >
-                {MIC_MODES.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {choiceLabel(t, m.label)}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
 
-            <div>
-              <label htmlFor="source" className="label">
-                {t("Recording source")}
-              </label>
-              <select
-                id="source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                disabled={busy}
-                className={selectClass}
-              >
-                {SOURCES.map((s) =>
-                  s.id === "mic" || displaySupported ? (
-                    <option key={s.id} value={s.id}>
-                      {choiceLabel(t, s.label)}
-                    </option>
-                  ) : null,
-                )}
-              </select>
-              {!displaySupported ? (
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {t("This device cannot capture PC audio (Chrome / Edge on desktop required).")}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-[var(--text-muted)]">
-            {t(
-              "The transcription language is saved on the meeting. Microphone mode and source apply to live recording only (source can also be switched while recording).",
-            )}
-          </p>
-        </div>
-
-        {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-
-        <div className="flex items-center justify-end gap-2">
-          <Link href="/" className="btn-outline">
-            {t("Cancel")}
-          </Link>
-          <button type="submit" disabled={busy} className="btn-ink">
-            {submitting
-              ? scheduledAt || external
-                ? t("Adding…")
-                : t("Setting up…")
-              : scheduledAt || external
-                ? t("Add to Upcoming")
-                : t("Set up meeting")}
-          </button>
-        </div>
-      </form>
-    </div>
+      <div className="flex items-center justify-end gap-2 border-t border-[var(--border)] pt-4">
+        <Link href="/" className="btn-outline">
+          {t("Cancel")}
+        </Link>
+        <button type="submit" disabled={submitting} className="btn-ink">
+          {later ? <CalendarIcon /> : <MicIcon />}
+          {submitting
+            ? later
+              ? t("Adding…")
+              : t("Setting up…")
+            : later
+              ? t("Add to Upcoming")
+              : t("Set up meeting")}
+        </button>
+      </div>
+    </form>
   );
 }

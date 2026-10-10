@@ -68,8 +68,8 @@ describe("the New meeting screen", () => {
   it("uses the same day if the title is cleared", () => {
     // The field is editable and can be emptied. What it falls back to has to be the booked day
     // too, or clearing the box silently moves the meeting's name to today.
-    expect(form).toContain("createMeeting(dayTitle)");
-    expect(form).not.toContain("createMeeting(defaultMeetingTitle())");
+    expect(form).toContain("title: title.trim() || dayTitle,");
+    expect(form).not.toContain("defaultMeetingTitle())");
   });
 
   it("is handed the shape by the server, not left to fetch it", () => {
