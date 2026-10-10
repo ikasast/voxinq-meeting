@@ -32,6 +32,9 @@
   --btn-primary-hover: color-mix(in srgb, #06b6d4 26%, transparent);
   --btn-primary-border: color-mix(in srgb, #06b6d4 45%, transparent);
   --btn-primary-text: #67e8f9;
+  /* Tooltips (tooltips.tsx): the opposite of the page, so they read as above it. */
+  --tip-bg: #e5e7eb;
+  --tip-text: #0b1220;
 
   /* Text */
   --foreground: #e5e7eb;
@@ -85,6 +88,8 @@ html[data-theme="light"] {
   --btn-primary-hover: #cdeef5;
   --btn-primary-border: #9fd8e6;
   --btn-primary-text: #0b5a73;
+  --tip-bg: #1f2937;
+  --tip-text: #f9fafb;
 
   --foreground: #1f2937;
   --text-strong: #0b1220;
@@ -457,6 +462,37 @@ html[data-theme="light"] .logo-dark {
     color: var(--accent-sub);
     font-size: 0.75rem;
     font-weight: 500;
+  }
+
+  /* --- Tooltips --- */
+  /* One element, moved to whatever is pointed at (tooltips.tsx). Never in the way of the
+     pointer: it takes no events, and it sits above the element rather than under the arrow. */
+  .tip {
+    position: fixed;
+    z-index: 300;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 0.3125rem 0.5rem;
+    border-radius: 6px;
+    background: var(--tip-bg);
+    color: var(--tip-text);
+    font-size: 0.75rem;
+    line-height: 1.45;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease-out;
+
+    &[data-show] {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tip {
+      transition: none;
+    }
   }
 
   /* --- File formats --- */

@@ -23,6 +23,7 @@ import { LockedBanner } from "./locked-banner";
 import { ExternalNotice } from "./external-notice";
 import { ServiceAlert } from "./health-status";
 import { InstallApp } from "./install-app";
+import { Tooltips } from "./tooltips";
 import { version as appVersion } from "../package.json";
 import { isExternalRequest } from "@/lib/is-tailnet";
 
@@ -181,6 +182,8 @@ export default async function RootLayout({
               {/* A recording dropped anywhere on the page becomes a meeting (drop-to-transcribe.tsx). */}
               {external || locked ? null : <DropToTranscribe />}
               {external || locked ? null : <RecordingBar />}
+              {/* Every `title` on the page, shown above what it describes (tooltips.tsx). */}
+              <Tooltips />
             </div>
           </RecorderProvider>
           </ConfirmProvider>
