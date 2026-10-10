@@ -83,21 +83,19 @@ describe("the button is not hidden by the thing it configures", () => {
   // A feature that hides itself exactly when somebody has not configured it cannot be found by
   // the people who need it.
   it("is offered whenever there is a transcript", () => {
+    // Since v4 it is in the "Fix wording" panel, which is there whenever there is a transcript
+    // to change, and inside it whenever the Corrections extension is on.
     const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
-    const at = list.indexOf("runSuggestions()");
-    const gate = list.slice(list.lastIndexOf("extensions.corrections ?", at), at);
-    expect(gate).not.toContain("hasCorrectionTerms ?");
-    // It is in the transcript's "…" menu, and the menu is there whenever there is a transcript.
-    const menu = list.lastIndexOf("<DropMenu", at);
-    expect(list.slice(Math.max(0, menu - 200), menu)).toContain("transcripts.length > 0 ?");
+    expect(list).toContain("const fixTool = transcripts.length > 0 && !readOnly;");
+    expect(list).toContain("glossary={extensions.corrections}");
   });
 
   it("says what it wants instead", () => {
-    // With no terms the tooltip names the two places to put them, and pressing it costs one
-    // 400 and no GPU.
-    const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
-    expect(list).toContain("Needs some terms to look for.");
-    expect(list).toContain("hasCorrectionTerms");
+    // With no terms, the place where the button would be names the two places to put them.
+    const fix = readFileSync(join(root, "app/[id]/spelling-fix.tsx"), "utf8");
+    const gate = fix.slice(fix.indexOf("{glossary ? ("));
+    expect(gate.indexOf("hasCorrectionTerms ? (")).toBeGreaterThan(-1);
+    expect(gate.indexOf("Needs some terms to look for.")).toBeGreaterThan(gate.indexOf("askGlossary()"));
   });
 });
 

@@ -10,7 +10,9 @@ export const runtime = "nodejs";
 // same way in every utterance, which is otherwise a row-at-a-time chore.
 //
 // POST with `dryRun` to preview: the same planning code runs, nothing is written, and the
-// caller gets the rows that would change. The UI uses that for the confirmation step.
+// caller gets the rows that would change. The UI uses that for the confirmation step, where
+// lines can be left out; the write then names the ones to change in `ids`, and only those are
+// planned again and written.
 //
 // Safe for diarization: speakers map onto utterances by position and rewriting text moves
 // nothing (unlike deleting a row, which also has to drop the matching recording boundary).
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/meetings/[i
     replace?: unknown;
     caseSensitive?: unknown;
     dryRun?: unknown;
+    ids?: unknown;
   }>(req);
 
   const find = typeof body?.find === "string" ? body.find : "";
@@ -32,6 +35,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/meetings/[i
   const replace = typeof body?.replace === "string" ? body.replace : "";
   const caseSensitive = body?.caseSensitive === true;
   const dryRun = body?.dryRun === true;
+  const only = Array.isArray(body?.ids) ? new Set(body.ids.filter((x): x is string => typeof x === "string")) : null;
 
   const meeting = await prisma.meeting.findUnique({ where: { id }, select: { id: true } });
   if (!meeting) return apiError("meeting not found", 404);
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/meetings/[i
     select: { id: true, text: true },
   });
 
-  const plan = planReplace(rows, find, replace, { caseSensitive });
+  const plan = planReplace(only ? rows.filter((r) => only.has(r.id)) : rows, find, replace, { caseSensitive });
 
   if (dryRun) {
     return NextResponse.json({
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/meetings/[i
   }
 
   if (plan.changes.length === 0) {
-    return NextResponse.json({ updated: 0, skipped: plan.skipped, totalMatches: plan.totalMatches });
+    return NextResponse.json({ updated: 0, skipped: plan.skipped, totalMatches: plan.totalMatches, applied: [] });
   }
 
   await prisma.$transaction(
@@ -73,5 +77,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/meetings/[i
     updated: plan.changes.length,
     totalMatches: plan.totalMatches,
     skipped: plan.skipped,
+    // What was written, as the server read it — the page shows these rather than its own guess.
+    applied: plan.changes.map((c) => ({ id: c.id, after: c.after })),
   });
 }
