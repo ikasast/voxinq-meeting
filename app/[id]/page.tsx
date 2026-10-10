@@ -202,7 +202,7 @@ export default async function MeetingPage({
           seriesId={seriesId}
         />
         {/* The recording: its row here, its dock at the bottom of the window. */}
-        {recordHere ? <RecordingDock meetingId={meeting.id} /> : null}
+        {recordHere ? <RecordingDock meetingId={meeting.id} external={external} /> : null}
         <MeetingFacts
           whisperModel={meeting.whisperModel}
           sttLanguage={meeting.sttLanguage}

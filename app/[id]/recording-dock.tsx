@@ -60,7 +60,18 @@ const TOAST_MS = 4500;
  * Rendered inside the details table (PROPS_GRID): the row is a row of it, the rest spans it,
  * and the dock and the dialogs are fixed and take no room in it.
  */
-export function RecordingDock({ meetingId }: { meetingId: string }) {
+export function RecordingDock({
+  meetingId,
+  external = false,
+}: {
+  meetingId: string;
+  /**
+   * From outside the private network the speech service cannot be reached, so nothing can be
+   * recorded. The page knows that when it renders (and mounts no dock then at all); it used to
+   * be asked again from here, of an API that existed only to answer it.
+   */
+  external?: boolean;
+}) {
   const router = useRouter();
   const confirm = useConfirmEx();
 
@@ -125,7 +136,6 @@ export function RecordingDock({ meetingId }: { meetingId: string }) {
     micMode?: string;
   } | null>(null);
   const autostartTried = useRef(false);
-  const [external, setExternal] = useState(false);
   const [meetingLang, setMeetingLang] = useState<string | undefined>(undefined);
   // Whether this meeting has already ended. A back-navigation can land here again, so this
   // guards against restarting the recording / meeting timer on a finished meeting.
@@ -191,20 +201,6 @@ export function RecordingDock({ meetingId }: { meetingId: string }) {
   useEffect(() => {
     const tick = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(tick);
-  }, []);
-
-  // On external (Funnel) access, STT is unreachable so recording is impossible. Used to warn and disable recording.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/context")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { external?: boolean } | null) => {
-        if (!cancelled && d?.external) setExternal(true);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // The default recording source is saved per device in the browser (e.g. phone=mic / PC=both).
