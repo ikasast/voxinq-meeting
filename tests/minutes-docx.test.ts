@@ -59,6 +59,13 @@ describe("minutesDocx", () => {
     expect(xml).not.toMatch(/<w:t[^>]*>[^<]*<tag>/);
   });
 
+  it("names Yu Gothic as the document's font, rather than leaving Word to pick MS Mincho", async () => {
+    const buf = await minutesDocx({ title: "定例会議", markdown: "本文" });
+    const styles = await (await JSZip.loadAsync(buf)).file("word/styles.xml")!.async("text");
+    expect(styles).toMatch(/<w:rFonts[^>]*w:eastAsia="游ゴシック"/);
+    expect(styles).toMatch(/<w:rFonts[^>]*w:ascii="游ゴシック"/);
+  });
+
   it("handles minutes that are empty", async () => {
     const buf = await minutesDocx({ title: "no content", markdown: "" });
     expect(buf.length).toBeGreaterThan(0);

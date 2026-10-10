@@ -15,6 +15,11 @@ import { parseMarkdownBlocks, type Block, type Inline } from "./markdown-blocks"
 // web app makes (docs/design-decisions.md — a bundled Japanese face costs 5.4 MB and every
 // platform already ships a good one). It is also why PDF is produced by printing from the
 // browser instead of rendered here: a server-side PDF *would* have to carry that font.
+//
+// But it is named. With none named, Word falls back to its own defaults for a document with no
+// theme, and Japanese text came out in MS Mincho — a print face from another era, in minutes
+// that read on screen everywhere else. Yu Gothic ships with Word on Windows and on the Mac.
+const FONT = "游ゴシック";
 
 const HEADINGS = {
   1: HeadingLevel.HEADING_1,
@@ -102,6 +107,11 @@ export async function minutesDocx(input: MinutesDocInput): Promise<Buffer> {
   const section: ISectionOptions = { properties: {}, children: body };
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: { ascii: FONT, eastAsia: FONT, hAnsi: FONT, cs: FONT } } },
+      },
+    },
     // Word needs a numbering definition to exist before a paragraph can reference it.
     numbering: {
       config: [
