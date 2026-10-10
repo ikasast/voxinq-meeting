@@ -37,12 +37,38 @@ describe("the job", () => {
 });
 
 describe("the meeting at a glance", () => {
-  it("draws a louder line taller and a quieter one shorter, and an unmeasured one in between", async () => {
-    const { heightFor } = await import("@/app/[id]/mood-strip");
-    expect(heightFor(2)).toBeGreaterThan(heightFor(0));
-    expect(heightFor(-2)).toBeLessThan(heightFor(0));
-    expect(heightFor(undefined)).toBe(heightFor(0));
-    // Clamped, so one shout does not dwarf the rest.
-    expect(heightFor(6)).toBe(heightFor(2));
+  // One bar per line flickered: the model labels most lines, so neighbouring bars changed colour
+  // almost every line. It is a minute at a time now, coloured only where the minute stands out.
+  const line = (i: number, at: number, feeling: "joy" | "anger" | "sadness" | null) => ({ id: `l${i}`, at, feeling });
+
+  it("takes the lines a minute at a time, half a minute in a short meeting", async () => {
+    const { bucketSeconds } = await import("@/app/[id]/mood-strip");
+    expect(bucketSeconds(300)).toBe(30);
+    expect(bucketSeconds(26 * 60)).toBe(60);
+    // At most about sixty bars, however long the meeting.
+    expect(bucketSeconds(3 * 3600)).toBe(180);
+  });
+
+  it("colours a minute only where one feeling is more of it than of the whole meeting", async () => {
+    const { moodBuckets } = await import("@/app/[id]/mood-strip");
+    const pts = [
+      // Minute 0: mixed, as most of the meeting is.
+      line(0, 5, "joy"), line(1, 20, "anger"), line(2, 30, "sadness"), line(3, 40, null),
+      // Minute 1: anger, well above its share of the meeting.
+      line(4, 62, "anger"), line(5, 70, "anger"), line(6, 80, "anger"), line(7, 90, null),
+      // Minutes 2 to 9: quiet, so the meeting is long enough for one-minute bars.
+      ...Array.from({ length: 16 }, (_, i) => line(8 + i, 120 + i * 40, null)),
+    ];
+    const b = moodBuckets(pts);
+    expect(b[0].standout).toBeNull();
+    expect(b[1].standout?.feeling).toBe("anger");
+    expect(b[1].count).toBe(4);
+    expect(b[1].firstId).toBe("l4");
+  });
+
+  it("leaves a minute with too few lines uncoloured", async () => {
+    const { moodBuckets } = await import("@/app/[id]/mood-strip");
+    const b = moodBuckets([line(0, 10, "joy"), line(1, 700, null)]);
+    expect(b[0].standout).toBeNull();
   });
 });

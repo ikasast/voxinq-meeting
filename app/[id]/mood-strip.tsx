@@ -1,54 +1,102 @@
 "use client";
 
 import { emotionMark, readEmotion } from "@/lib/emotion";
-import { STANDS_OUT, readCues } from "@/lib/voice-cues";
 import { formatOffset } from "@/lib/utils";
 import { useT } from "@/app/locale-provider";
 
-// The meeting at a glance: one bar per line, in the order they were said. Its colour is what the
-// line sounded like (Emotion) and its height how loud it was against that speaker's usual (Voice
-// cues), so where a discussion rose, fell or turned shows before any line is read. A bar takes
-// you to its line.
+// The meeting at a glance: one bar a minute, as tall as the minute was busy, coloured where the
+// minute sounded unlike the rest of the meeting (Emotion). A bar takes you to the minute's first
+// line.
 //
-// Shown only once one of the two has something to show; either alone is enough — no colour
-// without Emotion, an even height without Voice cues.
+// It was one bar per line, coloured by what that line sounded like. The model judges a line on
+// its own and is unsure of most of them, so in a real meeting two lines in three came out joyful,
+// angry or sad, and neighbouring bars changed colour almost every line — a stripe that said
+// nothing. So the lines are taken a minute at a time, and a minute is coloured only when one
+// feeling is clearly more of it than of the meeting as a whole: measured against the meeting
+// itself, the way Voice cues measures a speaker against their own usual.
 
-type Line = { id: string; text: string; voice?: string | null; emotion?: string | null };
+type Line = { id: string; text: string; emotion?: string | null };
+type Feeling = "joy" | "anger" | "sadness";
 
-const MOOD_COLOR = { joy: "--mood-joy", anger: "--mood-anger", sadness: "--mood-sad" } as const;
+const MOOD_COLOR: Record<Feeling, string> = { joy: "--mood-joy", anger: "--mood-anger", sadness: "--mood-sad" };
+const FEELINGS: Feeling[] = ["joy", "anger", "sadness"];
 
-/** Bar heights in px, from quiet to loud. Loudness is clamped at two deviations either way. */
-const MIN_H = 6;
-const MID_H = 14;
-const MAX_H = 28;
+/** A minute (or half of one, in a short meeting) and what it held. */
+export type MoodBucket = {
+  start: number;
+  end: number;
+  /** Lines said in it. */
+  count: number;
+  /** The first of them, to go to. */
+  firstId: string | null;
+  /** The feeling that stands out in it against the whole meeting, and its share of the lines. */
+  standout: { feeling: Feeling; share: number; of: number } | null;
+};
 
-export function heightFor(loud: number | undefined): number {
-  if (typeof loud !== "number") return MID_H;
-  const z = Math.max(-2, Math.min(2, loud));
-  return Math.round(z >= 0 ? MID_H + (z / 2) * (MAX_H - MID_H) : MID_H + (z / 2) * (MID_H - MIN_H));
+/** A bucket is coloured only with at least this many lines in it… */
+const MIN_LINES = 3;
+/** …and when the feeling is at least this share of them, more than its share of the meeting. */
+const MIN_SHARE = 0.4;
+
+/** How long a bar is: half a minute in a short meeting, a minute, or longer so there are at most 60. */
+export function bucketSeconds(duration: number): number {
+  if (duration < 600) return 30;
+  return Math.max(60, Math.ceil(duration / 60 / 60) * 60);
+}
+
+/** The lines, a bucket at a time, with what stands out in each. Lines with no time are left out. */
+export function moodBuckets(points: { id: string; at: number | null; feeling: Feeling | null }[]): MoodBucket[] {
+  const placed = points.filter((p): p is { id: string; at: number; feeling: Feeling | null } => p.at !== null);
+  if (placed.length === 0) return [];
+  const duration = Math.max(...placed.map((p) => p.at)) + 1;
+  const size = bucketSeconds(duration);
+  const n = Math.ceil(duration / size);
+
+  // The meeting's own mix: how much of it sounded each way.
+  const overall = Object.fromEntries(
+    FEELINGS.map((f) => [f, placed.filter((p) => p.feeling === f).length / placed.length]),
+  ) as Record<Feeling, number>;
+
+  return Array.from({ length: n }, (_, i) => {
+    const inIt = placed.filter((p) => Math.floor(p.at / size) === i);
+    let standout: MoodBucket["standout"] = null;
+    if (inIt.length >= MIN_LINES) {
+      let lift = 0;
+      for (const f of FEELINGS) {
+        const of = inIt.filter((p) => p.feeling === f).length;
+        const share = of / inIt.length;
+        if (share >= MIN_SHARE && share - overall[f] > lift) {
+          lift = share - overall[f];
+          standout = { feeling: f, share, of };
+        }
+      }
+    }
+    return { start: i * size, end: (i + 1) * size, count: inIt.length, firstId: inIt[0]?.id ?? null, standout };
+  });
 }
 
 export function MoodStrip({
   lines,
   elapsed,
   showEmotion,
-  showVoice,
 }: {
   lines: Line[];
   /** Seconds from the start of the meeting to each line, by index. */
   elapsed: (i: number) => number | null;
   showEmotion: boolean;
-  showVoice: boolean;
 }) {
   const t = useT();
-  const bars = lines.map((l) => ({
+  if (!showEmotion) return null;
+  const points = lines.map((l, i) => ({
     id: l.id,
-    text: l.text,
-    mood: showEmotion ? emotionMark(readEmotion(l.emotion)) : null,
-    loud: showVoice ? readCues(l.voice)?.loud : undefined,
+    at: elapsed(i),
+    feeling: (emotionMark(readEmotion(l.emotion))?.emotion ?? null) as Feeling | null,
   }));
-  const anything = bars.some((b) => b.mood || typeof b.loud === "number");
-  if (!anything) return null;
+  // Nothing judged yet: no strip, rather than a row of grey bars that looks like a finding.
+  if (!lines.some((l) => readEmotion(l.emotion))) return null;
+  const buckets = moodBuckets(points);
+  if (buckets.length === 0) return null;
+  const busiest = Math.max(1, ...buckets.map((b) => b.count));
 
   const jump = (id: string) => {
     const row = document.getElementById(`line-${id}`);
@@ -58,41 +106,45 @@ export function MoodStrip({
     setTimeout(() => row.classList.remove("ring-2", "ring-[var(--accent)]"), 1600);
   };
 
-  const feeling = (e: NonNullable<(typeof bars)[number]["mood"]>["emotion"]) =>
-    e === "joy" ? t("Sounded joyful") : e === "anger" ? t("Sounded angry") : t("Sounded sad");
+  const feeling = (f: Feeling) => (f === "joy" ? t("Sounded joyful") : f === "anger" ? t("Sounded angry") : t("Sounded sad"));
 
-  // A thin strip above the lines and nothing more: no box, no heading, no key. What a colour or a
-  // height means is in each bar's tooltip, with the line it stands for.
+  // A thin strip above the lines and nothing more: no box, no heading, no key. What a bar stands
+  // for is in its tooltip.
   return (
     <div
-      className="mt-3 flex h-7 items-end gap-px"
+      className="mt-3 flex h-8 items-end gap-0.5"
       role="list"
       aria-label={t("How the meeting went")}
       title={t("Click a bar to go to its line")}
     >
-      {bars.map((b, i) => {
-        const at = elapsed(i);
+      {buckets.map((b) => {
         const label = [
-          at !== null ? formatOffset(at) : null,
-          b.mood ? feeling(b.mood.emotion) : null,
-          typeof b.loud === "number" && Math.abs(b.loud) >= STANDS_OUT ? (b.loud > 0 ? t("Louder") : t("Quieter")) : null,
-          b.text.length > 40 ? `${b.text.slice(0, 40)}…` : b.text,
+          `${formatOffset(b.start)}–${formatOffset(b.end)}`,
+          t(b.count === 1 ? "1 utterance" : "{n} utterances", { n: b.count }),
+          b.standout
+            ? t("{feeling} more than the rest of the meeting ({of} of {n})", {
+                feeling: feeling(b.standout.feeling),
+                of: b.standout.of,
+                n: b.count,
+              })
+            : null,
         ]
           .filter(Boolean)
           .join(" · ");
         return (
           <button
-            key={b.id}
+            key={b.start}
             type="button"
             role="listitem"
-            onClick={() => jump(b.id)}
+            onClick={() => b.firstId && jump(b.firstId)}
+            disabled={!b.firstId}
             title={label}
             aria-label={label}
-            className="min-w-0 flex-1 rounded-sm transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+            className="min-w-0 flex-1 rounded-sm transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] disabled:cursor-default"
             style={{
-              height: `${heightFor(b.loud)}px`,
-              background: b.mood
-                ? `var(${MOOD_COLOR[b.mood.emotion]})`
+              height: b.count === 0 ? "2px" : `${6 + Math.round((b.count / busiest) * 26)}px`,
+              background: b.standout
+                ? `var(${MOOD_COLOR[b.standout.feeling]})`
                 : "color-mix(in srgb, var(--text-muted) 35%, transparent)",
             }}
           />
