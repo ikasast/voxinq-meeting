@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useDockSpace } from "./dock-space";
 import { useT } from "./locale-provider";
 import { useRecorder } from "./recorder";
 import { runningTime, statusText } from "./recording-status";
@@ -29,7 +30,9 @@ export function RecordingBar() {
   }, [s]);
 
   // Not on the meeting's own page, where the dock is the recording's controls.
-  if (!s || pathname === `/${s.meetingId}` || pathname === `/${s.meetingId}/recording`) return null;
+  const hidden = !s || pathname === `/${s.meetingId}` || pathname === `/${s.meetingId}/recording`;
+  useDockSpace(!hidden, "4.5rem");
+  if (hidden) return null;
 
   const listening = r.status === "open";
   const trouble = r.status === "error" || r.status === "closed";

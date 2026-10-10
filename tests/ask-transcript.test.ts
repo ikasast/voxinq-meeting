@@ -81,3 +81,19 @@ describe("the Ask box", () => {
     expect(ui).toContain('t("Based on everything said in this meeting.")');
   });
 });
+
+describe("the Ask chat", () => {
+  const ui = read("app/ask-minutes.tsx");
+  const page = read("app/[id]/page.tsx");
+
+  it("floats at the bottom right, above a recording's dock on a phone", () => {
+    expect(ui).toContain("fixed bottom-[calc(1rem+var(--dock-space,0px))] right-4");
+    expect(ui).toContain('role="dialog"');
+    expect(read("app/[id]/recording-dock.tsx")).toContain("useDockSpace(!ended)");
+  });
+
+  it("is outside the document, and on a series meeting reads the series' minutes", () => {
+    expect(page).toContain("seriesId={seriesId && seriesOn ? seriesId : undefined}");
+    expect(page).not.toContain("plain");
+  });
+});

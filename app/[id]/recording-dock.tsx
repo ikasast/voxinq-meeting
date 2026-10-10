@@ -1,5 +1,6 @@
 "use client";
 
+import { useDockSpace } from "../dock-space";
 import { readStored } from "@/lib/i18n/stored";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
@@ -786,6 +787,9 @@ export function RecordingDock({
     };
   }, [active, restAfter, resting]);
 
+
+  // Fixed at the bottom while the meeting has not ended: what floats in a corner keeps above it.
+  useDockSpace(!ended);
 
   const elapsedSec = startedAt ? Math.max(0, Math.floor((nowMs - startedAt.getTime()) / 1000)) : 0;
 
