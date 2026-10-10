@@ -224,14 +224,10 @@ export const ja: Record<string, string> = {
   "Could not save": "保存できませんでした",
   Download: "ダウンロード",
   "Download meeting": "会議をダウンロード",
-  "Download meeting (minutes / transcript / info / recording)":
-    "会議をダウンロード（議事録 / 発言 / 会議情報 / 録音）",
-  "Minutes (.md)": "議事録 (.md)",
   "Transcript (.txt)": "発言 (.txt)",
   "Meeting info (.md)": "会議情報 (.md)",
   "Recording (.wav)": "録音 (.wav)",
   "Download failed": "ダウンロードに失敗しました",
-  "Preparing…": "準備中…",
   "Opens a print view — choose “Save as PDF” as the destination":
     "印刷画面が開きます — 出力先で「PDF に保存」を選んでください",
   "Copy minutes": "議事録をコピー",
@@ -242,6 +238,8 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Everything (.zip)": "まとめて (.zip)",
+  "no recording": "録音なし",
   "Waiting for the GPU": "GPU の空き待ち",
   "+{n} waiting": "ほか {n} 件待ち",
   "Open the queue": "順番待ちを開く",
@@ -262,7 +260,6 @@ export const ja: Record<string, string> = {
   "Resize the transcript": "発言パネルの幅を変更",
   "Drag to change the width; double-click to reset it": "ドラッグで幅を変更・ダブルクリックで元に戻す",
   "Copy failed": "コピーに失敗しました",
-  "Save to file": "ファイルに保存",
   "New with same settings": "同じ設定で新規作成",
   "Resume recording": "録音を再開",
   "Continue recording — appends to the existing recording and transcript":

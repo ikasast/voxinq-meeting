@@ -1,5 +1,5 @@
 // Taking a meeting's text away: the share sheet where the device has one, the clipboard where it
-// does not, or a file. Used by the minutes' and the transcript's menus.
+// does not. Used beside the minutes and in the transcript's menu.
 
 /**
  * Hands the text to the device's share sheet where there is one, and otherwise — or when the
@@ -21,17 +21,4 @@ export async function shareText(text: string, title?: string): Promise<"shared" 
   } catch {
     return "failed";
   }
-}
-
-/** Saves the text as a file. */
-export function downloadText(text: string, filename: string, type = "text/plain") {
-  const blob = new Blob([text], { type: `${type};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }

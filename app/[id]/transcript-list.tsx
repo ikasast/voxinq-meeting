@@ -20,7 +20,6 @@ import {
   CheckIcon,
   CloseIcon,
   DotsIcon,
-  DownloadIcon,
   FaceAngerIcon,
   FaceJoyIcon,
   FaceSadIcon,
@@ -45,7 +44,7 @@ import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { SpeakerMenu, SpeakerName, SpeakerNamesEditor } from "./speakers-ui";
 import { TrimRecording } from "./trim-recording";
-import { downloadText, shareText } from "./share-text";
+import { shareText } from "./share-text";
 import { CopyButton } from "./copy-button";
 import { DropMenu, MENU_ITEM, MenuRule } from "../drop-menu";
 import { profileDestination, sttDestination } from "@/lib/stt/destination";
@@ -1131,18 +1130,6 @@ export function TranscriptList({
                 >
                   <ShareIcon className="h-3.5 w-3.5" />
                   {t("Share transcript")}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={MENU_ITEM}
-                  onClick={() => {
-                    close();
-                    downloadText(transcriptText, `${meetingTitle}-transcript.txt`);
-                  }}
-                >
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  {t("Save to file")}
                 </button>
                 {(canMeasure && (extensions.voiceCues || extensions.emotion)) ||
                 (!readOnly && extensions.corrections) ? (

@@ -63,7 +63,8 @@ describe("the transcript's tools", () => {
   it("put sharing, the checks and the translations behind the menu in the heading", () => {
     const menu = list.slice(at("{/* What to do with the transcript"), at("{/* Speaker separation"));
     expect(menu).toContain("<DropMenu");
-    for (const what of ["shareText", "downloadText", "runVoiceCues", "runEmotion", "runSuggestions", "Show translations"]) {
+    // Saving it as a file is in the meeting's download menu, with every other file.
+    for (const what of ["shareText", "runVoiceCues", "runEmotion", "runSuggestions", "Show translations"]) {
       expect(menu, `${what} left the menu`).toContain(what);
     }
   });

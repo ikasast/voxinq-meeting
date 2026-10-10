@@ -4,13 +4,19 @@ import { useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
 import { DownloadIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
-import { useBackGuard } from "@/app/use-back-guard";
+import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
 
-type PartId = "minutes" | "transcript" | "meta" | "recording";
-
-// Download the whole meeting: minutes / transcript / meeting info (zip via the export
-// API) and, optionally, the recording WAV (fetched from the STT host as its own file
-// since it can be hundreds of MB). Everything is checked by default; untick to pick.
+// Everything a meeting can be taken away as, in one menu beside its title (v4).
+//
+// It was in three places: this button opened a panel of checkboxes for a zip, the minutes' "…"
+// had Markdown, Word and PDF, and the transcript's "…" had "Save to file". Each was the meeting
+// in some file, and which menu held which file was something to remember. Now the minutes in
+// each format, the transcript, the meeting's details, the recording and all of them in one zip
+// are the rows of one menu. Sharing stays beside what it shares.
+//
+// The files come from the export route, which names them; the recording comes from the speech
+// service — another origin, where a link's `download` is ignored and the browser would play it
+// instead — so that one is fetched and saved.
 export function DownloadMeetingButton({
   meetingId,
   title,
@@ -22,170 +28,100 @@ export function DownloadMeetingButton({
   hasMinutes: boolean;
   hasTranscript: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   const t = useT();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Asked of the speech service when the menu opens: the recording may have expired.
   const [hasRecording, setHasRecording] = useState<boolean | null>(null);
-  const [checked, setChecked] = useState<Record<PartId, boolean>>({
-    minutes: hasMinutes,
-    transcript: hasTranscript,
-    meta: true,
-    recording: false, // enabled once the STT host confirms the WAV exists
-  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Back closes the panel instead of leaving the meeting.
-  useBackGuard(open, () => setOpen(false));
-
-  const toggleOpen = () => {
-    setOpen((v) => !v);
+  const askRecording = () => {
     setError(null);
-    if (hasRecording === null) {
-      fetch(`${sttHttpBase()}/recordings/${meetingId}`, { signal: AbortSignal.timeout(5000) })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { exists?: boolean } | null) => {
-          const exists = Boolean(d?.exists);
-          setHasRecording(exists);
-          setChecked((c) => ({ ...c, recording: exists }));
-        })
-        .catch(() => setHasRecording(false));
-    }
+    fetch(`${sttHttpBase()}/recordings/${meetingId}`, { signal: AbortSignal.timeout(5000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { exists?: boolean } | null) => setHasRecording(Boolean(d?.exists)))
+      .catch(() => setHasRecording(false));
   };
 
-  const saveBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const run = async () => {
-    const textParts = (["minutes", "transcript", "meta"] as const).filter((p) => checked[p]);
-    const wantRecording = checked.recording && hasRecording;
-    if (textParts.length === 0 && !wantRecording) return;
-    setBusy(true);
-    setError(null);
+  const saveRecording = async () => {
+    setSaving(true);
     try {
-      if (textParts.length > 0) {
-        const res = await fetch(`/api/meetings/${meetingId}/export?parts=${textParts.join(",")}`);
-        if (!res.ok) {
-          const d = await res.json().catch(() => null);
-          throw new Error(d?.error ?? `Export failed (HTTP ${res.status})`);
-        }
-        const blob = await res.blob();
-        const ext = textParts.length > 1 ? "zip" : textParts[0] === "transcript" ? "txt" : "md";
-        const suffix = textParts.length > 1 ? "" : `-${textParts[0]}`;
-        saveBlob(blob, `${title}${suffix}.${ext}`);
-      }
-      if (wantRecording) {
-        const res = await fetch(`${sttHttpBase()}/recordings/${meetingId}/audio`);
-        if (!res.ok) throw new Error(t("Recording download failed (HTTP {status})", { status: res.status }));
-        saveBlob(await res.blob(), `${title}.wav`);
-      }
-      setOpen(false);
+      // Not from the cache: the page's own player has usually loaded this file already, as a
+      // media request without CORS, and a fetch that reuses that copy is refused by the browser.
+      const res = await fetch(`${sttHttpBase()}/recordings/${meetingId}/audio`, { cache: "no-store" });
+      if (!res.ok) throw new Error(t("Recording download failed (HTTP {status})", { status: res.status }));
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${title}.wav`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("Download failed"));
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
-  const rows: { id: PartId; label: string; available: boolean; note?: string }[] = [
-    { id: "minutes", label: t("Minutes (.md)"), available: hasMinutes },
-    { id: "transcript", label: t("Transcript (.txt)"), available: hasTranscript },
-    {
-      id: "meta",
-      label: t("Meeting info (.md)"),
-      available: true,
-      note: "title, purpose & agenda, speakers, LLM/transcription settings",
-    },
-    {
-      id: "recording",
-      label: t("Recording (.wav)"),
-      available: Boolean(hasRecording),
-      note:
-        hasRecording === null
-          ? "checking…"
-          : hasRecording
-            ? "downloads as a separate file"
-            : "no recording (expired or not saved)",
-    },
-  ];
-  const anySelected = rows.some((r) => r.available && checked[r.id]);
+  const file = (parts: string) => `/api/meetings/${meetingId}/export?parts=${parts}`;
+  const all = ["minutes", "transcript", "meta"].filter(
+    (p) => (p !== "minutes" || hasMinutes) && (p !== "transcript" || hasTranscript),
+  );
+  const row = (href: string, label: string, enabled = true, extra?: { target?: string; title?: string }) =>
+    enabled ? (
+      <a role="menuitem" href={href} className={MENU_ITEM} {...extra}>
+        {label}
+      </a>
+    ) : (
+      <span role="menuitem" aria-disabled className={`${MENU_ITEM} opacity-50`}>
+        {label}
+      </span>
+    );
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={toggleOpen}
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
-        title={t("Download meeting (minutes / transcript / info / recording)")}
-        aria-label={t("Download meeting")}
-        aria-expanded={open}
+    <span className="relative inline-flex items-center">
+      <DropMenu
+        label={t("Download meeting")}
+        trigger={saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--border-strong)] border-t-[var(--accent)]" /> : <DownloadIcon className="h-4 w-4" />}
+        className={ICON_BUTTON}
+        width={248}
+        onOpen={askRecording}
       >
-        <DownloadIcon />
-      </button>
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-10 cursor-default bg-black/30 sm:bg-transparent"
-          />
-          {/* Phones: centered fixed sheet (an anchored dropdown can hang off-screen when
-              the button sits near the viewport edge). ≥sm: regular anchored dropdown. */}
-          <div className="fixed inset-x-4 top-1/2 z-20 -translate-y-1/2 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] p-3 shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1 sm:w-72 sm:translate-y-0">
-            <p className="mb-2 text-xs font-medium text-[var(--text-secondary)]">{t("Download")}</p>
-            <div className="space-y-1.5">
-              {rows.map((r) => (
-                <label
-                  key={r.id}
-                  className={`flex items-start gap-2 text-xs ${
-                    r.available ? "text-[var(--text-secondary)]" : "text-[var(--text-muted)] opacity-60"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={r.available && checked[r.id]}
-                    disabled={!r.available || busy}
-                    onChange={(e) => setChecked((c) => ({ ...c, [r.id]: e.target.checked }))}
-                  />
-                  <span>
-                    {r.label}
-                    {r.note ? (
-                      <span className="block text-[10px] text-[var(--text-muted)]">{r.note}</span>
-                    ) : null}
-                  </span>
-                </label>
-              ))}
-            </div>
-            {/* Document formats — one artefact each, so they sit outside the checkbox set
-                rather than joining the zip. */}
-
-            {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
-            <div className="mt-3 flex justify-end gap-2">
-              <button type="button" onClick={() => setOpen(false)} disabled={busy} className="btn-outline !px-3 !py-1 text-xs">
-                {t("Cancel")}
+        {(close) => (
+          <div onClick={() => void close()}>
+            <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium text-[var(--text-muted)]">{t("Minutes")}</p>
+            {row(file("minutes"), "Markdown (.md)", hasMinutes)}
+            {row(`/api/meetings/${meetingId}/export?format=docx`, "Word (.docx)", hasMinutes)}
+            {row(`/${meetingId}/print`, t("PDF (print)"), hasMinutes, {
+              target: "_blank",
+              title: t("Opens a print view — choose “Save as PDF” as the destination"),
+            })}
+            <MenuRule />
+            {row(file("transcript"), t("Transcript (.txt)"), hasTranscript)}
+            {row(file("meta"), t("Meeting info (.md)"))}
+            {hasRecording ? (
+              <button type="button" role="menuitem" onClick={() => void saveRecording()} className={MENU_ITEM}>
+                {t("Recording (.wav)")}
               </button>
-              <button
-                type="button"
-                onClick={() => void run()}
-                disabled={busy || !anySelected}
-                className="btn-ink !px-3 !py-1 text-xs"
-              >
-                {busy ? t("Preparing…") : "Download"}
-              </button>
-            </div>
+            ) : (
+              <span role="menuitem" aria-disabled className={`${MENU_ITEM} opacity-50`}>
+                {t("Recording (.wav)")}
+                {hasRecording === false ? (
+                  <span className="ml-auto text-[10px]">{t("no recording")}</span>
+                ) : null}
+              </span>
+            )}
+            <MenuRule />
+            {row(file(all.join(",")), t("Everything (.zip)"), all.length > 1)}
           </div>
-        </>
+        )}
+      </DropMenu>
+      {error ? (
+        <span role="alert" className="absolute right-0 top-full mt-1 whitespace-nowrap text-xs text-[var(--error)]">
+          {error}
+        </span>
       ) : null}
-    </div>
+    </span>
   );
 }

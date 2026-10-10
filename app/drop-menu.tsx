@@ -31,6 +31,7 @@ export function DropMenu({
   trigger,
   width = 208,
   align = "end",
+  onOpen,
   children,
 }: {
   /** What the button does: its tooltip, and its accessible name unless `ariaLabel` says otherwise. */
@@ -41,6 +42,8 @@ export function DropMenu({
   width?: number;
   /** Which edge of the button the menu lines up with. */
   align?: "start" | "end";
+  /** Called as the menu opens — to ask for what its rows depend on. */
+  onOpen?: () => void;
   /** `close` resolves once the menu's Back entry is gone: await it before navigating or opening
    *  a dialog, or that Back lands after and undoes it. */
   children: (close: () => Promise<void>) => ReactNode;
@@ -59,6 +62,7 @@ export function DropMenu({
     if (!r) return;
     const left = align === "end" ? r.right - width : r.left;
     setPos({ top: r.bottom + GAP, left: Math.max(PAD, Math.min(left, window.innerWidth - width - PAD)) });
+    onOpen?.();
   };
 
   // Above the button instead, when there is no room below it.

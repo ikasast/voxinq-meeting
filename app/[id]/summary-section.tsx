@@ -5,12 +5,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDateTimeIn } from "@/lib/i18n/format";
-import { DotsIcon, DownloadIcon, NotesIcon, PencilIcon, RefreshIcon, ShareIcon } from "../icons";
+import { NotesIcon, PencilIcon, RefreshIcon, ShareIcon } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopyButton } from "./copy-button";
-import { downloadText, shareText } from "./share-text";
-import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
+import { shareText } from "./share-text";
+import { ICON_BUTTON } from "../drop-menu";
 import { useLocale, useT } from "@/app/locale-provider";
 import { MinutesChoiceFields, useMinutesChoice } from "@/app/minutes-options";
 
@@ -180,7 +180,7 @@ export function SummarySection({
 
   // One quiet line between the meeting's details and the minutes: what this is and which
   // version, and what can be done with it. Copying is always in sight, because it is what is done
-  // with minutes most; sharing and the file formats wait behind "…".
+  // with minutes most. The file formats are in the meeting's download menu by the title.
   const header = (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[var(--border)] pt-4">
       <h2 className="text-sm font-semibold text-[var(--text-secondary)]">{t("Minutes")}</h2>
@@ -237,65 +237,23 @@ export function SummarySection({
               </button>
             )
           ) : null}
-          <DropMenu label={t("More")} trigger={<DotsIcon className="h-4 w-4" />} className={ICON_BUTTON} width={224}>
-            {(close) => (
-              <>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={MENU_ITEM}
-                  onClick={() => {
-                    void close();
-                    void shareText(current.text, `${meetingTitle} minutes`).then((how) => {
-                      if (how === "shared") return;
-                      setNotice(how === "copied" ? t("Copied") : t("Copy failed"));
-                      setTimeout(() => setNotice(null), 2500);
-                    });
-                  }}
-                >
-                  <ShareIcon className="h-3.5 w-3.5" />
-                  {t("Share minutes")}
-                </button>
-                <MenuRule />
-                {/* All three are the same document in another format, so they sit together.
-                    Markdown is written from the text already on the page, so it works without a
-                    round trip and on a read-only share. */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={MENU_ITEM}
-                  onClick={() => {
-                    void close();
-                    downloadText(current.text, `${meetingTitle}-minutes.md`, "text/markdown");
-                  }}
-                >
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  Markdown (.md)
-                </button>
-                <a
-                  role="menuitem"
-                  href={`/api/meetings/${meetingId}/export?format=docx`}
-                  onClick={() => void close()}
-                  className={MENU_ITEM}
-                >
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  Word (.docx)
-                </a>
-                <a
-                  role="menuitem"
-                  href={`/${meetingId}/print`}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={() => void close()}
-                  title={t("Opens a print view — choose “Save as PDF” as the destination")}
-                  className={MENU_ITEM}
-                >
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                  {t("PDF (print)")}
-                </a>
-              </>
-            )}
-          </DropMenu>
+          {/* Sharing, beside what it shares. The minutes as a file — Markdown, Word, PDF — are in
+              the meeting's download menu by the title, with everything else it can be saved as. */}
+          <button
+            type="button"
+            onClick={() => {
+              void shareText(current.text, `${meetingTitle} minutes`).then((how) => {
+                if (how === "shared") return;
+                setNotice(how === "copied" ? t("Copied") : t("Copy failed"));
+                setTimeout(() => setNotice(null), 2500);
+              });
+            }}
+            className={ICON_BUTTON}
+            title={t("Share minutes")}
+            aria-label={t("Share minutes")}
+          >
+            <ShareIcon className="h-4 w-4" />
+          </button>
         </div>
       ) : null}
     </div>
