@@ -17,7 +17,6 @@ export async function GET() {
     take: 200,
     include: {
       _count: { select: { transcripts: true, summaries: true } },
-      tags: { select: { name: true }, orderBy: { name: "asc" } },
     },
   });
 
@@ -30,7 +29,6 @@ export async function GET() {
       startedAt: m.startedAt,
       transcriptCount: m._count.transcripts,
       summaryCount: m._count.summaries,
-      tags: m.tags.map((t) => t.name),
     })),
   });
 }

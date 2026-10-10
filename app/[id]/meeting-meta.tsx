@@ -8,23 +8,21 @@ import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
 import { PROP_BUTTON, PROPS_WIDE, Prop } from "./property";
 
-// Section to edit the meeting's contents/purpose (description), tags, and series afterward.
-// description feeds the minutes-generation prompt; tags are used for list display/filtering.
-// series links recurring meetings: the previous one's minutes become LLM reference context.
+// Section to edit the meeting's purpose (description) and series afterward. The description
+// feeds the minutes-generation prompt; the series links recurring meetings: the previous one's
+// minutes become LLM reference context. (Tags were removed in v4.)
 //
-// Rows of the meeting's details (property.tsx) — series, tags, purpose — and the one editor for
-// all three, opened in their place from the purpose's pencil.
+// Rows of the meeting's details (property.tsx) — series, purpose — and the one editor for both,
+// opened in their place from the purpose's pencil.
 export function MeetingMeta({
   id,
   description,
-  tags,
   series,
   seriesId,
   readOnly = false,
 }: {
   id: string;
   description: string | null;
-  tags: string[];
   series: string | null;
   seriesId: string | null;
   readOnly?: boolean;
@@ -33,13 +31,9 @@ export function MeetingMeta({
   const [savedDesc, setSavedDesc] = useState(description ?? "");
   const t = useT();
   const seriesOn = useExtensions().series;
-  const [savedTags, setSavedTags] = useState(tags);
   const [savedSeries, setSavedSeries] = useState(series ?? "");
   const [draftDesc, setDraftDesc] = useState(description ?? "");
-  const [draftTags, setDraftTags] = useState(tags);
   const [draftSeries, setDraftSeries] = useState(series ?? "");
-  const [tagInput, setTagInput] = useState("");
-  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
   // A long agenda shows its first lines until it is clicked.
@@ -47,16 +41,10 @@ export function MeetingMeta({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // When opening the editor, offer existing tags/series as suggestions.
+  // When opening the editor, offer the existing series as suggestions.
   useEffect(() => {
     if (!editing) return;
     let cancelled = false;
-    fetch("/api/tags")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((list: { name: string }[] | null) => {
-        if (!cancelled && list) setSuggestions(list.map((t) => t.name));
-      })
-      .catch(() => {});
     fetch("/api/series")
       .then((r) => (r.ok ? r.json() : null))
       .then((list: { name: string }[] | null) => {
@@ -70,38 +58,20 @@ export function MeetingMeta({
 
   const cancel = () => {
     setDraftDesc(savedDesc);
-    setDraftTags(savedTags);
     setDraftSeries(savedSeries);
-    setTagInput("");
     setError(null);
     setEditing(false);
-  };
-
-  const addTag = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed || draftTags.includes(trimmed)) return;
-    setDraftTags((prev) => [...prev, trimmed]);
-    setTagInput("");
-  };
-
-  const removeTag = (name: string) => {
-    setDraftTags((prev) => prev.filter((t) => t !== name));
   };
 
   const save = async () => {
     setPending(true);
     setError(null);
-    // Pick up a half-typed tag left in the input.
-    const finalTags = tagInput.trim() && !draftTags.includes(tagInput.trim())
-      ? [...draftTags, tagInput.trim()]
-      : draftTags;
     try {
       const res = await fetch(`/api/meetings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: draftDesc.trim(),
-          tags: finalTags,
           // Not sent without Series: the field is not shown, and an empty one would detach it.
           ...(seriesOn ? { series: draftSeries.trim() || null } : {}),
         }),
@@ -110,13 +80,10 @@ export function MeetingMeta({
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
-      const updated = (await res.json()) as { tags: string[]; series: string | null };
+      const updated = (await res.json()) as { series: string | null };
       setSavedDesc(draftDesc.trim());
-      setSavedTags(updated.tags);
-      setDraftTags(updated.tags);
       setSavedSeries(updated.series ?? "");
       setDraftSeries(updated.series ?? "");
-      setTagInput("");
       setEditing(false);
       router.refresh();
     } catch (e) {
@@ -125,8 +92,6 @@ export function MeetingMeta({
       setPending(false);
     }
   };
-
-  const unusedSuggestions = suggestions.filter((s) => !draftTags.includes(s));
 
   if (editing) {
     return (
@@ -141,58 +106,6 @@ export function MeetingMeta({
           disabled={pending}
           className="input resize-y"
         />
-
-        <div>
-          <p className="label">{t("Tags")}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {draftTags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-1 rounded-full border border-[var(--border-strong)] bg-[var(--elevated)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)]"
-              >
-                {t}
-                <button
-                  type="button"
-                  onClick={() => removeTag(t)}
-                  aria-label={`Remove tag ${t}`}
-                  className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <input
-              type="text"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                  e.preventDefault();
-                  addTag(tagInput);
-                }
-              }}
-              placeholder={t("Type a tag and press Enter")}
-              maxLength={30}
-              disabled={pending}
-              className="w-44 rounded-md border border-[var(--border-strong)] bg-[var(--elevated)] px-2 py-1 text-xs text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none"
-            />
-          </div>
-          {unusedSuggestions.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] text-[var(--text-muted)]">{t("Existing:")}</span>
-              {unusedSuggestions.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => addTag(s)}
-                  className="rounded-full border border-dashed border-[var(--border-strong)] px-2.5 py-0.5 text-xs text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
-                >
-                  + {s}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
 
         {seriesOn ? (
         <div>
@@ -229,7 +142,7 @@ export function MeetingMeta({
             {t("Cancel")}
           </button>
           <button type="button" onClick={save} disabled={pending} className="btn-ink">
-            {pending ? t("Saving…") : "Save"}
+            {pending ? t("Saving…") : t("Save")}
           </button>
         </div>
       </div>
@@ -256,11 +169,6 @@ export function MeetingMeta({
               {savedSeries}
             </span>
           )}
-        </Prop>
-      ) : null}
-      {savedTags.length > 0 ? (
-        <Prop label={t("Tags")}>
-          <span className="text-[var(--text-secondary)]">{savedTags.join(" · ")}</span>
         </Prop>
       ) : null}
       <Prop

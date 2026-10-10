@@ -7,26 +7,21 @@ describe("buildMeetingWhere", () => {
     expect(where.AND).toContainEqual({ deletedAt: null });
   });
 
-  it("hides archived meetings when there is no text query", () => {
-    const where = buildMeetingWhere({ tag: "weekly" });
-    expect(where.AND).toContainEqual({ archivedAt: null });
+  it("no longer hides anything as archived (archiving was removed in v4)", () => {
+    for (const where of [buildMeetingWhere({}), buildMeetingWhere({ query: "budget" })]) {
+      expect(JSON.stringify(where)).not.toContain("archivedAt");
+    }
   });
 
-  it("surfaces archived meetings when a text query is present", () => {
+  it("searches the text when a query is present", () => {
     const where = buildMeetingWhere({ query: "budget" });
-    expect(where.AND).not.toContainEqual({ archivedAt: null });
     const or = (where.AND as Record<string, unknown>[]).find((c) => "OR" in c);
     expect(or).toBeDefined();
   });
 
-  it("ignores whitespace-only queries (still hides archived)", () => {
+  it("ignores whitespace-only queries", () => {
     const where = buildMeetingWhere({ query: "   " });
-    expect(where.AND).toContainEqual({ archivedAt: null });
-  });
-
-  it("adds a tag condition", () => {
-    const where = buildMeetingWhere({ tag: "weekly" });
-    expect(where.AND).toContainEqual({ tags: { some: { name: "weekly" } } });
+    expect(where.AND).toEqual([{ deletedAt: null }]);
   });
 });
 
@@ -52,10 +47,10 @@ describe("the series filter", () => {
     expect(where.AND).toContainEqual({ series: { name: "Weekly standup" } });
   });
 
-  it("combines with a tag rather than replacing it", () => {
-    const where = buildMeetingWhere({ series: "Weekly standup", tag: "budget" });
+  it("combines with a search rather than replacing it", () => {
+    const where = buildMeetingWhere({ series: "Weekly standup", query: "budget" });
     expect(where.AND).toContainEqual({ series: { name: "Weekly standup" } });
-    expect(where.AND).toContainEqual({ tags: { some: { name: "budget" } } });
+    expect((where.AND as Record<string, unknown>[]).some((c) => "OR" in c)).toBe(true);
   });
 
   it("ignores a whitespace-only series", () => {

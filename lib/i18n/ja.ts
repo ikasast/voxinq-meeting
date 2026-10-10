@@ -32,12 +32,7 @@ export const ja: Record<string, string> = {
   // ---- The meeting list: the first screen anybody sees ----
   "Search (title, transcript, minutes)": "検索（タイトル・発言・議事録）",
   "Clear filters": "絞り込みを解除",
-  "Tags:": "タグ:",
   // "+3 more" / "less" — the tag row folds when there are many.
-  "+{n} more": "他 {n} 件",
-  less: "折りたたむ",
-  Archived: "アーカイブ",
-  "Archived — hidden from the list, still searchable": "アーカイブ済み — 一覧には出ませんが検索では見つかります",
   Trash: "ゴミ箱",
   // The bands down the list. `bandOf` returns these strings, so they are both the value and
   // the row here.
@@ -81,8 +76,6 @@ export const ja: Record<string, string> = {
 
   // ---- The row's menu ----
   "Meeting actions": "この会議の操作",
-  Archive: "アーカイブする",
-  Unarchive: "アーカイブを解除",
   "Move to Trash": "ゴミ箱へ移動",
   "Move to Trash?": "ゴミ箱へ移動しますか？",
   "The meeting can be restored from Trash for 30 days.": "30日間はゴミ箱から元に戻せます。",
@@ -194,9 +187,6 @@ export const ja: Record<string, string> = {
   "Purpose & agenda": "目的と議題",
   "Purpose, agenda, and background of the meeting. Improves minutes quality.":
     "会議の目的・議題・背景。議事録の質が上がります。",
-  Tags: "タグ",
-  "Type a tag and press Enter": "タグを入力して Enter",
-  "Existing:": "既存:",
   "Not set": "未設定",
   "e.g. Weekly sync (empty = none)": "例: 週次定例（空欄ならなし）",
   Participants: "参加者",
@@ -272,7 +262,6 @@ export const ja: Record<string, string> = {
   "A link for {name}": "{name} さん用のリンク",
   "It works once and expires in {n} minutes. It is shown here and nowhere else — only a hash of it is stored, so it cannot be shown again. Hand it over now.":
     "1 回だけ使え、{n} 分で切れます。表示されるのはここだけで、保存されるのはハッシュのみのため二度と表示できません。今のうちに渡してください。",
-  "tag “{name}”": "タグ「{name}」",
   "1 result": "1 件",
   "{n} results": "{n} 件",
   "Meetings: {added} added, {skipped} already here.": "会議: {added} 件を追加、{skipped} 件は既にありました。",
@@ -391,9 +380,6 @@ export const ja: Record<string, string> = {
   "Resume recording": "録音を再開",
   "Continue recording — appends to the existing recording and transcript":
     "録音を続けます — 既存の録音と発言に追記されます",
-  "Archive: hide from the list (still searchable, listed under Archived)":
-    "アーカイブ: 一覧から隠します（検索では見つかり、アーカイブ一覧に入ります）",
-  "Unarchive: show this meeting in the list again": "アーカイブを解除して一覧に戻します",
   "Move to Trash (restorable for 30 days)": "ゴミ箱へ移動（30日間は復元できます）",
   "Move this meeting to the trash. You can restore it within 30 days.":
     "この会議をゴミ箱へ移動します。30日以内なら復元できます。",
@@ -1139,13 +1125,6 @@ export const ja: Record<string, string> = {
     "同時にいくつ走るかは、それぞれの必要量とカードの容量で決まります。GPU 外の処理（エンドポイントに送る認識や、クラウドのモデルが書く議事録）はカードを待ちません。上限は「設定 → 文字起こし」で決めます。止めた処理は待ち行列に戻らないので、必要ならもう一度指示してください。",
 
   // ---- Archive ----
-  "Archived meetings": "アーカイブした会議",
-  "Archived meetings are hidden from the main list but kept forever — open them here or via search.":
-    "アーカイブした会議は一覧には出ませんが、消えずに残ります。ここか検索から開けます。",
-  "Unarchive to bring one back to the list. On a phone, swipe a row right to unarchive or left to move it to Trash.":
-    "アーカイブを解除すると一覧に戻ります。スマートフォンでは、右スワイプで解除、左スワイプでゴミ箱へ移動します。",
-  "Nothing archived.": "アーカイブした会議はありません。",
-  "archived {when}": "アーカイブ {when}",
 
   // ---- Trash ----
   "Deleted meetings": "削除した会議",
@@ -1463,7 +1442,6 @@ export const ja: Record<string, string> = {
   "Uses this series’ own minutes format.": "このシリーズ独自の議事録の形式を使います。",
   "Series (recurring meetings)": "シリーズ（定例会議）",
   "Meetings in the same series share context: the previous meeting’s minutes are given to the LLM as reference when generating minutes.": "同じシリーズの会議は文脈を共有します。議事録を作るとき、前回の議事録が参考としてLLMに渡されます。",
-  "Archived — hidden from the meeting list, but still found via search.": "アーカイブ済みです。会議の一覧には出ませんが、検索では見つかります。",
   "Failed to change protection: {error}": "録音の保護を変更できませんでした: {error}",
   "Failed to change speaker ({reason})": "話者を変更できませんでした（{reason}）",
   "connection error": "接続エラー",

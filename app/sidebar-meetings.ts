@@ -34,13 +34,13 @@ export async function sidebarMeetings(): Promise<SidebarMeeting[]> {
   // out of the recent list.
   const [recent, pinned] = await Promise.all([
     prisma.meeting.findMany({
-      where: { deletedAt: null, archivedAt: null },
+      where: { deletedAt: null },
       orderBy: { startedAt: "desc" },
       take: 80,
       select: SELECT,
     }),
     prisma.meeting.findMany({
-      where: { deletedAt: null, archivedAt: null, pinnedAt: { not: null } },
+      where: { deletedAt: null, pinnedAt: { not: null } },
       orderBy: { pinnedAt: "asc" },
       take: 40,
       select: SELECT,

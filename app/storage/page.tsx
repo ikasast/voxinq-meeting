@@ -148,7 +148,7 @@ export default async function StoragePage() {
   const now = new Date();
 
   const meetings = await prisma.meeting.findMany({
-    select: { id: true, title: true, startedAt: true, deletedAt: true, archivedAt: true },
+    select: { id: true, title: true, startedAt: true, deletedAt: true },
   });
   const ids = meetings.map((m) => m.id);
   const [text, recordings, voiceprints] = await Promise.all([
@@ -326,9 +326,6 @@ export default async function StoragePage() {
                       </span>
                     ) : fate === "trash" ? (
                       <span className="rounded-full border border-[var(--border-strong)] px-1.5 text-[10px]">{t("In the trash")}</span>
-                    ) : null}
-                    {m.archivedAt && fate !== "trash" ? (
-                      <span className="rounded-full border border-[var(--border-strong)] px-1.5 text-[10px]">{t("Archived")}</span>
                     ) : null}
                   </p>
                 </li>

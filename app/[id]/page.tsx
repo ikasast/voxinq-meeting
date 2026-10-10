@@ -44,7 +44,6 @@ export default async function MeetingPage({
     include: {
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
-      tags: { select: { name: true }, orderBy: { name: "asc" } },
       series: {
         select: {
           id: true,
@@ -90,7 +89,6 @@ export default async function MeetingPage({
   // an ordinary meeting, whatever the diary said.
   const upcoming =
     meeting.scheduledAt !== null && meeting.endedAt === null && meeting.transcripts.length === 0;
-  const tagNames = meeting.tags.map((t) => t.name);
   const seriesName = meeting.series?.name ?? null;
   const seriesOn = await extensionEnabled("series");
   const seriesId = meeting.series?.id ?? null;
@@ -143,18 +141,11 @@ export default async function MeetingPage({
               id={meeting.id}
               title={meeting.title}
               series={seriesOn ? seriesName : null}
-              archived={meeting.archivedAt !== null}
               pinned={meeting.pinnedAt !== null}
             />
           ) : null}
         </div>
       </div>
-
-      {meeting.archivedAt ? (
-        <p className="text-sm text-[var(--text-muted)]">
-          {t("Archived — hidden from the meeting list, but still found via search.")}
-        </p>
-      ) : null}
 
       {/* What the meeting is, as a table under its title (property.tsx): when, who, the series,
           the agenda — always in sight, no box around any of it — and, folded, what it was
@@ -216,7 +207,6 @@ export default async function MeetingPage({
         <MeetingMeta
           id={meeting.id}
           description={meeting.description}
-          tags={tagNames}
           series={seriesName}
           seriesId={seriesId}
         />

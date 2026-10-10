@@ -63,7 +63,6 @@ export default async function SeriesPage({
       title: true,
       startedAt: true,
       endedAt: true,
-      archivedAt: true,
       _count: { select: { transcripts: true, summaries: true } },
       summaries: { orderBy: { createdAt: "desc" }, take: 1, select: { summaryText: true } },
     },
@@ -154,7 +153,6 @@ export default async function SeriesPage({
               {m.endedAt
                 ? ` · ${formatDurationIn(locale, m.endedAt.getTime() - m.startedAt.getTime()) ?? ""}`
                 : ""}
-              {m.archivedAt ? ` · ${t("Archived")}` : ""}
             </p>
             <Link
               href={`/${m.id}`}

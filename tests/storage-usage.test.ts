@@ -71,7 +71,7 @@ describe("where the numbers come from", () => {
     expect(page).not.toContain("prismaRaw");
     // No `where`: a meeting in the trash keeps its recording until it is purged.
     expect(page).toContain(
-      "prisma.meeting.findMany({\n    select: { id: true, title: true, startedAt: true, deletedAt: true, archivedAt: true },\n  })",
+      "prisma.meeting.findMany({\n    select: { id: true, title: true, startedAt: true, deletedAt: true },\n  })",
     );
   });
 

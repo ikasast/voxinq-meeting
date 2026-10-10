@@ -15,7 +15,6 @@ type TrashItem = {
   startedAt: string;
   transcriptCount: number;
   summaryCount: number;
-  tags: string[];
 };
 
 export function TrashList() {

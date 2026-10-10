@@ -17,7 +17,7 @@
 export const EXTERNAL_WRITES: { method: string; path: RegExp }[] = [
   // Create a meeting, including one booked for later.
   { method: "POST", path: /^\/api\/meetings$/ },
-  // Its title, agenda, series and tags. See app/api/meetings/[id]/route.ts for what it refuses.
+  // Its title, agenda and series. See app/api/meetings/[id]/route.ts for what it refuses.
   //
   // `bulk` is excluded by name because it is a sibling of the id, not an id: `[^/]+` matched it
   // happily. It only answers POST today, so nothing was reachable — but the point of an

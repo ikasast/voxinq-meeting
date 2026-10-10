@@ -142,9 +142,8 @@ describe("work that runs outside a request", () => {
 describe("counts nested inside a relation", () => {
   it("name the owner themselves, because nothing else will", () => {
     // The extension rewrites a top-level `where`. A `where` inside a `_count` is not reached,
-    // so a tag's count would include other people's meetings — a number that is wrong, and that
-    // says those meetings exist.
-    expect(read("app/meeting-list-pane.tsx")).toContain("archivedAt: null, ...mine");
+    // so a count would include other people's meetings — a number that is wrong, and that says
+    // those meetings exist. (The tag counts on the list that once did this went with tags.)
     expect(read("app/api/series/[id]/route.ts")).toContain("deletedAt: null, ...(await onlyMine())");
   });
 });

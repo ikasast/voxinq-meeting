@@ -1,14 +1,18 @@
-// Shared logic for list filtering (search / tag / series).
+// Shared logic for list filtering (search / series / day).
 // Extracted so meeting-list-pane and each page build the same conditions.
 
 import type { Prisma } from "@prisma/client";
 import { dayRange } from "./calendar-month";
 
-/** Build the Prisma where from search/tag (always excludes trash).
- * Archived meetings are hidden from the normal list but surface when a text query is present. */
+/**
+ * Build the Prisma where from search, series and day (always excludes trash).
+ *
+ * Tags and archiving were removed in v4: pins, search and the trash cover what they were for.
+ * Meetings archived before then are ordinary meetings again — the column is kept so a 3.x image
+ * can still be rolled back to, and nothing reads it.
+ */
 export function buildMeetingWhere(opts: {
   query?: string;
-  tag?: string;
   series?: string;
   /** "2026-09-18" — one day, picked from the calendar. */
   date?: string;
@@ -24,7 +28,6 @@ export function buildMeetingWhere(opts: {
 }): Prisma.MeetingWhereInput {
   const and: Prisma.MeetingWhereInput[] = [{ deletedAt: null }];
   const query = opts.query?.trim();
-  const tag = opts.tag?.trim();
   const series = opts.series?.trim();
 
   if (query) {
@@ -48,13 +51,9 @@ export function buildMeetingWhere(opts: {
         ],
       });
     }
-  } else {
-    // No text query: hide archived meetings from the list (they stay searchable).
-    and.push({ archivedAt: null });
   }
-  if (tag) and.push({ tags: { some: { name: tag } } });
   // By name rather than id: `Series.name` is unique, it is what the chip shows, and it keeps
-  // the URL readable in the same way `?tag=` already is.
+  // the URL readable.
   if (series) and.push({ series: { name: series } });
   // A day the calendar could not have drawn filters nothing rather than everything: `dayRange`
   // returns null for it, and silently showing the whole list would look like the click missed.

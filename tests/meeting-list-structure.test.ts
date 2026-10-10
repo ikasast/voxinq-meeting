@@ -37,13 +37,14 @@ describe("the meeting list", () => {
     expect(src).toContain('m.seriesName !== activeSeries');
   });
 
-  it("puts Archived and Trash above the list, not below it", () => {
-    // They used to sit under every card. Scrolling past everything to reach what you put away
-    // is the one thing you are not doing when you are looking for it.
-    const archive = src.indexOf('href="/archive"');
+  it("puts Trash above the list, not below it", () => {
+    // It used to sit under every card. Scrolling past everything to reach what you put away
+    // is the one thing you are not doing when you are looking for it. (Archive went in v4.)
+    const trash = src.indexOf('href="/trash"');
     const list = src.indexOf("<ul>{entries}</ul>");
-    expect(archive).toBeGreaterThan(0);
-    expect(archive).toBeLessThan(list);
+    expect(trash).toBeGreaterThan(0);
+    expect(trash).toBeLessThan(list);
+    expect(src).not.toContain('href="/archive"');
   });
 
   it("keeps the series filter when the search form is submitted", () => {

@@ -39,7 +39,6 @@ export default async function PrintMinutes({
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
       series: { select: { name: true } },
-      tags: { select: { name: true }, orderBy: { name: "asc" } },
     },
   });
   if (!meeting) notFound();
@@ -72,11 +71,6 @@ export default async function PrintMinutes({
           {duration ? ` (${duration})` : ""}
           {meeting.series && (await extensionEnabled("series")) ? `  ·  ${meeting.series.name}` : ""}
         </p>
-        {meeting.tags.length > 0 ? (
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            {meeting.tags.map((t) => t.name).join(", ")}
-          </p>
-        ) : null}
       </header>
 
       {minutes ? (

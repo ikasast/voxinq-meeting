@@ -89,11 +89,11 @@ describe("editing a meeting from outside", () => {
   const route = readFileSync(join(root, "app/api/meetings/[id]/route.ts"), "utf8");
 
   it("refuses the fields that are not part of setting one up", () => {
-    // The allow-list opens the route; the route decides what the route may do. Archiving takes
-    // a meeting off the list and speaker names belong to a transcript made in here — neither
-    // is setup, and both would otherwise ride in on the same PATCH.
+    // The allow-list opens the route; the route decides what the route may do. Speaker names
+    // belong to a transcript made in here and pins arrange the sidebar of the people in here —
+    // neither is setup, and both would otherwise ride in on the same PATCH.
     expect(route).toContain("isExternalRequest");
-    expect(route).toMatch(/\["archived", "pinned", "speakerLabels"\]/);
+    expect(route).toMatch(/\["pinned", "speakerLabels"\]/);
     expect(route).toContain("403");
   });
 });

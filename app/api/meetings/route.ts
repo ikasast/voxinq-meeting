@@ -26,13 +26,11 @@ const STT_LANGS = ["auto", "ja", "en"];
 //
 // Named here rather than in each caller because there are three, only one of which shows the
 // name before creating it — and the two that do not would each have to fetch the settings to
-// find out what shape to use. tags/series are accepted so "new with same settings" can carry
-// over the metadata.
+// find out what shape to use.
 export async function POST(req: NextRequest) {
   const body = await readJson<{
     title?: unknown;
     description?: unknown;
-    tags?: unknown;
     series?: unknown;
     sttLanguage?: unknown;
     whisperModel?: unknown;
@@ -58,11 +56,6 @@ export async function POST(req: NextRequest) {
     typeof body?.whisperModel === "string" && body.whisperModel.trim()
       ? body.whisperModel.trim().slice(0, 120)
       : null;
-
-  const tagNames =
-    Array.isArray(body?.tags) && body.tags.every((t) => typeof t === "string")
-      ? [...new Set((body.tags as string[]).map((t) => t.trim()).filter(Boolean))].slice(0, 10)
-      : [];
 
   const seriesName =
     typeof body?.series === "string" && (await extensionEnabled("series")) ? body.series.trim().slice(0, 60) : "";
@@ -94,9 +87,6 @@ export async function POST(req: NextRequest) {
       sttLanguage,
       whisperModel,
       ...(scheduledAt ? { scheduledAt, startedAt: scheduledAt } : {}),
-      tags: tagNames.length
-        ? { connectOrCreate: tagNames.map((name) => ({ where: { name }, create: { name } })) }
-        : undefined,
       // The caller's own series of that name: see seriesIdForName.
       seriesId: seriesName ? await seriesIdForName(seriesName) : undefined,
     },
