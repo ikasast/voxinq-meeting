@@ -29,7 +29,7 @@ export async function MeetingFacts({
       label: t("Transcribed with"),
       value: whisperModel ?? (
         <>
-          {defaultWhisperModel} <span className="text-[var(--text-muted)]">(default)</span>
+          {defaultWhisperModel} <span className="text-[var(--text-muted)]">({t("default")})</span>
         </>
       ),
     },

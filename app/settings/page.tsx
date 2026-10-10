@@ -367,8 +367,6 @@ export default function SettingsPage() {
                 {isJapaneseOnlyModel(settings.whisperModel) ? (
                   <p className="mt-1 text-xs text-[var(--warning)]">
                     {t("This is a Japanese-only model — meetings in other languages will not transcribe.")}
-                    It becomes the default for every new meeting; you can still pick another model
-                    per meeting on the New meeting screen.
                   </p>
                 ) : null}
               </>
@@ -750,7 +748,7 @@ export default function SettingsPage() {
                 >
                   {settingLabel(t, th.label)}
                   {th.id === "system" ? (
-                    <span className="block text-[11px] opacity-70">default</span>
+                    <span className="block text-[11px] opacity-70">{t("default")}</span>
                   ) : null}
                 </button>
               ))}

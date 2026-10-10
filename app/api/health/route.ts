@@ -17,7 +17,7 @@ async function checkDb(): Promise<{ ok: boolean; detail?: string }> {
     ]);
     return { ok: true };
   } catch {
-    return { ok: false, detail: "Cannot reach PostgreSQL" };
+    return { ok: false, detail: translate(await currentLocale(), "Cannot reach PostgreSQL") };
   }
 }
 
@@ -38,7 +38,7 @@ export async function GET() {
     } catch {
       return NextResponse.json({
         db,
-        llm: { ok: false, provider: "ollama", detail: "Cannot reach Ollama" },
+        llm: { ok: false, provider: "ollama", detail: translate(await currentLocale(), "Cannot reach Ollama") },
       });
     }
   }
@@ -57,7 +57,11 @@ export async function GET() {
     } catch {
       return NextResponse.json({
         db,
-        llm: { ok: false, provider: "openai", detail: "Cannot reach the LLM (check the Base URL)" },
+        llm: {
+          ok: false,
+          provider: "openai",
+          detail: translate(await currentLocale(), "Cannot reach the LLM (check the Base URL)"),
+        },
       });
     }
   }

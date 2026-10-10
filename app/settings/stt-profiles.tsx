@@ -202,11 +202,11 @@ export function SttProfiles({
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-xs">
                     {p.apiKey?.trim() ? (
-                      <span className="text-[var(--accent-sub)]">unsaved</span>
+                      <span className="text-[var(--accent-sub)]">{t("unsaved")}</span>
                     ) : p.hasApiKey ? (
                       <span className="font-mono text-[var(--text-secondary)]">••••</span>
                     ) : (
-                      <span className="text-[var(--text-muted)]">none</span>
+                      <span className="text-[var(--text-muted)]">{t("none")}</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -420,11 +420,13 @@ function EndpointEditor({
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           {host ? (
             <span className="text-[var(--warning)]">
-              Recordings sent here leave this machine and go to {host}, which bills you for the
-              length of the audio.
+              {t(
+                "Recordings sent here leave this machine and go to {host}, which bills you for the length of the audio.",
+                { host },
+              )}
             </span>
           ) : (
-            "A local or private address — nothing leaves your network."
+            t("A local or private address — nothing leaves your network.")
           )}
         </p>
       </div>
@@ -443,9 +445,9 @@ function EndpointEditor({
           />
           {profile.kind === "gemini" ? (
             <p className="mt-1 text-xs text-[var(--text-muted)]">
-              <code>gemini-3.5-transcribe</code> returns word timings and speaker labels. A
-              general model such as <code>gemini-3.5-flash</code> returns text alone, which
-              arrives as one long utterance.
+              {t(
+                "gemini-3.5-transcribe returns word timings and speaker labels. A general model such as gemini-3.5-flash returns text alone, which arrives as one long utterance.",
+              )}
             </p>
           ) : null}
         </div>

@@ -678,10 +678,10 @@ export async function MeetingListPane({
 
       {query || activeTag ? (
         <p className="text-xs text-[var(--text-muted)]">
-          {[query ? `"${query}"` : null, activeTag ? `tag "${activeTag}"` : null]
+          {[query ? `"${query}"` : null, activeTag ? t("tag “{name}”", { name: activeTag }) : null]
             .filter(Boolean)
             .join(" × ")}
-          : {meetings.length} result(s)
+          : {t(meetings.length === 1 ? "1 result" : "{n} results", { n: meetings.length })}
         </p>
       ) : null}
 

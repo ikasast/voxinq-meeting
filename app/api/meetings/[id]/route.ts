@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (await isExternalRequest()) {
     for (const field of ["archived", "pinned", "speakerLabels"] as const) {
       if (body?.[field] !== undefined) {
-        return apiError(`${field} cannot be changed from outside your private network`, 403);
+        return apiError("{field} cannot be changed from outside your private network.", 403, { vars: { field } });
       }
     }
   }

@@ -33,7 +33,8 @@ describe("what the backend has to say about a run", () => {
     // from the STT service it no longer polls.
     const runner = readFileSync(join(root, "lib/queue/runners/transcribe.ts"), "utf8");
     expect(runner).toMatch(/note: typeof result\.note === "string"/);
-    expect(page).toMatch(/setRetransWarn\(job\.detail \?\? null\)/);
+    // In the reader's language: a note may be stored as a key and its values (lib/i18n/stored.ts).
+    expect(page).toContain("setRetransWarn(job.detail ? readStored(t, job.detail) : null)");
     // Cleared when the next run starts, or last time's explanation is read as this time's.
     expect(page).toMatch(/setRetransWarn\(null\)/);
     expect(page).toMatch(/\{retransWarn \?/);

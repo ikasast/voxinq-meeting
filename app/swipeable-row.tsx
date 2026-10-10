@@ -128,13 +128,16 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
             {rightward ? (
               <>
                 {archived ? <RestoreIcon className="h-4 w-4" /> : <ArchiveIcon className="h-4 w-4" />}
-                {archived ? "Unarchive" : "Archive"}
-                {many ? ` series (${ids.length})` : ""}
+                {many
+                  ? t("{action} the series ({n})", { action: archived ? t("Unarchive") : t("Archive"), n: ids.length })
+                  : archived
+                    ? t("Unarchive")
+                    : t("Archive")}
               </>
             ) : (
               <>
                 <TrashIcon className="h-4 w-4" />
-                Trash{many ? ` series (${ids.length})` : ""}
+                {many ? t("{action} the series ({n})", { action: t("Trash"), n: ids.length }) : t("Trash")}
               </>
             )}
           </span>

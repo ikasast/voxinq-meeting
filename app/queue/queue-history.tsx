@@ -1,3 +1,4 @@
+import { readStored } from "@/lib/i18n/stored";
 import Link from "next/link";
 import { formatDateTimeIn, formatDurationIn, formatSpanIn } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n";
@@ -57,7 +58,7 @@ export function QueueHistory({
           </div>
           <Facts job={job} t={t} locale={locale} />
           {job.status === "error" && job.detail ? (
-            <p className="mt-1 break-words text-xs text-[var(--error)]">{job.detail}</p>
+            <p className="mt-1 break-words text-xs text-[var(--error)]">{readStored(t, job.detail)}</p>
           ) : null}
         </li>
       ))}

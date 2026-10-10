@@ -1,3 +1,4 @@
+import { storedText, storedTexts } from "@/lib/i18n/stored";
 import { prisma } from "@/lib/prisma";
 import { extensionEnabled } from "@/lib/extensions-store";
 import {
@@ -116,21 +117,30 @@ export async function runDiarize(job: { meetingId: string | null; params: string
   // person can act on, and the count is what makes it visible.
   const distinct = applied.speakerKeys.length;
   const missed = applied.transcriptCount - applied.speakerCount;
+  // Kept as keys and values, not sentences: it is read later, in the reader's language.
   const trouble =
     distinct <= 1 || missed > 0
-      ? `Found ${distinct} speaker(s) across ${applied.transcriptCount} utterance(s).` +
-        (missed > 0 ? ` ${missed} had no label.` : "") +
-        " A short or one-sided recording, or a transcript that arrived as one block, gives the" +
-        " diarizer little to separate."
+      ? storedTexts([
+          storedText("Found {speakers} speaker(s) across {lines} utterance(s).", {
+            speakers: distinct,
+            lines: applied.transcriptCount,
+          }),
+          missed > 0 ? storedText("{n} had no label.", { n: missed }) : undefined,
+          storedText(
+            "A short or one-sided recording, or a transcript that arrived as one block, gives the diarizer little to separate.",
+          ),
+        ])
       : undefined;
   // Worth saying even when nothing went wrong: the transcript has more lines than it did, and
   // that is something a person will notice and want explained.
   const divisions =
     divided.split > 0
-      ? `${divided.split} utterance(s) held more than one speaker and were divided, adding` +
-        ` ${divided.added} line(s).`
+      ? storedText("{split} utterance(s) held more than one speaker and were divided, adding {added} line(s).", {
+          split: divided.split,
+          added: divided.added,
+        })
       : undefined;
-  const note = [trouble, divisions].filter(Boolean).join(" ") || undefined;
+  const note = storedTexts([trouble, divisions]);
 
   // pyannote runs on the service's device; sherpa-onnx always on the CPU.
   const metrics: JobMetrics = {

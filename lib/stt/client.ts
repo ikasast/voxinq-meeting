@@ -1,6 +1,7 @@
 import { antiAliasStages } from "@/lib/audio/lowpass";
 import { fromDiarizer, MIC_SPEAKER } from "@/lib/speakers";
 import { micConstraints, micGain, streamIsLive } from "./mic-constraints";
+import { storedText } from "@/lib/i18n/stored";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
 // Assumes in-person meetings and single-phone recording, handling a single mic input.
@@ -105,15 +106,14 @@ export async function startMic(
     // Acquire screen share (getDisplayMedia) first, to use the user gesture right after the click.
     if (source === "display" || source === "both") {
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function") {
-        throw new Error(
-          "この端末/ブラウザは PC 音声の取り込みに対応していません（PC の Chrome / Edge をご利用ください）。",
-        );
+        // English, as a key: the page shows it through the table (lib/i18n/stored.ts).
+        throw new Error("This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.");
       }
       const disp = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       if (disp.getAudioTracks().length === 0) {
         disp.getTracks().forEach((t) => t.stop());
         throw new Error(
-          "画面共有で音声が選択されていません。共有ダイアログで「タブの音声を共有」またはシステム音声をオンにしてください。",
+          "No audio was shared. In the share dialog, turn on “Share tab audio” or the system audio.",
         );
       }
       streams.push(disp);
@@ -287,7 +287,11 @@ export async function startMic(
       } else {
         if (!fatal) {
           handlers.onError(
-            `STT 切断: code=${ev.code}${ev.reason ? ` reason=${ev.reason}` : ""}（再接続を${MAX_RETRIES}回試みました）`,
+            storedText("Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.", {
+              code: ev.code,
+              reason: ev.reason ? `, ${ev.reason}` : "",
+              n: MAX_RETRIES,
+            }),
           );
         }
         handlers.onStatus("error");

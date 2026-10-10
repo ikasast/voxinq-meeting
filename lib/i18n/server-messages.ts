@@ -80,6 +80,57 @@ export const SERVER_MESSAGES = [
   // every page header. It goes through `translate` rather than `apiError` because it is a field
   // of a successful response — but it is read by a person, so it belongs on this list.
   "API key not set",
+  "Cannot reach PostgreSQL",
+  "Cannot reach Ollama",
+  "Cannot reach the LLM (check the Base URL)",
+
+  // Asking about minutes, and checking a transcript against the glossary.
+  "Busy: minutes are being generated for “{title}”. Please wait until it finishes.",
+  "Failed to answer: {reason}",
+  "This meeting has no transcript to read.",
+  "No minutes to answer from yet. Generate minutes for at least one meeting first.",
+  "No terms to check against. Add some in Settings → Transcription, or on the series.",
+  "Failed to check the transcript: {reason}",
+
+  // Recording into a meeting, and bringing a recording in.
+  "This meeting has already ended. Recording cannot be restarted.",
+  "This meeting already has a transcript.",
+  "That file is too large to import.",
+  "The transcription service could not be reached.",
+
+  // Voiceprints from a meeting.
+  "No voice embeddings stored for this meeting. Run Diarize (again) first — the recording must still exist.",
+  "No named speakers to enroll. Name the diarized speakers under “Speaker names” first.",
+
+  // Editing from outside, and a series' background.
+  "{field} cannot be changed from outside your private network.",
+  "The shared background is too long.",
+  "Failed to update Tailscale Funnel: {reason}",
+
+  // Notes the queue writes while nobody is looking, read later on the meeting and the queue
+  // page. Those with numbers are stored as keys and values (lib/i18n/stored.ts).
+  "Found {speakers} speaker(s) across {lines} utterance(s).",
+  "{n} had no label.",
+  "A short or one-sided recording, or a transcript that arrived as one block, gives the diarizer little to separate.",
+  "{split} utterance(s) held more than one speaker and were divided, adding {added} line(s).",
+  "Interrupted by a restart — it will run again from the beginning.",
+  "Interrupted so a recording could start. It runs again once the meeting ends.",
+  "Recording.",
+  "Recording finished.",
+  "Recording ended without saying so; the GPU was handed back.",
+  "Waiting for you to sign in — this work needs your key to read the meeting.",
+  "Encrypting and indexing the meetings that still need it.",
+  "Cannot write anything while signed out.",
+  "Emotion is switched off.",
+  "No line has a place in the recording to judge.",
+  "Emotion needs the NVIDIA GPU build of the transcription service, which has torch.",
+  "Emotion needs HF_TOKEN, with the terms of its two models accepted on Hugging Face.",
+  "That transcription endpoint is no longer saved. Settings → Transcription.",
+
+  // The recording, as the browser starts it.
+  "This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.",
+  "No audio was shared. In the share dialog, turn on “Share tab audio” or the system audio.",
+  "Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.",
 
   // The sample meeting somebody learns on.
   "Sample meetings can only be created from inside your private network.",
