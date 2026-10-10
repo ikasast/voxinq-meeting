@@ -1,5 +1,6 @@
 "use client";
 
+import { SendIcon } from "./icons";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -117,7 +118,7 @@ export function AskMinutes({
                 disabled={asking}
                 className={
                   option === source
-                    ? "bg-[var(--accent-solid)] px-3 py-1 font-medium text-[var(--accent-contrast)]"
+                    ? "bg-[var(--btn-primary-bg)] px-3 py-1 font-medium text-[var(--btn-primary-text)]"
                     : "px-3 py-1 text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
                 }
               >
@@ -147,8 +148,9 @@ export function AskMinutes({
         <button
           type="submit"
           disabled={asking || blocked || !question.trim()}
-          className={plain ? "btn-outline !px-4 !py-1.5" : "btn-ink"}
+          className="btn-outline"
         >
+          <SendIcon />
           {asking ? t("Thinking…") : t("Ask")}
         </button>
       </form>

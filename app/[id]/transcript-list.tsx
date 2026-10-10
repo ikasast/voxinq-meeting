@@ -1261,7 +1261,7 @@ export function TranscriptList({
                   type="button"
                   onClick={() => void stopDiarization()}
                   disabled={stoppingDiar}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-4 py-1.5 text-sm font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                  className="btn-danger"
                 >
                   <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
                   {stoppingDiar ? t("Stopping…") : t("Stop")}
@@ -1276,6 +1276,7 @@ export function TranscriptList({
                     "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)",
                   )}
                 >
+                  <PeopleIcon />
                   {t("Diarize")}
                 </button>
               )}
@@ -1522,8 +1523,9 @@ export function TranscriptList({
               type="button"
               onClick={() => void retranscribe()}
               disabled={busy}
-              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
+              className="btn-outline"
             >
+              <RefreshIcon />
               {retransing ? t("Recognizing…") : t("Re-transcribe")}
             </button>
             <span className="text-xs text-[var(--text-muted)]">

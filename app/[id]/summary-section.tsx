@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDateTimeIn } from "@/lib/i18n/format";
-import { DotsIcon, DownloadIcon, PencilIcon, RefreshIcon, ShareIcon } from "../icons";
+import { DotsIcon, DownloadIcon, NotesIcon, PencilIcon, RefreshIcon, ShareIcon } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "../use-gpu-busy";
 import { CopyButton } from "./copy-button";
@@ -336,6 +336,7 @@ export function SummarySection({
                 disabled={genBusy || processing}
                 className="btn-ink"
               >
+                <NotesIcon />
                 {genBusy ? t("Starting…") : current ? t("Regenerate") : t("Generate minutes")}
               </button>
             </div>
@@ -456,6 +457,7 @@ function GenButton({ onClick, busy, label }: { onClick: () => void; busy: boolea
   return (
     <div className="mt-4">
       <button type="button" onClick={onClick} disabled={busy} className="btn-ink">
+        <NotesIcon />
         {busy ? t("Starting…") : label}
       </button>
     </div>
@@ -472,7 +474,7 @@ function StopButton({ onClick, busy }: { onClick: () => void; busy: boolean }) {
       onClick={onClick}
       disabled={busy}
       title={t("Stop the running minutes generation")}
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-3 py-1.5 text-sm font-medium text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+      className="btn-danger shrink-0"
     >
       <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
       {busy ? t("Stopping…") : t("Stop")}

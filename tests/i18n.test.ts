@@ -148,7 +148,7 @@ describe("the screens somebody meets before they are signed in", () => {
   // file was wired up, which is the failure this is here for.
 
   const wired = [
-    "app/page-header.tsx",
+    "app/external-notice.tsx",
     "app/health-status.tsx",
     "app/confirm-dialog.tsx",
     "app/locked-banner.tsx",

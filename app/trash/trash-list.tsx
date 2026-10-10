@@ -142,7 +142,7 @@ export function TrashList() {
                   type="button"
                   onClick={() => void purge(m.id, m.title)}
                   disabled={busy === m.id}
-                  className="inline-flex items-center gap-2 rounded-full border border-[color-mix(in_srgb,var(--error)_50%,transparent)] px-4 py-2 text-sm text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_15%,transparent)] disabled:opacity-50"
+                  className="btn-danger"
                   title={t("Delete permanently")}
                 >
                   <TrashIcon />

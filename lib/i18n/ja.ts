@@ -791,21 +791,11 @@ export const ja: Record<string, string> = {
     "書き出せるものがありません（議事録も発言もまだありません）",
 
   // ---- The header on every page: service health ----
-  "Recording (STT)": "録音（STT）",
   "Minutes (LLM)": "議事録（LLM）",
   DB: "DB",
-  "Click to re-check": "クリックで再確認",
-  ready: "準備完了",
-  "Whisper model loaded: {model}": "読み込み済みの Whisper モデル: {model}",
-  "Warm up": "先に読み込む",
-  "Loading model…": "モデルを読み込み中…",
-  "Load the Whisper model now so recording starts transcribing immediately":
-    "いま Whisper モデルを読み込んでおくと、録音を始めた瞬間から文字起こしが動きます",
   "Cannot reach STT — recording unavailable ({reason})":
     "STT に接続できません — 録音は使えません（{reason}）",
   "check failed": "確認できませんでした",
-  "Could not reach STT.": "STT に接続できませんでした。",
-  "Model load is taking longer than expected.": "モデルの読み込みに時間がかかっています。",
   "Accessing from outside your private network — read-only.":
     "プライベートネットワークの外からアクセスしています — 閲覧のみです。",
   "You can view and download minutes and transcripts here; recording, editing and deleting are available on your local network only.":
@@ -1113,7 +1103,6 @@ export const ja: Record<string, string> = {
   "Summarise the decisions so far": "これまでの決定事項をまとめて",
   "{task} — you can ask once it finishes.": "{task} — 終わったら質問できます。",
   "A GPU task is running": "GPU の処理が実行中です",
-  "{task} — the GPU is busy. Try again once it finishes.": "{task} — GPU が使用中です。終わってからもう一度試してください。",
   "{task} — this will wait its turn in the queue.": "{task} — キューで順番を待ちます。",
   "{task} — anything started now waits its turn.": "{task} — 今から始める処理は順番を待ちます。",
   "See the queue": "順番待ちを見る",
