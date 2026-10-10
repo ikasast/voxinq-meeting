@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { micConstraints, streamIsLive } from "../lib/stt/mic-constraints";
+import { ROOM_GAIN, micConstraints, micGain, streamIsLive } from "../lib/stt/mic-constraints";
 
 const root = join(__dirname, "..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
@@ -18,6 +18,14 @@ describe("what the microphone is asked for", () => {
     // Without it the mic re-records the PC audio coming out of the speakers, and every word
     // lands in the transcript twice.
     expect(micConstraints("both").echoCancellation).toBe(true);
+  });
+
+  it("raises a room's microphone, and not a headset's", () => {
+    // Mic + PC audio is somebody at a PC on a headset: the microphone is at the mouth, and the
+    // PC audio arrives at full level. Four times either would only press them into the limiter.
+    expect(micGain("mic")).toBe(ROOM_GAIN);
+    expect(micGain("both")).toBe(1);
+    expect(read("lib/stt/client.ts")).toContain("(s === micStream ? micGain(source) : 1)");
   });
 
   it("is no longer a setting", () => {
@@ -122,20 +130,20 @@ describe("hearing a room, not a handset", () => {
     // level. Reported from an iPhone: even in Room, nothing was recognised unless somebody
     // spoke at the distance they would hold a phone at.
     expect(constraints).toContain("export const ROOM_GAIN");
-    expect(client).toContain("* ROOM_GAIN;");
+    expect(client).toContain("micGain(source)");
   });
 
   it("puts the gain before the limiter that was already there", () => {
     // So a loud moment is rounded off rather than squared off. Clipping is the one distortion
     // recognition cannot see past, and four times a close voice would clip.
-    expect(client.indexOf("gain.connect(limiter)")).toBeGreaterThan(client.indexOf("ROOM_GAIN"));
+    expect(client.indexOf("gain.connect(limiter)")).toBeGreaterThan(client.indexOf("micGain(source)"));
   });
 
   it("checks the microphone through the same gain the recording uses", () => {
     // Otherwise the check answers a different question from the one it appears to: room mode
     // exists because the raw level is too low, so measuring before the gain would call a
     // working room silent.
-    expect(check).toContain("boost.gain.value = ROOM_GAIN;");
+    expect(check).toContain("boost.gain.value = micGain(source);");
   });
 
   it("uses the recogniser's own threshold rather than a second one", () => {

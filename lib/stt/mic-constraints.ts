@@ -6,11 +6,18 @@
 // the kind that processing settings can cause.
 //
 // There used to be two modes, chosen in Settings: Standard, with the browser's processing on, for
-// a voice close to the microphone, and Room, for a table. Since v4 there is only Room. A meeting
-// app records meetings; Standard was the right answer only for one person on a headset, who is
-// heard just as well this way, and it was the wrong one — silently — for a phone in the middle of
-// a table, or a call on speakerphone, whose far end the echo cancellation removes. A setting
-// whose wrong value loses half a meeting without saying so is not a preference.
+// a voice close to the microphone, and Room, for a table. Since v4 the source decides instead,
+// because it already says which situation this is:
+//
+// - **Microphone** alone is a room: a phone in the middle of a table, a PC's own microphone, a
+//   call on speakerphone. Processing off — echo cancellation would remove a speakerphone's far
+//   end — and the level raised, because the voices are far away.
+// - **Mic + PC audio** is somebody at a PC in an online meeting, on a headset (the recording
+//   screen says so): echo cancellation on, so the speakers are not recorded twice if there is
+//   no headset, and no boost for a microphone at the mouth.
+//
+// Standard, chosen by hand, was right for one of these and silently wrong for the other; a
+// setting whose wrong value loses half a meeting without saying so is not a preference.
 
 /**
  * How much louder the recording makes what the microphone hears.
@@ -28,6 +35,11 @@
  * VAD and its no-speech threshold, both of which want the words at a workable level first.
  */
 export const ROOM_GAIN = 4;
+
+/** How much louder the microphone is made for this source: a room's only (see above). */
+export function micGain(source: string): number {
+  return source === "mic" ? ROOM_GAIN : 1;
+}
 
 /**
  * The level below which the transcription service hears silence.

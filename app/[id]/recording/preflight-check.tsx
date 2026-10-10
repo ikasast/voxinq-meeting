@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { HEARD_RMS, ROOM_GAIN, micConstraints } from "@/lib/stt/mic-constraints";
+import { HEARD_RMS, micConstraints, micGain } from "@/lib/stt/mic-constraints";
 import { useT } from "@/app/locale-provider";
 
 // Is the microphone actually hearing anything?
@@ -114,7 +114,7 @@ export function PreflightCheck({
       // question nobody asked — the gain exists precisely because the raw level is too low, so a
       // check that ignored it would call a working room silent.
       const boost = ctx.createGain();
-      boost.gain.value = ROOM_GAIN;
+      boost.gain.value = micGain(source);
       ctx.createMediaStreamSource(stream).connect(boost);
       boost.connect(analyser);
       const buf = new Float32Array(analyser.fftSize);
