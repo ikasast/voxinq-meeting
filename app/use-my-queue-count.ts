@@ -47,8 +47,3 @@ export function useQueue(): { jobs: QueuedJob[]; mine: number } {
 
   return { jobs, mine: jobs.filter((j) => j.mine).length };
 }
-
-/** How much of the queue is yours. */
-export function useMyQueueCount(): number {
-  return useQueue().mine;
-}

@@ -7,7 +7,6 @@ import { TITLE_FORMATS } from "@/lib/meeting-title";
 import { HouseDefaults } from "./house-defaults";
 import { OllamaModelField } from "./ollama-model-field";
 import { MachineNote } from "./machine-note";
-import { DEFAULT_SUMMARY_FORMAT } from "@/lib/minutes-prompt";
 import {
   WHISPER_MODELS,
   isJapaneseOnlyModel,

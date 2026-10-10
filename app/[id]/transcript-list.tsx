@@ -812,7 +812,7 @@ export function TranscriptList({
     } finally {
       setStoppingDiar(false);
     }
-  }, [meetingId, t]);
+  }, [t]);
 
   const gpu = useGpuBusy();
   // Diarization and re-transcription both use the GPU. Block starting one while any other
