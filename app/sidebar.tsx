@@ -154,59 +154,72 @@ export function Sidebar({
       {groups.length === 0 ? (
         <p className="px-2 py-3 text-xs text-[var(--text-muted)]">{t("No meetings yet.")}</p>
       ) : (
-        groups.map((g) => (
-          <div
-            key={g.key}
-            className={g.key === "pinned" ? "mt-3 border-b border-[var(--border)] pb-3" : "mt-3"}
-          >
-            <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-muted)]">{g.label}</p>
-            <ul>
-              {g.items.map((m) => (
-                <li key={m.id} className="group relative">
-                  <Link
-                    href={`/${m.id}`}
-                    aria-current={m.id === activeId ? "page" : undefined}
-                    className={`flex items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-sm ${
-                      m.id === activeId
-                        ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-strong)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
-                    }`}
-                  >
-                    {/* Being recorded: a record button's red dot before the name, breathing slowly.
-                        Before the name rather than at the end, where the pin goes and where an
-                        unexplained dot read as nothing in particular. ("No minutes" has no mark
-                        for now.) */}
-                    <LiveDot id={m.id} live={m.live} />
-                    <span className="min-w-0 flex-1 truncate">{m.title}</span>
-                  </Link>
-                  {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
-                      one when the row is pointed at, to pin it. From outside, only the mark. */}
-                  {!external ? (
-                    <button
-                      type="button"
-                      onClick={() => void togglePin(m)}
-                      title={m.pinned ? t("Unpin") : t("Pin")}
-                      aria-label={`${m.pinned ? t("Unpin") : t("Pin")}: ${m.title}`}
-                      aria-pressed={m.pinned}
-                      className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded hover:bg-[var(--hover-surface)] ${
-                        m.pinned
-                          ? "text-[var(--accent)]"
-                          : "text-[var(--text-muted)] opacity-0 hover:text-[var(--foreground)] group-hover:opacity-100 focus-visible:opacity-100"
+        // Pinned and Upcoming are lists of their own, each closed by a rule. What follows is one
+        // list by when, and its day headings are quieter and further apart: they divide it
+        // rather than start something new, and at full strength they read as more lists.
+        groups.map((g, i) => {
+          const own = g.key === "pinned" || g.key === "upcoming";
+          const ruled = own && i < groups.length - 1;
+          return (
+            <div
+              key={g.key}
+              className={ruled ? "mt-3 border-b border-[var(--border)] pb-3" : own || i === 0 ? "mt-3" : "mt-5"}
+            >
+              <p
+                className={`px-2 pb-1 text-[11px] font-medium ${
+                  own ? "text-[var(--text-muted)]" : "text-[color-mix(in_srgb,var(--text-muted)_75%,transparent)]"
+                }`}
+              >
+                {g.label}
+              </p>
+              <ul>
+                {g.items.map((m) => (
+                  <li key={m.id} className="group relative">
+                    <Link
+                      href={`/${m.id}`}
+                      aria-current={m.id === activeId ? "page" : undefined}
+                      className={`flex items-center gap-2 rounded-md py-1.5 pl-2 pr-8 text-sm ${
+                        m.id === activeId
+                          ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-strong)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
                       }`}
                     >
-                      {m.pinned ? <PinnedIcon className="h-3.5 w-3.5" /> : <PinIcon className="h-3.5 w-3.5" />}
-                    </button>
-                  ) : m.pinned ? (
-                    <PinnedIcon
-                      aria-hidden
-                      className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--accent)]"
-                    />
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))
+                      {/* Being recorded: a record button's red dot before the name, breathing slowly.
+                          Before the name rather than at the end, where the pin goes and where an
+                          unexplained dot read as nothing in particular. ("No minutes" has no mark
+                          for now.) */}
+                      <LiveDot id={m.id} live={m.live} />
+                      <span className="min-w-0 flex-1 truncate">{m.title}</span>
+                    </Link>
+                    {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
+                        one when the row is pointed at, to pin it. From outside, only the mark. */}
+                    {!external ? (
+                      <button
+                        type="button"
+                        onClick={() => void togglePin(m)}
+                        title={m.pinned ? t("Unpin") : t("Pin")}
+                        aria-label={`${m.pinned ? t("Unpin") : t("Pin")}: ${m.title}`}
+                        aria-pressed={m.pinned}
+                        className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded hover:bg-[var(--hover-surface)] ${
+                          m.pinned
+                            ? "text-[var(--accent)]"
+                            : "text-[var(--text-muted)] opacity-0 hover:text-[var(--foreground)] group-hover:opacity-100 focus-visible:opacity-100"
+                        }`}
+                      >
+                        {m.pinned ? <PinnedIcon className="h-3.5 w-3.5" /> : <PinIcon className="h-3.5 w-3.5" />}
+                      </button>
+                    ) : m.pinned ? (
+                      <PinnedIcon
+                        aria-hidden
+                        className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--accent)]"
+                      />
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })
       )}
       <Link
         href="/?list=1"
