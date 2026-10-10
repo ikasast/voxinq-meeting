@@ -71,7 +71,7 @@ describe("the page's controls", () => {
 
   it("keep every file the meeting can be saved as in one menu by the title", () => {
     const menu = read("app/[id]/download-meeting-button.tsx");
-    for (const what of ['file("minutes")', "format=docx", "/print", 'file("transcript")', 'file("meta")', "saveRecording", "Everything (.zip)"]) {
+    for (const what of ['file("minutes")', "format=docx", "/print", 'file("transcript")', 'file("meta")', "saveRecording", 'row("zip"']) {
       expect(menu, what).toContain(what);
     }
     // And nowhere else.

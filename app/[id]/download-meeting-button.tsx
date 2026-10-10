@@ -68,13 +68,21 @@ export function DownloadMeetingButton({
   const all = ["minutes", "transcript", "meta"].filter(
     (p) => (p !== "minutes" || hasMinutes) && (p !== "transcript" || hasTranscript),
   );
-  const row = (href: string, label: string, enabled = true, extra?: { target?: string; title?: string }) =>
+  const row = (
+    kind: FileKind,
+    href: string,
+    label: string,
+    enabled = true,
+    extra?: { target?: string; title?: string },
+  ) =>
     enabled ? (
       <a role="menuitem" href={href} className={MENU_ITEM} {...extra}>
+        <FileBadge kind={kind} />
         {label}
       </a>
     ) : (
       <span role="menuitem" aria-disabled className={`${MENU_ITEM} opacity-50`}>
+        <FileBadge kind={kind} />
         {label}
       </span>
     );
@@ -91,29 +99,31 @@ export function DownloadMeetingButton({
         {(close) => (
           <div onClick={() => void close()}>
             <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium text-[var(--text-muted)]">{t("Minutes")}</p>
-            {row(file("minutes"), "Markdown (.md)", hasMinutes)}
-            {row(`/api/meetings/${meetingId}/export?format=docx`, "Word (.docx)", hasMinutes)}
-            {row(`/${meetingId}/print`, t("PDF (print)"), hasMinutes, {
+            {row("md", file("minutes"), "Markdown", hasMinutes)}
+            {row("docx", `/api/meetings/${meetingId}/export?format=docx`, "Word", hasMinutes)}
+            {row("pdf", `/${meetingId}/print`, t("Print and save"), hasMinutes, {
               target: "_blank",
               title: t("Opens a print view — choose “Save as PDF” as the destination"),
             })}
             <MenuRule />
-            {row(file("transcript"), t("Transcript (.txt)"), hasTranscript)}
-            {row(file("meta"), t("Meeting info (.md)"))}
+            {row("txt", file("transcript"), t("Transcript"), hasTranscript)}
+            {row("md", file("meta"), t("Meeting info"))}
             {hasRecording ? (
               <button type="button" role="menuitem" onClick={() => void saveRecording()} className={MENU_ITEM}>
-                {t("Recording (.wav)")}
+                <FileBadge kind="wav" />
+                {t("Recording")}
               </button>
             ) : (
               <span role="menuitem" aria-disabled className={`${MENU_ITEM} opacity-50`}>
-                {t("Recording (.wav)")}
+                <FileBadge kind="wav" />
+                {t("Recording")}
                 {hasRecording === false ? (
                   <span className="ml-auto text-[10px]">{t("no recording")}</span>
                 ) : null}
               </span>
             )}
             <MenuRule />
-            {row(file(all.join(",")), t("Everything (.zip)"), all.length > 1)}
+            {row("zip", file(all.join(",")), t("Everything"), all.length > 1)}
           </div>
         )}
       </DropMenu>
@@ -124,4 +134,11 @@ export function DownloadMeetingButton({
       ) : null}
     </span>
   );
+}
+
+type FileKind = "md" | "docx" | "pdf" | "txt" | "wav" | "zip";
+
+/** What the row's file is, first and in its format's colour (`.file-badge` in globals.css). */
+function FileBadge({ kind }: { kind: FileKind }) {
+  return <span className={`file-badge file-${kind}`}>{kind.toUpperCase()}</span>;
 }

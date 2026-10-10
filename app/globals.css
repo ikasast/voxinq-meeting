@@ -458,6 +458,52 @@ html[data-theme="light"] .logo-dark {
     font-size: 0.75rem;
     font-weight: 500;
   }
+
+  /* --- File formats --- */
+  /* The download menu's rows begin with what the file is, each format in its own colour, so the
+     row is found by its format before its name is read. One shade for the dark ground, a deeper
+     one for white, where the pale ones would wash out. */
+  .file-badge {
+    --file: var(--file-dark);
+    flex-shrink: 0;
+    width: 2.5rem;
+    padding: 0.0625rem 0;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--file) 16%, transparent);
+    color: var(--file);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1.5;
+    text-align: center;
+  }
+  html[data-theme="light"] .file-badge {
+    --file: var(--file-light);
+  }
+  .file-md {
+    --file-dark: #a78bfa;
+    --file-light: #7c3aed;
+  }
+  .file-docx {
+    --file-dark: #60a5fa;
+    --file-light: #1d4ed8;
+  }
+  .file-pdf {
+    --file-dark: #f87171;
+    --file-light: #dc2626;
+  }
+  .file-txt {
+    --file-dark: #94a3b8;
+    --file-light: #475569;
+  }
+  .file-wav {
+    --file-dark: #2dd4bf;
+    --file-light: #0f766e;
+  }
+  .file-zip {
+    --file-dark: #fbbf24;
+    --file-light: #b45309;
+  }
 }
 
 /* --- Print (the "export as PDF" path) ---------------------------------------------------
