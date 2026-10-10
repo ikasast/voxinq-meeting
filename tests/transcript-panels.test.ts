@@ -55,10 +55,11 @@ describe("the transcript's tools", () => {
     expect(panel.slice(0, panel.indexOf("\n}\n"))).not.toMatch(/rounded-lg border|bg-\[var\(--elevated\)\]/);
   });
 
-  it("keeps Diarize and the names it produces in one panel", () => {
+  it("keeps separating and naming in one panel, as three steps", () => {
     const block = list.slice(at("{/* Speaker separation"), at("{/* Fixing the wording"));
-    expect(block, "the Diarize button left the speaker panel").toContain('{t("Diarize")}');
-    expect(block, "the speaker names left the panel Diarize is in").toContain("showSpeakerTools");
+    expect(block, "the run left the speaker panel").toContain('t("Separate speakers")');
+    expect(block, "the speaker names left the panel the run is in").toContain("<SpeakerNamesEditor");
+    expect(block.match(/<Step n=\{\d\}/g)).toHaveLength(3);
   });
 
   it("keep both ways of finding a misheard word in one panel, ending in one list", () => {
@@ -109,14 +110,11 @@ describe("Diarize", () => {
   // can only fail — the service answers 404. It used to stay on screen anyway, which is what
   // made the pair look inconsistent: one button vanished with the recording and one did not.
   it("goes when the recording goes", () => {
-    expect(list, "Diarize is no longer gated on the recording still being there").toMatch(
-      /const canDiarize =[\s\S]{0,120}recInfo\?\.exists \|\| diarizing/,
-    );
     const block = list.slice(at("{/* Speaker separation"), at("{/* Fixing the wording"));
-    const guard = block.indexOf("{canDiarize ? (");
+    const guard = block.indexOf("{recInfo && !recInfo.exists && !diarizing ? (");
     expect(guard, "the button is not behind that guard any more").toBeGreaterThan(-1);
     // Before the button, so it governs it. `diarizing` is in there to keep Stop reachable.
-    expect(guard).toBeLessThan(block.indexOf('{t("Diarize")}'));
+    expect(guard).toBeLessThan(block.indexOf('t("Separate speakers")'));
   });
 });
 

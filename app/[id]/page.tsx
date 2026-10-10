@@ -17,6 +17,8 @@ import { ResumeRecordingButton } from "./resume-recording-button";
 import { MeetingFacts } from "./meeting-facts-card";
 import { MeetingMenu } from "./meeting-menu";
 import { ParticipantsRow } from "./participants-card";
+import { SpeakersRow } from "./speakers-row";
+import { readNames, separatedSpeakers } from "@/lib/speakers";
 import { PROPS_GRID, Prop } from "./property";
 import { MeetingMeta } from "./meeting-meta";
 import { MeetingTitle } from "./meeting-title";
@@ -111,6 +113,7 @@ export default async function MeetingPage({
 
       {/* The minutes are the document; what was said is the panel beside it (meeting-body.tsx). */}
       <MeetingBody
+        meetingId={meeting.id}
         header={
           <>
       {/* The title, and what is done to the meeting as a whole: record into it, download it, and
@@ -194,6 +197,22 @@ export default async function MeetingPage({
           initial={meeting.participants}
           knownNames={knownSpeakers.map((p) => p.name)}
         />
+        {/* Who spoke, under who was there: where speaker separation stands, and the way to it. */}
+        {extensions.speakers && meeting.transcripts.length > 0 && !upcoming ? (
+          <SpeakersRow
+            meetingId={meeting.id}
+            readOnly={external}
+            initial={{
+              ...separatedSpeakers(
+                meeting.transcripts.map((l) => l.speakerType),
+                readNames(meeting.speakerLabels),
+                t,
+              ),
+              running: null,
+              possible: true,
+            }}
+          />
+        ) : null}
         <MeetingMeta
           id={meeting.id}
           description={meeting.description}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useT } from "../locale-provider";
+import { useOpenSpeakers } from "./speaker-bus";
 
 // A meeting's page in v4 (design B): the minutes are the document, and what was said sits in a
 // panel at the right that opens and closes, remembered per device. On a phone the two are tabs.
@@ -27,12 +28,14 @@ function saveWidth(w: number | null) {
 }
 
 export function MeetingBody({
+  meetingId,
   header,
   document,
   transcript,
   lineCount,
   transcriptFirst,
 }: {
+  meetingId: string;
   /** The title, its actions and the meeting's details: the top of the document. */
   header: ReactNode;
   document: ReactNode;
@@ -79,6 +82,16 @@ export function MeetingBody({
       localStorage.setItem(PANEL_KEY, open ? "open" : "closed");
     } catch {}
   };
+
+  // The speakers row in the details asks for the speaker tools: show the transcript they are in.
+  const showTranscript = useCallback(() => {
+    setPanel(true);
+    setTab("transcript");
+    try {
+      localStorage.setItem(PANEL_KEY, "open");
+    } catch {}
+  }, []);
+  useOpenSpeakers(meetingId, showTranscript);
 
   if (transcriptFirst) {
     return (

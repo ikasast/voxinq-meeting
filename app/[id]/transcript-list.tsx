@@ -11,8 +11,10 @@ import {
   MIC_SPEAKER,
   speakersInOrder,
   readNames,
-  nameOf,
+  shownName,
+  separatedSpeakers,
 } from "@/lib/speakers";
+import { tellSpeakers, useOpenSpeakers } from "./speaker-bus";
 import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
@@ -333,8 +335,59 @@ export function TranscriptList({
   const multiSpeaker = reassignKeys.length > 1;
   // The speaker-name tools appear once diarization has produced speakers to name.
   const showSpeakerTools = managerKeys.length > 0 && !readOnly;
-  // Something to separate: lines to assign, and either a recording to read or a run under way.
-  const canDiarize = transcripts.length > 0 && (recInfo?.exists || diarizing);
+
+  // Where speaker separation stands, for its three steps and for the row in the meeting's
+  // details (speakers-row.tsx), which hears it through speaker-bus.ts.
+  // The speakers some line is said by — the microphone too, when lines are still its own — as
+  // the names below list them; separated once any of them is a voice told apart.
+  const voiceKeys = useMemo(
+    () => reassignKeys.filter((k) => transcripts.some((l) => l.speakerType === k)),
+    [reassignKeys, transcripts],
+  );
+  const separated = voiceKeys.some((k) => k !== MIC_SPEAKER);
+  const unnamedVoices = voiceKeys.filter((k) => !speakerLabels[k]?.trim()).length;
+  // The participants who spoke, which is the count a run is given when the box is left empty.
+  // Asked when the panel opens, because the list is edited elsewhere on this page.
+  const [expectedVoices, setExpectedVoices] = useState(0);
+  useEffect(() => {
+    if (tool !== "speakers") return;
+    let gone = false;
+    void expectedSpeakerCount(meetingId).then((n) => {
+      if (!gone) setExpectedVoices(n);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [tool, meetingId]);
+  const stepDone = [
+    numSpeakers.trim() !== "" || expectedVoices > 0 || separated,
+    separated && !diarizing,
+    separated && unnamedVoices === 0,
+  ];
+  const nextStep = stepDone.findIndex((d) => !d) + 1; // 0 when all are done
+  const stepState = (n: number): StepState =>
+    stepDone[n - 1] ? "done" : n === nextStep ? "next" : "later";
+
+  useEffect(() => {
+    tellSpeakers(meetingId, {
+      ...separatedSpeakers(
+        transcripts.map((l) => l.speakerType),
+        speakerLabels,
+        t,
+      ),
+      running: diarizing ? (diarStatus ?? t("Separating…")) : null,
+      possible: transcripts.length > 0 && (recInfo === null || recInfo.exists || diarizing),
+    });
+  }, [meetingId, transcripts, speakerLabels, diarizing, diarStatus, recInfo, t]);
+
+  // The row in the meeting's details asks for this panel: open it, at the speakers.
+  const showSpeakers = useCallback(() => {
+    setTool("speakers");
+    requestAnimationFrame(() =>
+      document.getElementById(`speakers-${meetingId}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }),
+    );
+  }, [meetingId]);
+  useOpenSpeakers(meetingId, showSpeakers);
 
   // Enrolled voice profiles (shown alongside the speaker names).
   useEffect(() => {
@@ -354,9 +407,9 @@ export function TranscriptList({
   const transcriptText = useMemo(
     () =>
       transcripts
-        .map((t) => (multiSpeaker ? `${nameOf(t.speakerType, speakerLabels)}: ${t.text}` : t.text))
+        .map((line) => (multiSpeaker ? `${shownName(line.speakerType, speakerLabels, t)}: ${line.text}` : line.text))
         .join("\n"),
-    [transcripts, speakerLabels, multiSpeaker],
+    [transcripts, speakerLabels, multiSpeaker, t],
   );
 
   // Give one line to another speaker: shown at once, put back if the server says no.
@@ -914,7 +967,8 @@ export function TranscriptList({
 
   // The three that open something open it under the heading, one at a time; the rest only take
   // the transcript away or measure it, and wait behind "…".
-  const speakersTool = !readOnly && extensions.speakers && (canDiarize || showSpeakerTools);
+  // Offered whenever there are lines: it is where you learn whether they can be separated.
+  const speakersTool = !readOnly && extensions.speakers && transcripts.length > 0;
   const fixTool = transcripts.length > 0 && !readOnly;
   const retransTool = Boolean(recInfo?.exists) && !readOnly;
   const canMeasure = !readOnly && Boolean(endedAt) && Boolean(recInfo?.exists) && transcripts.length > 0;
@@ -1048,21 +1102,19 @@ export function TranscriptList({
         ) : null}
       </div>
 
-      {/* Speaker separation — how many voices to look for, the run itself, and the names that
-          come out of it: asking for speakers and naming them are one job, so they are one panel. */}
+      {/* Speaker separation, as the three steps it is (v4): how many voices, telling them apart,
+          and naming them — with what is done ticked and what is next marked, because "has this
+          meeting been separated, and what is left?" had no answer anywhere on the page. Naming
+          ends with remembering the voices, which is what makes the next meeting name itself. */}
       {tool === "speakers" && speakersTool ? (
         <ToolPanel
           title={t("Speaker separation")}
           hint={t("Work out who spoke each line, and give them names")}
           onClose={() => setTool(null)}
         >
-          {canDiarize ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <label
-                className="flex items-center gap-1 text-xs text-[var(--text-muted)]"
-                title={t("How many voices to look for. Left empty, the participant list decides.")}
-              >
-                {t("Speakers")}
+          <ol id={`speakers-${meetingId}`} className="space-y-3">
+            <Step n={1} state={stepState(1)} title={t("How many")}>
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="number"
                   min={1}
@@ -1070,95 +1122,127 @@ export function TranscriptList({
                   value={numSpeakers}
                   onChange={(e) => setNumSpeakers(e.target.value)}
                   disabled={busy}
-                  placeholder="auto"
+                  placeholder={expectedVoices > 0 ? String(expectedVoices) : t("auto")}
+                  aria-label={t("How many voices to look for")}
                   className="w-16 rounded-md border border-[var(--border-strong)] bg-[var(--surface)] px-2 py-1 text-sm text-[var(--foreground)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:opacity-60"
                 />
-              </label>
-              {diarizing ? (
-                <button
-                  type="button"
-                  onClick={() => void stopDiarization()}
-                  disabled={stoppingDiar}
-                  className="btn-danger"
-                >
-                  <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[var(--error)]" />
-                  {stoppingDiar ? t("Stopping…") : t("Stop")}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void runDiarization()}
-                  disabled={busy}
-                  className="btn-ink !px-4 !py-1.5"
-                  title={t(
-                    "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)",
-                  )}
-                >
-                  <PeopleIcon />
-                  {t("Diarize")}
-                </button>
-              )}
-              {/* Only once something has been divided, which is the only time it means
-                  anything. */}
-              {!diarizing && transcripts.some((x) => x.splitOfId) ? (
-                <button
-                  type="button"
-                  onClick={() => void undoSplit()}
-                  disabled={busy || undoingSplit}
-                  className="btn-outline !px-4 !py-1.5"
-                  title={t("Put lines that were divided at a speaker change back together as they were")}
-                >
-                  {undoingSplit ? t("Undoing…") : t("Undo split")}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {showSpeakerTools ? (
-            <div className={canDiarize ? "mt-4" : ""}>
-              <p className="mb-1.5 text-xs font-medium text-[var(--text-secondary)]">
-                {t("Speaker names (edits apply to all lines)")}
-              </p>
-              <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
-
-              {/* Voice profiles: enroll named speakers so future diarizations auto-name them. */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void saveVoiceProfiles()}
-                  disabled={profileBusy || busy}
-                  className="rounded-md border border-[var(--border-strong)] px-3 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
-                >
-                  {profileBusy ? t("Saving…") : t("Save voice profiles")}
-                </button>
                 <span className="text-xs text-[var(--text-muted)]">
-                  {t(
-                    "Enrolls each named speaker’s voiceprint from this meeting; future auto-diarize runs will name them automatically.",
-                  )}
+                  {numSpeakers.trim()
+                    ? t("As entered.")
+                    : expectedVoices > 0
+                      ? t("From the participants who spoke.")
+                      : t("Left empty, it is guessed. Tick who spoke under Participants to set it.")}
                 </span>
               </div>
-              {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
-              {profiles.length > 0 ? (
-                <p className="mt-2 text-xs text-[var(--text-muted)]">
-                  {t("Enrolled:")}{" "}
-                  {profiles.map((p, i) => (
-                    <span key={p.name} className="whitespace-nowrap text-[var(--text-secondary)]">
-                      {i > 0 ? ", " : ""}
-                      {p.name}
-                      <button
-                        type="button"
-                        onClick={() => void deleteProfile(p.name)}
-                        aria-label={t("Delete the voice profile of {name}", { name: p.name })}
-                        title={t("Delete this voice profile")}
-                        className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--error)]"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
+            </Step>
+
+            <Step n={2} state={stepState(2)} title={t("Separate")}>
+              {recInfo && !recInfo.exists && !diarizing ? (
+                <p className="text-xs text-[var(--text-muted)]">
+                  {separated
+                    ? `${t(voiceKeys.length === 1 ? "Told apart: 1 voice." : "Told apart: {n} voices.", {
+                        n: voiceKeys.length,
+                      })} ${t("The recording is no longer kept, so it cannot be done again.")}`
+                    : t("The recording is no longer kept, so the voices cannot be told apart.")}
                 </p>
-              ) : null}
-            </div>
-          ) : null}
+              ) : diarizing ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-[var(--accent-sub)]">{diarStatus}</span>
+                  <button
+                    type="button"
+                    onClick={() => void stopDiarization()}
+                    disabled={stoppingDiar}
+                    className="btn-danger !px-3 !py-1 text-xs"
+                  >
+                    <span aria-hidden className="inline-block h-2 w-2 rounded-[2px] bg-[var(--error)]" />
+                    {stoppingDiar ? t("Stopping…") : t("Stop")}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  {separated ? (
+                    <span className="text-xs text-[var(--text-secondary)]">
+                      {t(voiceKeys.length === 1 ? "Told apart: 1 voice." : "Told apart: {n} voices.", {
+                        n: voiceKeys.length,
+                      })}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void runDiarization()}
+                    disabled={busy}
+                    className={separated ? "btn-outline !px-3 !py-1 text-xs" : "btn-ink !px-4 !py-1.5"}
+                    title={t(
+                      "Analyze the recording and assign a speaker to each line (entering the participant count improves accuracy)",
+                    )}
+                  >
+                    <PeopleIcon />
+                    {separated ? t("Separate again") : t("Separate speakers")}
+                  </button>
+                  {/* Only once something has been divided, which is the only time it means
+                      anything. */}
+                  {transcripts.some((x) => x.splitOfId) ? (
+                    <button
+                      type="button"
+                      onClick={() => void undoSplit()}
+                      disabled={busy || undoingSplit}
+                      className="btn-outline !px-3 !py-1 text-xs"
+                      title={t("Put lines that were divided at a speaker change back together as they were")}
+                    >
+                      {undoingSplit ? t("Undoing…") : t("Undo split")}
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </Step>
+
+            <Step n={3} state={stepState(3)} title={t("Name them")}>
+              {showSpeakerTools && separated ? (
+                <>
+                  <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
+                  <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("A name here changes every line by that speaker.")}</p>
+
+                  {/* Voice profiles: what makes the next meeting name these people by itself. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveVoiceProfiles()}
+                      disabled={profileBusy || busy}
+                      className="btn-outline !px-3 !py-1 text-xs"
+                    >
+                      {profileBusy ? t("Saving…") : t("Remember their voices")}
+                    </button>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {t("The named speakers are then named automatically in later meetings.")}
+                    </span>
+                  </div>
+                  {profileMsg ? <p className="mt-1.5 text-xs text-[var(--accent-sub)]">{profileMsg}</p> : null}
+                  {profiles.length > 0 ? (
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
+                      {t("Voices remembered:")}{" "}
+                      {profiles.map((p, i) => (
+                        <span key={p.name} className="whitespace-nowrap text-[var(--text-secondary)]">
+                          {i > 0 ? ", " : ""}
+                          {p.name}
+                          <button
+                            type="button"
+                            onClick={() => void deleteProfile(p.name)}
+                            aria-label={t("Delete the voice profile of {name}", { name: p.name })}
+                            title={t("Delete this voice profile")}
+                            className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--error)]"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)]">{t("Once the voices are told apart.")}</p>
+              )}
+            </Step>
+          </ol>
         </ToolPanel>
       ) : null}
 
@@ -1171,7 +1255,7 @@ export function TranscriptList({
             meetingId={meetingId}
             lines={transcripts.map((line, i) => ({
               id: line.id,
-              who: multiSpeaker ? nameOf(line.speakerType, speakerLabels) : null,
+              who: multiSpeaker ? shownName(line.speakerType, speakerLabels, t) : null,
               at: formatOffset(elapsedSeconds(i)),
             }))}
             glossary={extensions.corrections}
@@ -1261,7 +1345,9 @@ export function TranscriptList({
 
       {/* What is going on, and what came of it. Outside the panels, so closing one does not
           hide a run it started. */}
-      {diarStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p> : null}
+      {diarStatus && !(tool === "speakers" && diarizing) ? (
+        <p className="mt-2 text-xs text-[var(--accent-sub)]">{diarStatus}</p>
+      ) : null}
       {diarWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{diarWarn}</p> : null}
       {retransStatus ? <p className="mt-2 text-xs text-[var(--accent-sub)]">{retransStatus}</p> : null}
       {retransWarn ? <p className="mt-2 text-xs text-[var(--warning)]">{retransWarn}</p> : null}
@@ -1627,6 +1713,33 @@ function Hearing({ meetingId }: { meetingId: string }) {
  * What one of the tools above the lines opens: right under them, with a rule above and below and
  * nothing boxed inside — a fold, not another card.
  */
+/** One step of speaker separation: done, the next to do, or not yet reachable. */
+type StepState = "done" | "next" | "later";
+
+function Step({ n, state, title, children }: { n: number; state: StepState; title: string; children: React.ReactNode }) {
+  const t = useT();
+  return (
+    <li className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2.5">
+      <span
+        aria-label={state === "done" ? t("Done") : undefined}
+        className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-medium ${
+          state === "done"
+            ? "border-[color-mix(in_srgb,var(--success)_50%,transparent)] bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-[var(--success)]"
+            : state === "next"
+              ? "border-[var(--btn-primary-border)] bg-[var(--btn-primary-bg)] text-[var(--btn-primary-text)]"
+              : "border-[var(--border-strong)] text-[var(--text-muted)]"
+        }`}
+      >
+        {state === "done" ? <CheckIcon className="h-3 w-3" /> : n}
+      </span>
+      <div className={state === "later" ? "opacity-60" : ""}>
+        <p className="mb-1.5 text-sm font-medium text-[var(--text-strong)]">{title}</p>
+        {children}
+      </div>
+    </li>
+  );
+}
+
 function ToolPanel({
   title,
   hint,
