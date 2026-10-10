@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-const ACTIONS = ["archive", "unarchive", "trash"] as const;
-type Action = (typeof ACTIONS)[number];
+// Only Trash since v4: archiving was removed (pins, search and the trash cover it).
+const ACTIONS = ["trash"] as const;
 
 // Apply one action to several meetings at once. Used by the swipe gestures on the
 // meeting list: a single card passes one id, a collapsed series stack passes every
@@ -26,15 +26,9 @@ export async function POST(req: NextRequest) {
   }
   const ids = [...new Set(body.ids as string[])];
 
-  const data =
-    (action as Action) === "trash"
-      ? { deletedAt: new Date() }
-      : { archivedAt: action === "archive" ? new Date() : null };
-
-  // Never resurrect trashed meetings via archive/unarchive.
   const result = await prisma.meeting.updateMany({
     where: { id: { in: ids }, deletedAt: null },
-    data,
+    data: { deletedAt: new Date() },
   });
 
   return NextResponse.json({ ok: true, updated: result.count });

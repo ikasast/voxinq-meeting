@@ -14,15 +14,15 @@ export const dynamic = "force-dynamic";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tag?: string; series?: string; date?: string; month?: string; list?: string }>;
+  searchParams: Promise<{ q?: string; series?: string; date?: string; month?: string; list?: string }>;
 }) {
-  const { q, tag, series, date, month, list } = await searchParams;
+  const { q, series, date, month, list } = await searchParams;
   const external = await isExternalRequest();
 
-  if (q || tag || series || date || month || list) {
+  if (q || series || date || month || list) {
     return (
       <div data-paper className="mx-auto max-w-3xl">
-        <MeetingListPane q={q} tag={tag} series={series} date={date} month={month} readOnly={external} />
+        <MeetingListPane q={q} series={series} date={date} month={month} readOnly={external} />
       </div>
     );
   }

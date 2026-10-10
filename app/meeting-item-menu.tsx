@@ -6,19 +6,18 @@ import { createPortal } from "react-dom";
 import { useConfirm } from "./confirm-dialog";
 import { useT } from "./locale-provider";
 import { useBackGuard } from "./use-back-guard";
-import { ArchiveIcon, DotsIcon, PinIcon, PinnedIcon, TrashIcon } from "./icons";
+import { DotsIcon, PinIcon, PinnedIcon, TrashIcon } from "./icons";
 
 const MENU_W = 176; // matches w-44
-const MENU_H = 106; // approx height of the three items
+const MENU_H = 74; // approx height of the two items
 const GAP = 4;
 const PAD = 8;
 
-// Per-card "⋯" menu on the meeting list: archive/unarchive and move-to-trash without
-// opening the meeting. The dropdown is rendered in a portal and positioned from the button's
+// Per-card "⋯" menu on the meeting list: pin and move-to-trash without opening the meeting. The dropdown is rendered in a portal and positioned from the button's
 // rect, so it is never clipped by the card's overflow (SwipeableRow uses overflow-hidden +
-// a transform, which would otherwise cut off the menu on short, tag-less cards).
+// a transform, which would otherwise cut off the menu on short cards).
 // Pin is here so a meeting too old for the sidebar's recent list can be put at its top.
-export function MeetingItemMenu({ id, archived, pinned }: { id: string; archived: boolean; pinned: boolean }) {
+export function MeetingItemMenu({ id, pinned }: { id: string; pinned: boolean }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
@@ -54,24 +53,6 @@ export function MeetingItemMenu({ id, archived, pinned }: { id: string; archived
 
   // Back closes the menu instead of leaving the list.
   const releaseBack = useBackGuard(open, () => setOpen(false));
-
-  const toggleArchive = async () => {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/meetings/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archived: !archived }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setOpen(false);
-      // A refresh rewrites the entry it lands on; let the menu's go first.
-      await releaseBack();
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const togglePin = async () => {
     setBusy(true);
@@ -155,10 +136,6 @@ export function MeetingItemMenu({ id, archived, pinned }: { id: string; archived
                 <button type="button" onClick={() => void togglePin()} disabled={busy} className={itemClass}>
                   {pinned ? <PinnedIcon className="h-3.5 w-3.5" /> : <PinIcon className="h-3.5 w-3.5" />}
                   {pinned ? t("Unpin from the sidebar") : t("Pin to the sidebar")}
-                </button>
-                <button type="button" onClick={() => void toggleArchive()} disabled={busy} className={itemClass}>
-                  <ArchiveIcon className="h-3.5 w-3.5" />
-                  {archived ? t("Unarchive") : t("Archive")}
                 </button>
                 <button type="button" onClick={() => void trash()} disabled={busy} className={`${itemClass} !text-[var(--error)]`}>
                   <TrashIcon className="h-3.5 w-3.5" />

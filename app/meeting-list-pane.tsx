@@ -19,21 +19,19 @@ import { minutesCandidates, needsMinutes } from "@/lib/meetings/bulk-minutes";
 import { minutesRunningIn } from "@/lib/meetings/minutes-state";
 import { BulkMinutes } from "./bulk-minutes";
 import { MinutesWatcher } from "./minutes-watcher";
-import { ArchiveIcon, CalendarIcon, CloseIcon, LockIcon, MicIcon, SeriesIcon, TrashIcon } from "./icons";
+import { CalendarIcon, CloseIcon, LockIcon, MicIcon, SeriesIcon, TrashIcon } from "./icons";
 import { MeetingCalendar } from "./meeting-calendar";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
 import { RecordingBadges } from "./recording-badges";
 import { SampleMeetingButton } from "./sample-meeting-button";
 import { SwipeableRow } from "./swipeable-row";
-import { TagFilter } from "./tag-filter";
 
 type MeetingCardData = {
   id: string;
   title: string;
   startedAt: Date;
   endedAt: Date | null;
-  archivedAt: Date | null;
   pinnedAt: Date | null;
   // Actual recording length (ms): the stored recorded_ms, else the transcript time span.
   durationMs: number | null;
@@ -43,11 +41,10 @@ type MeetingCardData = {
   upcoming?: boolean;
   seriesName: string | null;
   seriesId: string | null;
-  tags: { name: string }[];
   _count: { transcripts: number; summaries: number };
 };
 
-// Left side of the 2-pane UI: meeting list with search/tag filters.
+// Left side of the 2-pane UI: meeting list with search and series filters.
 // Used by both the home page and the meeting detail page (activeId highlights the selected one).
 /** "18 September 2026" — the heading over a day picked in the calendar. */
 function longDay(key: string): string {
@@ -61,7 +58,6 @@ function longDay(key: string): string {
 
 export async function MeetingListPane({
   q,
-  tag,
   series,
   date,
   month,
@@ -69,7 +65,6 @@ export async function MeetingListPane({
   readOnly = false,
 }: {
   q?: string;
-  tag?: string;
   series?: string;
   date?: string;
   month?: string;
@@ -78,7 +73,6 @@ export async function MeetingListPane({
   readOnly?: boolean;
 }) {
   const query = (q ?? "").trim();
-  const activeTag = (tag ?? "").trim();
   // Without Series there is no series to filter by, chip to show or stack to fold into.
   const seriesOn = await extensionEnabled("series");
   const activeSeries = seriesOn ? (series ?? "").trim() : "";
@@ -91,14 +85,9 @@ export async function MeetingListPane({
   const now = Date.now();
 
   const thisMonth = dayKey(new Date(now)).slice(0, 7);
-  // Needed for the tag counts below and nothing else. The scoped client hides the owner from
-  // every other query on this page, but a `where` nested inside a `_count` is not rewritten,
-  // so this one has to name it — otherwise the number beside a tag counts other people's
-  // meetings, and says they exist.
   const me = await currentUser();
   const t = await serverT();
   const locale = await currentLocale();
-  const mine = me ? { ownerId: me.id } : {};
 
   // Encrypted content cannot be searched with `contains`, so a search for somebody with a key
   // goes through the index instead. Null when there is no key or the query is a single
@@ -108,7 +97,6 @@ export async function MeetingListPane({
 
   const where = buildMeetingWhere({
     query,
-    tag: activeTag,
     series: activeSeries,
     date: activeDate ?? undefined,
     grams,
@@ -123,7 +111,7 @@ export async function MeetingListPane({
   const shownMonth = parseMonth(month ?? activeDate?.slice(0, 7), new Date(now));
   const { start: monthStart, end: monthEnd } = monthRange(shownMonth);
 
-  const [meetingsRaw, allTags, monthDays] = await Promise.all([
+  const [meetingsRaw, monthDays] = await Promise.all([
     prisma.meeting.findMany({
       where,
       // Upcoming meetings sort by when they are due, ascending, and are separated out below;
@@ -132,17 +120,7 @@ export async function MeetingListPane({
       take: 100,
       include: {
         _count: { select: { transcripts: true, summaries: true } },
-        tags: { select: { name: true }, orderBy: { name: "asc" } },
         series: { select: { id: true, name: true } },
-      },
-    }),
-    // Tag filter mirrors the list: archived meetings are hidden there, so a tag whose
-    // meetings are all archived must not appear (clicking it would show zero results).
-    prisma.tag.findMany({
-      where: { meetings: { some: { deletedAt: null, archivedAt: null } } },
-      orderBy: { name: "asc" },
-      include: {
-        _count: { select: { meetings: { where: { deletedAt: null, archivedAt: null, ...mine } } } },
       },
     }),
     // Dots come from their own query. The list takes 100 rows newest-first, which cannot answer
@@ -152,7 +130,6 @@ export async function MeetingListPane({
       ? prisma.meeting.findMany({
           where: {
             deletedAt: null,
-            archivedAt: null,
             startedAt: { gte: monthStart, lt: monthEnd },
           },
           select: { startedAt: true },
@@ -278,12 +255,11 @@ export async function MeetingListPane({
   // The meeting currently generating minutes (first-time OR regeneration), if any — used to
   // seed the live watcher so it only refreshes the list when that changes.
   const generatingId = meetings.find((m) => m.running)?.id ?? "";
-  const filtering = Boolean(query || activeTag || activeSeries || activeDate);
+  const filtering = Boolean(query || activeSeries || activeDate);
   const base = activeId ? `/${activeId}` : "/";
 
   // Query string representing the current filters ("?..." or ""). overrides replaces individual parts.
   type Over = {
-    tag?: string | null;
     series?: string | null;
     date?: string | null;
     month?: string | null;
@@ -291,8 +267,6 @@ export async function MeetingListPane({
   const queryString = (over: Over = {}) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    const t = "tag" in over ? over.tag : activeTag;
-    if (t) params.set("tag", t);
     const sr = "series" in over ? over.series : activeSeries;
     if (sr) params.set("series", sr);
     const d = "date" in over ? over.date : activeDate;
@@ -308,9 +282,8 @@ export async function MeetingListPane({
   const hrefWith = (over: Over) => `${base}${queryString(over)}`;
 
   // One meeting: a row between hairlines, not a card (v4). The title and the link that opens
-  // the meeting are one part; the series and the tags under it are links of their own (to
-  // filter the list), and a link inside a link is invalid HTML, so they sit beside it rather
-  // than in it.
+  // the meeting are one part; the series under it is a link of its own (to filter the list),
+  // and a link inside a link is invalid HTML, so it sits beside it rather than in it.
   const card = (m: MeetingCardData) => {
     const active = m.id === activeId;
     const showSeriesChip = seriesOn && Boolean(m.seriesName) && m.seriesName !== activeSeries;
@@ -325,14 +298,6 @@ export async function MeetingListPane({
         <Link href={`/${m.id}${queryString()}`} aria-current={active ? "page" : undefined} className="block">
           <div className="flex items-baseline gap-2">
             <span className="min-w-0 truncate text-sm font-medium text-[var(--text-strong)]">{m.title}</span>
-            {m.archivedAt ? (
-              <span
-                className="shrink-0 self-center text-[var(--text-muted)]"
-                title={t("Archived — hidden from the list, still searchable")}
-              >
-                <ArchiveIcon className="h-3.5 w-3.5" />
-              </span>
-            ) : null}
             {needsMinutes(m) ? (
               <span className="tag-warn shrink-0" title={t("Recorded, but no minutes yet")}>
                 {t("No minutes")}
@@ -379,7 +344,7 @@ export async function MeetingListPane({
             <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{hit.snippet}</p>
           ) : null}
         </Link>
-        {m.tags.length > 0 || showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
+        {showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {/* Recording/protection icon: hidden until RecordingBadges has asked STT, which then
                 says which of the two to show (and nothing when there is no recording). */}
@@ -402,11 +367,6 @@ export async function MeetingListPane({
                 {m.seriesName}
               </Link>
             ) : null}
-            {m.tags.map((t) => (
-              <span key={t.name} className="text-[var(--text-secondary)]">
-                #{t.name}
-              </span>
-            ))}
             {hit?.fields.map((f) => (
               <span
                 key={f}
@@ -424,17 +384,17 @@ export async function MeetingListPane({
         ) : null}
         {!readOnly ? (
           <div className="absolute right-1.5 top-2">
-            <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} pinned={m.pinnedAt !== null} />
+            <MeetingItemMenu id={m.id} pinned={m.pinnedAt !== null} />
           </div>
         ) : null}
       </div>
     );
   };
 
-  // Wrap a card in swipe gestures unless read-only (external viewers cannot archive/trash).
-  const swipeWrap = (node: ReactNode, ids: string[], label: string, archived = false) =>
+  // Wrap a card in swipe gestures unless read-only (external viewers cannot move to Trash).
+  const swipeWrap = (node: ReactNode, ids: string[], label: string) =>
     readOnly ? node : (
-      <SwipeableRow ids={ids} label={label} archived={archived}>
+      <SwipeableRow ids={ids} label={label}>
         {node}
       </SwipeableRow>
     );
@@ -456,7 +416,7 @@ export async function MeetingListPane({
   const entries: ReactNode[] = [];
   if (query) {
     for (const m of meetings) {
-      entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title, m.archivedAt !== null)}</li>);
+      entries.push(<li key={m.id}>{swipeWrap(card(m), [m.id], m.title)}</li>);
     }
   } else {
     // Booked meetings sit above the rest, soonest first, and stay out of the series stacks: a
@@ -548,13 +508,6 @@ export async function MeetingListPane({
       ) : null}
 
       <div className="flex flex-wrap items-center justify-end gap-4">
-        <Link
-          href="/archive"
-          className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
-        >
-          <ArchiveIcon className="h-3.5 w-3.5" />
-          {t("Archived")}
-        </Link>
         {!readOnly ? (
           <Link
             href="/trash"
@@ -567,7 +520,6 @@ export async function MeetingListPane({
       </div>
 
       <form action={base} className="flex flex-wrap items-center gap-2">
-        {activeTag ? <input type="hidden" name="tag" value={activeTag} /> : null}
         {activeSeries ? <input type="hidden" name="series" value={activeSeries} /> : null}
         {activeDate ? <input type="hidden" name="date" value={activeDate} /> : null}
         <input
@@ -583,15 +535,6 @@ export async function MeetingListPane({
           </Link>
         ) : null}
       </form>
-
-      <TagFilter
-        tags={allTags.map((t) => ({
-          name: t.name,
-          count: t._count.meetings,
-          href: hrefWith({ tag: t.name === activeTag ? null : t.name }),
-          active: t.name === activeTag,
-        }))}
-      />
 
       {/* The calendar is folded behind its month, open when a day or a month has been picked:
           it was a large card above every list, and most visits are not about a date. */}
@@ -676,12 +619,9 @@ export async function MeetingListPane({
         </p>
       ) : null}
 
-      {query || activeTag ? (
+      {query ? (
         <p className="text-xs text-[var(--text-muted)]">
-          {[query ? `"${query}"` : null, activeTag ? t("tag “{name}”", { name: activeTag }) : null]
-            .filter(Boolean)
-            .join(" × ")}
-          : {t(meetings.length === 1 ? "1 result" : "{n} results", { n: meetings.length })}
+          &ldquo;{query}&rdquo;: {t(meetings.length === 1 ? "1 result" : "{n} results", { n: meetings.length })}
         </p>
       ) : null}
 

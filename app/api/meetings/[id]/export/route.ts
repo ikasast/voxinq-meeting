@@ -33,7 +33,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     include: {
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
-      tags: { select: { name: true }, orderBy: { name: "asc" } },
       series: { select: { name: true } },
     },
   });
@@ -105,7 +104,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       "",
       `- **Date:** ${formatDateTime(meeting.startedAt)}${meeting.endedAt ? ` – ${formatDateTime(meeting.endedAt)}` : ""}${duration ? ` (${duration})` : ""}`,
       meeting.series ? `- **Series:** ${meeting.series.name}` : null,
-      meeting.tags.length ? `- **Tags:** ${meeting.tags.map((t) => t.name).join(", ")}` : null,
       `- **Speakers:** ${speakers.join(", ") || "-"}`,
       `- **Utterances:** ${meeting.transcripts.length}`,
       `- **Minutes versions:** ${meeting.summaries.length}${latest ? ` (latest: ${formatDateTime(latest.createdAt)})` : ""}`,

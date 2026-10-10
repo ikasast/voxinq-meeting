@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
 import { CalendarPlusIcon, DotsIcon, PinIcon, PinnedIcon } from "../icons";
 import { useT } from "../locale-provider";
-import { ArchiveButton } from "./archive-button";
 import { DeleteMeetingButton } from "./delete-meeting-button";
 
 // What is done to the meeting as a whole, beside its title: pin it, set up the next one in its
-// series, archive it, bin it.
+// series, bin it. (Archiving was removed in v4: pins, search and the trash cover it.)
 //
 // Icons in a row from a tablet up, beside the download, each named by its tooltip — they were
 // behind "…", and a pin and a bin are pictures nobody has to be told about. On a phone the row
@@ -27,14 +26,12 @@ export function MeetingMenu({
   id,
   title,
   series,
-  archived,
   pinned,
 }: {
   id: string;
   title: string;
   /** The series' name, when it has one and Series is switched on. */
   series: string | null;
-  archived: boolean;
   pinned: boolean;
 }) {
   const t = useT();
@@ -74,7 +71,6 @@ export function MeetingMenu({
             <CalendarPlusIcon className="h-4 w-4" />
           </Link>
         ) : null}
-        <ArchiveButton id={id} archived={archived} />
         <DeleteMeetingButton id={id} title={title} />
       </span>
       <span className="sm:hidden">
@@ -101,7 +97,6 @@ export function MeetingMenu({
                   {t("Next meeting in this series")}
                 </Link>
               ) : null}
-              <ArchiveButton id={id} archived={archived} variant="menu" onPick={close} />
               <MenuRule />
               <DeleteMeetingButton id={id} title={title} onPick={close} />
             </>

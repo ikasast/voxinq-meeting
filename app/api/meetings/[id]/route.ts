@@ -29,7 +29,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 // Partially update a meeting's metadata.
 // - title: rename the meeting
 // - description: meeting purpose/contents (empty string resets to unset)
-// - tags: array of tag names (full replace; unknown names are created as new tags)
 // - series: series name (created if new; null/"" detaches from the series)
 // - speakerLabels: update speaker display names (speaker key -> display name)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,22 +36,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await readJson<{
     title?: unknown;
     description?: unknown;
-    tags?: unknown;
     series?: unknown;
     speakerLabels?: unknown;
-    archived?: unknown;
     pinned?: unknown;
     scheduledAt?: unknown;
   }>(req);
 
   // From outside the private network this route is open so a meeting can be *set up* — its
-  // title, agenda, series and tags. The same route also archives and renames speakers, and
-  // neither is setting a meeting up: archiving takes something off the list, and speaker names
-  // belong to a transcript that was made in here. Pinning arranges the sidebar of the people in
-  // here, so it is theirs too. Refused rather than ignored, so a caller that tries is told, not
+  // title, agenda and series. The same route also renames speakers, which is not setting a
+  // meeting up: speaker names belong to a transcript that was made in here. Pinning arranges the
+  // sidebar of the people in here, so it is theirs too. Refused rather than ignored, so a caller that tries is told, not
   // left thinking it worked.
   if (await isExternalRequest()) {
-    for (const field of ["archived", "pinned", "speakerLabels"] as const) {
+    for (const field of ["pinned", "speakerLabels"] as const) {
       if (body?.[field] !== undefined) {
         return apiError("{field} cannot be changed from outside your private network.", 403, { vars: { field } });
       }
@@ -63,18 +59,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     title?: string;
     description?: string | null;
     speakerLabels?: string;
-    archivedAt?: Date | null;
     pinnedAt?: Date | null;
-    tags?: { set: []; connectOrCreate: { where: { name: string }; create: { name: string } }[] };
     series?: { connect: { id: string } } | { disconnect: true };
     scheduledAt?: Date;
     startedAt?: Date;
   } = {};
-
-  if (body?.archived !== undefined) {
-    // Archive hides a meeting from the list but keeps it in the DB (still searchable).
-    data.archivedAt = body.archived ? new Date() : null;
-  }
 
   if (body?.pinned !== undefined) {
     // Pinned meetings head the sidebar, whenever they were.
@@ -93,20 +82,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return apiError("invalid description", 400);
     }
     data.description = (typeof body.description === "string" && body.description.trim()) || null;
-  }
-
-  if (body?.tags !== undefined) {
-    if (!Array.isArray(body.tags) || !body.tags.every((t) => typeof t === "string")) {
-      return apiError("invalid tags", 400);
-    }
-    // Trim + dedupe. Names up to 30 chars, up to 10 tags.
-    const names = [...new Set(body.tags.map((t) => t.trim()).filter(Boolean))];
-    if (names.length > 10) return apiError("too many tags (max 10)", 400);
-    if (names.some((n) => n.length > 30)) return apiError("tag name too long (max 30)", 400);
-    data.tags = {
-      set: [],
-      connectOrCreate: names.map((name) => ({ where: { name }, create: { name } })),
-    };
   }
 
   // Not while Series is switched off: the screen does not offer it, and a meeting keeps the
@@ -178,20 +153,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         title: true,
         description: true,
         speakerLabels: true,
-        archivedAt: true,
-        tags: { select: { name: true }, orderBy: { name: "asc" } },
         series: { select: { id: true, name: true } },
       },
     });
     // Filed under a series it was not in before: give it the regular members, unless somebody
     // has already said who was there. `applySeriesMembers` is what decides that.
     if (data.series && updated.series) await applySeriesMembers(updated.id, updated.series.id);
-    // After re-tagging/reassigning, clean up tags/series no longer attached to any meeting.
-    if (data.tags) await pruneOrphanTags();
+    // After reassigning, clean up series no longer attached to any meeting.
     if (data.series) await pruneOrphanSeries();
     return NextResponse.json({
       ...updated,
-      tags: updated.tags.map((t) => t.name),
       series: updated.series?.name ?? null,
     });
   } catch {

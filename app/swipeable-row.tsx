@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useRef, useState } from "react";
 import { useConfirm } from "./confirm-dialog";
 import { useT } from "./locale-provider";
-import { ArchiveIcon, RestoreIcon, TrashIcon } from "./icons";
+import { TrashIcon } from "./icons";
 
 // Distance (px) the row must travel before the gesture commits on release.
 const COMMIT_PX = 96;
@@ -14,14 +14,13 @@ const DIRECTION_LOCK_PX = 12;
 type Props = {
   ids: string[]; // one meeting, or every meeting of a collapsed series stack
   label: string; // shown in the delete confirmation
-  archived?: boolean; // archived rows swipe right to UNarchive
   children: ReactNode;
 };
 
-// Gmail-style swipe actions for touch devices: swipe right to archive (or unarchive),
-// swipe left to move to Trash. Mouse input is untouched — this only binds touch events,
-// so the desktop two-pane UI keeps its normal click behaviour.
-export function SwipeableRow({ ids, label, archived = false, children }: Props) {
+// A swipe for touch devices: left to move to Trash. (Right archived, until archiving was removed
+// in v4.) Mouse input is untouched — this only binds touch events, so the desktop two-pane UI
+// keeps its normal click behaviour.
+export function SwipeableRow({ ids, label, children }: Props) {
   const router = useRouter();
   const confirm = useConfirm();
   const t = useT();
@@ -38,29 +37,27 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
 
   const many = ids.length > 1;
 
-  const run = async (action: "archive" | "unarchive" | "trash") => {
-    if (action === "trash") {
-      const ok = await confirm({
-        title: many ? t("{n} meetings — {label}", { n: ids.length, label }) : label,
-        message: many
-          ? t("Move all {n} meetings in this series to Trash. You can restore them within 30 days.", {
-              n: ids.length,
-            })
-          : t("Move this meeting to Trash. You can restore it within 30 days."),
-        confirmLabel: t("Move to Trash"),
-        danger: true,
-      });
-      if (!ok) {
-        setDx(0);
-        return;
-      }
+  const trash = async () => {
+    const ok = await confirm({
+      title: many ? t("{n} meetings — {label}", { n: ids.length, label }) : label,
+      message: many
+        ? t("Move all {n} meetings in this series to Trash. You can restore them within 30 days.", {
+            n: ids.length,
+          })
+        : t("Move this meeting to Trash. You can restore it within 30 days."),
+      confirmLabel: t("Move to Trash"),
+      danger: true,
+    });
+    if (!ok) {
+      setDx(0);
+      return;
     }
     setBusy(true);
     try {
       const res = await fetch("/api/meetings/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids, action }),
+        body: JSON.stringify({ ids, action: "trash" }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       // Slide the row out, then let the server component re-render without it.
@@ -90,8 +87,8 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
       axis.current = Math.abs(moveX) > Math.abs(moveY) ? "x" : "y";
     }
     if (axis.current !== "x") return;
-    // Rubber-band past the commit point so the gesture still feels bounded.
-    const capped = Math.sign(moveX) * Math.min(Math.abs(moveX), COMMIT_PX * 1.6);
+    // Leftward only. Rubber-band past the commit point so the gesture still feels bounded.
+    const capped = -Math.min(Math.max(-moveX, 0), COMMIT_PX * 1.6);
     dxRef.current = capped;
     setDx(capped);
   };
@@ -102,11 +99,10 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
     dxRef.current = 0;
     setDx(0);
     if (axis.current !== "x" || Math.abs(moved) < COMMIT_PX) return;
-    void run(moved > 0 ? (archived ? "unarchive" : "archive") : "trash");
+    if (moved < 0) void trash();
   };
 
   const revealing = dx !== 0;
-  const rightward = dx > 0;
 
   return (
     <div
@@ -118,28 +114,11 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
       {revealing ? (
         <div
           aria-hidden
-          className={`absolute inset-0 flex items-center px-4 text-sm font-medium ${
-            rightward
-              ? "justify-start bg-[color-mix(in_srgb,var(--accent)_28%,transparent)] text-[var(--accent-sub)]"
-              : "justify-end bg-[color-mix(in_srgb,var(--error)_28%,transparent)] text-[var(--error)]"
-          }`}
+          className="absolute inset-0 flex items-center justify-end bg-[color-mix(in_srgb,var(--error)_28%,transparent)] px-4 text-sm font-medium text-[var(--error)]"
         >
           <span className="inline-flex items-center gap-1.5">
-            {rightward ? (
-              <>
-                {archived ? <RestoreIcon className="h-4 w-4" /> : <ArchiveIcon className="h-4 w-4" />}
-                {many
-                  ? t("{action} the series ({n})", { action: archived ? t("Unarchive") : t("Archive"), n: ids.length })
-                  : archived
-                    ? t("Unarchive")
-                    : t("Archive")}
-              </>
-            ) : (
-              <>
-                <TrashIcon className="h-4 w-4" />
-                {many ? t("{action} the series ({n})", { action: t("Trash"), n: ids.length }) : t("Trash")}
-              </>
-            )}
+            <TrashIcon className="h-4 w-4" />
+            {many ? t("{action} the series ({n})", { action: t("Trash"), n: ids.length }) : t("Trash")}
           </span>
         </div>
       ) : null}
