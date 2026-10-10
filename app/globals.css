@@ -464,6 +464,26 @@ html[data-theme="light"] .logo-dark {
     font-weight: 500;
   }
 
+  /* --- A value filled in for you --- */
+  /* Blinks a few times as the page opens, then rests: the New meeting form's series, arrived at
+     from a series' "Next meeting", so a wrong one is noticed before the meeting is filed. */
+  .flash-pick {
+    animation: flash-pick 0.7s ease-in-out 4;
+  }
+  @keyframes flash-pick {
+    50% {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .flash-pick {
+      animation: none;
+      border-color: var(--accent);
+    }
+  }
+
   /* --- Tooltips --- */
   /* One element, moved to whatever is pointed at (tooltips.tsx). Never in the way of the
      pointer: it takes no events, and it sits above the element rather than under the arrow. */

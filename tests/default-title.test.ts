@@ -84,9 +84,9 @@ describe("the New meeting screen", () => {
 
 describe("the callers that never show a title", () => {
   it("let the server name the meeting", () => {
-    // Three callers, only one of which shows the name first. The other two would each have to
-    // fetch the settings to learn the shape, and would each be a place for the two to drift.
-    for (const p of ["app/quick-record/page.tsx", "app/[id]/clone-meeting-button.tsx"]) {
+    // Two callers, only one of which shows the name first. The other would have to fetch the
+    // settings to learn the shape, and would be a place for the two to drift.
+    for (const p of ["app/quick-record/page.tsx"]) {
       expect(readFileSync(join(__dirname, "..", p), "utf8"), p).not.toContain("defaultMeetingTitle");
     }
     const route = readFileSync(join(__dirname, "..", "app/api/meetings/route.ts"), "utf8");

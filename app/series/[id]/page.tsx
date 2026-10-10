@@ -9,7 +9,7 @@ import { extensionEnabled } from "@/lib/extensions-store";
 import { AskMinutes } from "../../ask-minutes";
 import { SeriesSettings } from "./series-settings";
 import { DeleteSeriesButton } from "./delete-series-button";
-import { SeriesIcon } from "../../icons";
+import { CalendarPlusIcon, SeriesIcon } from "../../icons";
 
 export const dynamic = "force-dynamic";
 
@@ -89,9 +89,16 @@ export default async function SeriesPage({
           <SeriesIcon className="h-6 w-6 shrink-0 text-[var(--accent-sub)]" />
           {series.name}
         </h1>
-        <BackLink href="/" className="btn-outline">
-          {t("Back to list")}
-        </BackLink>
+        <div className="flex items-center gap-2">
+          {/* The New meeting form with this series filled in — now, or booked for later. */}
+          <Link href={`/new?series=${encodeURIComponent(series.name)}`} className="btn-ink">
+            <CalendarPlusIcon className="h-4 w-4" />
+            {t("Next meeting")}
+          </Link>
+          <BackLink href="/" className="btn-outline">
+            {t("Back to list")}
+          </BackLink>
+        </div>
       </div>
       <p className="text-sm text-[var(--text-muted)]">
         {t(

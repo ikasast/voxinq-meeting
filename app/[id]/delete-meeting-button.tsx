@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useConfirm } from "../confirm-dialog";
 import { TrashIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
-import { MENU_ITEM } from "../drop-menu";
+import { ICON_BUTTON, MENU_ITEM } from "../drop-menu";
 
 // Delete button on the detail page. Confirm -> DELETE -> back to the list.
 // As a row of the meeting's "…" menu when `onPick` is given: the menu goes first, so the
@@ -72,7 +72,7 @@ export function DeleteMeetingButton({
       disabled={deleting}
       title={t("Move to Trash (restorable for 30 days)")}
       aria-label={t("Move to Trash")}
-      className="btn-icon !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
+      className={`${ICON_BUTTON} hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)] hover:!text-[var(--error)]`}
     >
       <TrashIcon className={deleting ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
     </button>

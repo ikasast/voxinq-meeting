@@ -405,6 +405,13 @@ export const UploadIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const CalendarPlusIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7" />
+    <path d="M16 2v4M8 2v4M3 10h18M19 16v6M16 19h6" />
+  </Base>
+);
+
 export const CalendarIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <rect x="3" y="4" width="18" height="18" rx="2" />

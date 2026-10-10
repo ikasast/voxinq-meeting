@@ -232,6 +232,8 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Next meeting": "次の会議",
+  "Next meeting in this series": "このシリーズの次の会議",
   "Fix wording": "表記の修正",
   "See every line it changes before it does": "直す前に、変わる行を確かめられます",
   "Suggest from the glossary": "用語集から候補を出す",
@@ -270,7 +272,6 @@ export const ja: Record<string, string> = {
   "Resize the transcript": "発言パネルの幅を変更",
   "Drag to change the width; double-click to reset it": "ドラッグで幅を変更・ダブルクリックで元に戻す",
   "Copy failed": "コピーに失敗しました",
-  "New with same settings": "同じ設定で新規作成",
   "Resume recording": "録音を再開",
   "Continue recording — appends to the existing recording and transcript":
     "録音を続けます — 既存の録音と発言に追記されます",
@@ -1173,8 +1174,6 @@ export const ja: Record<string, string> = {
   "Enrolls each named speaker’s voiceprint from this meeting; future auto-diarize runs will name them automatically.":
     "名前を付けた話者の声紋を、この会議から登録します。以降の自動話者分離では、その人たちに自動で名前が付きます。",
   "Play from here ({time})": "ここから再生（{time}）",
-  "New with same settings — start a new meeting inheriting this one’s purpose, tags, and series":
-    "同じ設定で新規作成 — この会議の目的・タグ・シリーズを引き継いで新しい会議を始めます",
   "API key not set": "API キーが未設定です",
 
   // ---- The live status chip on the meeting list, written straight into the DOM ----

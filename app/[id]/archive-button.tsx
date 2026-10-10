@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArchiveIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
-import { MENU_ITEM } from "../drop-menu";
+import { ICON_BUTTON, MENU_ITEM } from "../drop-menu";
 
 // Archive / unarchive a meeting. Archived meetings are hidden from the list but stay in the
 // DB, appear in search, and are all listed on /archive.
@@ -75,7 +75,7 @@ export function ArchiveButton({
       disabled={busy}
       title={title}
       aria-label={label}
-      className={`btn-icon ${archived ? "!text-[var(--accent-sub)]" : ""}`}
+      className={`${ICON_BUTTON} ${archived ? "!text-[var(--accent-sub)]" : ""}`}
     >
       <ArchiveIcon className={busy ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
     </button>
