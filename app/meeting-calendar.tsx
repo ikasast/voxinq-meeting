@@ -32,7 +32,7 @@ export async function MeetingCalendar({
   const todayMonth = `${today.slice(0, 7)}`;
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">
+    <div className="border-y border-[var(--border)] py-2">
       <div className="flex items-center gap-1 px-1 pb-1">
         {/* replace: paging through months is looking around, not going somewhere — Back
             should leave the list, not walk back through every month on the way. */}

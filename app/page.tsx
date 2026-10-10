@@ -21,7 +21,7 @@ export default async function HomePage({
 
   if (q || tag || series || date || month || list) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div data-paper className="mx-auto max-w-3xl">
         <MeetingListPane q={q} tag={tag} series={series} date={date} month={month} readOnly={external} />
       </div>
     );
@@ -32,7 +32,7 @@ export default async function HomePage({
   const recent = (await sidebarMeetings()).filter((m) => !m.upcoming).slice(0, 6);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10 pt-4 lg:pt-10">
+    <div data-paper className="mx-auto max-w-4xl space-y-10 pt-4 lg:pt-10">
       <HomeStart external={external} />
       {recent.length > 0 ? (
         <section>
@@ -42,22 +42,22 @@ export default async function HomePage({
               {t("All meetings")}
             </Link>
           </div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          <ul className="mt-2 border-t border-[var(--border)]">
             {recent.map((m) => (
               <li key={m.id}>
                 <Link
                   href={`/${m.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 hover:border-[var(--accent)]"
+                  className="flex items-baseline gap-3 border-b border-[var(--border)] px-2 py-2.5 hover:bg-[var(--panel)]"
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-[var(--text-strong)]">{m.title}</span>
-                    <span className="block text-xs text-[var(--text-muted)]">{formatDateTimeIn(locale, new Date(m.at))}</span>
-                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-strong)]">{m.title}</span>
                   {m.live ? (
                     <span className="tag-warn shrink-0">{t("Recording")}</span>
                   ) : m.noMinutes ? (
                     <span className="tag-warn shrink-0">{t("No minutes")}</span>
                   ) : null}
+                  <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+                    {formatDateTimeIn(locale, new Date(m.at))}
+                  </span>
                 </Link>
               </li>
             ))}

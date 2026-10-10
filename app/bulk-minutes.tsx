@@ -85,7 +85,7 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
   };
 
   return (
-    <div className="rounded-md border border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] px-3 py-2">
+    <div className="border-y border-[var(--border)] py-2">
       <div className="flex flex-wrap items-center gap-2">
         <p className="flex-1 text-xs text-[var(--text-secondary)]">
           {t(
@@ -156,7 +156,7 @@ export function BulkMinutes({ candidates }: { candidates: BulkCandidate[] }) {
             </button>
           ) : null}
           {showOptions ? (
-            <div className="mt-2 space-y-3 rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
+            <div className="mt-2 space-y-3 border-t border-[var(--border)] pt-3">
               <MinutesChoiceFields
                 idPrefix="bulk"
                 choice={opts.choice}

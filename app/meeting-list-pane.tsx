@@ -13,13 +13,13 @@ import { currentUser } from "@/lib/auth/session";
 import { searchTokens } from "@/lib/crypto/index-meeting";
 import { type Band, bandOf } from "@/lib/meeting-bands";
 import { buildMeetingWhere, makeSnippet } from "@/lib/meeting-filter";
-import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
+import { formatDateTimeIn, formatDurationIn, monthLabelIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { minutesCandidates, needsMinutes } from "@/lib/meetings/bulk-minutes";
 import { minutesRunningIn } from "@/lib/meetings/minutes-state";
 import { BulkMinutes } from "./bulk-minutes";
 import { MinutesWatcher } from "./minutes-watcher";
-import { ArchiveIcon, LockIcon, MicIcon, SeriesIcon, TrashIcon } from "./icons";
+import { ArchiveIcon, CalendarIcon, CloseIcon, LockIcon, MicIcon, SeriesIcon, TrashIcon } from "./icons";
 import { MeetingCalendar } from "./meeting-calendar";
 import { MeetingItemMenu } from "./meeting-item-menu";
 import { LiveStatus } from "./live-status";
@@ -307,34 +307,27 @@ export async function MeetingListPane({
   };
   const hrefWith = (over: Over) => `${base}${queryString(over)}`;
 
-  // The card is a link, and the badges under it are not part of it: the series chip filters
-  // the list rather than opening the meeting, and a link inside a link is invalid HTML. So the
-  // border and the padding belong to the wrapper, and the meeting link covers only the part
-  // that opens the meeting.
+  // One meeting: a row between hairlines, not a card (v4). The title and the link that opens
+  // the meeting are one part; the series and the tags under it are links of their own (to
+  // filter the list), and a link inside a link is invalid HTML, so they sit beside it rather
+  // than in it.
   const card = (m: MeetingCardData) => {
     const active = m.id === activeId;
     const showSeriesChip = seriesOn && Boolean(m.seriesName) && m.seriesName !== activeSeries;
     const hit = matched.get(m.id);
+    const duration = formatDurationIn(locale, m.durationMs);
     return (
       <div
-        className={`group relative rounded-lg border p-3 transition ${
-          active
-            ? "border-[var(--accent)] bg-[var(--elevated)]"
-            : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--accent)]"
+        className={`group relative border-b border-[var(--border)] py-2.5 pl-2 pr-10 transition-colors ${
+          active ? "bg-[color-mix(in_srgb,var(--accent)_8%,var(--paper))]" : "bg-[var(--paper)] hover:bg-[var(--panel)]"
         }`}
       >
-        <Link
-          href={`/${m.id}${queryString()}`}
-          aria-current={active ? "page" : undefined}
-          className="block"
-        >
-          <div className="flex items-center justify-between gap-2 pr-6">
-            <span className="truncate text-sm font-medium text-[var(--text-strong)]">
-              {m.title}
-            </span>
+        <Link href={`/${m.id}${queryString()}`} aria-current={active ? "page" : undefined} className="block">
+          <div className="flex items-baseline gap-2">
+            <span className="min-w-0 truncate text-sm font-medium text-[var(--text-strong)]">{m.title}</span>
             {m.archivedAt ? (
               <span
-                className="shrink-0 text-[var(--text-muted)]"
+                className="shrink-0 self-center text-[var(--text-muted)]"
                 title={t("Archived — hidden from the list, still searchable")}
               >
                 <ArchiveIcon className="h-3.5 w-3.5" />
@@ -367,13 +360,16 @@ export async function MeetingListPane({
                 </span>
               );
             })()}
+            <span className="ml-auto shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
+              {formatDateTimeIn(locale, m.startedAt)}
+            </span>
           </div>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {formatDateTimeIn(locale, m.startedAt)}
-            {formatDurationIn(locale, m.durationMs) ? ` · ${formatDurationIn(locale, m.durationMs)}` : ""}{" "}
-            · {t(m._count.transcripts === 1 ? "1 utterance" : "{n} utterances", {
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            {duration ? `${duration} · ` : ""}
+            {t(m._count.transcripts === 1 ? "1 utterance" : "{n} utterances", {
               n: m._count.transcripts,
-            })}{m._count.summaries > 0
+            })}
+            {m._count.summaries > 0
               ? ` / ${t(m._count.summaries === 1 ? "1 set of minutes" : "{n} sets of minutes", {
                   n: m._count.summaries,
                 })}`
@@ -384,7 +380,7 @@ export async function MeetingListPane({
           ) : null}
         </Link>
         {m.tags.length > 0 || showSeriesChip || (hit && hit.fields.length > 0) || m.endedAt ? (
-          <p className="mt-1.5 flex flex-wrap items-center gap-1">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
             {/* Recording/protection icon: hidden until RecordingBadges has asked STT, which then
                 says which of the two to show (and nothing when there is no recording). */}
             <span
@@ -399,7 +395,7 @@ export async function MeetingListPane({
             {showSeriesChip ? (
               <Link
                 href={hrefWith({ series: m.seriesName })}
-                className="inline-flex items-center gap-0.5 rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)] hover:border-[var(--accent)]"
+                className="inline-flex items-center gap-1 text-[var(--accent-sub)] hover:underline"
                 title={t('Show only "{name}"', { name: m.seriesName ?? "" })}
               >
                 <SeriesIcon className="h-3 w-3 shrink-0" />
@@ -407,17 +403,14 @@ export async function MeetingListPane({
               </Link>
             ) : null}
             {m.tags.map((t) => (
-              <span
-                key={t.name}
-                className="rounded-full border border-[var(--border-strong)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)]"
-              >
-                {t.name}
+              <span key={t.name} className="text-[var(--text-secondary)]">
+                #{t.name}
               </span>
             ))}
             {hit?.fields.map((f) => (
               <span
                 key={f}
-                className="rounded border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]"
+                className="rounded bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-1.5 py-px text-[10px] text-[var(--accent-sub)]"
               >
                 {({
                   title: t("match: title"),
@@ -430,7 +423,7 @@ export async function MeetingListPane({
           </p>
         ) : null}
         {!readOnly ? (
-          <div className="absolute right-1.5 top-1.5">
+          <div className="absolute right-1.5 top-2">
             <MeetingItemMenu id={m.id} archived={m.archivedAt !== null} pinned={m.pinnedAt !== null} />
           </div>
         ) : null}
@@ -455,7 +448,7 @@ export async function MeetingListPane({
     "Over a month ago": t("Over a month ago"),
   };
   const divider = (label: string) => (
-    <li key={`__${label}`} className="px-1 pt-2 text-xs font-medium text-[var(--text-muted)]">
+    <li key={`__${label}`} className="border-b border-[var(--border)] px-2 pb-1.5 pt-6 text-xs font-medium text-[var(--text-muted)] first:pt-2">
       {label in BAND_LABEL ? BAND_LABEL[label as Band] : label}
     </li>
   );
@@ -522,9 +515,9 @@ export async function MeetingListPane({
             // Open when the meeting being read is one of them, so the list shows where you are.
             <details
               open={rest.some((o) => o.id === activeId)}
-              className="ml-3 mt-1 border-l border-[var(--border)] pl-2"
+              className="ml-4 border-l border-[var(--border)] pl-2"
             >
-              <summary className="cursor-pointer select-none px-1 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]">
+              <summary className="cursor-pointer select-none px-2 py-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]">
                 {t(
                   rest.length === 1
                     ? "1 earlier meeting in this series"
@@ -532,7 +525,7 @@ export async function MeetingListPane({
                   { n: rest.length },
                 )}
               </summary>
-              <ol className="mt-1 space-y-2">
+              <ol>
                 {rest.map((o) => (
                   <li key={o.id}>{swipeWrap(card(o), [o.id], o.title)}</li>
                 ))}
@@ -554,7 +547,7 @@ export async function MeetingListPane({
         </>
       ) : null}
 
-      <div className="flex justify-end gap-4">
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <Link
           href="/archive"
           className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--foreground)]"
@@ -585,8 +578,8 @@ export async function MeetingListPane({
           className="input min-w-0 flex-1"
         />
         {filtering ? (
-          <Link href={base} className="btn-outline shrink-0 !px-3" title={t("Clear filters")}>
-            ×
+          <Link href={base} className="btn-outline shrink-0" title={t("Clear filters")} aria-label={t("Clear filters")}>
+            <CloseIcon />
           </Link>
         ) : null}
       </form>
@@ -600,7 +593,18 @@ export async function MeetingListPane({
         }))}
       />
 
+      {/* The calendar is folded behind its month, open when a day or a month has been picked:
+          it was a large card above every list, and most visits are not about a date. */}
       {showCalendar ? (
+        <details open={Boolean(activeDate || month)} className="group">
+          <summary className="btn-outline cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <CalendarIcon />
+            {monthLabelIn(locale, shownMonth)}
+            <span aria-hidden className="text-xs text-[var(--text-muted)] transition-transform group-open:rotate-180">
+              ▾
+            </span>
+          </summary>
+          <div className="mt-2">
         <MeetingCalendar
           month={shownMonth}
           counts={dayCounts}
@@ -613,13 +617,15 @@ export async function MeetingListPane({
             hrefWith({ date: key, month: key ? key.slice(0, 7) : monthKey(shownMonth) })
           }
         />
+          </div>
+        </details>
       ) : null}
 
       {/* Always the way to add one, whether or not the day already has meetings. An empty day
           is not a special case that unlocks a button — it is the same day with nothing in it
           yet, and a day that is already busy is exactly when another gets booked. */}
       {activeDate ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[color-mix(in_srgb,var(--accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] px-3 py-2 text-xs">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <span className="font-medium text-[var(--text-strong)]">{longDay(activeDate)}</span>
           <span className="text-[var(--text-muted)]">
             {meetings.length === 0
@@ -629,7 +635,7 @@ export async function MeetingListPane({
           {/* Not behind `readOnly`: booking a meeting is allowed from outside, and a day on the
               calendar is the most natural place to book one from. */}
           {schedule ? (
-            <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] underline">
+            <Link href={`/new?date=${activeDate}`} className="text-[var(--accent-sub)] hover:underline">
               {t("+ Add a meeting on this day")}
             </Link>
           ) : null}
@@ -658,8 +664,8 @@ export async function MeetingListPane({
           line below would be three restatements of one filter stacked on top of each other. */}
       {activeSeries ? (
         <p className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] px-1.5 py-0.5 text-[10px] text-[var(--accent-sub)]">
-            <SeriesIcon className="inline h-3.5 w-3.5 align-[-2px]" /> {activeSeries}
+          <span className="inline-flex items-center gap-1 font-medium text-[var(--accent-sub)]">
+            <SeriesIcon className="h-3.5 w-3.5" /> {activeSeries}
           </span>
           <span className="text-[var(--text-muted)]">{t(meetings.length === 1 ? "1 meeting in this series" : "{n} meetings in this series", {
               n: meetings.length,
@@ -681,14 +687,14 @@ export async function MeetingListPane({
 
       {/* A picked day with nothing on it has already said so, in the band above. */}
       {meetings.length === 0 && !activeDate ? (
-        <div className="rounded-lg border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--text-muted)]">
+        <div className="py-10 text-center text-sm text-[var(--text-muted)]">
           {filtering ? t("No matching meetings.") : t("No meetings yet.")}
           {/* Not while filtering: the list is empty because of the filter, not because there
               is nothing here. And not from outside, where creating rows is not allowed. */}
           {!filtering && !readOnly ? <SampleMeetingButton /> : null}
         </div>
       ) : meetings.length === 0 ? null : (
-        <ul className="space-y-2">{entries}</ul>
+        <ul>{entries}</ul>
       )}
 
     </div>

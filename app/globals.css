@@ -440,23 +440,23 @@ html[data-theme="light"] .logo-dark {
   .tag-warn {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem 0.625rem;
-    border-radius: calc(infinity * 1px);
+    padding: 0.0625rem 0.4375rem;
+    border-radius: 4px;
     background: color-mix(in srgb, var(--warning) 18%, transparent);
     color: var(--warning);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .tag-lime {
     display: inline-flex;
     align-items: center;
-    padding: 0.125rem 0.625rem;
-    border-radius: calc(infinity * 1px);
+    padding: 0.0625rem 0.4375rem;
+    border-radius: 4px;
     background: color-mix(in srgb, var(--accent) 18%, transparent);
     color: var(--accent-sub);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 500;
   }
 }
 
