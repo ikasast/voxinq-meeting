@@ -222,6 +222,8 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "e.g. Voxing": "例: ボクシンク",
+  ".": "。",
   "Who can use this server, and how they sign in.": "このサーバーを使える人と、そのサインイン方法。",
   "Accounts are disabled, never deleted: they hold meetings.": "アカウントは無効にするだけで、削除はしません（会議を持っているため）。",
   "What they sign in with. Nothing is sent to it.": "サインインに使うアドレス。メールは送られません。",
