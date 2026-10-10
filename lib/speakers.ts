@@ -54,6 +54,40 @@ export function nameOf(key: string, names: SpeakerNames = {}): string {
   return names[key]?.trim() || plainName(key);
 }
 
+/**
+ * What a speaker is called on screen: the name someone gave them, else their plain name in the
+ * reader's language. `plainName` is the spelling exports and the server compare against; this is
+ * the one a person reads, where "Me" and "Speaker 1" are words of the interface like any other.
+ */
+export function shownName(
+  key: string,
+  names: SpeakerNames,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  const given = names[key]?.trim();
+  if (given) return given;
+  if (key === MIC_SPEAKER) return t("Me");
+  const n = voiceNumber(key);
+  return n === null ? key : t("Speaker {n}", { n: n + 1 });
+}
+
+/**
+ * Whether a meeting's lines have been told apart, and the voices that came out, as the meeting's
+ * details show them: the speakers some line is said by.
+ */
+export function separatedSpeakers(
+  keys: string[],
+  names: SpeakerNames,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): { separated: boolean; speakers: { key: string; name: string; named: boolean }[] } {
+  const separated = keys.some((k) => voiceNumber(k) !== null);
+  const used = new Set(keys);
+  const speakers = speakersInOrder(keys, names)
+    .filter((k) => used.has(k))
+    .map((key) => ({ key, name: shownName(key, names, t), named: Boolean(names[key]?.trim()) }));
+  return { separated, speakers };
+}
+
 /** A meeting's stored names. Anything unreadable reads as no names at all. */
 export function readNames(stored: string | null | undefined): SpeakerNames {
   let value: unknown = null;

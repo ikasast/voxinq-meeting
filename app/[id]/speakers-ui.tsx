@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { type SpeakerNames, freshVoice, nameOf, speakersInOrder, toneOf } from "@/lib/speakers";
+import { type SpeakerNames, freshVoice, shownName, speakersInOrder, toneOf } from "@/lib/speakers";
 import { useT } from "@/app/locale-provider";
 import { DropMenu, MENU_ITEM, MenuRule } from "@/app/drop-menu";
 import { CheckIcon } from "@/app/icons";
@@ -27,7 +27,7 @@ export function SpeakerName({
   onPick?: (speaker: string) => void;
 }) {
   const t = useT();
-  const name = nameOf(who, names);
+  const name = shownName(who, names, t);
   const look = `block max-w-full truncate text-left text-xs font-semibold ${toneOf(who).text}`;
   if (!onPick) return <span className={look}>{name}</span>;
   return (
@@ -95,7 +95,7 @@ export function SpeakerMenu({
               className={MENU_ITEM}
             >
               <span className={`h-2 w-2 shrink-0 rounded-full ${toneOf(speaker).mark}`} />
-              <span className="min-w-0 flex-1 truncate">{nameOf(speaker, names)}</span>
+              <span className="min-w-0 flex-1 truncate">{shownName(speaker, names, t)}</span>
               {speaker === who ? <CheckIcon className="h-3.5 w-3.5 text-[var(--accent)]" /> : null}
             </button>
           ))}
@@ -147,7 +147,8 @@ function NameInput({
   names: SpeakerNames;
   onName: (speaker: string, name: string) => void;
 }) {
-  const saved = nameOf(speaker, names);
+  const t = useT();
+  const saved = shownName(speaker, names, t);
   const [typing, setTyping] = useState<string | null>(null);
 
   const save = () => {
