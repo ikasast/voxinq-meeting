@@ -17,6 +17,8 @@ import { describe, expect, it } from "vitest";
 
 const root = join(__dirname, "..");
 const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
+const panels = readFileSync(join(root, "app/[id]/tool-panel.tsx"), "utf8");
+const row = readFileSync(join(root, "app/[id]/transcript-row.tsx"), "utf8");
 const settings = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
 
 const at = (marker: string) => {
@@ -51,7 +53,8 @@ describe("the transcript's tools", () => {
   it("are folds rather than boxes inside the card", () => {
     expect(list.match(/<ToolPanel\s/g)).toHaveLength(3);
     expect(list).not.toContain("<Disclosure");
-    const panel = list.slice(at("function ToolPanel("));
+    expect(panels, "ToolPanel left tool-panel.tsx").toContain("export function ToolPanel(");
+    const panel = panels.slice(panels.indexOf("function ToolPanel("));
     expect(panel.slice(0, panel.indexOf("\n}\n"))).not.toMatch(/rounded-lg border|bg-\[var\(--elevated\)\]/);
   });
 
@@ -85,7 +88,9 @@ describe("the transcript's tools", () => {
 });
 
 describe("a line", () => {
-  const row = list.slice(at("function TranscriptRow("), at("function ToolPanel("));
+  it("is its own component, in its own file", () => {
+    expect(row).toContain("export function TranscriptRow(");
+  });
 
   it("names its speaker once, in colour, with no tag around it", () => {
     // The name was a coloured chip, and a picker beside it said the name again.
