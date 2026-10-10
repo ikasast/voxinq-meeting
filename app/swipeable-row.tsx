@@ -110,7 +110,7 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
 
   return (
     <div
-      className={`relative overflow-hidden rounded-lg transition-[max-height,opacity] ${
+      className={`relative overflow-hidden transition-[max-height,opacity] ${
         gone ? "pointer-events-none max-h-0 opacity-0" : "max-h-[600px] opacity-100"
       }`}
     >
@@ -118,7 +118,7 @@ export function SwipeableRow({ ids, label, archived = false, children }: Props) 
       {revealing ? (
         <div
           aria-hidden
-          className={`absolute inset-0 flex items-center rounded-lg px-4 text-sm font-medium ${
+          className={`absolute inset-0 flex items-center px-4 text-sm font-medium ${
             rightward
               ? "justify-start bg-[color-mix(in_srgb,var(--accent)_28%,transparent)] text-[var(--accent-sub)]"
               : "justify-end bg-[color-mix(in_srgb,var(--error)_28%,transparent)] text-[var(--error)]"

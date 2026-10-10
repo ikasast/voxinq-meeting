@@ -32,7 +32,7 @@ export function TagFilter({ tags }: { tags: TagChip[] }) {
         <Link
           key={tag.name}
           href={tag.href}
-          className={`rounded-full border px-2.5 py-0.5 ${
+          className={`rounded border px-2.5 py-0.5 ${
             tag.active
               ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_18%,transparent)] text-[var(--accent-sub)]"
               : "border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
@@ -45,7 +45,7 @@ export function TagFilter({ tags }: { tags: TagChip[] }) {
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="rounded-full border border-dashed border-[var(--border-strong)] px-2.5 py-0.5 text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
+          className="rounded border border-dashed border-[var(--border-strong)] px-2.5 py-0.5 text-[var(--text-muted)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
         >
           {t("+{n} more", { n: hiddenCount })}
         </button>
@@ -54,7 +54,7 @@ export function TagFilter({ tags }: { tags: TagChip[] }) {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="rounded-full px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--foreground)]"
+          className="rounded px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--foreground)]"
         >
           {t("less")}
         </button>
