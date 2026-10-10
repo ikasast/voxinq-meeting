@@ -232,6 +232,8 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "this meeting": "この会議",
+  "For example:": "たとえば:",
   "The recording is no longer kept, so it cannot be done again.": "録音が残っていないため、分け直せません。",
   "Name the speakers": "話者に名前を付ける",
   "Not separated yet": "まだ分けていません",

@@ -94,11 +94,13 @@ export function MeetingBody({
   useOpenSpeakers(meetingId, showTranscript);
 
   if (transcriptFirst) {
+    // White like any meeting's page, with what was said in the grey it has in the panel — so a
+    // meeting does not change colour the moment its minutes arrive.
     return (
-      <div className="space-y-6">
+      <div data-paper className="mx-auto w-full max-w-[50rem] space-y-6">
         {header}
         {document}
-        <div className="border-t border-[var(--border)] pt-6">{transcript}</div>
+        <div className="rounded-xl bg-[var(--panel)] px-4 py-4 sm:px-5">{transcript}</div>
       </div>
     );
   }

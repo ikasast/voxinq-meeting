@@ -109,9 +109,9 @@ export default async function SeriesPage({
         )}
       </p>
 
-      {/* Questions span the whole series ("what were the TODOs from last time?"), so this
-          belongs here rather than on any single meeting. Hidden for external (read-only)
-          viewers: answering runs the local LLM on the GPU. */}
+      {/* Questions span the whole series ("what were the TODOs from last time?"): the button at
+          the bottom right reads all of its minutes. Hidden for external (read-only) viewers:
+          answering runs the local LLM on the GPU. */}
       {!external && (await extensionEnabled("ask")) ? (
         <AskMinutes seriesId={series.id} scopeLabel={series.name} />
       ) : null}

@@ -484,6 +484,15 @@ html[data-theme="light"] .logo-dark {
     }
   }
 
+  /* --- Room for a recording's dock --- */
+  /* Set by dock-space.ts while one is showing, so the Ask button stands above it on a phone. From
+     sm up the centred dock leaves the corner clear. */
+  @media (min-width: 640px) {
+    :root {
+      --dock-space: 0px !important;
+    }
+  }
+
   /* --- Tooltips --- */
   /* One element, moved to whatever is pointed at (tooltips.tsx). Never in the way of the
      pointer: it takes no events, and it sits above the element rather than under the arrow. */

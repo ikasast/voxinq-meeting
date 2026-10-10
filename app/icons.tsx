@@ -405,6 +405,13 @@ export const UploadIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const ChatIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M21 12a8 8 0 0 1-11.8 7L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z" />
+    <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" />
+  </Base>
+);
+
 export const CalendarPlusIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <path d="M21 12V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7" />

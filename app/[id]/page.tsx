@@ -276,24 +276,6 @@ export default async function MeetingPage({
       </section>
       ) : null}
 
-      {/* A meeting outside a series is its own scope for questions — a one-off is a series of
-          one. Meetings in a series are asked about on the series page, where the whole history
-          is available, so no box here. */}
-      {!external &&
-      minutesShown &&
-      extensions.ask &&
-      !seriesId &&
-      (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
-        <AskMinutes
-          plain
-          meetingId={meeting.id}
-          scopeLabel={meeting.title}
-          hasMinutes={meeting.summaries.length > 0}
-          // Recorded and not written up yet is exactly when the question is about what was
-          // said, so the box appears then too — reading the meeting's own words.
-          hasTranscript={meeting.transcripts.length > 0}
-        />
-      ) : null}
 
           </>
         }
@@ -342,6 +324,20 @@ export default async function MeetingPage({
       {/* Room under the last line for the recording dock, which floats over the bottom of the
           window. */}
       {recordHere ? <div aria-hidden className="h-28" /> : null}
+      {/* Asking about the meeting floats at the bottom right (ask-minutes.tsx). In a series the
+          minutes it reads are the whole series', and this meeting's own words are the other
+          choice; a one-off meeting is a series of one. */}
+      {!external && extensions.ask && (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
+        <AskMinutes
+          seriesId={seriesId && seriesOn ? seriesId : undefined}
+          meetingId={meeting.id}
+          scopeLabel={seriesId && seriesOn && seriesName ? seriesName : meeting.title}
+          hasMinutes={seriesId && seriesOn ? true : meeting.summaries.length > 0}
+          // Recorded and not written up yet is exactly when the question is about what was
+          // said, so it is offered then too — reading the meeting's own words.
+          hasTranscript={meeting.transcripts.length > 0}
+        />
+      ) : null}
       </div>
       </div>
     </div>
