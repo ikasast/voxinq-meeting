@@ -913,7 +913,10 @@ export function TranscriptList({
   // add to while it is busy is a disabled button with extra steps. The one thing still refused
   // is asking twice for the same meeting, which the routes answer with a 409.
   const busy = diarizing || retransing;
-  const elsewhere = gpu.busy && !diarizing && !retransing ? busyLabel(t, gpu.kind) : null;
+  // Not this meeting's own recording: on the page that is recording it, "Recording in progress —
+  // anything started now waits its turn" is the page talking about itself.
+  const ownRecording = gpu.kind === "recording" && gpu.minutesMeetingId === meetingId;
+  const elsewhere = gpu.busy && !diarizing && !retransing && !ownRecording ? busyLabel(t, gpu.kind) : null;
 
   // --- Following a meeting that is being recorded elsewhere ---------------------------------
   //
