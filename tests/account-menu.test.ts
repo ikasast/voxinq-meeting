@@ -53,13 +53,14 @@ describe("reaching the queue from a phone", () => {
   it("counts your own work, not the machine's", () => {
     // The queue lists everybody now. A badge reading 3 when none of the three are yours is not
     // a notification; it is a wrong answer to the question a badge is asked.
-    expect(counter).toContain("d.jobs.filter((j) => j.mine).length");
+    expect(counter).toContain("mine: jobs.filter((j) => j.mine).length");
   });
 
   it("uses one count for both badges", () => {
     // Two implementations of "how many" eventually disagree in front of somebody.
-    expect(rail).toContain("useMyQueueCount()");
-    expect(counter).toContain("export function useMyQueueCount()");
+    // The badge and the "now running" line read one poll.
+    expect(rail).toContain("const { jobs: queueJobs, mine: queued } = useQueue();");
+    expect(counter).toContain("export function useQueue()");
     expect(rail).not.toContain("fetch(\"/api/jobs\"");
   });
 });

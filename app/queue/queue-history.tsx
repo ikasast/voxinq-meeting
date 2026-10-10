@@ -30,9 +30,9 @@ export function QueueHistory({
     return <p className="text-sm text-[var(--text-muted)]">{t("Nothing has finished yet.")}</p>;
   }
   return (
-    <ul className="overflow-hidden rounded-lg border border-[var(--border)]">
+    <ul className="border-t border-[var(--border)]">
       {rows.map((job) => (
-        <li key={job.id} className="border-b border-[var(--border)] px-3 py-2.5 last:border-b-0">
+        <li key={job.id} className="border-b border-[var(--border)] px-2 py-2.5">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <StatusMark status={job.status} t={t} />
             <span className="text-sm font-medium text-[var(--text-strong)]">
