@@ -64,6 +64,27 @@ export function DownloadMeetingButton({
     }
   };
 
+  // Straight to the browser's print dialog, where "Save as PDF" is a destination. It used to open
+  // the print sheet in a tab with a Print button on it — one tab and one click more than the job
+  // needs. Now the sheet loads out of sight and prints itself, and takes itself away afterwards.
+  // A phone's browser may print the page around a frame rather than the frame, so there the
+  // sheet opens in a tab of its own and prints itself the same way.
+  const printMinutes = () => {
+    const url = `/${meetingId}/print?auto=1`;
+    if (window.matchMedia("(pointer: coarse)").matches) {
+      window.open(url, "_blank");
+      return;
+    }
+    document.getElementById(PRINT_FRAME)?.remove();
+    const frame = document.createElement("iframe");
+    frame.id = PRINT_FRAME;
+    frame.src = url;
+    frame.tabIndex = -1;
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    document.body.appendChild(frame);
+  };
+
   const file = (parts: string) => `/api/meetings/${meetingId}/export?parts=${parts}`;
   const all = ["minutes", "transcript", "meta"].filter(
     (p) => (p !== "minutes" || hasMinutes) && (p !== "transcript" || hasTranscript),
@@ -101,10 +122,20 @@ export function DownloadMeetingButton({
             <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium text-[var(--text-muted)]">{t("Minutes")}</p>
             {row("md", file("minutes"), "Markdown", hasMinutes)}
             {row("docx", `/api/meetings/${meetingId}/export?format=docx`, "Word", hasMinutes)}
-            {row("pdf", `/${meetingId}/print`, t("Print and save"), hasMinutes, {
-              target: "_blank",
-              title: t("Opens a print view — choose “Save as PDF” as the destination"),
-            })}
+            {hasMinutes ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={printMinutes}
+                className={MENU_ITEM}
+                title={t("Opens the print dialog — choose “Save as PDF” as the destination")}
+              >
+                <FileBadge kind="pdf" />
+                {t("Print and save")}
+              </button>
+            ) : (
+              row("pdf", "", t("Print and save"), false)
+            )}
             <MenuRule />
             {row("txt", file("transcript"), t("Transcript"), hasTranscript)}
             {row("md", file("meta"), t("Meeting info"))}
@@ -135,6 +166,8 @@ export function DownloadMeetingButton({
     </span>
   );
 }
+
+const PRINT_FRAME = "voxinq-print-frame";
 
 type FileKind = "md" | "docx" | "pdf" | "txt" | "wav" | "zip";
 

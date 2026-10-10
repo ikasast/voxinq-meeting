@@ -225,7 +225,7 @@ export const ja: Record<string, string> = {
   Download: "ダウンロード",
   "Download meeting": "会議をダウンロード",
   "Download failed": "ダウンロードに失敗しました",
-  "Opens a print view — choose “Save as PDF” as the destination":
+  "Opens the print dialog — choose “Save as PDF” as the destination":
     "印刷画面が開きます — 出力先で「PDF に保存」を選んでください",
   "Copy minutes": "議事録をコピー",
   When: "日時",
