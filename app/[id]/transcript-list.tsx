@@ -1448,14 +1448,9 @@ export function TranscriptList({
         </div>
       ) : null}
 
-      {/* The meeting at a glance, from what Emotion and Voice cues found (mood-strip.tsx). */}
+      {/* The meeting at a glance, a minute at a time, from what Emotion found (mood-strip.tsx). */}
       {!live && transcripts.length > 0 ? (
-        <MoodStrip
-          lines={transcripts}
-          elapsed={elapsedSeconds}
-          showEmotion={extensions.emotion}
-          showVoice={extensions.voiceCues}
-        />
+        <MoodStrip lines={transcripts} elapsed={elapsedSeconds} showEmotion={extensions.emotion} />
       ) : null}
 
       {transcripts.length === 0 ? (
