@@ -113,11 +113,17 @@ export function MeetingBody({
           so with the panel shut it sits in the middle rather than leaving the right side bare. */}
       {/* Room at the right for the panel's tab, which rides over the gap and would otherwise sit
           on the buttons at the end of the minutes' heading. */}
-      <div className="min-w-0 flex-1 lg:pr-4">
-        <div className="mx-auto w-full max-w-[50rem] space-y-6">
+      {/* On a phone neither wrapper makes a box (`contents`), so the sticky tabs below are held
+          by the whole page — the transcript included — rather than by this column, which ends
+          right under them when the transcript is the tab showing. */}
+      <div className="min-w-0 flex-1 max-lg:contents lg:pr-4">
+        <div className="mx-auto w-full max-w-[50rem] space-y-6 max-lg:contents">
           {header}
           {/* A phone: the two as tabs. */}
-          <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1 lg:hidden">
+          {/* Kept in sight under the phone's bar (h-14 in sidebar.tsx) while either is scrolled:
+              switching is what you want after reading down a long transcript. */}
+          <div className="sticky top-14 z-20 -mx-4 bg-[var(--paper)] px-4 py-2 lg:hidden">
+          <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
             {(["minutes", "transcript"] as const).map((k) => (
               <button
                 key={k}
@@ -134,6 +140,7 @@ export function MeetingBody({
                 {k === "minutes" ? t("Minutes") : `${t("Transcript")} · ${lineCount}`}
               </button>
             ))}
+          </div>
           </div>
           <div className={`space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""}`}>{document}</div>
         </div>
