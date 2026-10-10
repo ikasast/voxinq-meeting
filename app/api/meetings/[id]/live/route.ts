@@ -32,6 +32,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           translation: true,
           createdAt: true,
           audioStartMs: true,
+          // The way back from a split: without it a reloaded list loses its "Undo split".
+          splitOfId: true,
           voice: true,
           emotion: true,
         },

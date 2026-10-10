@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { readSettings } from "@/lib/settings";
 import { speakersInOrder, readNames, nameOf } from "@/lib/speakers";
 import { formatDateTime, formatDuration, formatOffset } from "@/lib/utils";
+import { displayOffset } from "@/lib/audio-position";
 
 export const runtime = "nodejs";
 
@@ -81,10 +82,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   if (requested.includes("transcript") && meeting.transcripts.length > 0) {
-    const anchor = meeting.transcripts[0].createdAt.getTime();
+    // The same times as the page: where each line is in the recording, not when it was saved.
+    const rows = meeting.transcripts.map((t) => ({ createdAt: t.createdAt.toISOString(), audioStartMs: t.audioStartMs }));
     const multi = new Set(meeting.transcripts.map((t) => t.speakerType)).size > 1;
-    const lines = meeting.transcripts.map((t) => {
-      const at = formatOffset((t.createdAt.getTime() - anchor) / 1000);
+    const lines = meeting.transcripts.map((t, i) => {
+      const at = formatOffset(displayOffset(rows, i, {}) ?? 0);
       return multi
         ? `[${at}] ${nameOf(t.speakerType, labels)}: ${t.text}`
         : `[${at}] ${t.text}`;
