@@ -120,7 +120,7 @@ export function SttProfiles({
             ))}
           </select>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("What new work uses. Any of these — and this machine — can still be picked for a single run from Re-transcribe.")}
+            {t("New work uses this. Re-transcribe can pick another for one run.")}
           </p>
         </div>
         <AddMenu disabled={disabled} onPick={add} />

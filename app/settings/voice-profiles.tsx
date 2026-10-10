@@ -201,8 +201,8 @@ export function VoiceProfiles() {
   };
 
   return (
-    <section className="card space-y-4 p-6">
-      <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
+    <section className="space-y-4">
+      <h2 className="text-sm font-semibold text-[var(--text-strong)]">
         {t("Voice profiles (speaker auto-naming)")}
       </h2>
       <p className="text-xs text-[var(--text-muted)]">
