@@ -13,22 +13,25 @@ import { describe, expect, it } from "vitest";
 
 const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
 
+// Since v4 a recording is dropped anywhere in the app, or picked on the start screen; both go
+// through app/transcribe-file.ts. The New meeting form has no drop box any more.
 describe("a dropped recording", () => {
-  const form = read("app/new/new-meeting-form.tsx");
-  const handler = form.slice(form.indexOf("const handleFile"), form.indexOf("const phaseLabel"));
+  const form = read("app/transcribe-file.ts");
+  const handler = form.slice(form.indexOf("export async function transcribeFile"));
 
   it("is found, so the checks below are about the real handler", () => {
-    expect(handler).toContain("createMeeting(file.name)");
+    expect(handler).toContain('title: file.name.replace(/\\.[^.]+$/, "")');
+    expect(read("app/new/new-meeting-form.tsx")).not.toContain("onDrop");
   });
 
   it("is handed to the server, not to the transcription service", () => {
     expect(form).not.toContain("sttHttpBase");
-    expect(handler).toContain("/api/meetings/${meeting.id}/recording");
+    expect(handler).toContain("/api/meetings/${id}/recording");
     expect(handler).not.toContain("/upload/");
   });
 
   it("is recognised by a queued job, which asks for the minutes when it is done", () => {
-    expect(handler).toContain("/api/meetings/${meeting.id}/transcribe");
+    expect(handler).toContain("/api/meetings/${id}/transcribe");
     expect(handler).toContain("thenMinutes: true");
     // Nothing the queue now does is left for the tab to do.
     expect(handler).not.toContain("apply-transcript");

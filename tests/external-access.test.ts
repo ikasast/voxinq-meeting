@@ -110,7 +110,10 @@ describe("the new-meeting screen", () => {
   it("never walks an external visitor to the recording screen", () => {
     // The STT service is unreachable from out there; landing on the recording page would be a
     // dead end with a microphone button on it.
-    expect(form).toContain("if (external) {");
+    // Every visitor lands on the meeting now (it is the recording screen inside the network);
+    // from outside it is never more than the meeting, and the button says "Add to Upcoming".
+    expect(form).toContain("const later = Boolean(scheduledAt) || external;");
+    expect(form).not.toContain("/recording");
     // replace: the form leaves the history once the meeting exists.
     expect(form).toMatch(/router\.replace\(`\/\$\{meeting\.id\}`\)/);
   });

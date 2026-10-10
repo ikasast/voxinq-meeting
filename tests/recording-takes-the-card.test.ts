@@ -40,9 +40,10 @@ describe("starting a recording", () => {
   it("lets a file be dropped while something else has the card", () => {
     // The file is stored and its recognition waits its turn in the queue, so there is
     // nothing to wait for before dropping it.
-    const form = read("app/new/new-meeting-form.tsx");
-    expect(form).not.toContain("useGpuBusy");
-    expect(form).toContain("disabled={busy}\n              className=\"btn-outline mt-3\"");
+    // Dropped anywhere (drop-to-transcribe.tsx) or picked on the start screen (home-start.tsx).
+    for (const f of ["app/drop-to-transcribe.tsx", "app/home-start.tsx", "app/transcribe-file.ts"]) {
+      expect(read(f), f).not.toContain("useGpuBusy");
+    }
   });
 });
 

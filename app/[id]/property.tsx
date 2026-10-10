@@ -15,14 +15,25 @@ export const PROPS_WIDE = "col-span-2";
 export const PROP_BUTTON =
   "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] disabled:opacity-50";
 
-export function Prop({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
+export function Prop({
+  label,
+  action,
+  fill = false,
+  children,
+}: {
+  label: string;
+  action?: ReactNode;
+  /** Take the row's whole width — a field in a form, rather than a value with its pencil. */
+  fill?: boolean;
+  children: ReactNode;
+}) {
   return (
     <>
       <div className="text-[var(--text-muted)]">{label}</div>
       {/* The pencil sits right after the value it edits, not at the far end of the row where
           it could belong to anything. No taller than the text, so the row spaces like the rest. */}
       <div className="flex min-w-0 items-start gap-1">
-        <div className="min-w-0 text-[var(--foreground)]">{children}</div>
+        <div className={`min-w-0 text-[var(--foreground)] ${fill ? "flex-1" : ""}`}>{children}</div>
         {action ? <div className="-my-0.5 shrink-0">{action}</div> : null}
       </div>
     </>

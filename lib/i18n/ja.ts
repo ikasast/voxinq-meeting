@@ -242,6 +242,8 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Goes under Upcoming": "予定に入ります",
+  "Empty: record now": "空欄なら今すぐ録音",
   "End the meeting": "会議を終える",
   "Stop recording. The meeting stays open; end it on its page.": "録音を止めます。会議は終わらず、会議ページから終了できます。",
   "What is said appears here once recording starts.": "録音を始めると、ここに発言が流れます。",
@@ -365,16 +367,6 @@ export const ja: Record<string, string> = {
   "e.g. Weekly sync — links meetings so minutes carry context":
     "例: 週次定例 — 会議をつなげ、前回の議事録が文脈として渡ります",
   Title: "タイトル",
-  "Choose file": "ファイルを選ぶ",
-  "Purpose / agenda (metadata)": "目的・議題（メタデータ）",
-  "Series (recurring meetings, optional)": "シリーズ（定例会議、任意）",
-  "When (optional)": "日時（任意）",
-  "Leave empty to record now. Filling it in puts the meeting under Upcoming so the title, agenda and settings can be sorted out ahead of time — then it is one tap to start when the meeting comes round.":
-    "空欄なら今すぐ録音します。日時を入れると「予定」に入り、タイトル・議題・設定を先に整えておけます — 当日はワンタップで始められます。",
-  "Recording settings (this meeting only)": "録音の設定（この会議のみ）",
-  "Defaults come from the app settings. Changes here apply to this meeting only and do not change the settings. (Model and language also apply to dropped files.)":
-    "既定値はアプリの設定から来ています。ここでの変更はこの会議だけに効き、設定そのものは変わりません。（モデルと言語はドロップしたファイルにも適用されます。）",
-  "Transcription model": "文字起こしモデル",
   "Transcription language": "文字起こしの言語",
   "Microphone mode": "マイクモード",
   "Recording source": "録音ソース",
@@ -382,26 +374,13 @@ export const ja: Record<string, string> = {
   "Setting up…": "準備中…",
   "Add to Upcoming": "予定に追加",
   "Adding…": "追加中…",
-  "Creating meeting…": "会議を作成中…",
-  "Could not create the meeting": "会議を作成できませんでした",
   "Failed to create meeting.": "会議の作成に失敗しました。",
   "Please enter a title.": "タイトルを入力してください。",
-  "Auto (follow settings default)": "自動（設定の既定に従う）",
   "Standard (close talk / calls)": "標準（近くで話す・通話）",
   "Room (pick up distant voices)": "会議室（離れた声を拾う）",
-  "Microphone + PC audio": "マイク + PC音声",
-  "This device cannot capture PC audio (Chrome / Edge on desktop required).":
-    "この端末では PC音声を取り込めません（デスクトップの Chrome / Edge が必要です）。",
-  "Drop an audio file here to transcribe and summarize (no live recording).":
-    "音声ファイルをここにドロップすると、文字起こしと議事録を作ります（録音はしません）。",
   "Please drop an audio file (wav, mp3, m4a, ...).":
     "音声ファイルをドロップしてください（wav, mp3, m4a など）。",
   "Uploading the recording…": "録音をアップロード中…",
-  "Failed to process the file.": "ファイルを処理できませんでした。",
-  "This model only handles Japanese — an English meeting will not transcribe. Pick large-v3-turbo instead.":
-    "このモデルは日本語専用です — 英語の会議は文字起こしできません。large-v3-turbo を選んでください。",
-  "Japanese-only model: transcription is forced to Japanese. Use large-v3-turbo for meetings in any other language.":
-    "日本語専用モデルです。文字起こしは日本語に固定されます。他の言語の会議には large-v3-turbo を使ってください。",
 
   // ---- People ----
   "Add someone": "メンバーを追加",
@@ -1323,7 +1302,6 @@ export const ja: Record<string, string> = {
   "Only a series with no meetings in it can be deleted.": "会議が1件も無いシリーズだけ削除できます。",
   "Only you can see this, but it is not encrypted. Anything confidential belongs on the meeting instead.": "あなた以外には見えませんが、暗号化はされません。機密は会議の側に書いてください。",
   "Add {name} to this series": "{name} をこのシリーズに追加",
-  "The transcription language is saved on the meeting. Microphone mode and source apply to live recording only (source can also be switched while recording).": "文字起こしの言語は会議に保存されます。マイクモードと音声ソースはリアルタイム録音にだけ使われます（音声ソースは録音中にも切り替えられます）。",
   "Generating minutes in the background. They will appear automatically when done…": "バックグラウンドで議事録を作成しています。終わると自動で表示されます…",
   "Applies to this run only — saved settings are unchanged.": "今回だけに適用されます。保存済みの設定は変わりません。",
   "Trim the recording?": "録音をトリミングしますか？",
