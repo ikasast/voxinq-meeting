@@ -263,7 +263,7 @@ export function VoiceProfiles() {
                   type="button"
                   onClick={() => void remove(p.name)}
                   className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                  aria-label={`Delete profile ${p.name}`}
+                  aria-label={t("Delete the voice profile of {name}", { name: p.name })}
                 >
                   <TrashIcon className="h-3 w-3" />
                 </button>

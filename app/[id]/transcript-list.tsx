@@ -1147,7 +1147,7 @@ export function TranscriptList({
                       <button
                         type="button"
                         onClick={() => void deleteProfile(p.name)}
-                        aria-label={`Delete voice profile ${p.name}`}
+                        aria-label={t("Delete the voice profile of {name}", { name: p.name })}
                         title={t("Delete this voice profile")}
                         className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--error)]"
                       >

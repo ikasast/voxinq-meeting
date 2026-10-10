@@ -232,6 +232,7 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Delete the voice profile of {name}": "{name} さんの声紋を削除",
   "Read the passage below aloud for 20–30 seconds, in the voice you use in meetings.":
     "お手数ですが、次の文章を普段の会議で話すときの調子で、20〜30秒ほど読み上げてください。",
   "“In today’s meeting we will first review last week’s progress, and then talk about next month’s plan. The materials are the ones shared beforehand, with three changes: first the budget, second who is responsible for what, and third the deadlines. If anything is unclear, please ask straight away.”":
