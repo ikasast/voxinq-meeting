@@ -36,16 +36,22 @@ export function AccountMenu({
 }) {
   const [open, setOpen] = useState(false);
   const t = useT();
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
   const openMenu = () => {
     const r = btnRef.current?.getBoundingClientRect();
     if (r) {
-      setPos({
-        top: r.bottom + GAP,
-        right: Math.max(PAD, window.innerWidth - r.right),
-      });
+      // The button is in the sidebar's foot: at the bottom of the screen, and on a phone at its
+      // left edge. So the menu opens above it when the lower half has no room, and from its left
+      // edge, kept inside the window either way. (It used to hang below and to the left of the
+      // button, which on a phone is off the screen in both directions.)
+      const left = Math.max(PAD, Math.min(r.left, window.innerWidth - MENU_W - PAD));
+      setPos(
+        r.top > window.innerHeight / 2
+          ? { left, bottom: Math.max(PAD, window.innerHeight - r.top + GAP) }
+          : { left, top: r.bottom + GAP },
+      );
     }
     setOpen(true);
   };
@@ -109,8 +115,8 @@ export function AccountMenu({
               <div
                 role="menu"
                 onClickCapture={followLink}
-                style={{ top: pos.top, right: pos.right, width: MENU_W }}
-                className="fixed z-50 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg"
+                style={{ left: pos.left, top: pos.top, bottom: pos.bottom, width: MENU_W, maxHeight: `calc(100dvh - ${2 * PAD}px)` }}
+                className="fixed z-50 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg"
               >
                 <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2.5">
                   <Avatar username={username} name={name} hasImage={hasImage} size={32} />

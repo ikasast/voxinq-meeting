@@ -353,7 +353,7 @@ export function Sidebar({
   return (
     <>
       {/* A phone: the bar along the top, and the drawer it opens. */}
-      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-[var(--border)] bg-[var(--header)] px-3 py-2 lg:hidden">
+      <div className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-[var(--border)] bg-[var(--header)] px-3 lg:hidden">
         <IconButton label={t("Open the sidebar")} onClick={() => setDrawer(true)}>
           <MenuIcon className="h-5 w-5" />
         </IconButton>
@@ -363,14 +363,17 @@ export function Sidebar({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-light.svg" alt="Voxinq Meeting" className="logo-light h-7 w-auto" />
         </Link>
-        <Link
-          href="/"
-          title={t("New meeting")}
-          aria-label={t("New meeting")}
-          className="btn-icon-accent"
-        >
-          <PlusCircleIcon className="h-5 w-5" />
-        </Link>
+        {/* It leads to the home screen's tiles, so on the home screen it would lead nowhere. */}
+        {pathname !== "/" ? (
+          <Link
+            href="/"
+            title={t("New meeting")}
+            aria-label={t("New meeting")}
+            className="btn-icon-accent"
+          >
+            <PlusCircleIcon className="h-5 w-5" />
+          </Link>
+        ) : null}
       </div>
       {drawer ? (
         <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true">

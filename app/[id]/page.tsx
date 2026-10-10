@@ -116,7 +116,9 @@ export default async function MeetingPage({
           <>
       {/* The title, and what is done to the meeting as a whole: record into it, download it, and
           behind "…" the rest — start the next one like it, archive it, bin it. */}
-      <div className="flex items-start gap-2">
+      {/* On a phone the title has the width to itself and the buttons go under it: side by side,
+          a two-line title and a row of buttons crowded each other. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
         <div className="min-w-0 flex-1">
           {/* Editable from outside, like the agenda and the participants below: the point of
               booking a meeting from a work laptop is to name it and fill it in beforehand.
@@ -124,7 +126,7 @@ export default async function MeetingPage({
               not allow. */}
           <MeetingTitle id={meeting.id} title={meeting.title} />
         </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end">
           {meeting.endedAt && !external && !recordHere ? (
             // Only rendered when the recording is still kept (the button checks STT).
             <ResumeRecordingButton meetingId={meeting.id} />
