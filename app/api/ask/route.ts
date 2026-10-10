@@ -45,8 +45,9 @@ export async function POST(req: NextRequest) {
   const inFlight = await minutesInFlight();
   if (inFlight) {
     return apiError(
-      `Busy: minutes are being generated for "${inFlight.title}". Please wait until it finishes.`,
+      "Busy: minutes are being generated for “{title}”. Please wait until it finishes.",
       409,
+      { vars: { title: inFlight.title } },
     );
   }
 
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         withoutMinutes: 0,
       });
     } catch (e) {
-      return apiError(`Failed to answer: ${(e as Error).message}`, 502);
+      return apiError("Failed to answer: {reason}", 502, { vars: { reason: (e as Error).message } });
     }
   }
 
@@ -136,6 +137,6 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(result);
   } catch (e) {
-    return apiError(`Failed to answer: ${(e as Error).message}`, 502);
+    return apiError("Failed to answer: {reason}", 502, { vars: { reason: (e as Error).message } });
   }
 }

@@ -24,8 +24,9 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[
   const inFlight = await minutesInFlight();
   if (inFlight) {
     return apiError(
-      `Busy: minutes are being generated for "${inFlight.title}". Please wait until it finishes.`,
+      "Busy: minutes are being generated for “{title}”. Please wait until it finishes.",
       409,
+      { vars: { title: inFlight.title } },
     );
   }
 
@@ -70,12 +71,12 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[
     select: { id: true, text: true },
   });
   const utterances: UtteranceForCorrection[] = rows.filter((r) => r.text.trim());
-  if (utterances.length === 0) return apiError("this meeting has no transcript yet", 400);
+  if (utterances.length === 0) return apiError("This meeting has no transcript yet.", 400);
 
   try {
     const result = await suggestCorrections(utterances, glossary);
     return NextResponse.json(result);
   } catch (e) {
-    return apiError(`Failed to check the transcript: ${(e as Error).message}`, 502);
+    return apiError("Failed to check the transcript: {reason}", 502, { vars: { reason: (e as Error).message } });
   }
 }

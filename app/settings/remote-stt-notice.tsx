@@ -30,8 +30,8 @@ export function RemoteSttNotice({ host }: { host: string }) {
           {t("You are billed for the length of the audio — roughly $0.25–0.40 an hour at current rates, so a weekly hour-long meeting is a few dollars a year.")}
         </li>
         <li>
-          <strong>{t("No live transcript.")}</strong> The meeting is recorded and recognised once it
-          ends.
+          <strong>{t("No live transcript.")}</strong>{" "}
+          {t("The meeting is recorded and recognised once it ends.")}
         </li>
         <li>
           {t("These endpoints cap the upload, so long meetings are split at a silent moment and sent in pieces. Timestamps are stitched back together.")}

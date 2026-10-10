@@ -1,5 +1,6 @@
 "use client";
 
+import { readStored } from "@/lib/i18n/stored";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { type LinkStatus, type SttHandle, startMic } from "@/lib/stt/client";
 import {
@@ -249,11 +250,11 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         emit({ kind: "translation", meetingId, seq, text, id });
       },
       onStatus: (s: LinkStatus) => setStatus(s),
-      onError: (message: string) => report(message),
+      onError: (message: string) => report(readStored(t, message)),
       onLevel: level10,
       onClipping: clipped,
     }),
-    [keepLine, emit, report, level10, clipped],
+    [keepLine, emit, report, level10, clipped, t],
   );
 
   // What the app's recorder reports. It saves each line itself, so a line arrives already saved.
@@ -270,7 +271,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       },
       onTranslation: (seq: number, text: string, id?: string) => emit({ kind: "translation", meetingId, seq, text, id }),
       onStatus: (s: LinkStatus) => setStatus(s),
-      onError: (message: string) => report(message),
+      onError: (message: string) => report(readStored(t, message)),
       onLevel: level10,
       onClipping: clipped,
       onResync: () => emit({ kind: "resync", meetingId }),
@@ -279,7 +280,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         emit({ kind: "ended", meetingId });
       },
     }),
-    [emit, report, level10, clipped, finish],
+    [emit, report, level10, clipped, finish, t],
   );
 
   // In the app, ask whether it is already recording — the WebView reloaded, or was opened from

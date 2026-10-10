@@ -91,7 +91,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   if (saved.length === 0) {
     return apiError(
-      'No named speakers to enroll. Name the diarized speakers under "Speaker names" first.',
+      "No named speakers to enroll. Name the diarized speakers under “Speaker names” first.",
       400,
     );
   }

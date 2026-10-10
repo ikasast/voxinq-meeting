@@ -222,7 +222,17 @@ describe("what the server says back", () => {
   it("has no message in the list that nothing sends any more", () => {
     // The same rot as an unused row in the table, one layer down: this list is what the table
     // is checked against, so a stale entry here keeps a stale translation alive there.
-    const sources = routeSources().map(([, src]) => src);
+    // Routes, and what the queue and the recorder write for a person to read later.
+    const lib: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (e.name.endsWith(".ts") && !rel.startsWith("lib/i18n/")) lib.push(readFileSync(join(root, rel), "utf8"));
+      }
+    };
+    walk("lib");
+    const sources = [...routeSources().map(([, src]) => src), ...lib];
     const orphans = serverMessageKeys(root).filter(
       (m) => !sources.some((src) => src.includes(JSON.stringify(m))),
     );

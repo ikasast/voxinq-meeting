@@ -37,6 +37,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ...state, internal: true });
   } catch (e) {
     const detail = e instanceof Error ? e.message : "unknown error";
-    return apiError(`Failed to update Tailscale Funnel: ${detail}`, 500);
+    return apiError("Failed to update Tailscale Funnel: {reason}", 500, { vars: { reason: detail } });
   }
 }

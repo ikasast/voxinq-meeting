@@ -232,6 +232,92 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Delete the voice profile of {name}": "{name} さんの声紋を削除",
+  "Read the passage below aloud for 20–30 seconds, in the voice you use in meetings.":
+    "お手数ですが、次の文章を普段の会議で話すときの調子で、20〜30秒ほど読み上げてください。",
+  "“In today’s meeting we will first review last week’s progress, and then talk about next month’s plan. The materials are the ones shared beforehand, with three changes: first the budget, second who is responsible for what, and third the deadlines. If anything is unclear, please ask straight away.”":
+    "「本日の打ち合わせでは、まず先週の進捗を確認し、そのあとで来月の計画について話し合います。資料は事前に共有した通りですが、変更点が三つあります。第一に予算の配分、第二に担当者の割り当て、第三に納期の調整です。何か質問があれば、遠慮なくその場でお知らせください。」",
+  "When you have finished, feel free to add a sentence or two of your own.":
+    "読み終えたら、そのまま自由に一言二言付け加えても構いません。",
+  "A link for {name}": "{name} さん用のリンク",
+  "It works once and expires in {n} minutes. It is shown here and nowhere else — only a hash of it is stored, so it cannot be shown again. Hand it over now.":
+    "1 回だけ使え、{n} 分で切れます。表示されるのはここだけで、保存されるのはハッシュのみのため二度と表示できません。今のうちに渡してください。",
+  "tag “{name}”": "タグ「{name}」",
+  "1 result": "1 件",
+  "{n} results": "{n} 件",
+  "Meetings: {added} added, {skipped} already here.": "会議: {added} 件を追加、{skipped} 件は既にありました。",
+  "{n} failed.": "{n} 件は失敗しました。",
+  "{utterances} utterances · {minutes} minutes · {series} series · {tags} tags · {profiles} voice profiles ({kept} kept)":
+    "発言 {utterances} 件 · 議事録 {minutes} 件 · シリーズ {series} 件 · タグ {tags} 件 · 声紋 {profiles} 件（既存 {kept} 件はそのまま）",
+  "Recordings: {restored} restored, {present} already present.": "録音: {restored} 件を復元、{present} 件は既にありました。",
+  "{n} could not be written.": "{n} 件は書き込めませんでした。",
+  "From Voxinq {version}, exported {when}": "Voxinq {version} から書き出し（{when}）",
+  "unknown": "不明",
+  "The meeting is recorded and recognised once it ends.": "会議は録音され、終わってからまとめて文字起こしされます。",
+  "unsaved": "未保存",
+  "none": "なし",
+  "Recordings sent here leave this machine and go to {host}, which bills you for the length of the audio.":
+    "ここに送る録音はこの PC を離れて {host} に届き、音声の長さに応じて課金されます。",
+  "A local or private address — nothing leaves your network.": "ローカルまたはプライベートなアドレスです。ネットワークの外には出ません。",
+  "gemini-3.5-transcribe returns word timings and speaker labels. A general model such as gemini-3.5-flash returns text alone, which arrives as one long utterance.":
+    "gemini-3.5-transcribe は単語ごとの時刻と話者を返します。gemini-3.5-flash のような汎用モデルは文字だけを返すため、1 つの長い発言として届きます。",
+  "Recording… {n}s": "録音中… {n} 秒",
+  "{action} the series ({n})": "シリーズ {n} 件を{action}",
+  "The model that tells speakers apart is free, but its authors require you to accept their terms first. It is a one-time setup of a few minutes; everything else — recording, transcription, minutes — works without it.":
+    "話者を聞き分けるモデルは無料ですが、使う前に作者の利用条件への同意が必要です。数分で済む一度きりの設定で、録音・文字起こし・議事録はこれが無くても動きます。",
+  "Cannot reach PostgreSQL": "PostgreSQL に接続できません",
+  "Cannot reach Ollama": "Ollama に接続できません",
+  "Cannot reach the LLM (check the Base URL)": "LLM に接続できません（Base URL を確認してください）",
+  "Busy: minutes are being generated for “{title}”. Please wait until it finishes.":
+    "「{title}」の議事録を作成中です。終わるまでお待ちください。",
+  "Failed to answer: {reason}": "回答できませんでした: {reason}",
+  "This meeting has no transcript to read.": "この会議には読める発言がありません。",
+  "No minutes to answer from yet. Generate minutes for at least one meeting first.":
+    "答えの元になる議事録がまだありません。先にどれか 1 つの会議で議事録を作成してください。",
+  "No terms to check against. Add some in Settings → Transcription, or on the series.":
+    "照らし合わせる用語がありません。設定 → 文字起こし、またはシリーズで追加してください。",
+  "Failed to check the transcript: {reason}": "発言を確認できませんでした: {reason}",
+  "This meeting has already ended. Recording cannot be restarted.": "この会議はすでに終了しています。録音は再開できません。",
+  "This meeting already has a transcript.": "この会議にはすでに発言があります。",
+  "That file is too large to import.": "ファイルが大きすぎて取り込めません。",
+  "The transcription service could not be reached.": "文字起こしサービスに接続できませんでした。",
+  "No voice embeddings stored for this meeting. Run Diarize (again) first — the recording must still exist.":
+    "この会議には声の特徴が保存されていません。先に話者分離を（もう一度）実行してください。録音が残っている必要があります。",
+  "No named speakers to enroll. Name the diarized speakers under “Speaker names” first.":
+    "登録できる名前付きの話者がいません。先に「話者名」で、分離した話者に名前を付けてください。",
+  "{field} cannot be changed from outside your private network.": "{field} はプライベートネットワークの外からは変更できません。",
+  "The shared background is too long.": "共通の背景が長すぎます。",
+  "Failed to update Tailscale Funnel: {reason}": "Tailscale Funnel を更新できませんでした: {reason}",
+  "Found {speakers} speaker(s) across {lines} utterance(s).": "{lines} 件の発言から {speakers} 人の話者が見つかりました。",
+  "{n} had no label.": "{n} 件は話者が付きませんでした。",
+  "A short or one-sided recording, or a transcript that arrived as one block, gives the diarizer little to separate.":
+    "録音が短い・一人だけが話している・発言が 1 つの塊で届いた、といった場合は、話者分離の手がかりが少なくなります。",
+  "{split} utterance(s) held more than one speaker and were divided, adding {added} line(s).":
+    "{split} 件の発言に複数の話者が含まれていたため分割し、{added} 行増えました。",
+  "Interrupted by a restart — it will run again from the beginning.": "再起動で中断しました。最初からやり直します。",
+  "Interrupted so a recording could start. It runs again once the meeting ends.":
+    "録音を始めるために中断しました。会議が終わるとやり直します。",
+  "Recording.": "録音中。",
+  "Recording finished.": "録音が終わりました。",
+  "Recording ended without saying so; the GPU was handed back.": "録音が知らせなく終わったため、GPU を返しました。",
+  "Waiting for you to sign in — this work needs your key to read the meeting.":
+    "サインインを待っています。この処理は会議を読むためにあなたの鍵が必要です。",
+  "Encrypting and indexing the meetings that still need it.": "まだの会議を暗号化し、検索できるようにしています。",
+  "Cannot write anything while signed out.": "サインアウト中は何も書き込めません。",
+  "Emotion is switched off.": "感情はオフになっています。",
+  "No line has a place in the recording to judge.": "録音上の位置が分かる発言がないため、判定できません。",
+  "Emotion needs the NVIDIA GPU build of the transcription service, which has torch.":
+    "感情の判定には、torch を含む NVIDIA GPU 版の文字起こしサービスが必要です。",
+  "Emotion needs HF_TOKEN, with the terms of its two models accepted on Hugging Face.":
+    "感情の判定には HF_TOKEN と、Hugging Face で 2 つのモデルの利用条件への同意が必要です。",
+  "That transcription endpoint is no longer saved. Settings → Transcription.":
+    "その文字起こし先はもう保存されていません。設定 → 文字起こしを確認してください。",
+  "This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.":
+    "この端末・ブラウザは PC 音声を取り込めません。PC の Chrome か Edge を使ってください。",
+  "No audio was shared. In the share dialog, turn on “Share tab audio” or the system audio.":
+    "音声が共有されていません。共有ダイアログで「タブの音声を共有」またはシステム音声をオンにしてください。",
+  "Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.":
+    "文字起こしサービスとの接続が切れました（コード {code}{reason}）。{n} 回再接続を試みました。",
   "Next meeting": "次の会議",
   "Next meeting in this series": "このシリーズの次の会議",
   "Fix wording": "表記の修正",

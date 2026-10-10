@@ -342,18 +342,33 @@ export function DataBackup() {
         <div className="space-y-1 rounded-md border border-[var(--border)] bg-[var(--elevated)] p-4 text-sm">
           <p className="font-semibold text-[var(--text-strong)]">{t("Restore complete")}</p>
           <p>
-            {result.meetingsImported} meetings added, {result.meetingsSkipped} already here
-            {result.meetingsFailed.length > 0 ? `, ${result.meetingsFailed.length} failed` : ""}.
+            {t("Meetings: {added} added, {skipped} already here.", {
+              added: result.meetingsImported,
+              skipped: result.meetingsSkipped,
+            })}
+            {result.meetingsFailed.length > 0 ? ` ${t("{n} failed.", { n: result.meetingsFailed.length })}` : ""}
           </p>
           <p className="text-[var(--text-muted)]">
-            {result.transcriptsImported} utterances · {result.summariesImported} minutes ·{" "}
-            {result.seriesCreated} series · {result.tagsCreated} tags · {result.profilesCreated} voice
-            profiles ({result.profilesSkipped} kept)
+            {t(
+              "{utterances} utterances · {minutes} minutes · {series} series · {tags} tags · {profiles} voice profiles ({kept} kept)",
+              {
+                utterances: result.transcriptsImported,
+                minutes: result.summariesImported,
+                series: result.seriesCreated,
+                tags: result.tagsCreated,
+                profiles: result.profilesCreated,
+                kept: result.profilesSkipped,
+              },
+            )}
           </p>
           <p className="text-[var(--text-muted)]">
-            Recordings: {result.recordingsRestored} restored, {result.recordingsSkipped} already
-            present
-            {result.recordingsFailed > 0 ? `, ${result.recordingsFailed} could not be written` : ""}.
+            {t("Recordings: {restored} restored, {present} already present.", {
+              restored: result.recordingsRestored,
+              present: result.recordingsSkipped,
+            })}
+            {result.recordingsFailed > 0
+              ? ` ${t("{n} could not be written.", { n: result.recordingsFailed })}`
+              : ""}
           </p>
           {result.settingsRestored ? <p className="text-[var(--text-muted)]">{t("Settings replaced.")}</p> : null}
           {result.meetingsFailed.length > 0 ? (
@@ -366,8 +381,10 @@ export function DataBackup() {
             </ul>
           ) : null}
           <p className="pt-1 text-xs text-[var(--text-muted)]">
-            From Voxinq {result.bundle.appVersion}, exported{" "}
-            {result.bundle.exportedAt ? new Date(result.bundle.exportedAt).toLocaleString() : "unknown"}
+            {t("From Voxinq {version}, exported {when}", {
+              version: result.bundle.appVersion,
+              when: result.bundle.exportedAt ? new Date(result.bundle.exportedAt).toLocaleString() : t("unknown"),
+            })}
           </p>
         </div>
       ) : null}

@@ -1,5 +1,6 @@
 "use client";
 
+import { readStored } from "@/lib/i18n/stored";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { sttHttpBase } from "@/lib/stt/client";
@@ -530,7 +531,7 @@ export function RecordingDock({
       });
       if (!live) setAwaitingTranscript(true);
     } catch (e) {
-      announce(t("Cannot start the microphone: {error}", { error: (e as Error).message }));
+      announce(t("Cannot start the microphone: {error}", { error: readStored(t, (e as Error).message) }));
     }
   }, [recCurrent, recStart, title, startedAt, meetingId, announce, activeModel, confirm, deferred, claimCard, t]);
 

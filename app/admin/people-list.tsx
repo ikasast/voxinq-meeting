@@ -114,11 +114,13 @@ export function PeopleList({ meId }: { meId: string }) {
       {link ? (
         <div className="rounded-lg border border-[color-mix(in_srgb,var(--accent)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] p-3">
           <p className="text-sm font-medium text-[var(--text-strong)]">
-            A link for {link.username}
+            {t("A link for {name}", { name: link.username })}
           </p>
           <p className="mt-1 text-xs text-[var(--text-muted)]">
-            It works once and expires in {link.minutes} minutes. It is shown here and nowhere
-            else — only a hash of it is stored, so it cannot be shown again. Hand it over now.
+            {t(
+              "It works once and expires in {n} minutes. It is shown here and nowhere else — only a hash of it is stored, so it cannot be shown again. Hand it over now.",
+              { n: link.minutes },
+            )}
           </p>
           <input
             readOnly

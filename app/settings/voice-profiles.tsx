@@ -19,13 +19,6 @@ type Profile = {
 // A phonetically varied passage for enrollment. The voiceprint is text-independent,
 // but ~20-30s of natural, varied speech gives a much more reliable embedding than
 // short or monotone clips.
-const GUIDE_TEXT = `お手数ですが、次の文章を普段の会議で話すときの調子で、20〜30秒ほど読み上げてください。
-
-「本日の打ち合わせでは、まず先週の進捗を確認し、そのあとで来月の計画について話し合います。
-資料は事前に共有した通りですが、変更点が三つあります。第一に予算の配分、第二に担当者の割り当て、
-第三に納期の調整です。何か質問があれば、遠慮なくその場でお知らせください。」
-
-読み終えたら、そのまま自由に一言二言付け加えても構いません。`;
 
 const MIN_SECONDS = 8;
 const MAX_SECONDS = 90;
@@ -270,7 +263,7 @@ export function VoiceProfiles() {
                   type="button"
                   onClick={() => void remove(p.name)}
                   className="text-[var(--text-muted)] hover:text-[var(--error)]"
-                  aria-label={`Delete profile ${p.name}`}
+                  aria-label={t("Delete the voice profile of {name}", { name: p.name })}
                 >
                   <TrashIcon className="h-3 w-3" />
                 </button>
@@ -299,7 +292,12 @@ export function VoiceProfiles() {
         </div>
 
         <pre className="whitespace-pre-wrap rounded-md border border-[var(--border)] bg-[var(--elevated)] p-3 font-sans text-xs leading-relaxed text-[var(--text-secondary)]">
-          {GUIDE_TEXT}
+          {/* In the reader's language: three paragraphs, each a row in lib/i18n/ja.ts. */}
+          {t("Read the passage below aloud for 20–30 seconds, in the voice you use in meetings.")}
+          {"\n\n"}
+          {t("“In today’s meeting we will first review last week’s progress, and then talk about next month’s plan. The materials are the ones shared beforehand, with three changes: first the budget, second who is responsible for what, and third the deadlines. If anything is unclear, please ask straight away.”")}
+          {"\n\n"}
+          {t("When you have finished, feel free to add a sentence or two of your own.")}
         </pre>
 
         {phase === "idle" ? (
@@ -315,7 +313,7 @@ export function VoiceProfiles() {
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-2 text-sm text-[var(--accent-sub)]">
               <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--error)]" />
-              Recording… {seconds}s
+              {t("Recording… {n}s", { n: seconds })}
             </span>
             {/* simple level meter so silence is obvious */}
             <span className="h-1.5 w-24 overflow-hidden rounded bg-[var(--elevated)]">

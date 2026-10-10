@@ -55,6 +55,7 @@ import { type CueMark, marks, readCues } from "@/lib/voice-cues";
 import { emotionMark, readEmotion } from "@/lib/emotion";
 import { MoodStrip } from "./mood-strip";
 import { SpellingFix } from "./spelling-fix";
+import { readStored } from "@/lib/i18n/stored";
 import { useRecorderApi, useRecorderState } from "@/app/recorder";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
@@ -421,7 +422,7 @@ export function TranscriptList({
           .then((r) => r.json())
           .catch(() => null)) as { status?: string; detail?: string | null } | null;
         if (!j || j.status === "queued" || j.status === "running") continue;
-        if (j.status !== "done") throw new Error(j.detail || t("Judging emotion failed."));
+        if (j.status !== "done") throw new Error(j.detail ? readStored(t, j.detail) : t("Judging emotion failed."));
         break;
       }
       await reloadTranscriptRef.current();
@@ -559,13 +560,13 @@ export function TranscriptList({
       try {
         const job = await awaitJob(transcribeJobId, report, () => stopped);
         if (!job) return;
-        if (job.status === "error") throw new Error(job.detail ?? job.status);
+        if (job.status === "error") throw new Error(job.detail ? readStored(t, job.detail) : job.status);
         if (job.status === "cancelled") {
           setRetransStatus(t("Cancelled."));
           return;
         }
         await reloadTranscript();
-        setRetransWarn(job.detail ?? null);
+        setRetransWarn(job.detail ? readStored(t, job.detail) : null);
         setRetransStatus(null);
       } catch (e) {
         setError(t("Transcription failed: {error}", { error: (e as Error).message }));
@@ -634,7 +635,7 @@ export function TranscriptList({
 
       const job = await awaitJob(jobId, setRetransStatus);
       if (!job) return;
-      if (job.status === "error") throw new Error(job.detail ?? t("Re-transcription failed"));
+      if (job.status === "error") throw new Error(job.detail ? readStored(t, job.detail) : t("Re-transcription failed"));
       if (job.status === "cancelled") {
         setRetransStatus(t("Cancelled."));
         return;
@@ -645,7 +646,7 @@ export function TranscriptList({
       setDiarWarn(null);
       // Whatever the backend wanted said about this run — an endpoint that answered without
       // timings, so far.
-      setRetransWarn(job.detail ?? null);
+      setRetransWarn(job.detail ? readStored(t, job.detail) : null);
       setRetransStatus(t('Done. Run "Diarize" to distinguish speakers.'));
     } catch (e) {
       setError(t("Re-transcription failed: {error}", { error: (e as Error).message }));
@@ -720,7 +721,7 @@ export function TranscriptList({
           setDiarStatus(null);
           return;
         }
-        throw new Error(job.detail ?? t("Diarization failed"));
+        throw new Error(job.detail ? readStored(t, job.detail) : t("Diarization failed"));
       }
       if (job.status === "cancelled") {
         setDiarStatus(t("Stopped."));
@@ -730,7 +731,7 @@ export function TranscriptList({
       await reloadTranscript();
       // The runner reports what it found — one speaker where several were expected has causes
       // the person can act on.
-      setDiarWarn(job.detail ?? null);
+      setDiarWarn(job.detail ? readStored(t, job.detail) : null);
       setDiarStatus(job.detail ? null : t("Done. Rename the speakers below if you like."));
     } catch (e) {
       setError(t("Diarization failed: {error}", { error: (e as Error).message }));
@@ -745,7 +746,7 @@ export function TranscriptList({
   const stopDiarization = useCallback(async () => {
     stopDiarRef.current = true;
     setStoppingDiar(true);
-    setDiarStatus("Stopping…");
+    setDiarStatus(t("Stopping…"));
     try {
       // The job, not the service: the queue owns the run now, and it knows which of its
       // kinds can actually be stopped.
@@ -758,7 +759,7 @@ export function TranscriptList({
     } finally {
       setStoppingDiar(false);
     }
-  }, [meetingId]);
+  }, [meetingId, t]);
 
   const gpu = useGpuBusy();
   // Diarization and re-transcription both use the GPU. Block starting one while any other
@@ -1146,7 +1147,7 @@ export function TranscriptList({
                       <button
                         type="button"
                         onClick={() => void deleteProfile(p.name)}
-                        aria-label={`Delete voice profile ${p.name}`}
+                        aria-label={t("Delete the voice profile of {name}", { name: p.name })}
                         title={t("Delete this voice profile")}
                         className="ml-0.5 text-[var(--text-muted)] hover:text-[var(--error)]"
                       >
@@ -1278,9 +1279,9 @@ export function TranscriptList({
             {t("Speaker separation needs a Hugging Face token")}
           </p>
           <p className="mt-1 text-[var(--text-secondary)]">
-            The model that tells speakers apart is free, but its authors require you to accept
-            their terms first. It is a one-time setup of a few minutes; everything else — recording,
-            transcription, minutes — works without it.
+            {t(
+              "The model that tells speakers apart is free, but its authors require you to accept their terms first. It is a one-time setup of a few minutes; everything else — recording, transcription, minutes — works without it.",
+            )}
           </p>
           <a
             className="mt-2 inline-block text-[var(--accent)] underline"
