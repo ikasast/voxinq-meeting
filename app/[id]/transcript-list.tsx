@@ -55,6 +55,7 @@ import { useExtensions } from "@/app/extensions-provider";
 import { type CueMark, marks, readCues } from "@/lib/voice-cues";
 import { emotionMark, readEmotion } from "@/lib/emotion";
 import { MoodStrip } from "./mood-strip";
+import { useRecorderApi, useRecorderState } from "@/app/recorder";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
 
@@ -926,6 +927,7 @@ export function TranscriptList({
   const router = useRouter();
   const [endedAt, setEndedAt] = useState<string | null>(meetingEndedAt);
   const [liveOffline, setLiveOffline] = useState(false);
+  const { subscribe: recSubscribe, current: recCurrent } = useRecorderApi();
   // What the server last told us, as the base for merging: see lib/live-merge.
   const serverSnapshot = useRef<ServerSnapshot>(new Map());
 
@@ -996,16 +998,39 @@ export function TranscriptList({
       }
     };
 
+    // Recorded in this tab (app/recorder.tsx): fetch a line the moment it is saved, rather than
+    // up to four seconds later.
+    const off = recSubscribe((e) => {
+      if (e.meetingId === meetingId && e.kind === "saved" && !stopped) {
+        clearTimeout(timer);
+        void tick();
+      }
+    });
+
     void tick();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       stopped = true;
       clearTimeout(timer);
+      off();
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [endedAt, upcoming, meetingId, meetingStartedAt, router]);
+  }, [endedAt, upcoming, meetingId, meetingStartedAt, router, recSubscribe]);
 
   const live = !endedAt && !upcoming;
+
+  // While this tab records the meeting, the page follows the newest line down — as long as it
+  // is already at the bottom. Scrolled up to read something, it stays put.
+  const lineCount = useRef(transcripts.length);
+  useEffect(() => {
+    const grew = transcripts.length > lineCount.current;
+    lineCount.current = transcripts.length;
+    if (!grew || recCurrent()?.meetingId !== meetingId) return;
+    const root = window.document.documentElement;
+    if (window.innerHeight + window.scrollY >= root.scrollHeight - 320) {
+      window.scrollTo({ top: root.scrollHeight, behavior: "smooth" });
+    }
+  }, [transcripts.length, meetingId, recCurrent]);
 
   // "Diarize" on the recording page lands here with ?autodiarize=1: start diarization once
   // (progress is shown inline in the toolbar) and drop the param from the URL so a reload
@@ -1650,7 +1675,11 @@ export function TranscriptList({
       {transcripts.length === 0 ? (
         <p className="mt-4 text-sm text-[var(--text-muted)]">
           {/* One being made is not the same as none. */}
-          {retransing && retransStatus ? retransStatus : t("No transcript.")}
+          {retransing && retransStatus
+            ? retransStatus
+            : live
+              ? t("What is said appears here once recording starts.")
+              : t("No transcript.")}
         </p>
       ) : (
         <ul className="mt-3">
@@ -1680,6 +1709,8 @@ export function TranscriptList({
           ))}
         </ul>
       )}
+      {/* After the last line: what is being heard right now, while this tab records. */}
+      {live ? <Hearing meetingId={meetingId} /> : null}
     </div>
   );
 }
@@ -1906,6 +1937,23 @@ function TranscriptRow({
         </div>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * What is being heard and is not a line yet, when this tab is recording the meeting. Its own
+ * component, so the list above does not re-render each time a word is added to it.
+ */
+function Hearing({ meetingId }: { meetingId: string }) {
+  const t = useT();
+  const { session, partial } = useRecorderState();
+  if (session?.meetingId !== meetingId || !partial) return null;
+  return (
+    <p className="mt-3 flex items-baseline gap-2 text-sm italic text-[var(--text-muted)]">
+      <span aria-hidden className="recording-dot inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--error)] not-italic" />
+      <span className="sr-only">{t("Recognizing:")}</span>
+      {partial}
+    </p>
   );
 }
 

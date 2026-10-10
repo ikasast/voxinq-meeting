@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 // was never recognised at the end at all.
 
 const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
-const page = read("app/[id]/recording/page.tsx");
+const page = read("app/[id]/recording-dock.tsx");
 
 describe("the end of a meeting with no live transcript", () => {
   const at = page.indexOf("const transcribeAfterRecording");

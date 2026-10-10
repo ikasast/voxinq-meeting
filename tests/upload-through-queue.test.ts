@@ -92,7 +92,7 @@ describe("the meeting page while its recognition waits", () => {
     expect(list).toContain("awaitJob(transcribeJobId, report, () => stopped)");
     // Busy from the first frame, so the button is never offered for a transcript on its way.
     expect(list).toContain("useState(Boolean(transcribeJobId))");
-    expect(list).toContain('retransing && retransStatus ? retransStatus : t("No transcript.")');
+    expect(list).toMatch(/retransing && retransStatus\s*\? retransStatus\s*:/);
     // And does not offer to restore a transcript that is already being made.
     expect(list).toContain("transcripts.length === 0 && !retransing ?");
   });

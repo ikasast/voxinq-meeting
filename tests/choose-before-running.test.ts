@@ -8,11 +8,11 @@ import { describe, expect, it } from "vitest";
 const read = (p: string) => readFileSync(path.join(__dirname, "..", p), "utf8");
 
 describe("ending a meeting", () => {
-  const page = read("app/[id]/recording/page.tsx");
+  const page = read("app/[id]/recording-dock.tsx");
 
   it("opens the dialog instead of running straight away", () => {
-    expect(page).toContain('onClick={() => setEndDialog("minutes")}');
-    expect(page).toContain('onClick={() => setEndDialog("diarize")}');
+    expect(page).toContain('setEndDialog("minutes");');
+    expect(page).toContain('setEndDialog("diarize");');
     expect(page).not.toContain("onClick={endWithMinutes}");
     expect(page).not.toContain("onClick={endWithDiarization}");
   });

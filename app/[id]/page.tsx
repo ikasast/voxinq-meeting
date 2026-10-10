@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { prisma } from "@/lib/prisma";
@@ -23,11 +22,19 @@ import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
 import { TranscriptList } from "./transcript-list";
 import { MeetingBody } from "./meeting-body";
+import { RecordingDock } from "./recording-dock";
 
 export const dynamic = "force-dynamic";
 
-export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MeetingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ resume?: string }>;
+}) {
   const { id } = await params;
+  const { resume } = await searchParams;
   const locale = await currentLocale();
   const meeting = await prisma.meeting.findUnique({
     where: { id },
@@ -86,6 +93,13 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
 
   const t = await serverT();
   const duration = formatDurationIn(locale, meeting.recordedMs);
+  // This page is the recording screen (v4, design B) while the meeting has not ended — or when
+  // "Resume recording" brought it back here (?resume=1), which reopens it. Not from outside:
+  // the speech service is not reachable there.
+  const recordHere = !external && (!meeting.endedAt || resume === "1");
+  // The minutes' place on the page is taken by nothing while the meeting is still being
+  // recorded and has none: "no minutes yet" says nothing anybody needs to read mid-meeting.
+  const minutesShown = !recordHere || meeting.summaries.length > 0;
 
   // The meetings are in the sidebar (v4, design B), so the page is the meeting alone.
   return (
@@ -108,14 +122,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
           <MeetingTitle id={meeting.id} title={meeting.title} />
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-          {!meeting.endedAt && !external ? (
-            // replace: ending replaces the recording screen with this page again, and two
-            // entries for one page meant pressing Back twice.
-            <Link href={`/${meeting.id}/recording`} replace className="btn-ink !px-4 !py-1.5">
-              {t("Recording screen")}
-            </Link>
-          ) : null}
-          {meeting.endedAt && !external ? (
+          {meeting.endedAt && !external && !recordHere ? (
             // Only rendered when the recording is still kept (the button checks STT).
             <ResumeRecordingButton meetingId={meeting.id} />
           ) : null}
@@ -194,6 +201,8 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
           series={seriesName}
           seriesId={seriesId}
         />
+        {/* The recording: its row here, its dock at the bottom of the window. */}
+        {recordHere ? <RecordingDock meetingId={meeting.id} /> : null}
         <MeetingFacts
           whisperModel={meeting.whisperModel}
           sttLanguage={meeting.sttLanguage}
@@ -225,9 +234,10 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       {/* Only on the sample, and only from inside: it names buttons an external browser is not
           shown. Above the minutes because it is the reason somebody is on this page. */}
       {meeting.sample && !external ? (
-        <FirstRunGuide recordingHref={`/${meeting.id}/recording`} />
+        <FirstRunGuide recordingHref="/" />
       ) : null}
 
+      {minutesShown ? (
       <section>
         <SummarySection
           meetingId={meeting.id}
@@ -245,11 +255,13 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
           }))}
         />
       </section>
+      ) : null}
 
       {/* A meeting outside a series is its own scope for questions — a one-off is a series of
           one. Meetings in a series are asked about on the series page, where the whole history
           is available, so no box here. */}
       {!external &&
+      minutesShown &&
       extensions.ask &&
       !seriesId &&
       (meeting.summaries.length > 0 || meeting.transcripts.length > 0) ? (
@@ -308,6 +320,9 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       </section>
         }
       />
+      {/* Room under the last line for the recording dock, which floats over the bottom of the
+          window. */}
+      {recordHere ? <div aria-hidden className="h-28" /> : null}
       </div>
       </div>
     </div>

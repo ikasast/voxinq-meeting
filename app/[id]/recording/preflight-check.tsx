@@ -163,7 +163,8 @@ export function PreflightCheck({
   const checking = state === "checking";
 
   return (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+    // No box of its own: it sits in the meeting's details, among rows that have none.
+    <div className="text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-[var(--text-strong)]">{t("Microphone check")}</span>
         {!checking ? (

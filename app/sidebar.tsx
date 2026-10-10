@@ -20,6 +20,7 @@ import {
 import { isAuthPath } from "./auth-paths";
 import { useMyQueueCount } from "./use-my-queue-count";
 import { useT } from "./locale-provider";
+import { useRecorderState } from "./recorder";
 import { useExtensions } from "./extensions-provider";
 import type { SidebarMeeting } from "./sidebar-meetings";
 
@@ -174,16 +175,7 @@ export function Sidebar({
                         Before the name rather than at the end, where the pin goes and where an
                         unexplained dot read as nothing in particular. ("No minutes" has no mark
                         for now.) */}
-                    {m.live ? (
-                      <span
-                        role="img"
-                        aria-label={t("Recording")}
-                        title={t("Recording")}
-                        className="recording-dot inline-block h-3 w-3 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] p-px"
-                      >
-                        <span className="block h-full w-full rounded-full bg-[var(--error)]" />
-                      </span>
-                    ) : null}
+                    <LiveDot id={m.id} live={m.live} />
                     <span className="min-w-0 flex-1 truncate">{m.title}</span>
                   </Link>
                   {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
@@ -397,6 +389,28 @@ export function Sidebar({
         </div>
       ) : null}
     </>
+  );
+}
+
+/**
+ * Being recorded: a record button's red dot before the name, breathing slowly. The server knows
+ * a meeting is live once a line has been saved into it; this tab knows sooner — from the first
+ * second of its own recording, and on a machine that only transcribes at the end, when no line
+ * is saved until then. Its own component, so the list does not re-render as words are heard.
+ */
+function LiveDot({ id, live }: { id: string; live: boolean }) {
+  const t = useT();
+  const { session } = useRecorderState();
+  if (!live && session?.meetingId !== id) return null;
+  return (
+    <span
+      role="img"
+      aria-label={t("Recording")}
+      title={t("Recording")}
+      className="recording-dot inline-block h-3 w-3 shrink-0 rounded-full border border-[color-mix(in_srgb,var(--error)_45%,transparent)] p-px"
+    >
+      <span className="block h-full w-full rounded-full bg-[var(--error)]" />
+    </span>
   );
 }
 

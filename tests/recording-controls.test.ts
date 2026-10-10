@@ -2,37 +2,45 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Start and Stop live at the bottom of the recording screen.
+// The control a recording needs, since v4 on the meeting's own page (recording-dock.tsx).
 //
-// They were at the top, which on a phone is the far corner from your thumb — and Stop is the
-// one control you may need in a hurry, in the middle of a meeting, one-handed. The end actions
-// were the coloured ones down there; they are the quiet ones now, above it. That is the right
-// way round: you press them once, at the end.
+// It was a full-width "Start recording" at the bottom of a page of its own, and starting folded
+// the microphone check and the tips away above it: the page got shorter, the bar it sat in rode
+// up with it, and the button left the place the pointer had just pressed. Now it is a round
+// button in a dock fixed to the bottom of the window — a red dot to start, a red square to stop —
+// the same size in the same place either way, with no word on it.
 //
-// The move carried a real risk worth guarding, because it was a move rather than a rewrite:
-// the button's guards travelled with it or they did not, and a Start that no longer checks
-// whether the GPU is busy fails in a way nobody sees until two jobs are fighting.
+// The guards came with it, and a Start that no longer checks what it used to fails in a way
+// nobody sees until two jobs are fighting.
 
-const src = readFileSync(join(__dirname, "..", "app/[id]/recording/page.tsx"), "utf8");
+const src = readFileSync(join(__dirname, "..", "app/[id]/recording-dock.tsx"), "utf8");
 
-const topBar = src.indexOf("{/* Sticky top bar");
-const bottomBar = src.indexOf("{/* Sticky bottom bar");
-// Through t() since the screen was translated. What this test is about is *where* the control
-// is, so it follows the sentence to its new spelling rather than pinning the literal.
-const control = src.indexOf('{active ? t("Stop recording") : t("Start recording")}');
+const row = src.indexOf('<Prop label={t("Recording")}>');
+const dock = src.indexOf("{/* The dock:");
+const button = src.indexOf("onClick={active ? stopRecording : startRecording}");
 
 describe("the recording control", () => {
-  it("is in the bottom bar", () => {
-    for (const [name, at] of Object.entries({ topBar, bottomBar, control })) {
+  it("is in a dock fixed to the bottom of the window", () => {
+    for (const [name, at] of Object.entries({ row, dock, button })) {
       expect(at, `${name} not found`).toBeGreaterThan(-1);
     }
-    expect(control, "Start/Stop is back above the page instead of under the thumb").toBeGreaterThan(
-      bottomBar,
-    );
+    expect(button).toBeGreaterThan(dock);
+    const bar = src.slice(dock, src.indexOf("{toast ? (", dock));
+    expect(bar).toContain('className="fixed bottom-4 left-1/2');
+  });
+
+  it("does not move or change size when it starts", () => {
+    const bar = src.slice(dock, src.indexOf("{toast ? (", dock));
+    // One size for both states, and fixed-width slots either side so nothing can push it.
+    expect(bar.match(/flex h-16 w-16 shrink-0/g)).toHaveLength(1);
+    expect(bar.match(/flex w-32 items-center/g)).toHaveLength(2);
+    // A dot or a square, and the words only for those who cannot see them.
+    expect(bar).toContain('aria-label={active ? t("Stop recording") : t("Start recording")}');
+    expect(bar).not.toMatch(/>\s*\{active \? t\("Stop recording"\) : t\("Start recording"\)\}\s*</);
   });
 
   it("keeps the guards that are still guards", () => {
-    const bar = src.slice(bottomBar);
+    const bar = src.slice(dock);
     // Refused from outside the tailnet, where the STT service cannot be reached at all, and
     // once the meeting has ended. Stopping is always allowed — that is what `&& !active` is for.
     expect(bar).toContain("disabled={(external && !active) || startBlocked}");
@@ -47,7 +55,6 @@ describe("the recording control", () => {
     // Both outcomes exist: take the card, or record without recognising as you go.
     expect(src).toContain("liveTranscript: live");
     expect(src).toContain("setRecordOnly(true)");
-    // And it stopped watching the busy flag, which now has nothing on this screen to decide.
     expect(src).not.toContain("useGpuBusy");
   });
 
@@ -59,17 +66,25 @@ describe("the recording control", () => {
     expect(src).not.toMatch(/const takeIt = await confirm\(/);
   });
 
-  it("has the running time beside it rather than at the top", () => {
-    const bar = src.slice(bottomBar);
-    expect(bar).toContain("runningTime(elapsedSec)");
-    // The status and the input level stay up there: they are read, not acted on.
-    const top = src.slice(topBar, bottomBar);
-    expect(top).toContain("statusText(t, status)");
-    expect(top, "the clock is in both places").not.toContain("runningTime(elapsedSec)");
+  it("has the running time beside it, and the status in the meeting's details", () => {
+    expect(src.slice(dock)).toContain("runningTime(elapsedSec)");
+    const details = src.slice(row, dock);
+    expect(details).toContain("statusText(t, status)");
+    expect(details, "the clock is in both places").not.toContain("runningTime(elapsedSec)");
   });
 
-  it("does not tell people to press it above", () => {
-    // The hint in the empty transcript points at the button. It pointed up.
-    expect(src).not.toMatch(/Start recording" above/);
+  it("keeps the ways to end the meeting in one menu beside it", () => {
+    const menu = src.slice(src.indexOf('label={t("End the meeting")}'));
+    for (const what of ['setEndDialog("minutes")', 'setEndDialog("diarize")', "endOnly", "discardAndEnd"]) {
+      expect(menu, what).toContain(what);
+    }
+  });
+});
+
+describe("the recording screen's address", () => {
+  it("leads to the meeting page, carrying what it was asked", () => {
+    const old = readFileSync(join(__dirname, "..", "app/[id]/recording/page.tsx"), "utf8");
+    expect(old).toContain("redirect(`/${id}${qs ? `?${qs}` : \"\"}`)");
+    expect(old).toContain("query.append(key, v)");
   });
 });

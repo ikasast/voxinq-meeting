@@ -47,7 +47,7 @@ describe("on a phone", () => {
 });
 
 describe("ending a meeting", () => {
-  const page = read("app/[id]/recording/page.tsx");
+  const page = read("app/[id]/recording-dock.tsx");
 
   it("asks in the reader's language", () => {
     // The three end dialogs were the last English on the recording screen.
@@ -75,7 +75,7 @@ describe("ending a meeting", () => {
     expect(body).not.toContain("permanent=1");
     // Not transcribed on the way out: that spends the GPU on something being thrown away.
     expect(body).not.toContain("transcribeAfterRecording");
-    expect(page).toContain("onClick={discardAndEnd}");
+    expect(page).toContain("onClick={() => void close().then(discardAndEnd)}");
   });
 });
 

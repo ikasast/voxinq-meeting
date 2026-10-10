@@ -33,7 +33,7 @@ export default function QuickRecordPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const m = (await res.json()) as { id: string };
-      router.replace(`/${m.id}/recording?autostart=1`);
+      router.replace(`/${m.id}?autostart=1`);
     } catch (e) {
       setError((e as Error).message);
     }

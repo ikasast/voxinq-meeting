@@ -186,13 +186,17 @@ describe("the ways off a page", () => {
   const read = (p: string) => readFileSync(path.join(__dirname, "..", p), "utf8").replace(/\r\n/g, "\n");
 
   it("leave the recording screen only through leave(), which clears the guard first", () => {
-    const page = read("app/[id]/recording/page.tsx");
-    // The one replace left is leave() itself.
-    expect(page.split("router.replace(").length - 1).toBe(1);
-    expect(page).toContain("await backGuards().unwind();\n      router.replace(to);");
-    expect(page).toContain("useBackGuard(guardLeaving,");
-    // Links elsewhere in the app ask too, before the router sees the click.
-    expect(page).toContain('document.addEventListener("click", onClick, true)');
+    const page = read("app/[id]/recording-dock.tsx");
+    // The replaces left are leave()'s own, after the unwind.
+    const leave = page.slice(page.indexOf("const leave = useCallback"), page.indexOf("// The running time ticks"));
+    expect(page.split("router.replace(").length - 1).toBe(leave.split("router.replace(").length - 1);
+    expect(leave).toContain("await backGuards().unwind();");
+    expect(leave.indexOf("await backGuards().unwind();")).toBeLessThan(leave.indexOf("router.replace("));
+    // Back wakes a resting screen. It no longer asks "Stop recording?", and links no longer
+    // ask either: leaving stops nothing, because the recording is the app's (app/recorder.tsx).
+    expect(page).toContain("useBackGuard(resting,");
+    expect(page).not.toContain('document.addEventListener("click", onClick, true)');
+    expect(read("app/layout.tsx")).toContain("<RecorderProvider>");
   });
 
   it("do not leave a blank new-meeting form one Back away", () => {
@@ -201,7 +205,9 @@ describe("the ways off a page", () => {
   });
 
   it("open the recording screen in place of the meeting page", () => {
-    expect(read("app/[id]/page.tsx")).toContain("href={`/${meeting.id}/recording`} replace");
+    // The meeting page is the recording screen now (recording-dock.tsx); resuming comes back to
+    // it in place.
+    expect(read("app/[id]/page.tsx")).not.toContain("/recording`}");
     expect(read("app/[id]/resume-recording-button.tsx")).toMatch(/resume=1`\}\n\s+\/\/[^\n]*\n\s+replace/);
   });
 

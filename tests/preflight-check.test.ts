@@ -58,7 +58,7 @@ describe("whether a checked stream can still be used", () => {
 
 describe("the check itself", () => {
   const src = read("app/[id]/recording/preflight-check.tsx");
-  const page = read("app/[id]/recording/page.tsx");
+  const page = read("app/[id]/recording-dock.tsx");
 
   it("samples on a timer, not on animation frames", () => {
     // `requestAnimationFrame` does not fire at all while the tab is hidden. A phone whose
@@ -98,7 +98,7 @@ describe("the check itself", () => {
 });
 
 describe("the recording tips", () => {
-  const page = read("app/[id]/recording/page.tsx");
+  const page = read("app/[id]/recording-dock.tsx");
 
   it("fold away when recording starts", () => {
     expect(page).toContain("setTipsOpen(false)");

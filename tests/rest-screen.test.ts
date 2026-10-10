@@ -16,7 +16,7 @@ import { REST_SCREEN_SECONDS, defaultRestSeconds, restSecondsFrom } from "../app
 
 const root = join(__dirname, "..");
 const page = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
-const rec = readFileSync(join(root, "app/[id]/recording/page.tsx"), "utf8");
+const rec = readFileSync(join(root, "app/[id]/recording-dock.tsx"), "utf8");
 
 const card = readFileSync(join(root, "app/settings/rest-screen-setting.tsx"), "utf8");
 const phone = { app: false, touchFirst: true };
@@ -61,9 +61,11 @@ describe("resting the screen", () => {
     // The whole thing rests on the screen staying locked awake: release it and the phone
     // sleeps, and on some devices that stops the microphone. The lock follows the recording
     // and nothing else.
-    const lock = rec.slice(
-      rec.indexOf("// While recording, prevent screen sleep"),
-      rec.indexOf("// Rest the screen after a while"),
+    // The lock is the app-wide recorder's (app/recorder.tsx), out of the resting screen's reach.
+    const recorder = readFileSync(join(root, "app/recorder.tsx"), "utf8");
+    const lock = recorder.slice(
+      recorder.indexOf("// Keep the screen awake while recording"),
+      recorder.indexOf("// Closing the tab or typing an address"),
     );
     expect(lock, "the wake-lock effect was not found where this test expects it").toContain(
       "wakeLock",

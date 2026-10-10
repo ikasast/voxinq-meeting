@@ -349,6 +349,18 @@ export const PinnedIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const MoonIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
+  </Base>
+);
+
+export const ChevronUpIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="m6 15 6-6 6 6" />
+  </Base>
+);
+
 export const PanelLeftIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <rect x="3" y="3" width="18" height="18" rx="2" />
