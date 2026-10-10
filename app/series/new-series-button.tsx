@@ -1,5 +1,6 @@
 "use client";
 
+import { PlusCircleIcon } from "../icons";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { useT } from "../locale-provider";
@@ -37,6 +38,7 @@ export function NewSeriesButton() {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} className="btn-ink">
+        <PlusCircleIcon className="h-4 w-4" />
         {t("New series")}
       </button>
     );

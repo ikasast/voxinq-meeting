@@ -397,6 +397,20 @@ export const UploadIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+export const KeyIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="7.5" cy="15.5" r="4.5" />
+    <path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2" />
+  </Base>
+);
+
+export const UserPlusIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <circle cx="9" cy="8" r="4" />
+    <path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6" />
+  </Base>
+);
+
 export const ChatIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <path d="M21 12a8 8 0 0 1-11.8 7L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z" />

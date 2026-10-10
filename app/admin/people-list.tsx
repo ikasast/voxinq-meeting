@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Avatar } from "../avatar";
 import { useConfirm } from "../confirm-dialog";
 import { useT } from "@/app/locale-provider";
+import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
+import { DotsIcon, KeyIcon, UserPlusIcon } from "../icons";
+import { PROPS_GRID, PROPS_WIDE, Prop } from "../[id]/property";
 
 // The people on this server.
 //
@@ -27,7 +30,7 @@ type Person = {
   sessions: number;
 };
 
-export function PeopleList({ meId }: { meId: string }) {
+export function PeopleList({ meId, title, intro }: { meId: string; title: string; intro: string }) {
   const confirm = useConfirm();
   const [people, setPeople] = useState<Person[] | null>(null);
   const t = useT();
@@ -108,7 +111,30 @@ export function PeopleList({ meId }: { meId: string }) {
   if (!people) return <p className="text-sm text-[var(--text-muted)]">{t("Loading…")}</p>;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{title}</h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{intro}</p>
+        </div>
+        {!adding ? (
+          <button type="button" onClick={() => setAdding(true)} className="btn-ink">
+            <UserPlusIcon className="h-4 w-4" />
+            {t("Add someone")}
+          </button>
+        ) : null}
+      </div>
+
+      {adding ? (
+        <AddPerson
+          onDone={async () => {
+            setAdding(false);
+            await load();
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      ) : null}
+
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
 
       {link ? (
@@ -147,12 +173,11 @@ export function PeopleList({ meId }: { meId: string }) {
         </div>
       ) : null}
 
-      <ul className="overflow-hidden rounded-lg border border-[var(--border)]">
+      {/* Rows between hairlines, like the meeting list (v4): the person, and what can be done
+          about them as icons — a sign-in link, and the rest behind "…". */}
+      <ul className="border-t border-[var(--border)]">
         {people.map((p) => (
-          <li
-            key={p.id}
-            className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-3 py-2.5 last:border-b-0"
-          >
+          <li key={p.id} className="flex items-center gap-3 border-b border-[var(--border)] px-2 py-2.5">
             <Avatar username={p.username} name={p.name} hasImage={p.hasImage} size={32} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-[var(--text-strong)]">
@@ -172,55 +197,51 @@ export function PeopleList({ meId }: { meId: string }) {
                 {` · ${t(p.meetings === 1 ? "1 meeting" : "{n} meetings", { n: p.meetings })}`}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="flex shrink-0 items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => void issueLink(p)}
                 disabled={busy !== null || p.disabled}
-                className="btn-outline !px-2 !py-1 !text-xs"
+                className={ICON_BUTTON}
                 title={t("Issue a one-time link so they can set their own password")}
+                aria-label={t("Reset link")}
               >
-                {t("Reset link")}
+                <KeyIcon className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => void patch(p.id, { isAdmin: !p.isAdmin })}
-                disabled={busy !== null}
-                className="btn-outline !px-2 !py-1 !text-xs"
-              >
-                {p.isAdmin ? t("Remove admin") : t("Make admin")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void toggleDisabled(p)}
-                disabled={busy !== null || p.id === meId}
-                className={`btn-outline !px-2 !py-1 !text-xs ${p.disabled ? "" : "text-[var(--error)]"}`}
-                title={p.id === meId ? t("You cannot disable your own account") : undefined}
-              >
-                {p.disabled ? t("Enable") : t("Disable")}
-              </button>
+              <DropMenu label={t("More")} trigger={<DotsIcon className="h-4 w-4" />} className={ICON_BUTTON} width={200}>
+                {(close) => (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => void close().then(() => patch(p.id, { isAdmin: !p.isAdmin }))}
+                      disabled={busy !== null}
+                      className={MENU_ITEM}
+                    >
+                      {p.isAdmin ? t("Remove admin") : t("Make admin")}
+                    </button>
+                    <MenuRule />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => void close().then(() => toggleDisabled(p))}
+                      disabled={busy !== null || p.id === meId}
+                      title={p.id === meId ? t("You cannot disable your own account") : undefined}
+                      className={`${MENU_ITEM} ${p.disabled ? "" : "!text-[var(--error)]"}`}
+                    >
+                      {p.disabled ? t("Enable") : t("Disable")}
+                    </button>
+                  </>
+                )}
+              </DropMenu>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="text-xs text-[var(--text-muted)]">
-        {t("Accounts are disabled, never deleted. An account holds meetings, and deleting one would either destroy them or hand them to somebody who was never in the room.")}
-      </p>
-
-      {adding ? (
-        <AddPerson
-          onDone={async () => {
-            setAdding(false);
-            await load();
-          }}
-          onCancel={() => setAdding(false)}
-        />
-      ) : (
-        <button type="button" onClick={() => setAdding(true)} className="btn-ink">
-          {t("+ Add someone")}
-        </button>
-      )}
+      {/* Disabled, never deleted: an account holds meetings, and deleting one would either
+          destroy them or hand them to somebody who was never in the room. */}
+      <p className="text-xs text-[var(--text-muted)]">{t("Accounts are disabled, never deleted: they hold meetings.")}</p>
     </div>
   );
 }
@@ -255,71 +276,59 @@ function AddPerson({ onDone, onCancel }: { onDone: () => void; onCancel: () => v
   };
 
   return (
-    <form onSubmit={submit} className="card space-y-3 p-4">
-      <h2 className="text-sm font-medium text-[var(--text-strong)]">{t("Add someone")}</h2>
-      <div>
-        <label htmlFor="u" className="label">
-          {t("Username")}
-        </label>
-        <input
-          id="u"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          autoCapitalize="none"
-          className="input mt-1"
-          required
-        />
+    <form onSubmit={submit} className="space-y-3 border-y border-[var(--border)] py-3">
+      <div className={PROPS_GRID}>
+        <Prop label={t("Username")} fill>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoCapitalize="none"
+            autoFocus
+            aria-label={t("Username")}
+            className="input"
+            required
+          />
+        </Prop>
+        <Prop label={t("Email")} fill>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoCapitalize="none"
+            placeholder="them@example.com"
+            aria-label={t("Email")}
+            className="input"
+            required
+          />
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("What they sign in with. Nothing is sent to it.")}</p>
+        </Prop>
+        <Prop label={t("Display name")} fill>
+          <input value={name} onChange={(e) => setName(e.target.value)} aria-label={t("Display name")} className="input" />
+        </Prop>
+        <Prop label={t("Tailnet login")} fill>
+          <input
+            value={tailscaleLogin}
+            onChange={(e) => setTailscaleLogin(e.target.value)}
+            placeholder="sam@example.com"
+            aria-label={t("Tailnet login")}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{t("Signs them in from inside the tailnet, with no password.")}</p>
+        </Prop>
+        <div className={PROPS_WIDE}>
+          <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+            <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
+            {t("An administrator")}
+          </label>
+        </div>
       </div>
-      <div>
-        <label htmlFor="e" className="label">
-          {t("Email")}
-        </label>
-        <input
-          id="e"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          autoCapitalize="none"
-          placeholder="them@example.com"
-          className="input mt-1"
-          required
-        />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("What they type to sign in. Nothing is sent to it — hand them the link below instead.")}
-        </p>
-      </div>
-      <div>
-        <label htmlFor="n" className="label">
-          {t("Display name (optional)")}
-        </label>
-        <input id="n" value={name} onChange={(e) => setName(e.target.value)} className="input mt-1" />
-      </div>
-      <div>
-        <label htmlFor="t" className="label">
-          {t("Tailnet login (optional)")}
-        </label>
-        <input
-          id="t"
-          value={tailscaleLogin}
-          onChange={(e) => setTailscaleLogin(e.target.value)}
-          placeholder="sam@example.com"
-          className="input mt-1"
-        />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("Fill this in and they are signed in automatically from inside the tailnet, with no password at all. Leave it empty and give them a reset link instead.")}
-        </p>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-        <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} />
-        {t("An administrator")}
-      </label>
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-      <div className="flex gap-2">
-        <button type="submit" disabled={busy || !username || !email} className="btn-ink">
-          {busy ? t("Adding…") : t("Add")}
-        </button>
+      <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} disabled={busy} className="btn-outline">
           {t("Cancel")}
+        </button>
+        <button type="submit" disabled={busy || !username || !email} className="btn-ink">
+          {busy ? t("Adding…") : t("Add")}
         </button>
       </div>
     </form>
