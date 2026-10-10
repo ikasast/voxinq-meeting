@@ -63,10 +63,19 @@ describe("the page's controls", () => {
   });
 
   it("leave copying in sight beside the minutes and the transcript", () => {
-    // It is what is done with either most; sharing and the file formats wait behind "…".
-    for (const f of ["app/[id]/summary-section.tsx", "app/[id]/transcript-list.tsx"]) {
-      const src = read(f);
-      expect(at(src, "<CopyButton"), f).toBeLessThan(at(src, "<DropMenu"));
+    // It is what is done with either most; it is never one of the things behind "…".
+    expect(read("app/[id]/summary-section.tsx")).toContain("<CopyButton");
+    const list = read("app/[id]/transcript-list.tsx");
+    expect(at(list, "<CopyButton")).toBeLessThan(at(list, "<DropMenu"));
+  });
+
+  it("keep every file the meeting can be saved as in one menu by the title", () => {
+    const menu = read("app/[id]/download-meeting-button.tsx");
+    for (const what of ['file("minutes")', "format=docx", "/print", 'file("transcript")', 'file("meta")', "saveRecording", 'row("zip"']) {
+      expect(menu, what).toContain(what);
     }
+    // And nowhere else.
+    expect(read("app/[id]/summary-section.tsx")).not.toContain("format=docx");
+    expect(read("app/[id]/transcript-list.tsx")).not.toContain("downloadText");
   });
 });

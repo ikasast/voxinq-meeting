@@ -241,7 +241,6 @@ describe("the ways off a page", () => {
       "app/confirm-dialog.tsx",
       "app/account-menu.tsx",
       "app/meeting-item-menu.tsx",
-      "app/[id]/download-meeting-button.tsx",
       "app/drop-menu.tsx",
       "app/[id]/recording/end-dialog.tsx",
       "app/install-app.tsx",
