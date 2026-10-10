@@ -39,14 +39,12 @@ export function ReminderNotifications() {
   };
 
   return (
-    <section className="card space-y-3 p-6">
-      <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
+    <section className="space-y-4">
+      <h2 className="text-sm font-semibold text-[var(--text-strong)]">
         {t("Meeting reminders on this device")}
       </h2>
       <p className="text-xs text-[var(--text-muted)]">
-        {t(
-          "When a booked meeting's time comes, this device shows a notification, even while you are looking at another window. Voxinq has to be open in a tab (in the background is fine): with every tab closed nothing arrives, as there is no outside push service. Saved per device (browser).",
-        )}
+        {t("When a booked meeting is due, this device is notified while Voxinq is open in a tab. This device only.")}
       </p>
 
       {state === "app" ? (

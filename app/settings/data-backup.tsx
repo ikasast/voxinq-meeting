@@ -36,8 +36,8 @@ type ImportResult = {
 function Wrap({ children }: { children: React.ReactNode }) {
   const t = useT();
   return (
-    <section className="card space-y-6 p-6">
-      <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">
+    <section className="space-y-4">
+      <h2 className="text-sm font-semibold text-[var(--text-strong)]">
         {t("Backup & restore")}
       </h2>
       {children}

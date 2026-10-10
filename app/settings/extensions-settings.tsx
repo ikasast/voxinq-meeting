@@ -233,8 +233,8 @@ export function ExtensionsSettings({ isAdmin }: { isAdmin: boolean }) {
   );
 
   return (
-    <section className="card space-y-4 p-6">
-      <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Extensions")}</h2>
+    <section className="space-y-4">
+      <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Extensions")}</h2>
       <p className="text-xs text-[var(--text-muted)]">
         {t(
           "Recording, transcription and minutes are always there. These are added on top, for everybody on this machine. Switching one off hides it and keeps its data; switching it back on brings everything back.",

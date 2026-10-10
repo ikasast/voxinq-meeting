@@ -222,6 +222,40 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "New minutes use this; {action} can pick another. A series with its own keeps that.":
+    "新しい議事録はこれを使います。「{action}」では別の書式も選べます。独自の書式を持つシリーズはそちらを使います。",
+  "New work uses this. Re-transcribe can pick another for one run.":
+    "新しい処理はここを使います。再文字起こしでは1回だけ別の場所も選べます。",
+  "Recognition":
+    "認識",
+  "While recording, the screen goes black after this long; recording carries on. Saves a phone's battery, but hides the live transcript. This device only.":
+    "録音中、この時間がたつと画面を黒くします（録音は続きます）。スマホの電池が持つ代わりに、文字起こしは見えなくなります。この端末だけの設定。",
+  "When a booked meeting is due, this device is notified while Voxinq is open in a tab. This device only.":
+    "予約した会議の時刻に、Voxinq をタブで開いていればこの端末に通知します。この端末だけの設定。",
+  "Saved": "保存しました",
+  "Not saved": "保存できませんでした",
+  "Memory each needs: {guide}. Downloaded on first use.": "必要なメモリの目安: {guide}。初回に自動でダウンロードします。",
+  "Live recognition uses this model; after the meeting and Re-transcribe use {model} at {host}.":
+    "会議中の認識はこのモデル、会議後と再文字起こしは {host} の {model} を使います。",
+  "Auto-detect keeps the language that was spoken.": "自動判定は、話された言語のまま文字にします。",
+  "Names and terms to expect. Keep it short — about 150 characters.": "出てくる人名・用語。150 文字程度までに。",
+  "Japanese translation": "日本語訳",
+  "Under each non-Japanese line. Runs on the CPU; a 1.2 GB model is downloaded on first use.":
+    "日本語以外の発言の下に表示。CPU で動き、初回に 1.2 GB のモデルをダウンロードします。",
+  "Megabytes of video memory queued work may use at once. Empty: worked out from the card.":
+    "順番待ちの処理が同時に使える VRAM（MB）。空欄ならカードから自動で決めます。",
+  "Auto": "自動",
+  "Whatever language was spoken.": "話された言語に関係なく、この言語で書きます。",
+  "Background": "背景",
+  "Read with every meeting's minutes, to understand its terms — never copied into them. Half a page to a page.":
+    "すべての議事録づくりで用語の理解に使い、議事録には書き写しません。半ページ〜1 ページほど。",
+  "Your organisation, projects and people.": "組織・プロジェクト・関係者など",
+  "Formats": "書式",
+  "Leave it empty for a local server.": "ローカルのサーバーなら空欄で構いません。",
+  "This device only. System follows the OS.": "この端末だけの設定。「システム」は OS に合わせます。",
+  "Of the screens. The minutes' language is under Minutes.": "画面の言語です。議事録の言語は「議事録」で設定します。",
+  "Until somebody names it. A booked meeting is named for its day.": "名前を付けるまでの仮の名前。予約した会議はその日付になります。",
+  "Rest the screen": "画面を休ませる",
   "{feeling} more than the rest of the meeting ({of} of {n})": "{feeling}な発言が会議全体より多め（{n} 件中 {of} 件）",
   "this meeting": "この会議",
   "For example:": "たとえば:",
@@ -527,22 +561,12 @@ export const ja: Record<string, string> = {
   "After 10 minutes": "10分後",
   "+ Add endpoint": "＋ エンドポイントを追加",
   "the endpoint’s model": "そのエンドポイントのモデル",
-  "What new work uses. Any of these — and this machine — can still be picked for a single run from Re-transcribe.":
-    "これから行う処理が使うものです。ここに挙がったもの（この機器も含めて）は、「文字起こしをやり直す」から 1 回だけ選ぶこともできます。",
-  "This model is used for live recognition on this machine. The after-the-meeting pass and Re-transcribe use {model} at {host} instead — these names belong to different services and are not interchangeable.":
-    "このモデルは、この機器で会議中に認識するときに使われます。会議終了後の一括処理と「文字起こしをやり直す」は、{host} の {model} を使います — これらは別のサービスの名前で、互いに置き換えられません。",
-  "Megabytes of video memory the queue may commit at once. Leave it empty to work it out from the card. Jobs that run somewhere else — recognition sent to an endpoint, minutes written by a cloud model — cost nothing here and never wait for it.":
-    "順番待ちの処理が一度に確保してよい VRAM の量（MB）です。空欄なら、カードの容量から自動で決めます。他所で走る処理 — エンドポイントに送る認識や、クラウドのモデルが書く議事録 — はここを消費せず、待つこともありません。",
   Transcription: "文字起こし",
-  "Transcription (Whisper)": "文字起こし（Whisper）",
-  "Minutes (language, background, format)": "議事録（言語・背景・書式）",
-  "Minutes generation (LLM)": "議事録の生成（LLM）",
   Appearance: "表示",
   "Remote access (public URL)": "外部公開（公開 URL）",
   "Backup & restore": "バックアップと復元",
   "Voice profiles (speaker auto-naming)": "声紋（話者の自動命名）",
   "Saved.": "保存しました。",
-  Back: "戻る",
   Close: "閉じる",
   More: "その他",
   Name: "名前",
@@ -565,23 +589,9 @@ export const ja: Record<string, string> = {
   "This is a Japanese-only model — meetings in other languages will not transcribe.":
     "これは日本語専用モデルです — 他の言語の会議は文字起こしできません。",
   "GPU budget for queued work": "順番待ちの処理に使う VRAM の上限",
-  "Auto — from the card, less room for the display":
-    "自動 — カードの容量から、表示用を差し引いて決めます",
-  "This is a scheduling figure, not a limit on any one job: something larger than the whole budget still runs, on its own. Raise it to let two things run together on a bigger card; lower it if something else on this machine needs the memory.":
-    "これは並行実行を決めるための数字で、1 つの処理の上限ではありません。上限より大きい処理も、単独でなら実行されます。大きいカードで 2 つ同時に走らせたいなら上げ、他の用途にメモリが要るなら下げてください。",
-  "“Auto-detect” transcribes in the spoken language (minutes language is set separately below).":
-    "「自動判定」は話された言語のまま文字起こしします（議事録の言語は下で別に設定します）。",
-  "Terms / proper nouns (recognition bias)": "用語・固有名詞（認識のヒント）",
-  "Adding jargon, names, and product names improves accuracy. Keep it short (~150 chars).":
-    "専門用語・人名・製品名を入れると精度が上がります。短めに（150文字程度まで）。",
   "Translate non-Japanese speech into Japanese": "日本語以外の発言に日本語訳を付ける",
 
   "Minutes language": "議事録の言語",
-  "Minutes are generated in this language regardless of the spoken language.":
-    "話された言語にかかわらず、議事録はこの言語で生成されます。",
-  "Business / research background": "業務・研究の背景",
-  "Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.":
-    "会議ごとの目的とは別に、常に渡される背景情報です。半ページ〜1ページ程度を目安に（長すぎると精度が落ちます）。用語の解釈にだけ使われ、議事録には転記されません。",
   "Minutes format": "議事録の書式",
   "No saved formats. Minutes use the built-in one: an overview, then the discussion by topic, then decisions and action items.":
     "保存された書式はありません。議事録は組み込みの書式を使います — 概要、話題ごとの議論、決定事項とアクションアイテムの順です。",
@@ -592,27 +602,16 @@ export const ja: Record<string, string> = {
   Ollama: "Ollama",
   "Base URL": "ベース URL",
   "API key": "API キー",
-  "API key (leave empty for local servers)": "API キー（ローカルのサーバーなら空欄で構いません）",
   "Delete the saved key": "保存されたキーを削除",
-  "OpenAI-compatible (vLLM / LM Studio / OpenAI)": "OpenAI 互換（vLLM / LM Studio / OpenAI）",
   "Their terms decide how long it is kept and whether it trains anything. Voxinq cannot change that.":
     "保存期間や学習に使われるかは、送り先の規約が決めます。Voxinq からは変えられません。",
   "You are billed by them, per token. Long meetings cost more than short ones.":
     "料金はトークン単位で送り先から請求されます。長い会議ほど高くなります。",
 
   Theme: "テーマ",
-  "Applied instantly and saved per device (browser). No need to press “Save”.":
-    "すぐ反映され、端末（ブラウザ）ごとに保存されます。「保存」を押す必要はありません。",
   "Follow my browser": "ブラウザに合わせる",
   "Default meeting name": "会議の既定の名前",
-  "What a meeting is called until somebody names it. The day it is for — a meeting booked from the calendar is named for that day, not for today.":
-    "誰かが名前を付けるまでの会議名です。その会議の日付が入ります — カレンダーから予約した会議は、今日ではなくその日の名前になります。",
   "Rest the screen while recording": "録音中に画面を休ませる",
-  "Saved per device and applied at once. Until it is chosen here, a phone, a tablet or the Android app rests after 1 minute, and a computer never does.":
-    "端末ごとに保存され、すぐに反映されます。ここで選ぶまでは、スマホ・タブレット・Android アプリは1分で、PC は休ませません。",
-  "After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.":
-    "この時間だけ操作がないと、録音画面が真っ暗になります。触れば戻り、同じ時間でまた休みます。録音には影響しません — マイクも送信も画面ロックも動いたままです。",
-  "You cannot watch the live transcript while it rests": "休止中は文字起こしを見られません",
 
   "Publishing is managed from your private network. Open Settings on a device connected to your Tailscale tailnet (or the host itself) to turn public access on or off.":
     "公開の切り替えは、プライベートネットワークの中から行います。Tailscale の tailnet に接続した端末（またはホスト自身）で設定を開いてください。",
@@ -991,10 +990,6 @@ export const ja: Record<string, string> = {
   OK: "OK",
 
   // ---- Settings: what was left in English ----
-  "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.":
-    "日本語以外の発言の下に日本語訳を表示します（会議中も、文字起こしの画面でも）。日本語の発言はそのままで、議事録は元の言葉から生成されます。翻訳は CPU で動くため、文字起こしと GPU を取り合いません。",
-  "Turning this on downloads a ~1.2GB translation model (M2M100 1.2B, MIT licence) to the STT host on first use.":
-    "有効にすると、初回利用時に約1.2GBの翻訳モデル（M2M100 1.2B、MIT ライセンス）が STT ホストにダウンロードされます。",
   // Mostly sentences that had been split around <strong>, so the emphasised half stayed English
   // while the rest turned. Each is one key now.
   "This sends your meetings to {host}": "この設定では会議の内容が {host} に送られます",
@@ -1024,14 +1019,10 @@ export const ja: Record<string, string> = {
   "Distilled on Japanese speech — faster and more accurate for Japanese, but the transcription language is forced to Japanese, it adds little punctuation, and the glossary is skipped for it.":
     "日本語音声で蒸留されたモデルです。日本語では速く精度も高い一方、文字起こしの言語は日本語に固定され、句読点はあまり付かず、用語集も適用されません。",
   "{model} (custom)": "{model}（自分で指定）",
-  "Roughly how much memory each needs: {guide}. On an 8GB card this is what has to fit beside whatever else is loaded. Downloaded on first use and cached afterwards.":
-    "それぞれのおおよその必要メモリ: {guide}。8GB のカードでは、他に読み込まれているものと並んでこれが収まる必要があります。初回利用時にダウンロードされ、以降はキャッシュされます。",
 
   // Placeholders somebody reads before they type.
   "e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting":
     "例: 株式会社アクメ, プロジェクト・オーロラ, 山田太郎, Voxinq Meeting",
-  "Org, research topics, ongoing projects, people, and background knowledge. Referenced every time as context for all minutes.":
-    "組織・研究テーマ・進行中のプロジェクト・人物・前提知識など。すべての議事録で毎回コンテキストとして参照されます。",
 
   // Backup.
   "Choose a password of at least 8 characters.": "8文字以上のパスワードにしてください。",
@@ -1051,18 +1042,7 @@ export const ja: Record<string, string> = {
 
   // Appearance.
   "Set (enter only to change)": "設定済み（変更するときだけ入力）",
-  "Not set (OK for LM Studio / vLLM)": "未設定（LM Studio / vLLM なら不要）",
-  "“System” follows your OS and changes with it. Read-only visitors get the same choice from the icon in the header.":
-    "「システムに合わせる」は OS の設定に追従し、それに合わせて切り替わります。閲覧専用の相手も、ヘッダーのアイコンから同じ選択ができます。",
-  "The screens. What language the minutes are written in is a separate setting, under Minutes — an English screen writing Japanese minutes is a combination people want.":
-    "画面の言語です。議事録を書く言語は「議事録」の別の設定で、英語の画面で日本語の議事録を書くという組み合わせも実際に使われます。",
-  "On a phone with an OLED screen this is most of the battery: black pixels do not light up.":
-    "OLED 画面のスマートフォンでは、これがバッテリーの大半を占めます。黒い画素は光らないためです。",
-  ", which is the trade — worth it for a long meeting recorded from a pocket, not for one you are reading along with.":
-    "という引き換えです。ポケットに入れたまま録る長い会議には向きますが、読みながら進める会議には向きません。",
   // Minutes formats.
-  "What new minutes use. Any of these can still be picked for a single run from {action}. A series with its own format keeps using that.":
-    "これから作る議事録が使う形式です。ここに挙がったものは「{action}」から 1 回だけ選ぶこともできます。独自の形式を持つシリーズはそちらを使い続けます。",
   "+ Add format": "＋ 形式を追加",
 
   // LLM providers, spelled out where they warn about what leaves the machine.
@@ -1296,8 +1276,6 @@ export const ja: Record<string, string> = {
   "It is time for this meeting.": "この会議の時刻になりました。",
   "Notify me on this device": "この端末で通知を受け取る",
   "Meeting reminders on this device": "この端末への予定の通知",
-  "When a booked meeting's time comes, this device shows a notification, even while you are looking at another window. Voxinq has to be open in a tab (in the background is fine): with every tab closed nothing arrives, as there is no outside push service. Saved per device (browser).":
-    "予定を入れた会議の時刻になると、この端末に通知を出します。ほかのウィンドウを見ていても届きます。Voxinq をどこかのタブで開いておく必要があります（裏のタブで構いません）。外部の通知配信サービスを使わないため、タブをすべて閉じていると届きません。端末（ブラウザ）ごとの設定です。",
   "In the Android app, reminders come from the app itself and follow the phone's notification settings.":
     "Android アプリでは、予定の通知はアプリ自身が出します。スマホの通知設定に従います。",
   "Notifications need a secure connection. Open Voxinq through its https address to turn them on.":

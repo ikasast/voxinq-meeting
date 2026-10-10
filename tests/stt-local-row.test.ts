@@ -28,7 +28,7 @@ describe("the settings page", () => {
   it("keeps the model picker inside that editor rather than loose on the page", () => {
     const select = page.indexOf('id="whisperModel"');
     const from = page.indexOf("localEditor={");
-    const to = page.indexOf("onChange={setDraftProfiles}");
+    const to = page.indexOf("setDraftProfiles(p);");
     expect(select, "the local model picker is gone from the settings page").toBeGreaterThan(-1);
     expect(from).toBeGreaterThan(-1);
     expect(to).toBeGreaterThan(from);

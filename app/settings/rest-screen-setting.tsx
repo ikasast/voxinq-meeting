@@ -35,20 +35,11 @@ export function RestScreenSetting({ labelClass, inputClass }: { labelClass: stri
           </option>
         ))}
       </select>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {t("After this long without a touch, the recording screen goes black. Tapping brings it back, and it rests again after the same wait. Recording is not affected — the microphone, the upload and the screen lock all keep going.")}
-      </p>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">
-        {t(
-          "Saved per device and applied at once. Until it is chosen here, a phone, a tablet or the Android app rests after 1 minute, and a computer never does.",
-        )}
-      </p>
-      <p className="mt-1 text-xs text-[var(--text-secondary)]">
-        {t("On a phone with an OLED screen this is most of the battery: black pixels do not light up.")}{" "}
-        <strong>{t("You cannot watch the live transcript while it rests")}</strong>
-        {t(
-          ", which is the trade — worth it for a long meeting recorded from a pocket, not for one you are reading along with.",
-        )}
+      {/* What it does and what it costs, in a line: recording carries on under a black screen,
+          which saves a phone's battery and hides the live transcript. Per device; until chosen,
+          phones and the Android app rest after a minute and computers never do. */}
+      <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+        {t("While recording, the screen goes black after this long; recording carries on. Saves a phone's battery, but hides the live transcript. This device only.")}
       </p>
     </div>
   );

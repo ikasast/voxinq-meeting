@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TITLE_FORMATS } from "@/lib/meeting-title";
 import { HouseDefaults } from "./house-defaults";
 import { OllamaModelField } from "./ollama-model-field";
@@ -20,7 +21,7 @@ import { ReminderNotifications } from "./reminder-notifications";
 import { ExtensionsSettings } from "./extensions-settings";
 import { useExtensions } from "../extensions-provider";
 import { RestScreenSetting } from "./rest-screen-setting";
-import { StorageIcon } from "../icons";
+import { CheckIcon, StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 import { ExternalProviderNotice } from "./external-provider-notice";
@@ -93,16 +94,8 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 
-const inputClass = "input mt-1";
+const inputClass = "input";
 const labelClass = "label";
-
-function fieldsetClass(active: boolean) {
-  return `space-y-3 rounded-md border p-4 ${
-    active
-      ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)]"
-      : "border-[var(--border)]"
-  }`;
-}
 
 /**
  * The labels on this screen's option lists, spelled out so the table's test can find them.
@@ -150,9 +143,45 @@ function settingLabel(t: (k: string) => string, label: string): string {
   return table[label] ?? label;
 }
 
+/**
+ * One setting as a row of a table (v4, like a meeting's details): what it is at the left, the
+ * control at the right, and under the control at most a line about it.
+ */
+function Field({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-x-6 gap-y-1.5 border-b border-[var(--border)] py-4 last:border-b-0 sm:grid-cols-[11rem_minmax(0,1fr)]">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="pt-2 text-sm text-[var(--text-secondary)]">
+          {label}
+        </label>
+      ) : (
+        <p className="pt-2 text-sm text-[var(--text-secondary)]">{label}</p>
+      )}
+      <div className="min-w-0">
+        {children}
+        {hint ? <div className="mt-1.5 space-y-1 text-xs text-[var(--text-muted)]">{hint}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+/** How long after the last change it is saved. Long enough not to save every keystroke. */
+const SAVE_AFTER_MS = 700;
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const t = useT();
+  const router = useRouter();
   const extensions = useExtensions();
   // Edited as a whole, because a key typed into one entry must survive editing another.
   const [draftProfiles, setDraftProfiles] = useState<DraftProfile[]>([]);
@@ -161,10 +190,16 @@ export default function SettingsPage() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
   const [clearOpenaiApiKey, setClearOpenaiApiKey] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<TabId>("stt");
+
+  // Saved as it is changed (v4): there is no Save button. Every change counts up `edits`; a
+  // moment after the last one, what the page holds is sent. A reply is applied only when nothing
+  // was changed while it was on its way — otherwise it would put back what was just typed.
+  const [edits, setEdits] = useState(0);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const latest = useRef(0);
+  const edited = () => setEdits((n) => n + 1);
 
   // Theme is per device (localStorage). Applied the instant it is chosen, independent of
   // server settings — see lib/theme.ts, which the header toggle shares.
@@ -197,17 +232,16 @@ export default function SettingsPage() {
 
   const update = <K extends keyof PublicSettings>(key: K, value: PublicSettings[K]) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
-    setSaved(false);
+    edited();
   };
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const save = async (version: number) => {
     if (!settings) return;
+    latest.current = version;
     setError(null);
-    setSaved(false);
-    setSaving(true);
+    setStatus("saving");
     try {
-      // Everything the form holds, rather than a list of field names kept in step by hand.
+      // Everything the page holds, rather than a list of field names kept in step by hand.
       // The hand-written list is how the remote-transcription fields shipped unsaveable: they
       // were added to the type, the inputs and the API's allow-list, and left out of here, so
       // saving posted nothing for them and the reply -- the unchanged values -- overwrote what
@@ -236,6 +270,10 @@ export default function SettingsPage() {
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
       const next = (await res.json()) as PublicSettings;
+      // Changed again while this was on its way: that change is saved next, and this reply would
+      // only put back what it replaced.
+      if (latest.current !== version) return;
+      const languageChanged = next.uiLanguage !== uiLanguageShown.current;
       setSettings(next);
       setDraftProfiles(next.sttProfiles);
       setDraftTemplates(next.minutesTemplates);
@@ -243,17 +281,43 @@ export default function SettingsPage() {
       setOpenaiApiKey("");
       setClearAnthropicApiKey(false);
       setClearOpenaiApiKey(false);
-      setSaved(true);
+      setStatus("saved");
+      // The language is the server's to apply (the page is rendered in it): ask for the page
+      // again, in place, rather than telling somebody to reload it.
+      if (languageChanged) {
+        uiLanguageShown.current = next.uiLanguage;
+        router.refresh();
+      }
     } catch (err) {
+      if (latest.current !== version) return;
+      setStatus("failed");
       setError(err instanceof Error ? err.message : t("Failed to save"));
-    } finally {
-      setSaving(false);
     }
   };
+  // The language the page was drawn in, to know when a save changed it.
+  const uiLanguageShown = useRef<string | null>(null);
+  useEffect(() => {
+    if (settings && uiLanguageShown.current === null) uiLanguageShown.current = settings.uiLanguage;
+  }, [settings]);
+
+  // On a phone the categories are a row wider than the screen: keep the open one in sight.
+  useEffect(() => {
+    document.getElementById(`settings-tab-${tab}`)?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [tab, settings]);
+
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  });
+  useEffect(() => {
+    if (edits === 0) return;
+    const id = setTimeout(() => void saveRef.current(edits), SAVE_AFTER_MS);
+    return () => clearTimeout(id);
+  }, [edits]);
 
   if (!settings) {
     return (
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Settings")}</h1>
         {error ? (
           <p className="text-sm text-[var(--error)]">{error}</p>
@@ -264,21 +328,43 @@ export default function SettingsPage() {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Settings")}</h1>
+  const tabs = TABS.filter(
+    (tab_) =>
+      (tab_.id !== "defaults" || settings.isAdmin) &&
+      (tab_.id !== "remote" || extensions.externalShare) &&
+      (tab_.id !== "speakers" || extensions.speakers),
+  );
 
-      <form onSubmit={onSubmit} className="space-y-6">
-        {/* Category tabs */}
-        <div className="flex flex-wrap gap-1 border-b border-[var(--border)]">
-          {/* The defaults tab is not the reader's own settings, so it is only offered to
-              somebody who can change them for everybody. */}
-          {TABS.filter(
-            (tab_) =>
-              (tab_.id !== "defaults" || settings.isAdmin) &&
-              (tab_.id !== "remote" || extensions.externalShare) &&
-              (tab_.id !== "speakers" || extensions.speakers),
-          ).map((tab_) => (
+  return (
+    <div data-paper className="mx-auto max-w-5xl space-y-5 pt-2 lg:pt-6">
+      <div className="flex items-center gap-3">
+        <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
+          {t("Settings")}
+        </h1>
+        {/* Where the last change stands. Nothing before the first one: there is nothing to say. */}
+        <p aria-live="polite" className="text-xs">
+          {status === "saving" ? (
+            <span className="text-[var(--text-muted)]">{t("Saving…")}</span>
+          ) : status === "saved" ? (
+            <span className="inline-flex items-center gap-1 text-[var(--success)]">
+              <CheckIcon className="h-3.5 w-3.5" />
+              {t("Saved")}
+            </span>
+          ) : status === "failed" ? (
+            <span className="text-[var(--error)]">{t("Not saved")}</span>
+          ) : null}
+        </p>
+      </div>
+      {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
+
+      {/* The categories in a grey column of their own, the settings on the white page beside
+          them — two things, so two surfaces. On a phone the categories are a row to scroll. */}
+      <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <nav
+          aria-label={t("Settings")}
+          className="-mx-4 mb-5 flex gap-1 overflow-x-auto bg-[var(--panel)] px-4 py-2 lg:sticky lg:top-6 lg:mx-0 lg:mb-0 lg:flex-col lg:rounded-xl lg:p-2"
+        >
+          {tabs.map((tab_) => (
             <button
               key={tab_.id}
               type="button"
@@ -291,548 +377,446 @@ export default function SettingsPage() {
                 else url.searchParams.set("tab", tab_.id);
                 window.history.replaceState(null, "", `${url.pathname}${url.search}`);
               }}
-              className={`-mb-px rounded-t-md px-4 py-2 text-sm font-medium ${
+              id={`settings-tab-${tab_.id}`}
+              aria-current={tab === tab_.id ? "page" : undefined}
+              className={`shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-left text-sm ${
                 tab === tab_.id
-                  ? "border-b-2 border-[var(--accent)] text-[var(--text-strong)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                  ? "bg-[var(--surface)] font-medium text-[var(--text-strong)] shadow-sm"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
               }`}
             >
               {settingLabel(t, tab_.label)}
             </button>
           ))}
-        </div>
+        </nav>
 
-        {/* Transcription */}
-        {tab === "stt" ? (
-        <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Transcription (Whisper)")}</h2>
+        <div className="min-w-0">
+          <h2 className="mb-1 text-lg font-semibold text-[var(--text-strong)]">
+            {settingLabel(t, TABS.find((x) => x.id === tab)!.label)}
+          </h2>
 
-          <SttProfiles
-            profiles={draftProfiles}
-            defaultId={settings.sttDefaultProfileId}
-            disabled={saving}
-            localModel={settings.whisperModel}
-            notice={sttDest ? <RemoteSttNotice host={sttDest} /> : null}
-            endpoints={extensions.externalAi}
-            localEditor={
-              <>
-                <label htmlFor="whisperModel" className={labelClass}>
-                  {t("Model")}
-                </label>
+          {/* Transcription */}
+          {tab === "stt" ? (
+            <section>
+              <Field label={t("Recognition")}>
+                <SttProfiles
+                  profiles={draftProfiles}
+                  defaultId={settings.sttDefaultProfileId}
+                  disabled={false}
+                  localModel={settings.whisperModel}
+                  notice={sttDest ? <RemoteSttNotice host={sttDest} /> : null}
+                  endpoints={extensions.externalAi}
+                  localEditor={
+                    <>
+                      <label htmlFor="whisperModel" className={labelClass}>
+                        {t("Model")}
+                      </label>
+                      <select
+                        id="whisperModel"
+                        value={settings.whisperModel}
+                        onChange={(e) => update("whisperModel", e.target.value)}
+                        disabled={!settings.isAdmin}
+                        className={inputClass}
+                      >
+                        {WHISPER_MODELS.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {settingLabel(t, m.label)}
+                          </option>
+                        ))}
+                        {isKnownWhisperModel(settings.whisperModel) ? null : (
+                          <option value={settings.whisperModel}>
+                            {t("{model} (custom)", { model: settings.whisperModel })}
+                          </option>
+                        )}
+                      </select>
+                      <MachineNote isAdmin={settings.isAdmin} />
+                      <p className="mt-1 text-xs text-[var(--text-muted)]">
+                        {t("Memory each needs: {guide}. Downloaded on first use.", { guide: modelSizeGuide() })}
+                      </p>
+                      {whisperModel(settings.whisperModel)?.note ? (
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                          {settingLabel(t, whisperModel(settings.whisperModel)!.note!)}
+                        </p>
+                      ) : null}
+                      {/* With a remote endpoint configured, this picker still matters -- but not
+                          for everything, and saying so is the difference between a control that
+                          looks broken and one that is doing its job. */}
+                      {sttDest ? (
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                          {t("Live recognition uses this model; after the meeting and Re-transcribe use {model} at {host}.", {
+                            model: defaultProfile?.model || t("the endpoint’s model"),
+                            host: sttDest,
+                          })}
+                        </p>
+                      ) : null}
+                      {isJapaneseOnlyModel(settings.whisperModel) ? (
+                        <p className="mt-1 text-xs text-[var(--warning)]">
+                          {t("This is a Japanese-only model — meetings in other languages will not transcribe.")}
+                        </p>
+                      ) : null}
+                    </>
+                  }
+                  onChange={(p) => {
+                    setDraftProfiles(p);
+                    edited();
+                  }}
+                  onDefaultChange={(id) => update("sttDefaultProfileId", id)}
+                />
+              </Field>
+
+              <Field label={t("Transcription language")} htmlFor="sttLanguage" hint={t("Auto-detect keeps the language that was spoken.")}>
                 <select
-                  id="whisperModel"
-                  value={settings.whisperModel}
-                  onChange={(e) => update("whisperModel", e.target.value)}
-                  disabled={saving || !settings.isAdmin}
+                  id="sttLanguage"
+                  value={settings.sttLanguage}
+                  onChange={(e) => update("sttLanguage", e.target.value)}
                   className={inputClass}
                 >
-                  {WHISPER_MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {settingLabel(t, m.label)}
+                  {STT_LANGUAGES.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {settingLabel(t, l.label)}
                     </option>
                   ))}
-                  {isKnownWhisperModel(settings.whisperModel) ? null : (
-                    <option value={settings.whisperModel}>
-                      {t("{model} (custom)", { model: settings.whisperModel })}
-                    </option>
-                  )}
                 </select>
-                <MachineNote isAdmin={settings.isAdmin} />
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
-                  {t(
-                    "Roughly how much memory each needs: {guide}. On an 8GB card this is what has to fit beside whatever else is loaded. Downloaded on first use and cached afterwards.",
-                    { guide: modelSizeGuide() },
-                  )}
-                </p>
-                {whisperModel(settings.whisperModel)?.note ? (
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">
-                    {settingLabel(t, whisperModel(settings.whisperModel)!.note!)}
-                  </p>
-                ) : null}
-                {/* Set as the default it applies to every meeting, so make the trade-off loud here. */}
-                {/* With a remote endpoint configured, this picker still matters -- but not for
-                    everything, and saying so is the difference between a control that looks broken
-                    and one that is doing its job. */}
-                {sttDest ? (
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                    {t(
-                      "This model is used for live recognition on this machine. The after-the-meeting pass and Re-transcribe use {model} at {host} instead — these names belong to different services and are not interchangeable.",
-                      {
-                        model: defaultProfile?.model || t("the endpoint’s model"),
-                        host: sttDest,
-                      },
-                    )}
-                  </p>
-                ) : null}
-                {isJapaneseOnlyModel(settings.whisperModel) ? (
-                  <p className="mt-1 text-xs text-[var(--warning)]">
-                    {t("This is a Japanese-only model — meetings in other languages will not transcribe.")}
-                  </p>
-                ) : null}
-              </>
-            }
-            onChange={setDraftProfiles}
-            onDefaultChange={(id) => update("sttDefaultProfileId", id)}
-          />
+              </Field>
 
-          <div>
-            <label htmlFor="vramBudgetMb" className={labelClass}>
-              {t("GPU budget for queued work")}
-            </label>
-            <input
-              id="vramBudgetMb"
-              type="number"
-              min={0}
-              step={512}
-              value={settings.vramBudgetMb || ""}
-              onChange={(e) => update("vramBudgetMb", Math.max(0, Number(e.target.value) || 0))}
-              disabled={saving || !settings.isAdmin}
-              placeholder={t("Auto — from the card, less room for the display")}
-              className={`${inputClass} max-w-sm`}
-            />
-            <MachineNote isAdmin={settings.isAdmin} />
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("Megabytes of video memory the queue may commit at once. Leave it empty to work it out from the card. Jobs that run somewhere else — recognition sent to an endpoint, minutes written by a cloud model — cost nothing here and never wait for it.")}
-            </p>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("This is a scheduling figure, not a limit on any one job: something larger than the whole budget still runs, on its own. Raise it to let two things run together on a bigger card; lower it if something else on this machine needs the memory.")}
-            </p>
-          </div>
+              <Field label={t("Glossary")} htmlFor="sttGlossary" hint={t("Names and terms to expect. Keep it short — about 150 characters.")}>
+                <textarea
+                  id="sttGlossary"
+                  value={settings.sttGlossary}
+                  onChange={(e) => update("sttGlossary", e.target.value)}
+                  rows={2}
+                  placeholder={t("e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting")}
+                  className="input resize-y"
+                />
+              </Field>
 
-          <div>
-            <label htmlFor="sttLanguage" className={labelClass}>
-              {t("Transcription language")}
-            </label>
-            <select
-              id="sttLanguage"
-              value={settings.sttLanguage}
-              onChange={(e) => update("sttLanguage", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {STT_LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {settingLabel(t, l.label)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("“Auto-detect” transcribes in the spoken language (minutes language is set separately below).")}
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="sttGlossary" className={labelClass}>
-              {t("Terms / proper nouns (recognition bias)")}
-            </label>
-            <textarea
-              id="sttGlossary"
-              value={settings.sttGlossary}
-              onChange={(e) => update("sttGlossary", e.target.value)}
-              disabled={saving}
-              rows={2}
-              placeholder={t("e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting")}
-              className="input mt-1 resize-y"
-            />
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("Adding jargon, names, and product names improves accuracy. Keep it short (~150 chars).")}
-            </p>
-          </div>
-
-
-          {extensions.translation ? (
-          <div>
-            <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-              <input
-                type="checkbox"
-                checked={settings.sttTranslate}
-                onChange={(e) => update("sttTranslate", e.target.checked)}
-                disabled={saving}
-                className="h-4 w-4 accent-[var(--accent)]"
-              />
-              {t("Translate non-Japanese speech into Japanese")}
-            </label>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t(
-                "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.",
-              )}{" "}
-              {t(
-                "Turning this on downloads a ~1.2GB translation model (M2M100 1.2B, MIT licence) to the STT host on first use.",
-              )}
-            </p>
-          </div>
-          ) : null}
-        </section>
-        ) : null}
-
-        {/* Voice profiles (speaker auto-naming) */}
-        {tab === "speakers" && extensions.speakers ? <VoiceProfiles /> : null}
-
-        {/* Minutes (business background / format) */}
-        {tab === "minutes" ? (
-        <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Minutes (language, background, format)")}</h2>
-          <div>
-            <label htmlFor="summaryLanguage" className={labelClass}>
-              {t("Minutes language")}
-            </label>
-            <select
-              id="summaryLanguage"
-              value={settings.summaryLanguage}
-              onChange={(e) => update("summaryLanguage", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {SUMMARY_LANGUAGES.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {settingLabel(t, l.label)}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("Minutes are generated in this language regardless of the spoken language.")}
-            </p>
-          </div>
-          <div>
-            <label htmlFor="llmBackground" className={labelClass}>
-              {t("Business / research background")}
-            </label>
-            <textarea
-              id="llmBackground"
-              value={settings.llmBackground}
-              onChange={(e) => update("llmBackground", e.target.value)}
-              disabled={saving}
-              rows={6}
-              placeholder={t(
-                "Org, research topics, ongoing projects, people, and background knowledge. Referenced every time as context for all minutes.",
-              )}
-              className="input mt-1 resize-y"
-            />
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("Always-on context, separate from each meeting’s purpose. Aim for ~half to one page (too long hurts accuracy). Used only to interpret terms — not copied into minutes.")}
-            </p>
-          </div>
-
-          {extensions.minutesFormats ? (
-            <MinutesTemplates
-              templates={draftTemplates}
-              defaultId={settings.defaultMinutesTemplateId}
-              disabled={saving}
-              onChange={setDraftTemplates}
-              onDefaultChange={(id) => update("defaultMinutesTemplateId", id)}
-            />
-          ) : null}
-        </section>
-        ) : null}
-
-        {/* LLM */}
-        {tab === "llm" ? (
-        <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Minutes generation (LLM)")}</h2>
-          {/* Without External AI, Ollama is the only writer: no choice, and nothing sent away. */}
-          {extensions.externalAi ? (
-          <>
-          <div>
-            <label htmlFor="llmProvider" className={labelClass}>
-              {t("Provider")}
-            </label>
-            <select
-              id="llmProvider"
-              value={settings.llmProvider}
-              onChange={(e) => update("llmProvider", e.target.value as PublicSettings["llmProvider"])}
-              disabled={saving}
-              className={inputClass}
-            >
-              {LLM_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {settingLabel(t, p.label)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <ExternalProviderNotice settings={settings} />
-          </>
-          ) : null}
-
-          {/* Ollama fieldset */}
-          <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "ollama")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("Ollama")}</legend>
-            <div>
-              <label htmlFor="ollamaBaseUrl" className={labelClass}>
-                {t("Base URL")}
-              </label>
-              <input
-                id="ollamaBaseUrl"
-                type="text"
-                value={settings.ollamaBaseUrl}
-                onChange={(e) => update("ollamaBaseUrl", e.target.value)}
-                placeholder="http://127.0.0.1:11434"
-                className={inputClass}
-              />
-            </div>
-            <OllamaModelField
-              baseUrl={settings.ollamaBaseUrl}
-              model={settings.ollamaModel}
-              onChange={(v) => update("ollamaModel", v)}
-              isAdmin={settings.isAdmin}
-              inputClass={inputClass}
-              labelClass={labelClass}
-            />
-          </fieldset>
-
-          {extensions.externalAi ? (
-          <>
-          {/* Anthropic */}
-          <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "anthropic")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("Anthropic")}</legend>
-            <div>
-              <label htmlFor="anthropicModel" className={labelClass}>
-                {t("Model")}
-              </label>
-              <input
-                id="anthropicModel"
-                type="text"
-                value={settings.anthropicModel}
-                onChange={(e) => update("anthropicModel", e.target.value)}
-                placeholder="claude-sonnet-4-6"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="anthropicApiKey" className={labelClass}>
-                {t("API key")}
-              </label>
-              <input
-                id="anthropicApiKey"
-                type="password"
-                value={anthropicApiKey}
-                onChange={(e) => {
-                  setAnthropicApiKey(e.target.value);
-                  setSaved(false);
-                }}
-                placeholder={
-                  settings.hasAnthropicApiKey ? t("Set (enter only to change)") : t("Not set")
-                }
-                autoComplete="off"
-                className={inputClass}
-              />
-              {settings.hasAnthropicApiKey ? (
-                <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    checked={clearAnthropicApiKey}
-                    onChange={(e) => setClearAnthropicApiKey(e.target.checked)}
-                    className="accent-[var(--error)]"
-                  />
-                  {t("Delete the saved key")}
-                </label>
-              ) : null}
-            </div>
-          </fieldset>
-
-          {/* OpenAI */}
-          <fieldset disabled={saving} className={fieldsetClass(settings.llmProvider === "openai")}>
-            <legend className="px-1 text-xs font-medium text-[var(--text-secondary)]">{t("OpenAI-compatible (vLLM / LM Studio / OpenAI)")}</legend>
-            <div>
-              <label htmlFor="openaiBaseUrl" className={labelClass}>
-                {t("Base URL")}
-              </label>
-              <input
-                id="openaiBaseUrl"
-                type="text"
-                value={settings.openaiBaseUrl}
-                onChange={(e) => update("openaiBaseUrl", e.target.value)}
-                placeholder="https://api.openai.com/v1"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="openaiModel" className={labelClass}>
-                {t("Model")}
-              </label>
-              <input
-                id="openaiModel"
-                type="text"
-                value={settings.openaiModel}
-                onChange={(e) => update("openaiModel", e.target.value)}
-                placeholder="gpt-4o-mini"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label htmlFor="openaiApiKey" className={labelClass}>
-                {t("API key (leave empty for local servers)")}
-              </label>
-              <input
-                id="openaiApiKey"
-                type="password"
-                value={openaiApiKey}
-                onChange={(e) => {
-                  setOpenaiApiKey(e.target.value);
-                  setSaved(false);
-                }}
-                placeholder={
-                  settings.hasOpenaiApiKey
-                    ? t("Set (enter only to change)")
-                    : t("Not set (OK for LM Studio / vLLM)")
-                }
-                autoComplete="off"
-                className={inputClass}
-              />
-              {settings.hasOpenaiApiKey ? (
-                <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                  <input
-                    type="checkbox"
-                    checked={clearOpenaiApiKey}
-                    onChange={(e) => setClearOpenaiApiKey(e.target.checked)}
-                    className="accent-[var(--error)]"
-                  />
-                  {t("Delete the saved key")}
-                </label>
-              ) : null}
-            </div>
-          </fieldset>
-          </>
-          ) : null}
-        </section>
-        ) : null}
-
-        {/* Remote access (Tailscale Funnel publish toggle) */}
-        {tab === "remote" && extensions.externalShare ? <RemoteAccess /> : null}
-
-        {tab === "extensions" ? <ExtensionsSettings isAdmin={settings.isAdmin} /> : null}
-
-        {tab === "data" ? (
-          <>
-            {/* Also in the account menu; this is the way in on an instance without accounts. */}
-            <Link
-              href="/storage"
-              className="card flex items-center gap-3 p-4 hover:bg-[var(--hover-surface)]"
-            >
-              <StorageIcon className="h-5 w-5 shrink-0 text-[var(--accent-sub)]" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-[var(--text-strong)]">{t("Storage")}</span>
-                <span className="block text-xs text-[var(--text-muted)]">
-                  {t("How much room the recordings, transcripts and minutes take")}
-                </span>
-              </span>
-              <span aria-hidden className="text-lg text-[var(--text-muted)]">
-                ›
-              </span>
-            </Link>
-            <DataBackup />
-          </>
-        ) : null}
-
-        {/* Appearance */}
-        {tab === "defaults" ? <HouseDefaults /> : null}
-
-        {tab === "appearance" ? (
-        <>
-        <section className="card space-y-4 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Appearance")}</h2>
-          <div>
-            <p className="label">{t("Theme")}</p>
-            <div className="mt-2 grid max-w-sm grid-cols-3 gap-2">
-              {THEMES.map((th) => (
-                <button
-                  key={th.id}
-                  type="button"
-                  onClick={() => applyTheme(th.id)}
-                  className={`rounded-md border px-3 py-2 text-sm ${
-                    theme === th.id
-                      ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent-sub)]"
-                      : "border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
-                  }`}
+              {extensions.translation ? (
+                <Field
+                  label={t("Japanese translation")}
+                  hint={t("Under each non-Japanese line. Runs on the CPU; a 1.2 GB model is downloaded on first use.")}
                 >
-                  {settingLabel(t, th.label)}
-                  {th.id === "system" ? (
-                    <span className="block text-[11px] opacity-70">{t("default")}</span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              {t("Applied instantly and saved per device (browser). No need to press “Save”.")}{" "}
-              {t(
-                "“System” follows your OS and changes with it. Read-only visitors get the same choice from the icon in the header.",
+                  <label className="flex items-center gap-2 pt-2 text-sm text-[var(--text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={settings.sttTranslate}
+                      onChange={(e) => update("sttTranslate", e.target.checked)}
+                      className="h-4 w-4 accent-[var(--accent)]"
+                    />
+                    {t("Translate non-Japanese speech into Japanese")}
+                  </label>
+                </Field>
+              ) : null}
+
+              <Field
+                label={t("GPU budget for queued work")}
+                htmlFor="vramBudgetMb"
+                hint={
+                  <>
+                    <MachineNote isAdmin={settings.isAdmin} />
+                    <p>{t("Megabytes of video memory queued work may use at once. Empty: worked out from the card.")}</p>
+                  </>
+                }
+              >
+                <input
+                  id="vramBudgetMb"
+                  type="number"
+                  min={0}
+                  step={512}
+                  value={settings.vramBudgetMb || ""}
+                  onChange={(e) => update("vramBudgetMb", Math.max(0, Number(e.target.value) || 0))}
+                  disabled={!settings.isAdmin}
+                  placeholder={t("Auto")}
+                  className={`${inputClass} max-w-xs`}
+                />
+              </Field>
+            </section>
+          ) : null}
+
+          {/* Voice profiles (speaker auto-naming) */}
+          {tab === "speakers" && extensions.speakers ? <VoiceProfiles /> : null}
+
+          {/* Minutes (language, background, format) */}
+          {tab === "minutes" ? (
+            <section>
+              <Field label={t("Minutes language")} htmlFor="summaryLanguage" hint={t("Whatever language was spoken.")}>
+                <select
+                  id="summaryLanguage"
+                  value={settings.summaryLanguage}
+                  onChange={(e) => update("summaryLanguage", e.target.value)}
+                  className={inputClass}
+                >
+                  {SUMMARY_LANGUAGES.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {settingLabel(t, l.label)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label={t("Background")}
+                htmlFor="llmBackground"
+                hint={t("Read with every meeting's minutes, to understand its terms — never copied into them. Half a page to a page.")}
+              >
+                <textarea
+                  id="llmBackground"
+                  value={settings.llmBackground}
+                  onChange={(e) => update("llmBackground", e.target.value)}
+                  rows={6}
+                  placeholder={t("Your organisation, projects and people.")}
+                  className="input resize-y"
+                />
+              </Field>
+              {extensions.minutesFormats ? (
+                <Field label={t("Formats")}>
+                  <MinutesTemplates
+                    templates={draftTemplates}
+                    defaultId={settings.defaultMinutesTemplateId}
+                    disabled={false}
+                    onChange={(next) => {
+                      setDraftTemplates(next);
+                      edited();
+                    }}
+                    onDefaultChange={(id) => update("defaultMinutesTemplateId", id)}
+                  />
+                </Field>
+              ) : null}
+            </section>
+          ) : null}
+
+          {/* LLM */}
+          {tab === "llm" ? (
+            <section>
+              {/* Without External AI, Ollama is the only writer: no choice, and nothing sent away. */}
+              {extensions.externalAi ? (
+                <Field label={t("Provider")} htmlFor="llmProvider" hint={<ExternalProviderNotice settings={settings} />}>
+                  <select
+                    id="llmProvider"
+                    value={settings.llmProvider}
+                    onChange={(e) => update("llmProvider", e.target.value as PublicSettings["llmProvider"])}
+                    className={inputClass}
+                  >
+                    {LLM_PROVIDERS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {settingLabel(t, p.label)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+
+              {/* Only the one in use: the other two were boxes of fields that did nothing. */}
+              {settings.llmProvider === "ollama" || !extensions.externalAi ? (
+                <>
+                  <Field label={t("Ollama address")} htmlFor="ollamaBaseUrl">
+                    <input
+                      id="ollamaBaseUrl"
+                      type="text"
+                      value={settings.ollamaBaseUrl}
+                      onChange={(e) => update("ollamaBaseUrl", e.target.value)}
+                      placeholder="http://127.0.0.1:11434"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label={t("Ollama model")}>
+                    <OllamaModelField
+                      baseUrl={settings.ollamaBaseUrl}
+                      model={settings.ollamaModel}
+                      onChange={(v) => update("ollamaModel", v)}
+                      isAdmin={settings.isAdmin}
+                      inputClass={inputClass}
+                      labelClass="sr-only"
+                    />
+                  </Field>
+                </>
+              ) : settings.llmProvider === "anthropic" ? (
+                <>
+                  <Field label={t("Model")} htmlFor="anthropicModel">
+                    <input
+                      id="anthropicModel"
+                      type="text"
+                      value={settings.anthropicModel}
+                      onChange={(e) => update("anthropicModel", e.target.value)}
+                      placeholder="claude-sonnet-4-6"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label={t("API key")} htmlFor="anthropicApiKey">
+                    <input
+                      id="anthropicApiKey"
+                      type="password"
+                      value={anthropicApiKey}
+                      onChange={(e) => {
+                        setAnthropicApiKey(e.target.value);
+                        edited();
+                      }}
+                      placeholder={settings.hasAnthropicApiKey ? t("Set (enter only to change)") : t("Not set")}
+                      autoComplete="off"
+                      className={inputClass}
+                    />
+                    {settings.hasAnthropicApiKey ? (
+                      <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <input
+                          type="checkbox"
+                          checked={clearAnthropicApiKey}
+                          onChange={(e) => {
+                            setClearAnthropicApiKey(e.target.checked);
+                            edited();
+                          }}
+                          className="accent-[var(--error)]"
+                        />
+                        {t("Delete the saved key")}
+                      </label>
+                    ) : null}
+                  </Field>
+                </>
+              ) : (
+                <>
+                  <Field label={t("Base URL")} htmlFor="openaiBaseUrl">
+                    <input
+                      id="openaiBaseUrl"
+                      type="text"
+                      value={settings.openaiBaseUrl}
+                      onChange={(e) => update("openaiBaseUrl", e.target.value)}
+                      placeholder="https://api.openai.com/v1"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label={t("Model")} htmlFor="openaiModel">
+                    <input
+                      id="openaiModel"
+                      type="text"
+                      value={settings.openaiModel}
+                      onChange={(e) => update("openaiModel", e.target.value)}
+                      placeholder="gpt-4o-mini"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label={t("API key")} htmlFor="openaiApiKey" hint={t("Leave it empty for a local server.")}>
+                    <input
+                      id="openaiApiKey"
+                      type="password"
+                      value={openaiApiKey}
+                      onChange={(e) => {
+                        setOpenaiApiKey(e.target.value);
+                        edited();
+                      }}
+                      placeholder={settings.hasOpenaiApiKey ? t("Set (enter only to change)") : t("Not set")}
+                      autoComplete="off"
+                      className={inputClass}
+                    />
+                    {settings.hasOpenaiApiKey ? (
+                      <label className="mt-2 flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <input
+                          type="checkbox"
+                          checked={clearOpenaiApiKey}
+                          onChange={(e) => {
+                            setClearOpenaiApiKey(e.target.checked);
+                            edited();
+                          }}
+                          className="accent-[var(--error)]"
+                        />
+                        {t("Delete the saved key")}
+                      </label>
+                    ) : null}
+                  </Field>
+                </>
               )}
-            </p>
-          </div>
+            </section>
+          ) : null}
 
-          <div>
-            <label htmlFor="uiLanguage" className={labelClass}>
-              {t("Language")}
-            </label>
-            <select
-              id="uiLanguage"
-              value={settings.uiLanguage}
-              onChange={(e) => update("uiLanguage", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              <option value="auto">{t("Follow my browser")}</option>
-              <option value="en">{t("English")}</option>
-              <option value="ja">日本語</option>
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t(
-                "The screens. What language the minutes are written in is a separate setting, under Minutes — an English screen writing Japanese minutes is a combination people want.",
-              )}
-            </p>
-          </div>
+          {/* Remote access (Tailscale Funnel publish toggle) */}
+          {tab === "remote" && extensions.externalShare ? <RemoteAccess /> : null}
 
-          <div>
-            <label htmlFor="meetingTitleFormat" className={labelClass}>
-              {t("Default meeting name")}
-            </label>
-            <select
-              id="meetingTitleFormat"
-              value={settings.meetingTitleFormat}
-              onChange={(e) => update("meetingTitleFormat", e.target.value)}
-              disabled={saving}
-              className={inputClass}
-            >
-              {/* The samples are the labels. Which of `20260711` and `Jul 11, 2026` reads as a
-                  date is a question about where somebody lives, and the way to answer it is to
-                  look at both rather than to decode `yyyyMMdd`. */}
-              {TITLE_FORMATS.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.sample}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {t("What a meeting is called until somebody names it. The day it is for — a meeting booked from the calendar is named for that day, not for today.")}
-            </p>
-          </div>
+          {tab === "extensions" ? <ExtensionsSettings isAdmin={settings.isAdmin} /> : null}
 
-          {/* Per device, like the theme: a phone in a pocket and a laptop on the table want
-              different answers (app/rest-screen.ts). */}
-          <RestScreenSetting labelClass={labelClass} inputClass={inputClass} />
-        </section>
-        {/* Per device, like the theme above it. */}
-        {extensions.schedule ? <ReminderNotifications /> : null}
-        </>
-        ) : null}
+          {tab === "data" ? (
+            <section className="space-y-6">
+              {/* Also in the account menu; this is the way in on an instance without accounts. */}
+              <Field label={t("Storage")}>
+                <Link href="/storage" className="inline-flex items-center gap-2 pt-2 text-sm text-[var(--accent-sub)] hover:underline">
+                  <StorageIcon className="h-4 w-4 shrink-0" />
+                  {t("How much room the recordings, transcripts and minutes take")}
+                </Link>
+              </Field>
+              <DataBackup />
+            </section>
+          ) : null}
 
-        {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-        {saved ? <p className="text-sm text-[var(--success)]">{t("Saved.")}</p> : null}
+          {tab === "defaults" ? <HouseDefaults /> : null}
 
-        <div className="flex items-center justify-end gap-2">
-          <Link href="/" className="btn-outline">
-            {t("Back")}
-          </Link>
-          {/* Not on the tabs whose switches take effect as they are flipped: Save there saves
-              nothing, and reads as if the switch has not counted until it is pressed. */}
-          {tab !== "extensions" && tab !== "remote" ? (
-            <button type="submit" disabled={saving} className="btn-ink">
-              {saving ? t("Saving…") : t("Save")}
-            </button>
+          {tab === "appearance" ? (
+            <section>
+              <Field label={t("Theme")} hint={t("This device only. System follows the OS.")}>
+                <div className="grid max-w-sm grid-cols-3 gap-2">
+                  {THEMES.map((th) => (
+                    <button
+                      key={th.id}
+                      type="button"
+                      onClick={() => applyTheme(th.id)}
+                      aria-pressed={theme === th.id}
+                      className={`rounded-md border px-3 py-2 text-sm ${
+                        theme === th.id
+                          ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent-sub)]"
+                          : "border-[var(--border-strong)] text-[var(--text-secondary)] hover:border-[var(--accent)]"
+                      }`}
+                    >
+                      {settingLabel(t, th.label)}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label={t("Language")} htmlFor="uiLanguage" hint={t("Of the screens. The minutes' language is under Minutes.")}>
+                <select
+                  id="uiLanguage"
+                  value={settings.uiLanguage}
+                  onChange={(e) => update("uiLanguage", e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="auto">{t("Follow my browser")}</option>
+                  <option value="en">{t("English")}</option>
+                  <option value="ja">日本語</option>
+                </select>
+              </Field>
+
+              <Field
+                label={t("Default meeting name")}
+                htmlFor="meetingTitleFormat"
+                hint={t("Until somebody names it. A booked meeting is named for its day.")}
+              >
+                <select
+                  id="meetingTitleFormat"
+                  value={settings.meetingTitleFormat}
+                  onChange={(e) => update("meetingTitleFormat", e.target.value)}
+                  className={inputClass}
+                >
+                  {/* The samples are the labels. Which of `20260711` and `Jul 11, 2026` reads as
+                      a date is a question about where somebody lives, and the way to answer it is
+                      to look at both rather than to decode `yyyyMMdd`. */}
+                  {TITLE_FORMATS.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.sample}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {/* Per device, like the theme: a phone in a pocket and a laptop on the table want
+                  different answers (app/rest-screen.ts). */}
+              <Field label={t("Rest the screen")}>
+                <RestScreenSetting labelClass="sr-only" inputClass={inputClass} />
+              </Field>
+
+              {/* Per device, like the theme above it. */}
+              {extensions.schedule ? (
+                <div className="pt-4">
+                  <ReminderNotifications />
+                </div>
+              ) : null}
+            </section>
           ) : null}
         </div>
-      </form>
+      </div>
     </div>
   );
 }
