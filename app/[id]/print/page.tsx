@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { extensionEnabled } from "@/lib/extensions-store";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -17,8 +18,22 @@ export const dynamic = "force-dynamic";
 // docs/design-decisions.md on fonts). The browser already has those fonts and already has a
 // PDF writer, so printing from here produces better Japanese output than we could, for no
 // dependency and no bundle cost.
-export default async function PrintMinutes({ params }: { params: Promise<{ id: string }> }) {
+// Named after the meeting: the print dialog offers the page's title as the PDF's file name.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
+  const meeting = await prisma.meeting.findUnique({ where: { id }, select: { title: true } });
+  return meeting ? { title: meeting.title } : {};
+}
+
+export default async function PrintMinutes({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ auto?: string }>;
+}) {
+  const { id } = await params;
+  const { auto } = await searchParams;
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     include: {
@@ -40,7 +55,7 @@ export default async function PrintMinutes({ params }: { params: Promise<{ id: s
     <main className="print-sheet mx-auto max-w-3xl px-6 py-8">
       {/* Everything in here is hidden when printing — see globals.css. */}
       <div className="no-print mb-6 flex flex-wrap items-center gap-3">
-        <PrintTrigger />
+        <PrintTrigger auto={auto === "1"} />
         <Link href={`/${meeting.id}`} className="btn-outline">
           {t("Back to the meeting")}
         </Link>

@@ -74,6 +74,10 @@ describe("the page's controls", () => {
     for (const what of ['file("minutes")', "format=docx", "/print", 'file("transcript")', 'file("meta")', "saveRecording", 'row("zip"']) {
       expect(menu, what).toContain(what);
     }
+    // PDF goes straight to the print dialog: the sheet loads in a hidden frame and prints itself.
+    expect(menu).toContain("print?auto=1");
+    expect(read("app/[id]/print/page.tsx")).toContain('<PrintTrigger auto={auto === "1"} />');
+    expect(read("app/[id]/print/print-trigger.tsx")).toContain("window.print()");
     // And nowhere else.
     expect(read("app/[id]/summary-section.tsx")).not.toContain("format=docx");
     expect(read("app/[id]/transcript-list.tsx")).not.toContain("downloadText");
