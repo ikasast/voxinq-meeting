@@ -30,15 +30,9 @@ export function FirstRunGuide({ recordingHref }: { recordingHref: string }) {
       ),
     },
     {
-      label: t("Suggest fixes"),
+      label: t("Fix wording"),
       body: t(
-        "Two product names in here are written the way speech recognition mishears them. This asks the model to find exactly those and offers each as a change you accept or refuse.",
-      ),
-    },
-    {
-      label: t("Find & replace"),
-      body: t(
-        "For a word that came out wrong the same way throughout. Preview shows every line it would touch before anything changes.",
+        "Two product names in here are written the way speech recognition mishears them. Ask the glossary for suggestions, or type the word and what it should be — either way every line it would change is listed, and only the ticked ones change.",
       ),
     },
     {
@@ -49,7 +43,7 @@ export function FirstRunGuide({ recordingHref }: { recordingHref: string }) {
     },
     {
       label: t("Share, or download"),
-      body: t("Markdown, Word or PDF, and the meeting's own ⬇ bundles the transcript with it."),
+      body: t("Markdown, Word or PDF, the transcript and the recording — all from ⬇ beside the title."),
     },
   ];
 

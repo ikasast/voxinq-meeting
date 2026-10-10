@@ -235,6 +235,20 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Fix wording": "表記の修正",
+  "See every line it changes before it does": "直す前に、変わる行を確かめられます",
+  "Suggest from the glossary": "用語集から候補を出す",
+  "{picked} of {n} selected": "{n} 件中 {picked} 件を選択",
+  "Only the first {shown} are shown; fix them, then look again.":
+    "最初の {shown} 件だけを表示しています。直してから、もう一度探してください。",
+  "Fixing…": "修正中…",
+  "Fix {n}": "{n} 件を直す",
+  "Fixed 1 line.": "1 行を直しました。",
+  "Fixed {n} lines.": "{n} 行を直しました。",
+  "Two product names in here are written the way speech recognition mishears them. Ask the glossary for suggestions, or type the word and what it should be — either way every line it would change is listed, and only the ticked ones change.":
+    "この発言には、音声認識が聞き間違えた形の製品名が2つ入っています。用語集から候補を出すか、間違った語と正しい語を入力すると、変わる行がすべて一覧になり、チェックした行だけが直ります。",
+  "Markdown, Word or PDF, the transcript and the recording — all from ⬇ beside the title.":
+    "Markdown・Word・PDF、発言、録音を、タイトル横の ⬇ からまとめて書き出せます。",
   "Meeting info": "会議情報",
   Everything: "まとめて",
   "Print and save": "印刷して保存",
@@ -328,17 +342,10 @@ export const ja: Record<string, string> = {
   "Save voice profiles": "声紋を登録",
   "Enrolled:": "登録済み:",
   "Delete this voice profile": "この声紋を削除",
-  "Suggest fixes": "誤変換の候補を出す",
-  "1 suggestion across {checked} utterances — review it below.": "発言 {checked}件を確認し、候補が1件あります。下の行で確かめてください。",
-  "{n} suggestions across {checked} utterances — review each below.": "発言 {checked}件を確認し、候補が {n}件あります。下の各行で確かめてください。",
   "No misheard glossary terms found across {checked} utterances.": "発言 {checked}件を確認しました。聞き違えた用語は見つかりませんでした。",
-  "Suggested fix": "修正候補",
-  "Fix a term that was misheard the same way throughout": "同じ誤変換をまとめて直します",
-  "Find & replace": "検索と置換",
   Find: "検索",
   "Replace with": "置換後",
   "Match case": "大文字小文字を区別",
-  Preview: "プレビュー",
   "No matches.": "一致するものがありません。",
   "Re-transcribe from the recording": "録音から文字起こしをやり直す",
   "Recognise the recording again and replace the transcript": "録音を認識し直して発言を置き換えます",
@@ -1109,15 +1116,11 @@ export const ja: Record<string, string> = {
   "How to set it up →": "設定方法 →",
   "Speaker names (edits apply to all lines)": "話者の名前（変更はすべての行に反映されます）",
   "e.g. Voxinq": "例: Voxinq",
-  "…and {n} more": "…ほか {n} 件",
   "{n} skipped — a replacement cannot empty an utterance (delete it instead) or exceed the length limit.":
     "{n} 件は対象外です。置換で発言を空にすることはできません（その場合は削除してください）。長さの上限を超える場合も同様です。",
   "There is no transcript, but the recording remains. You can restore it from here.":
     "発言は残っていませんが、録音は残っています。ここから復元できます。",
   "Recognise with": "認識に使うのは",
-  "Apply all": "すべて適用",
-  "Dismiss all": "すべて破棄",
-  Apply: "適用",
   Dismiss: "破棄",
   "Enter to save · Shift+Enter for a new line · Esc to cancel":
     "Enter で保存 · Shift+Enter で改行 · Esc で取り消し",
@@ -1253,15 +1256,9 @@ export const ja: Record<string, string> = {
   "The speaker names": "話者の名前",
   "Three speakers, already separated — this is what diarization produces. Rename one and every line by that person changes with it.":
     "3人の話者が既に分かれています。これが話者分離の結果です。名前を変えると、その人の発言すべてに反映されます。",
-  "Two product names in here are written the way speech recognition mishears them. This asks the model to find exactly those and offers each as a change you accept or refuse.":
-    "この発言には、音声認識が聞き間違えた形の製品名が2つ入っています。それだけをモデルに探させ、1件ずつ「適用する／しない」を選べる形で出します。",
-  "For a word that came out wrong the same way throughout. Preview shows every line it would touch before anything changes.":
-    "同じ語が同じように間違って出ているときに使います。プレビューで、変更前に対象の行がすべて見えます。",
   "Nothing is written yet — pressing this runs the real model on the text above. A meeting this short takes seconds; a real one takes longer and waits in the queue.":
     "議事録はまだありません。押すと、上の発言に対して本物のモデルが走ります。これくらい短い会議なら数秒で、実際の会議はもっとかかり、順番待ちに入ります。",
   "Share, or download": "共有、または書き出し",
-  "Markdown, Word or PDF, and the meeting's own ⬇ bundles the transcript with it.":
-    "Markdown・Word・PDF で出せます。会議自体の ⬇ なら、発言もまとめて1つにできます。",
   "Recording and separating speakers are not on this list because both need the audio, and a sample meeting has none.":
     "録音と話者分離がこの一覧に無いのは、どちらも音声そのものを必要とし、サンプル会議には音声が無いためです。",
   "Record a real one": "実際に録音してみる",
@@ -1493,14 +1490,11 @@ export const ja: Record<string, string> = {
   "Recording download failed (HTTP {status})": "録音のダウンロードに失敗しました（HTTP {status}）",
   "Saved voice profiles: {names}": "声紋を登録しました: {names}",
   "Preview failed: {error}": "プレビューに失敗しました: {error}",
-  "{n} skipped.": "{n} 件は置換しませんでした。",
   "Replace failed: {error}": "置換に失敗しました: {error}",
   "It is removed from the transcript and will no longer be used when generating minutes. The audio itself is kept.": "文字起こしから取り除かれ、議事録の作成にも使われなくなります。音声そのものは残ります。",
   "Replace the current transcript (including speaker assignments and manual edits) with a fresh recognition from the recording. You can re-run auto-diarization afterward.": "今の文字起こし（話者の割り当てや手で直した箇所を含む）を、録音からの新しい認識結果に置き換えます。話者分離はあとからやり直せます。",
   "The recording will be uploaded to {host}, which recognises it and bills you for the length of the audio.": "録音は {host} に送られて認識され、音声の長さに応じて料金がかかります。",
   "Done. Run \"Diarize\" to distinguish speakers.": "完了しました。話者を分けるには「話者を分離」を実行してください。",
-  "Replaced in 1 utterance.": "1 件の発言を置換しました。",
-  "Replaced in {n} utterances.": "{n} 件の発言を置換しました。",
   Storage: "ストレージ",
   "How much room the recordings, transcripts and minutes take": "録音・文字起こし・議事録が使っている容量を見る",
   "The room your meeting material takes in Voxinq.": "Voxinqに保存している会議資料の容量です。",

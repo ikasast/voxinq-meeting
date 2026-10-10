@@ -4,15 +4,16 @@ import { describe, expect, it } from "vitest";
 
 // Where the transcript's controls sit, and what they depend on.
 //
-// Find & replace and Re-transcribe were once pills in a toolbar whose panels rendered several
+// Fixing the wording (once Find & replace) and Re-transcribe were once pills in a toolbar whose panels rendered several
 // screens below it; on a phone, tapping one appeared to do nothing. Then they became folding
 // rows, each a box with its own header — which, inside the transcript's own card and above lines
 // that were boxes too, made the panel read as cards inside cards.
 //
 // Now (v4) they are icons beside the heading, and the one that is pressed opens its panel right
 // under it: a fold between two rules, never another box. Asking for speakers and naming them
-// are one job, so Diarize and the names it produces share a panel. The work that changes
-// nothing — take the transcript away, show the translations, check it — waits behind "…".
+// are one job, so Diarize and the names it produces share a panel, and finding a misheard word
+// by hand or by the glossary are one job, so they share one too. The work that changes nothing —
+// take the transcript away, show the translations, measure it — waits behind "…".
 
 const root = join(__dirname, "..");
 const list = readFileSync(join(root, "app/[id]/transcript-list.tsx"), "utf8");
@@ -28,7 +29,7 @@ describe("the transcript's tools", () => {
   it("open under the heading, above the recording and the lines", () => {
     const button = at('toolButton("speakers"');
     const speakers = at("{/* Speaker separation");
-    const replace = at("{/* Find and replace");
+    const replace = at("{/* Fixing the wording");
     const retrans = at("{/* Re-transcription");
     const player = at("<audio");
     const lines = at("<TranscriptRow");
@@ -42,7 +43,7 @@ describe("the transcript's tools", () => {
     // Three folds, each open or shut on its own, were most of what made the panel busy; a
     // speaker fold open by default was always the first thing on the page.
     expect(list).toMatch(/const \[tool, setTool\] = useState<Tool>\(null\)/);
-    for (const k of ["speakers", "replace", "retrans"]) {
+    for (const k of ["speakers", "fix", "retrans"]) {
       expect(list).toContain(`{tool === "${k}" && `);
     }
   });
@@ -55,16 +56,28 @@ describe("the transcript's tools", () => {
   });
 
   it("keeps Diarize and the names it produces in one panel", () => {
-    const block = list.slice(at("{/* Speaker separation"), at("{/* Find and replace"));
+    const block = list.slice(at("{/* Speaker separation"), at("{/* Fixing the wording"));
     expect(block, "the Diarize button left the speaker panel").toContain('{t("Diarize")}');
     expect(block, "the speaker names left the panel Diarize is in").toContain("showSpeakerTools");
+  });
+
+  it("keep both ways of finding a misheard word in one panel, ending in one list", () => {
+    const fix = readFileSync(join(root, "app/[id]/spelling-fix.tsx"), "utf8");
+    expect(list).toContain('toolButton("fix"');
+    expect(list).toContain("<SpellingFix");
+    expect(list).not.toContain("runSuggestions");
+    expect(fix).toContain("/replace`");
+    expect(fix).toContain("/suggest-corrections`");
+    // Whichever found them, the lines are ticked in one list and fixed by one button.
+    expect(fix.match(/<ul /g)).toHaveLength(1);
+    expect(fix).toContain("ids: picked.map((c) => c.id)");
   });
 
   it("put sharing, the checks and the translations behind the menu in the heading", () => {
     const menu = list.slice(at("{/* What to do with the transcript"), at("{/* Speaker separation"));
     expect(menu).toContain("<DropMenu");
     // Saving it as a file is in the meeting's download menu, with every other file.
-    for (const what of ["shareText", "runVoiceCues", "runEmotion", "runSuggestions", "Show translations"]) {
+    for (const what of ["shareText", "runVoiceCues", "runEmotion", "Show translations"]) {
       expect(menu, `${what} left the menu`).toContain(what);
     }
   });
@@ -99,7 +112,7 @@ describe("Diarize", () => {
     expect(list, "Diarize is no longer gated on the recording still being there").toMatch(
       /const canDiarize =[\s\S]{0,120}recInfo\?\.exists \|\| diarizing/,
     );
-    const block = list.slice(at("{/* Speaker separation"), at("{/* Find and replace"));
+    const block = list.slice(at("{/* Speaker separation"), at("{/* Fixing the wording"));
     const guard = block.indexOf("{canDiarize ? (");
     expect(guard, "the button is not behind that guard any more").toBeGreaterThan(-1);
     // Before the button, so it governs it. `diarizing` is in there to keep Stop reachable.

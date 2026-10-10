@@ -54,6 +54,7 @@ import { useExtensions } from "@/app/extensions-provider";
 import { type CueMark, marks, readCues } from "@/lib/voice-cues";
 import { emotionMark, readEmotion } from "@/lib/emotion";
 import { MoodStrip } from "./mood-strip";
+import { SpellingFix } from "./spelling-fix";
 import { useRecorderApi, useRecorderState } from "@/app/recorder";
 
 type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
@@ -76,12 +77,8 @@ type Item = {
   emotion?: string | null;
 };
 
-// A proposed fix for a misheard glossary term. Held in memory only — nothing is stored until
-// the user applies it, and applying goes through the ordinary utterance-edit path.
-type Suggestion = { transcriptId: string; before: string; after: string };
-
 /** The tools above the lines that open a panel under them. */
-type Tool = "speakers" | "replace" | "retrans" | null;
+type Tool = "speakers" | "fix" | "retrans" | null;
 
 /** An icon button beside the heading: no outline of its own, so the row stays one quiet line. */
 const HEAD_BUTTON =
@@ -168,18 +165,6 @@ export function TranscriptList({
   const [tool, setTool] = useState<Tool>(null);
   // A word on what just happened that needs no more than a moment ("Copied").
   const [notice, setNotice] = useState<string | null>(null);
-  const [findText, setFindText] = useState("");
-  const [replaceText, setReplaceText] = useState("");
-  const [replaceCase, setReplaceCase] = useState(false);
-  const [replaceBusy, setReplaceBusy] = useState(false);
-  const [replacePreview, setReplacePreview] = useState<{
-    matchedRows: number;
-    totalMatches: number;
-    changeCount: number;
-    changes: { id: string; before: string; after: string; count: number }[];
-    skipped: { id: string; reason: string }[];
-  } | null>(null);
-  const [replaceMsg, setReplaceMsg] = useState<string | null>(null);
   const [diarWarn, setDiarWarn] = useState<string | null>(null);
   const [recInfo, setRecInfo] = useState<RecordingInfo | null>(null);
   const [recBusy, setRecBusy] = useState(false);
@@ -207,11 +192,8 @@ export function TranscriptList({
   const [showTranslation, setShowTranslation] = useState(true);
   // Extensions switched off keep their data but show nothing (lib/extensions.ts).
   const extensions = useExtensions();
-  const [suggesting, setSuggesting] = useState(false);
   const [voicing, setVoicing] = useState(false);
   const [judging, setJudging] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const confirm = useConfirm();
 
@@ -220,15 +202,6 @@ export function TranscriptList({
     () => transcripts.some((t) => Boolean(t.translation)),
     [transcripts],
   );
-
-  // Checking for misheard glossary terms needs a glossary to check against.
-
-  // Suggestions are keyed by utterance so a row can render its own.
-  const suggestionByT = useMemo(() => {
-    const m = new Map<string, Suggestion>();
-    for (const s of suggestions) m.set(s.transcriptId, s);
-    return m;
-  }, [suggestions]);
 
   // Enroll voiceprints from this meeting's diarized clusters (named speakers only).
   const saveVoiceProfiles = useCallback(async () => {
@@ -398,62 +371,6 @@ export function TranscriptList({
     [transcripts, t],
   );
 
-  // Preview a find-and-replace. The server plans it against the rows it holds, so what is shown
-  // is what would actually be written — not this tab's possibly-stale copy of the transcript.
-  const previewReplace = useCallback(async () => {
-    if (!findText) return;
-    setReplaceBusy(true);
-    setReplaceMsg(null);
-    try {
-      const res = await fetch(`/api/meetings/${meetingId}/replace`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          find: findText,
-          replace: replaceText,
-          caseSensitive: replaceCase,
-          dryRun: true,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setReplacePreview(await res.json());
-    } catch (e) {
-      setReplaceMsg(t("Preview failed: {error}", { error: (e as Error).message }));
-      setReplacePreview(null);
-    } finally {
-      setReplaceBusy(false);
-    }
-  }, [meetingId, findText, replaceText, replaceCase, t]);
-
-  const applyReplace = useCallback(async () => {
-    setReplaceBusy(true);
-    setReplaceMsg(null);
-    try {
-      const res = await fetch(`/api/meetings/${meetingId}/replace`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ find: findText, replace: replaceText, caseSensitive: replaceCase }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = (await res.json()) as { updated: number; skipped: { reason: string }[] };
-      // Reflect the change locally rather than refetching — the rows are already on screen.
-      const applied = new Map(replacePreview?.changes.map((c) => [c.id, c.after]) ?? []);
-      setTranscripts((list) =>
-        list.map((t) => (applied.has(t.id) ? { ...t, text: applied.get(t.id)! } : t)),
-      );
-      const replaced = t(d.updated === 1 ? "Replaced in 1 utterance." : "Replaced in {n} utterances.", {
-        n: d.updated,
-      });
-      const skipped = d.skipped.length > 0 ? ` ${t("{n} skipped.", { n: d.skipped.length })}` : "";
-      setReplaceMsg(replaced + skipped);
-      setReplacePreview(null);
-    } catch (e) {
-      setReplaceMsg(t("Replace failed: {error}", { error: (e as Error).message }));
-    } finally {
-      setReplaceBusy(false);
-    }
-  }, [meetingId, findText, replaceText, replaceCase, replacePreview, t]);
-
   // Correct the wording of one utterance. Unlike deleting, this changes no positions, so the
   // recording's utterance boundaries (which diarization maps speakers onto) stay valid.
   const editTranscript = useCallback(
@@ -514,67 +431,6 @@ export function TranscriptList({
       setJudging(false);
     }
   }, [meetingId, t]);
-
-  // Ask the LLM which utterances misheard a glossary term. It only proposes; nothing is
-  // written until the user applies a suggestion, which then goes through the ordinary edit
-  // path. This is also the only way a glossary reaches kotoba-whisper, which ignores the
-  // initial_prompt at recognition time.
-  const runSuggestions = useCallback(async () => {
-    setSuggesting(true);
-    setSuggestMsg(null);
-    setError(null);
-    try {
-      const res = await fetch(`/api/meetings/${meetingId}/suggest-corrections`, {
-        method: "POST",
-      });
-      const d = (await res.json().catch(() => null)) as {
-        suggestions?: Suggestion[];
-        checked?: number;
-        error?: string;
-      } | null;
-      if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
-      const found = d?.suggestions ?? [];
-      setSuggestions(found);
-      const checked = d?.checked ?? 0;
-      setSuggestMsg(
-        found.length > 0
-          ? t(
-              found.length === 1
-                ? "1 suggestion across {checked} utterances — review it below."
-                : "{n} suggestions across {checked} utterances — review each below.",
-              { n: found.length, checked },
-            )
-          : t("No misheard glossary terms found across {checked} utterances.", { checked }),
-      );
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSuggesting(false);
-    }
-  }, [meetingId, t]);
-
-  const dismissSuggestion = useCallback((transcriptId: string) => {
-    setSuggestions((list) => list.filter((s) => s.transcriptId !== transcriptId));
-  }, []);
-
-  const applySuggestion = useCallback(
-    async (s: Suggestion) => {
-      const ok = await editTranscript(s.transcriptId, s.after);
-      if (ok) dismissSuggestion(s.transcriptId);
-    },
-    [editTranscript, dismissSuggestion],
-  );
-
-  // Apply sequentially: each edit PATCHes one row, and editTranscript rolls back from a
-  // snapshot on failure, so overlapping writes would fight over that snapshot.
-  const applyAllSuggestions = useCallback(async () => {
-    for (const s of suggestions) {
-      const ok = await editTranscript(s.transcriptId, s.after);
-      if (!ok) return; // the error is already shown; leave the rest for the user to retry
-      dismissSuggestion(s.transcriptId);
-    }
-    setSuggestMsg(null);
-  }, [suggestions, editTranscript, dismissSuggestion]);
 
   // Remove one utterance: hallucinations and audio glitches otherwise end up in the minutes.
   const deleteTranscript = useCallback(
@@ -1056,9 +912,9 @@ export function TranscriptList({
   const daysLeft = recInfo?.expiresAt ? remainingDays(recInfo.expiresAt) : 0;
 
   // The three that open something open it under the heading, one at a time; the rest only take
-  // the transcript away or check it, and wait behind "…".
+  // the transcript away or measure it, and wait behind "…".
   const speakersTool = !readOnly && extensions.speakers && (canDiarize || showSpeakerTools);
-  const replaceTool = transcripts.length > 0 && !readOnly;
+  const fixTool = transcripts.length > 0 && !readOnly;
   const retransTool = Boolean(recInfo?.exists) && !readOnly;
   const canMeasure = !readOnly && Boolean(endedAt) && Boolean(recInfo?.exists) && transcripts.length > 0;
   const toolButton = (k: NonNullable<Tool>, label: string, Icon: typeof SearchIcon) => (
@@ -1076,7 +932,6 @@ export function TranscriptList({
   const running = [
     voicing ? t("Measuring…") : null,
     judging ? t("Judging emotion…") : null,
-    suggesting ? t("Checking…") : null,
   ].filter(Boolean);
 
   return (
@@ -1107,7 +962,7 @@ export function TranscriptList({
             transcript most, so it is not one of the things behind "…". */}
         {transcripts.length > 0 ? <CopyButton text={transcriptText} label={t("Copy transcript")} /> : null}
         {speakersTool ? toolButton("speakers", t("Speaker separation"), PeopleIcon) : null}
-        {replaceTool ? toolButton("replace", t("Find & replace"), SearchIcon) : null}
+        {fixTool ? toolButton("fix", t("Fix wording"), SpellCheckIcon) : null}
         {retransTool ? toolButton("retrans", t("Re-transcribe"), RefreshIcon) : null}
         {/* What to do with the transcript once it reads correctly: take it away, show the
             translations beside it, or have it checked. None of these change a word of it. */}
@@ -1131,8 +986,7 @@ export function TranscriptList({
                   <ShareIcon className="h-3.5 w-3.5" />
                   {t("Share transcript")}
                 </button>
-                {(canMeasure && (extensions.voiceCues || extensions.emotion)) ||
-                (!readOnly && extensions.corrections) ? (
+                {canMeasure && (extensions.voiceCues || extensions.emotion) ? (
                   <MenuRule />
                 ) : null}
                 {canMeasure && extensions.voiceCues ? (
@@ -1165,30 +1019,6 @@ export function TranscriptList({
                   >
                     <FaceJoyIcon className="h-3.5 w-3.5" />
                     {judging ? t("Judging emotion…") : t("Judge emotion")}
-                  </button>
-                ) : null}
-                {!readOnly && extensions.corrections ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={MENU_ITEM}
-                    disabled={busy || suggesting}
-                    title={
-                      hasCorrectionTerms
-                        ? t(
-                            "Check the transcript for glossary terms that were misheard, and propose fixes to apply line by line",
-                          )
-                        : t(
-                            "Needs some terms to look for. Add them under Settings → Transcription, or on the series this meeting belongs to.",
-                          )
-                    }
-                    onClick={() => {
-                      close();
-                      void runSuggestions();
-                    }}
-                  >
-                    <SpellCheckIcon className="h-3.5 w-3.5" />
-                    {suggesting ? t("Checking…") : t("Suggest fixes")}
                   </button>
                 ) : null}
                 {hasTranslations && extensions.translation ? (
@@ -1331,119 +1161,25 @@ export function TranscriptList({
         </ToolPanel>
       ) : null}
 
-      {/* Find and replace — for a term misheard the same way throughout. Rewriting text moves
-          no positions, so the recording's utterance boundaries stay valid. */}
-      {tool === "replace" && replaceTool ? (
-        <ToolPanel
-          title={t("Find & replace")}
-          hint={t("Fix a term that was misheard the same way throughout")}
-          onClose={() => setTool(null)}
-        >
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="block">
-              <span className="label">{t("Find")}</span>
-              <input
-                className="input mt-1"
-                value={findText}
-                onChange={(e) => {
-                  setFindText(e.target.value);
-                  setReplacePreview(null);
-                }}
-                placeholder="ネクサス"
-                disabled={replaceBusy}
-              />
-            </label>
-            <label className="block">
-              <span className="label">{t("Replace with")}</span>
-              <input
-                className="input mt-1"
-                value={replaceText}
-                onChange={(e) => {
-                  setReplaceText(e.target.value);
-                  setReplacePreview(null);
-                }}
-                placeholder={t("e.g. Voxinq")}
-                disabled={replaceBusy}
-              />
-            </label>
-          </div>
-
-          <label className="mt-2 flex items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={replaceCase}
-              onChange={(e) => {
-                setReplaceCase(e.target.checked);
-                setReplacePreview(null);
-              }}
-              disabled={replaceBusy}
-            />
-            <span>{t("Match case")}</span>
-          </label>
-
-          <div className="mt-2.5 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={() => void previewReplace()}
-              disabled={replaceBusy || !findText}
-            >
-              {replaceBusy ? t("Checking…") : t("Preview")}
-            </button>
-            {replacePreview && replacePreview.changeCount > 0 ? (
-              <button
-                type="button"
-                className="btn-ink"
-                onClick={() => void applyReplace()}
-                disabled={replaceBusy}
-              >
-                Replace in {replacePreview.changeCount} utterance
-                {replacePreview.changeCount === 1 ? "" : "s"}
-              </button>
-            ) : null}
-          </div>
-
-          {replacePreview ? (
-            <div className="mt-2.5 text-xs">
-              {replacePreview.totalMatches === 0 ? (
-                <p className="text-[var(--text-muted)]">{t("No matches.")}</p>
-              ) : (
-                <>
-                  <p className="text-[var(--text-secondary)]">
-                    {replacePreview.totalMatches} match
-                    {replacePreview.totalMatches === 1 ? "" : "es"} in {replacePreview.matchedRows}{" "}
-                    utterance{replacePreview.matchedRows === 1 ? "" : "s"}.
-                  </p>
-                  <ul className="mt-1.5 space-y-1">
-                    {replacePreview.changes.slice(0, 5).map((c) => (
-                      <li key={c.id} className="text-[var(--text-muted)]">
-                        <span className="line-through">{c.before.slice(0, 60)}</span>
-                        {" → "}
-                        <span className="text-[var(--text-strong)]">{c.after.slice(0, 60)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {replacePreview.changeCount > 5 ? (
-                    <p className="mt-1 text-[var(--text-muted)]">
-                      {t("…and {n} more", { n: replacePreview.changeCount - 5 })}
-                    </p>
-                  ) : null}
-                  {replacePreview.skipped.length > 0 ? (
-                    <p className="mt-1 text-[var(--warning)]">
-                      {t(
-                        "{n} skipped — a replacement cannot empty an utterance (delete it instead) or exceed the length limit.",
-                        { n: replacePreview.skipped.length },
-                      )}
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ) : null}
-
-          {replaceMsg ? (
-            <p className="mt-2 text-xs text-[var(--accent-sub)]">{replaceMsg}</p>
-          ) : null}
+      {/* Fixing the wording — a term found by hand, or the glossary's misheard terms, as one
+          list of changes to tick. Rewriting text moves no positions, so the recording's
+          utterance boundaries stay valid. */}
+      {tool === "fix" && fixTool ? (
+        <ToolPanel title={t("Fix wording")} hint={t("See every line it changes before it does")} onClose={() => setTool(null)}>
+          <SpellingFix
+            meetingId={meetingId}
+            lines={transcripts.map((line, i) => ({
+              id: line.id,
+              who: multiSpeaker ? nameOf(line.speakerType, speakerLabels) : null,
+              at: formatOffset(elapsedSeconds(i)),
+            }))}
+            glossary={extensions.corrections}
+            hasCorrectionTerms={hasCorrectionTerms}
+            onReplaced={(applied) =>
+              setTranscripts((list) => list.map((l) => (applied.has(l.id) ? { ...l, text: applied.get(l.id)! } : l)))
+            }
+            editLine={editTranscript}
+          />
         </ToolPanel>
       ) : null}
 
@@ -1557,35 +1293,6 @@ export function TranscriptList({
         </div>
       ) : null}
 
-      {/* Suggested glossary fixes: a summary line, plus a bulk action once there are several.
-          Each suggestion also renders on its own row so it can be judged in context. */}
-      {suggestMsg ? (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <p className="text-xs text-[var(--accent-sub)]">{suggestMsg}</p>
-          {suggestions.length > 0 ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void applyAllSuggestions()}
-                className="text-xs font-semibold text-[var(--accent)] hover:underline"
-              >
-                {t("Apply all")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSuggestions([]);
-                  setSuggestMsg(null);
-                }}
-                className="text-xs text-[var(--text-muted)] hover:underline"
-              >
-                {t("Dismiss all")}
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
       {error ? <p className="mt-2 text-xs text-[var(--error)]">{error}</p> : null}
       {elsewhere ? (
         <p className="mt-2 text-xs text-[var(--text-muted)]">
@@ -1689,12 +1396,6 @@ export function TranscriptList({
               onReassign={(speaker) => void setLineSpeaker(line.id, speaker)}
               onDelete={() => void deleteTranscript(line.id)}
               onEdit={(text) => editTranscript(line.id, text)}
-              suggestion={suggestionByT.get(line.id) ?? null}
-              onApplySuggestion={() => {
-                const s = suggestionByT.get(line.id);
-                if (s) void applySuggestion(s);
-              }}
-              onDismissSuggestion={() => dismissSuggestion(line.id)}
               showTranslation={showTranslation && extensions.translation}
               readOnly={readOnly}
             />
@@ -1723,9 +1424,6 @@ function TranscriptRow({
   onReassign,
   onDelete,
   onEdit,
-  suggestion,
-  onApplySuggestion,
-  onDismissSuggestion,
   showTranslation,
   readOnly,
 }: {
@@ -1742,9 +1440,6 @@ function TranscriptRow({
   onReassign: (nextKey: string) => void;
   onDelete: () => void;
   onEdit: (text: string) => Promise<boolean>;
-  suggestion: Suggestion | null;
-  onApplySuggestion: () => void;
-  onDismissSuggestion: () => void;
   readOnly: boolean;
 }) {
   const t = useT();
@@ -1861,28 +1556,6 @@ function TranscriptRow({
             ) : null}
           </p>
         )}
-        {/* A proposed glossary fix, shown in place so it can be judged against the utterance it
-            would replace. Applying it is an ordinary edit; nothing changes until then. */}
-        {suggestion && !editing && !readOnly ? (
-          <div className="mt-1 border-l-2 border-[var(--accent)] pl-2 text-xs">
-            <p className="whitespace-pre-wrap text-[var(--foreground)]">
-              <span className="mr-1.5 font-medium text-[var(--accent-sub)]">{t("Suggested fix")}</span>
-              {suggestion.after}
-            </p>
-            <div className="mt-0.5 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onApplySuggestion}
-                className="font-semibold text-[var(--accent)] hover:underline"
-              >
-                {t("Apply")}
-              </button>
-              <button type="button" onClick={onDismissSuggestion} className="text-[var(--text-muted)] hover:underline">
-                {t("Dismiss")}
-              </button>
-            </div>
-          </div>
-        ) : null}
         {/* Japanese translation, shown under the original rather than replacing it — the
             transcript stays the record of what was actually said. */}
         {showTranslation && item.translation ? (
