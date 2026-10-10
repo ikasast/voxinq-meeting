@@ -227,3 +227,19 @@ export function attachNative(handlers: NativeHandlers, status: LinkStatus | null
   if (status) handlers.onStatus(status);
   return handle;
 }
+
+/** What the app says while it updates itself (Updater.kt). */
+export type AppUpdateState = { state: "downloading" | "installing" | "permission" | "failed"; percent?: number; reason?: string };
+
+/**
+ * Ask the app to update itself to `version`, the server's (app-update.tsx). It fetches that
+ * version's signed APK and hands it to Android, which asks the person. Returns a way to stop
+ * listening for how it goes.
+ */
+export function askAppToUpdate(version: string, onState: (s: AppUpdateState) => void): () => void {
+  const off = listen((m) => {
+    if (m.type === "update" && typeof m.state === "string") onState(m as unknown as AppUpdateState);
+  });
+  send({ type: "update", version });
+  return off;
+}

@@ -10,8 +10,10 @@
 
 ![Runs on](https://img.shields.io/badge/runs%20on-NVIDIA%20%C2%B7%20Apple%20silicon%20%C2%B7%20CPU-76b900)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-local--first-2ea44f)
-![Android app](https://img.shields.io/badge/Android-app-3ddc84)
+[![Android app](https://img.shields.io/badge/Android-app-3ddc84)](https://github.com/ikasast/voxinq-meeting/releases/latest)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+**[📱 Get the Android app](https://github.com/ikasast/voxinq-meeting/releases/latest)** — the `.apk` under *Assets* of the latest release ([how to install](#the-android-app))
 
 </div>
 
@@ -166,10 +168,21 @@ tailscale serve --bg --https=8443 localhost:8000
 
 **⑧ Open it on the phone**
 
-- **Android:** install `voxinq-<version>.apk` from [the latest release](https://github.com/ikasast/voxinq-meeting/releases/latest)
-  and enter `https://<host>.<tailnet>.ts.net` when it asks
+- **Android:** install the app (below) and enter `https://<host>.<tailnet>.ts.net` when it asks
 - **iPhone:** open `https://<host>.<tailnet>.ts.net/` in Safari, then add it to the home screen from
   the ⤓ icon at the top right
+
+#### The Android app
+
+1. On the phone, open **[the latest release](https://github.com/ikasast/voxinq-meeting/releases/latest)**.
+2. Under **Assets**, tap `voxinq-<version>.apk` to download it.
+3. Open the download. If Android asks, allow your browser to install apps, then tap **Install**.
+4. Open Voxinq and enter your server's address, `https://<host>.<tailnet>.ts.net`.
+
+**Updates come to you:** when your server runs a newer version than the app, the app shows
+**Update** at the top. Tap it and confirm Android's question — the server address and anything not
+yet sent are kept. (This starts with 4.0.0-beta.3; an older app shows a link to the APK instead.)
+More in [the app's README](android/README.md).
 
 That is the install. After a restart, Voxinq comes back up with Docker Desktop (which starts at
 sign-in by default).

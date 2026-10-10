@@ -79,7 +79,7 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
       const url = `/${m.id}`;
       void showNotification(m.title, t("It is time for this meeting."), url, `voxinq-due-${m.id}`);
     },
-    [external, t],
+    [t],
   );
 
   useEffect(() => {

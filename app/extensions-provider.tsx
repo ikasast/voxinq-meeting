@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, type ReactNode, useContext } from "react";
-import { type ExtensionId, type ExtensionState, resolveExtensions } from "@/lib/extensions";
+import { type ExtensionState, resolveExtensions } from "@/lib/extensions";
 
 // Which extensions are on, for the client components (lib/extensions.ts). The root layout reads
 // the state on the server and hands it down, so a page never draws something switched off and
@@ -17,6 +17,3 @@ export function useExtensions(): ExtensionState {
   return useContext(Ctx);
 }
 
-export function useExtension(id: ExtensionId): boolean {
-  return useContext(Ctx)[id];
-}

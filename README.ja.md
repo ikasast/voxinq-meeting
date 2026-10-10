@@ -6,6 +6,8 @@
 
 [English README](README.md)
 
+**[📱 Android アプリを入手する](https://github.com/ikasast/voxinq-meeting/releases/latest)** — 最新リリースの *Assets* にある `.apk` です（[入れ方](#android-アプリの入れ方)）
+
 ![録音・文字起こし・話者分離・議事録・質問・シリーズの6工程と各工程の例](docs/screenshots/workflow.png)
 
 ```mermaid
@@ -134,10 +136,21 @@ tailscale serve --bg --https=8443 localhost:8000
 
 **⑧ スマホで開く**
 
-- **Android**：[Releases](https://github.com/ikasast/voxinq-meeting/releases/latest) から
-  `voxinq-<版>.apk` を入れ、初回に `https://<ホスト名>.<テイルネット名>.ts.net` を入力します
+- **Android**：アプリを入れ（下記）、初回に `https://<ホスト名>.<テイルネット名>.ts.net` を入力します
 - **iPhone**：Safari で `https://<ホスト名>.<テイルネット名>.ts.net/` を開き、画面右上の
   ⤓ アイコンから**ホーム画面に追加**します
+
+#### Android アプリの入れ方
+
+1. スマホで **[最新のリリース](https://github.com/ikasast/voxinq-meeting/releases/latest)** を開きます。
+2. **Assets** の `voxinq-<版>.apk` をタップしてダウンロードします。
+3. ダウンロードしたファイルを開きます。ブラウザからのインストールを許可するか聞かれたら許可し、**インストール** をタップします。
+4. Voxinq を開き、サーバーのアドレス `https://<ホスト名>.<テイルネット名>.ts.net` を入力します。
+
+**更新はアプリが知らせます**：サーバーがアプリより新しい版になると、アプリの上部に **更新** が出ます。
+押して Android の確認に答えれば完了です（サーバーアドレスや送信待ちの音声は残ります）。
+4.0.0-beta.3 以降のアプリから使えます。それより前のアプリには、APK へのリンクが出ます。
+詳しくは [アプリの README](android/README.md)。
 
 これでセットアップは完了です。PC を再起動しても、Docker Desktop が起動すれば Voxinq も自動で立ち上がります
 （Docker Desktop の「ログイン時に起動」が既定で有効です）。
