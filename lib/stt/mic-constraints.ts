@@ -4,15 +4,25 @@
 // ran with echo cancellation on and a recording that ran with it off would be a check of
 // something else — and the failure it is meant to catch, a mic that hears nothing, is exactly
 // the kind that processing settings can cause.
-
-export function isRoomMode(micMode?: string): boolean {
-  return micMode === "room";
-}
+//
+// There used to be two modes, chosen in Settings: Standard, with the browser's processing on, for
+// a voice close to the microphone, and Room, for a table. Since v4 the source decides instead,
+// because it already says which situation this is:
+//
+// - **Microphone** alone is a room: a phone in the middle of a table, a PC's own microphone, a
+//   call on speakerphone. Processing off — echo cancellation would remove a speakerphone's far
+//   end — and the level raised, because the voices are far away.
+// - **Mic + PC audio** is somebody at a PC in an online meeting, on a headset (the recording
+//   screen says so): echo cancellation on, so the speakers are not recorded twice if there is
+//   no headset, and no boost for a microphone at the mouth.
+//
+// Standard, chosen by hand, was right for one of these and silently wrong for the other; a
+// setting whose wrong value loses half a meeting without saying so is not a preference.
 
 /**
- * How much louder room mode makes what the microphone hears.
+ * How much louder the recording makes what the microphone hears.
  *
- * Turning the browser's processing off was the whole of "room" mode, and it is not enough. A
+ * Turning the browser's processing off was once the whole of "room" mode, and it is not enough. A
  * phone three metres from whoever is speaking captures a signal several times quieter than a
  * laptop at arm's length, and everything downstream is measured against a fixed level: the
  * service's segmenter treats anything under an RMS of 0.012 as silence and never hands it to
@@ -26,6 +36,11 @@ export function isRoomMode(micMode?: string): boolean {
  */
 export const ROOM_GAIN = 4;
 
+/** How much louder the microphone is made for this source: a room's only (see above). */
+export function micGain(source: string): number {
+  return source === "mic" ? ROOM_GAIN : 1;
+}
+
 /**
  * The level below which the transcription service hears silence.
  *
@@ -36,16 +51,16 @@ export const ROOM_GAIN = 4;
  */
 export const HEARD_RMS = 0.012;
 
-export function micConstraints(source: string, micMode?: string): MediaTrackConstraints {
-  // room: to better pick up distant voices in a meeting room, turn off echo/noise suppression.
-  //       The gain that goes with it is ROOM_GAIN, applied in the graph — a constraint cannot
-  //       ask for "louder", only for the browser's own automatic gain, which on a phone is
-  //       tuned for a handset held to the ear.
-  const room = isRoomMode(micMode);
-  // In both (mic + PC audio), the mic picks up PC audio from the speakers and double-captures
-  // (echo). The browser AEC can cancel it by referencing the system playback, so force AEC/NS
-  // ON for both even in room mode.
-  const useAec = source === "both" ? true : !room;
+export function micConstraints(source: string): MediaTrackConstraints {
+  // Echo and noise suppression off, to hear voices from across a room — and a speakerphone's far
+  // end, which is exactly what echo cancellation removes. The gain that goes with it is
+  // ROOM_GAIN, applied in the graph: a constraint cannot ask for "louder", only for the browser's
+  // own automatic gain, which on a phone is tuned for a handset held to the ear.
+  //
+  // Except with both (mic + PC audio): there the mic picks up the PC audio from the speakers and
+  // it lands in the recording twice. The browser's echo cancellation removes it by referencing
+  // the system playback, so it is on for that source.
+  const useAec = source === "both";
   return {
     channelCount: 1,
     echoCancellation: useAec,

@@ -13,7 +13,6 @@ const input = (over: Partial<RecordingPlanInput> = {}): RecordingPlanInput => ({
     whisperModel: "large-v3-turbo",
     sttLanguage: "ja",
     sttGlossary: "Invented Corp",
-    micMode: "room",
     sttTranslate: false,
   },
   seriesGlossary: "Invented Project",

@@ -63,7 +63,6 @@ describe("the page's side of the app's recorder", () => {
       language: "ja",
       translate: true,
       liveTranscript: false,
-      micMode: "room",
     });
     expect(h.onStatus).toHaveBeenCalledWith("connecting");
     expect(app.sent).toEqual([

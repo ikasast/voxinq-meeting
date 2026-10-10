@@ -20,7 +20,6 @@ export type RecordingPlanInput = {
     whisperModel: string;
     sttLanguage: string;
     sttGlossary: string;
-    micMode: string;
     sttTranslate: boolean;
   };
   seriesGlossary: string | null | undefined;
@@ -38,7 +37,8 @@ export type RecordingPlan = {
   language?: string;
   initialPrompt?: string;
   translate: boolean;
-  micMode: string;
+  /** Always Room (lib/stt/mic-constraints.ts); sent because an app from before 4.0 reads it. */
+  micMode: "room";
   /**
    * `false` records without live recognition; absent means "whatever the host can do", which is
    * not the same thing (see lib/stt/client.ts).
@@ -61,7 +61,7 @@ export function recordingPlan(input: RecordingPlanInput): RecordingPlan {
     ...(language ? { language } : {}),
     ...(glossary ? { initialPrompt: glossary } : {}),
     translate: input.settings.sttTranslate,
-    micMode: input.settings.micMode,
+    micMode: "room" as const,
   };
   // A host that transcribes at the end loads no model during the meeting, so there is no card to
   // take and nothing to ask about.

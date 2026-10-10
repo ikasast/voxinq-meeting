@@ -124,7 +124,6 @@ export const ja: Record<string, string> = {
   Japanese: "日本語",
   English: "英語",
   "Auto-detect": "自動判定",
-  Room: "会議室",
   Standard: "標準",
   "Input audio level (movement means sound is arriving)": "入力レベル（動いていれば音が届いています）",
   "The input is clipping — turn the source down; recognition cannot recover a clipped word":
@@ -171,8 +170,6 @@ export const ja: Record<string, string> = {
     "聞こえました。このマイクは開いたままで、録音でもこれが使われます — 許可を再度求められることも、別の入力が開かれることもありません。",
   "Nothing loud enough came through — the loudest moment was {peak}, and {needs} is where speech starts being recognised. Check that the right input is selected and not muted — a headset with its own mute switch, or another app holding the microphone, both look like this.":
     "十分な大きさの音が届きませんでした — 最も大きかったところで {peak}、認識が始まるのは {needs} からです。正しい入力が選ばれていて、ミュートされていないか確認してください。ヘッドセット側のミュートスイッチや、他のアプリがマイクを掴んでいる場合も、これと同じに見えます。",
-  "Speaking from across a room needs Mic mode: Room.":
-    "離れた場所から話す場合は、マイクモードを「会議室」にしてください。",
   "The browser refused access to the microphone. Allow it for this site and try again.":
     "ブラウザがマイクへのアクセスを拒否しました。このサイトに許可してから、もう一度お試しください。",
 
@@ -374,7 +371,6 @@ export const ja: Record<string, string> = {
     "例: 週次定例 — 会議をつなげ、前回の議事録が文脈として渡ります",
   Title: "タイトル",
   "Transcription language": "文字起こしの言語",
-  "Microphone mode": "マイクモード",
   "Recording source": "録音ソース",
   "Set up meeting": "会議を準備する",
   "Setting up…": "準備中…",
@@ -382,8 +378,6 @@ export const ja: Record<string, string> = {
   "Adding…": "追加中…",
   "Failed to create meeting.": "会議の作成に失敗しました。",
   "Please enter a title.": "タイトルを入力してください。",
-  "Standard (close talk / calls)": "標準（近くで話す・通話）",
-  "Room (pick up distant voices)": "会議室（離れた声を拾う）",
   "Please drop an audio file (wav, mp3, m4a, ...).":
     "音声ファイルをドロップしてください（wav, mp3, m4a など）。",
   "Uploading the recording…": "録音をアップロード中…",
@@ -480,8 +474,6 @@ export const ja: Record<string, string> = {
   "Terms / proper nouns (recognition bias)": "用語・固有名詞（認識のヒント）",
   "Adding jargon, names, and product names improves accuracy. Keep it short (~150 chars).":
     "専門用語・人名・製品名を入れると精度が上がります。短めに（150文字程度まで）。",
-  "Placing the device in the center of the table helps.":
-    "端末をテーブルの中央に置くと拾いやすくなります。",
   "Translate non-Japanese speech into Japanese": "日本語以外の発言に日本語訳を付ける",
 
   "Minutes language": "議事録の言語",
@@ -899,8 +891,6 @@ export const ja: Record<string, string> = {
   OK: "OK",
 
   // ---- Settings: what was left in English ----
-  "“Room” turns off echo/noise suppression and raises auto-gain to pick up distant speech.":
-    "「会議室」はエコー・ノイズ抑制を切り、オートゲインを上げて離れた声を拾います。",
   "Shows a Japanese translation under each non-Japanese utterance, during the meeting and on the transcript. Japanese speech is left alone, and minutes are still generated from the original words. Translation runs on the CPU, so it does not compete with transcription for the GPU.":
     "日本語以外の発言の下に日本語訳を表示します（会議中も、文字起こしの画面でも）。日本語の発言はそのままで、議事録は元の言葉から生成されます。翻訳は CPU で動くため、文字起こしと GPU を取り合いません。",
   "Turning this on downloads a ~1.2GB translation model (M2M100 1.2B, MIT licence) to the STT host on first use.":
@@ -1002,7 +992,6 @@ export const ja: Record<string, string> = {
   "Ollama model": "Ollama のモデル",
   "Terms and names the recogniser should expect. People can add their own on top.":
     "認識時に想定させる用語や名前です。各自がこれに自分の分を足せます。",
-  "Room (distant voices)": "会議室（離れた声を拾う）",
   "Save the defaults": "既定値を保存",
 
   // ---- The queue ----

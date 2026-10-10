@@ -41,7 +41,6 @@ export const SPLIT_KEYS = ["sttProfiles"] as const satisfies readonly (keyof App
 export const USER_KEYS = [
   "sttLanguage",
   "sttGlossary",
-  "micMode",
   "sttTranslate",
   "sttDefaultProfileId",
   "llmProvider",

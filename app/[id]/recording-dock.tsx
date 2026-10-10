@@ -104,7 +104,6 @@ export function RecordingDock({
   const meetingLangRef = useRef<string | undefined>(undefined); // per-meeting language (overrides settings)
   const sttGlossaryRef = useRef<string | undefined>(undefined);
   const seriesGlossaryRef = useRef<string | undefined>(undefined);
-  const sttMicModeRef = useRef<string | undefined>(undefined);
   const sttTranslateRef = useRef(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [meetingLoaded, setMeetingLoaded] = useState(false);
@@ -133,7 +132,6 @@ export function RecordingDock({
   // are not part of recording, so they are not collected here.
   const [cfg, setCfg] = useState<{
     sttLanguage?: string;
-    micMode?: string;
   } | null>(null);
   const autostartTried = useRef(false);
   const [meetingLang, setMeetingLang] = useState<string | undefined>(undefined);
@@ -147,11 +145,10 @@ export function RecordingDock({
   // Per-recording temporary settings passed from the new-meeting screen (not saved to the settings file).
   // STT language is saved on the meeting (meeting.sttLanguage), so it is not handled here.
   const overrides = useMemo(() => {
-    if (typeof window === "undefined") return {} as { model?: string; mic?: string; source?: string };
+    if (typeof window === "undefined") return {} as { model?: string; source?: string };
     const p = new URLSearchParams(window.location.search);
     return {
       model: p.get("model") || undefined,
-      mic: p.get("mic") || undefined,
       source: p.get("source") || undefined,
     };
   }, []);
@@ -287,7 +284,6 @@ export function RecordingDock({
             whisperModel?: string;
             sttLanguage?: string;
             sttGlossary?: string;
-            micMode?: string;
             sttTranslate?: boolean;
           } | null,
         ) => {
@@ -295,15 +291,8 @@ export function RecordingDock({
           if (s?.whisperModel) settingsModelRef.current = s.whisperModel;
           if (s?.sttLanguage) sttLanguageRef.current = s.sttLanguage;
           if (s?.sttGlossary) sttGlossaryRef.current = s.sttGlossary;
-          if (s?.micMode) sttMicModeRef.current = s.micMode;
           sttTranslateRef.current = Boolean(s?.sttTranslate);
-          // Override with this recording's temporary settings (query).
-          if (overrides.mic) sttMicModeRef.current = overrides.mic;
-          if (s)
-            setCfg({
-              sttLanguage: s.sttLanguage,
-              micMode: overrides.mic ?? s.micMode,
-            });
+          if (s) setCfg({ sttLanguage: s.sttLanguage });
           setSettingsLoaded(true);
         },
       )
@@ -311,7 +300,7 @@ export function RecordingDock({
     return () => {
       cancelled = true;
     };
-  }, [overrides.mic]);
+  }, []);
 
   // Resolved once both sources have loaded, then used everywhere (render included) so the
   // displayed model and the one sent to STT can never disagree.
@@ -528,7 +517,6 @@ export function RecordingDock({
         initialPrompt:
           [sttGlossaryRef.current, seriesGlossaryRef.current].filter(Boolean).join("、") ||
           undefined,
-        micMode: sttMicModeRef.current,
         translate: sttTranslateRef.current,
       };
       // The app's recorder or this browser's microphone: the recorder knows which it is in.
@@ -809,7 +797,6 @@ export function RecordingDock({
   const effectiveLang = meetingLang ?? cfg?.sttLanguage;
   const langLabel =
     effectiveLang === "ja" ? t("Japanese") : effectiveLang === "en" ? t("English") : t("Auto-detect");
-  const micLabel = cfg?.micMode === "room" ? t("Room") : t("Standard");
 
   return (
     <>
@@ -899,7 +886,7 @@ export function RecordingDock({
             </span>
           ) : null}
           <span className="text-xs text-[var(--text-muted)]">
-            {[activeModel, langLabel, micLabel].filter(Boolean).join(" · ")}
+            {[activeModel, langLabel].filter(Boolean).join(" · ")}
           </span>
         </span>
       </Prop>
@@ -921,7 +908,6 @@ export function RecordingDock({
         <div className={PROPS_WIDE}>
           <PreflightCheck
             source={source}
-            micMode={cfg?.micMode}
             onStream={(s) => {
               preflightStreamRef.current = s;
             }}
