@@ -307,6 +307,10 @@ export default async function MeetingPage({
             voice: line.voice,
             emotion: line.emotion,
             createdAt: line.createdAt.toISOString(),
+            // Where the line is in the recording. Without it every time on the page falls back to
+            // when the row was saved, which counts the minutes recording was stopped for and the
+            // moment a diarization split the line.
+            audioStartMs: line.audioStartMs,
             splitOfId: line.splitOfId,
           }))}
         />
