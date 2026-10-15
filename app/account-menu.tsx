@@ -27,7 +27,10 @@ export function AccountMenu({
   hasImage,
   isAdmin,
   via,
+  withName = false,
 }: {
+  /** Beside the picture, whose session this is: in the open sidebar. Folded, the picture alone. */
+  withName?: boolean;
   username: string;
   name: string | null;
   hasImage: boolean;
@@ -93,13 +96,20 @@ export function AccountMenu({
         ref={btnRef}
         type="button"
         onClick={() => (open ? setOpen(false) : openMenu())}
-        className="rounded-full ring-offset-2 ring-offset-[var(--header)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        className={
+          withName
+            ? "-ml-1 flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pl-1 pr-2 text-left hover:bg-[var(--hover-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            : "rounded-full ring-offset-2 ring-offset-[var(--header)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        }
         title={name || username}
         aria-label={t("Your account")}
         aria-expanded={open}
         aria-haspopup="menu"
       >
         <Avatar username={username} name={name} hasImage={hasImage} size={32} />
+        {withName ? (
+          <span className="min-w-0 truncate text-sm text-[var(--text-strong)]">{name || username}</span>
+        ) : null}
       </button>
 
       {open && pos && typeof document !== "undefined"
