@@ -59,6 +59,8 @@ A new meeting is created and the audio is transcribed on your server.</string>
     <string name="widget_description">Start recording a meeting, or set one up, in one tap</string>
     <string name="widget_record">Record now</string>
     <string name="widget_new">New meeting</string>
+    <string name="widget_record_short">Record</string>
+    <string name="widget_new_short">New</string>
 
     <string name="mic_permission_denied">Recording needs permission to use the microphone.</string>
     <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
