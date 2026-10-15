@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CloseIcon,
   GearIcon,
@@ -314,7 +314,8 @@ export function Sidebar({
         <QueueNow jobs={queueJobs} />
         {footLinks(false)}
         <div className="mt-2 flex items-center gap-2 px-2">
-          {account}
+          {/* Open, the name beside the picture; the folded rail below has room for the picture only. */}
+          {isValidElement<{ withName?: boolean }>(account) ? cloneElement(account, { withName: true }) : account}
           <span className="ml-auto flex items-center gap-1">{extras}</span>
         </div>
         <p className="mt-1 px-2 text-[10px] text-[var(--text-muted)]">v{version}</p>
