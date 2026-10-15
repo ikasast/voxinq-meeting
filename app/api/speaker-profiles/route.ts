@@ -4,6 +4,7 @@ import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { LEGACY_EMBEDDING_MODEL, parseEmbeddingModelId } from "@/lib/embedding-models";
 import { mergeEmbedding, parseEmbedding } from "@/lib/voiceprint";
+import { renamePerson } from "@/lib/rename-person";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +92,31 @@ export async function POST(req: NextRequest) {
     });
   }
   return NextResponse.json({ ok: true, name, sampleCount: merged.sampleCount });
+}
+
+// Rename a voiceprint, and the person everywhere they are named: the speakers of the meetings
+// they were recognised in, the participants, the series' regular members (lib/rename-person.ts).
+// `dryRun` counts what would change, for the confirmation.
+export async function PATCH(req: NextRequest) {
+  const off = await extensionOff("speakers");
+  if (off) return off;
+  const body = await readJson<{ from?: unknown; to?: unknown; dryRun?: unknown }>(req);
+  const from = typeof body?.from === "string" ? body.from.trim() : "";
+  const to = typeof body?.to === "string" ? body.to.trim() : "";
+  if (!from || !to) return apiError("from and to are required", 400);
+  if (to.length > 60) return apiError("name too long (max 60)", 400);
+  if (from === to) return apiError("the name is unchanged", 400);
+  const profile = await prisma.speakerProfile.findFirst({ where: { name: from }, select: { id: true } });
+  if (!profile) return apiError("not found", 404);
+  // Two voiceprints under one name would be one person with two voices: refused rather than
+  // merged, since which recordings belong to whom is not something to guess.
+  if (await prisma.speakerProfile.findFirst({ where: { name: to }, select: { id: true } })) {
+    return apiError("A voice profile with that name already exists.", 409);
+  }
+  const apply = body?.dryRun !== true;
+  const counts = await renamePerson(from, to, apply);
+  if (apply) await prisma.speakerProfile.update({ where: { id: profile.id }, data: { name: to } });
+  return NextResponse.json({ ok: true, ...counts });
 }
 
 export async function DELETE(req: NextRequest) {

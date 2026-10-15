@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
-import { TrashIcon } from "../icons";
+import { PencilIcon, TrashIcon } from "../icons";
+import { useConfirm } from "../confirm-dialog";
 import { useT } from "@/app/locale-provider";
 
 type Profile = {
@@ -193,6 +194,52 @@ export function VoiceProfiles() {
     }
   };
 
+  // Renaming: the chip being edited and what has been typed. A rename reaches every meeting the
+  // person is named in, so it is counted first and confirmed with the counts.
+  const confirm = useConfirm();
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
+  const rename = async (from: string) => {
+    const to = newName.trim();
+    if (!to || to === from) {
+      setRenaming(null);
+      return;
+    }
+    setError(null);
+    try {
+      const ask = async (dryRun: boolean) => {
+        const res = await fetch("/api/speaker-profiles", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ from, to, dryRun }),
+        });
+        const d = (await res.json().catch(() => null)) as
+          | { error?: string; meetings: number; participants: number; members: number }
+          | null;
+        if (!res.ok || !d) throw new Error(d?.error ? t(d.error) : `HTTP ${res.status}`);
+        return d;
+      };
+      const n = await ask(true);
+      const ok = await confirm({
+        title: t("Rename {from} to {to}?", { from, to }),
+        message:
+          n.meetings + n.members > 0
+            ? t(
+                "The name changes in {meetings} meetings (speakers and participants) and {members} series member lists as well. Minutes already written keep the old name until they are regenerated.",
+                { meetings: n.meetings, members: n.members },
+              )
+            : t("No meeting names this person yet; only the voice profile is renamed."),
+        confirmLabel: t("Rename"),
+      });
+      if (!ok) return;
+      await ask(false);
+      setRenaming(null);
+      loadProfiles();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const remove = async (n: string) => {
     await fetch(`/api/speaker-profiles?name=${encodeURIComponent(n)}`, { method: "DELETE" }).catch(
       () => {},
@@ -249,7 +296,25 @@ export function VoiceProfiles() {
                       )}`
                 }
               >
-                {p.name}
+                {renaming === p.name ? (
+                  <input
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void rename(p.name);
+                      } else if (e.key === "Escape") setRenaming(null);
+                    }}
+                    onBlur={() => setRenaming(null)}
+                    maxLength={60}
+                    aria-label={t("New name for {name}", { name: p.name })}
+                    className="w-28 rounded border border-[var(--border-strong)] bg-[var(--surface)] px-1.5 py-0.5 text-xs text-[var(--foreground)]"
+                  />
+                ) : (
+                  p.name
+                )}
                 {p.stale ? (
                   <span className="text-[10px] font-medium text-[var(--warning)]">
                     {t("re-record")}
@@ -259,6 +324,20 @@ export function VoiceProfiles() {
                 {p.sampleCount > 1 ? (
                   <span className="text-[10px] text-[var(--text-muted)]">×{p.sampleCount}</span>
                 ) : null}
+                {renaming === p.name ? null : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewName(p.name);
+                      setRenaming(p.name);
+                    }}
+                    className="text-[var(--text-muted)] hover:text-[var(--accent)]"
+                    aria-label={t("Rename the voice profile of {name}", { name: p.name })}
+                    title={t("Rename")}
+                  >
+                    <PencilIcon className="h-3 w-3" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void remove(p.name)}
