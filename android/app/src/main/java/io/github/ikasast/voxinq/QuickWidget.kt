@@ -15,7 +15,7 @@ import android.widget.RemoteViews
  */
 class QuickWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        for (id in ids) manager.updateAppWidget(id, views(context))
+        for (id in ids) manager.updateAppWidget(id, views(context, R.layout.widget_quick))
     }
 
     companion object {
@@ -26,8 +26,9 @@ class QuickWidget : AppWidgetProvider() {
             else -> null
         }
 
-        private fun views(context: Context): RemoteViews =
-            RemoteViews(context.packageName, R.layout.widget_quick).apply {
+        /** Either size: both layouts name their buttons the same. */
+        fun views(context: Context, layout: Int): RemoteViews =
+            RemoteViews(context.packageName, layout).apply {
                 setOnClickPendingIntent(R.id.widget_record, open(context, MainActivity.ACTION_QUICK_RECORD, 1))
                 setOnClickPendingIntent(R.id.widget_new, open(context, MainActivity.ACTION_NEW_MEETING, 2))
             }
@@ -39,5 +40,15 @@ class QuickWidget : AppWidgetProvider() {
                 Intent(context, MainActivity::class.java).setAction(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+    }
+}
+
+/**
+ * The same two buttons in two cells: the picture and a short word each, for a home screen that
+ * has no room for a whole row.
+ */
+class QuickWidgetCompact : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        for (id in ids) manager.updateAppWidget(id, QuickWidget.views(context, R.layout.widget_quick_compact))
     }
 }
