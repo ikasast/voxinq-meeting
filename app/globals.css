@@ -196,29 +196,43 @@ html[data-theme="light"] .prose-invert {
 
 /* Minutes markdown: compact layout with a clearly ranked heading scale.
    (The typography plugin's h3 default is larger than a Tailwind-overridden h2,
-   which made h3 render bigger than h2 — set the whole scale explicitly.) */
-/* An h1 in the minutes is a section like any other, not a second title: the meeting's own name
-   is the largest thing on the page. */
-.minutes-prose :is(h1, h2) {
-  font-size: 1.15rem;
+   which made h3 render bigger than h2 — set the whole scale explicitly.)
+
+   The levels are told apart by their rules as much as their size: a heavy rule under an h1 (the
+   minutes' big parts — overview, details, to-dos), a hairline under an h2 (a topic), none under
+   an h3. An h1 stays smaller than the meeting's own name, which is the largest thing on the
+   page. It used to look exactly like an h2, which is why the built-in format avoided it. */
+.minutes-prose h1 {
+  font-size: 1.3rem;
+  font-weight: 700;
   line-height: 1.4;
-  margin-top: 1.7em;
-  margin-bottom: 0.55em;
+  margin-top: 1.6em;
+  margin-bottom: 0.5em;
   padding-bottom: 0.3em;
+  border-bottom: 2px solid var(--foreground);
+}
+.minutes-prose h2 {
+  font-size: 1.06rem;
+  line-height: 1.4;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+  padding-bottom: 0.25em;
   border-bottom: 1px solid var(--border);
 }
 .minutes-prose :is(h1, h2):first-child {
   margin-top: 0.25em;
 }
 .minutes-prose h3 {
-  font-size: 1rem;
-  margin-top: 1.2em;
-  margin-bottom: 0.35em;
-}
-.minutes-prose h4 {
   font-size: 0.95rem;
   margin-top: 1em;
-  margin-bottom: 0.3em;
+  margin-bottom: 0.25em;
+  color: var(--text-secondary);
+}
+.minutes-prose h4 {
+  font-size: 0.9rem;
+  margin-top: 0.9em;
+  margin-bottom: 0.25em;
+  color: var(--text-secondary);
 }
 .minutes-prose p {
   margin-top: 0.5em;
