@@ -40,6 +40,8 @@ import { prismaRaw } from "./prisma-raw";
 const ENCRYPTED: Record<string, { field: string; purpose: string }> = {
   transcript: { field: "text", purpose: "transcript" },
   meetingSummary: { field: "summaryText", purpose: "minutes" },
+  // Feedback quotes what was said, so it is kept like the minutes.
+  meetingReview: { field: "result", purpose: "review" },
 };
 
 /** Rows that are not meeting content. Shared, or scoped by being about a person already. */
@@ -63,6 +65,7 @@ const VIA_MEETING = new Set([
   "meetingSummary",
   "meetingParticipant",
   "meetingGram",
+  "meetingReview",
 ]);
 
 /**

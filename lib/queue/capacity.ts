@@ -122,8 +122,9 @@ async function ollamaModelMb(baseUrl: string, model: string): Promise<number> {
 export async function estimateVramMb(kind: JobKind, params: object): Promise<number> {
   const s = await readEffectiveSettings();
 
-  if (kind === "minutes") {
-    const p = params as MinutesParams;
+  // Feedback is written by the minutes model, on the same terms.
+  if (kind === "minutes" || kind === "review") {
+    const p = (kind === "minutes" ? params : {}) as MinutesParams;
     const provider = p.provider ?? s.llmProvider;
     // Someone else's machine, someone else's memory.
     if (provider === "anthropic" || provider === "openai") return 0;

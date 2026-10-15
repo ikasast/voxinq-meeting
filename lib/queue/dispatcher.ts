@@ -9,6 +9,7 @@ import { claimNext, enqueue, finishRun, openJobFor, recoverInterrupted } from ".
 import { runDiarize } from "./runners/diarize";
 import { runEmotion } from "./runners/emotion";
 import { runMinutes } from "./runners/minutes";
+import { runReview } from "./runners/review";
 import { runTranscribe } from "./runners/transcribe";
 import type { MinutesParams } from "./types";
 
@@ -178,6 +179,18 @@ async function run(job: {
       case "emotion": {
         const r = await runEmotion(job, signals.get(job.id)?.signal);
         await finishRun(job.id, "done", r.note);
+        return;
+      }
+      case "review": {
+        // Stopped for a recording, it goes back in the queue rather than failing (recording.ts).
+        const signal = signals.get(job.id)?.signal;
+        try {
+          const r = await runReview(job, signal);
+          await finishRun(job.id, "done", r.note);
+        } catch (e) {
+          if (signal?.aborted) return;
+          throw e;
+        }
         return;
       }
       default:

@@ -218,6 +218,7 @@ model Meeting {
   summaries    MeetingSummary[]
   tags         Tag[]
   participants MeetingParticipant[]
+  reviews      MeetingReview[]
   series       Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
@@ -444,4 +445,28 @@ model MeetingParticipant {
   @@unique([meetingId, name])
   @@index([meetingId])
   @@map("meeting_participants")
+}
+
+/// Meeting feedback (an extension): one person's run of a meeting, or part in it, scored against
+/// criteria and written up by the minutes model (lib/review/). Belongs to whoever owns the
+/// meeting, and `result` is encrypted like the minutes: it quotes what was said.
+model MeetingReview {
+  id           String   @id @default(cuid())
+  meetingId    String   @map("meeting_id")
+  role         String // "facilitator" | "participant"
+  person       String // the speaker's name as the meeting had it
+  score        Int // 0–100
+  result       String // JSON ReviewResult (lib/review/prompt.ts)
+  criteria     String // JSON ReviewCriterion[] it was scored with, kept so later edits do not rewrite it
+  metrics      String // JSON ReviewMetrics (lib/review/metrics.ts)
+  participants String // JSON string[]: who else was there, for the history
+  seriesId     String?  @map("series_id") // the meeting's series when reviewed
+  model        String? // which model wrote it
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@index([person])
+  @@map("meeting_reviews")
 }

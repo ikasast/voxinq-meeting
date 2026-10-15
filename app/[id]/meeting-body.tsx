@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useT } from "../locale-provider";
 import { useOpenSpeakers } from "./speaker-bus";
+import { useShowLine } from "./line-bus";
 
 // A meeting's page in v4 (design B): the minutes are the document, and what was said sits in a
 // panel at the right that opens and closes, remembered per device. On a phone the two are tabs.
@@ -34,6 +35,7 @@ export function MeetingBody({
   transcript,
   lineCount,
   transcriptFirst,
+  review,
 }: {
   meetingId: string;
   /** The title, its actions and the meeting's details: the top of the document. */
@@ -43,10 +45,12 @@ export function MeetingBody({
   lineCount: number;
   /** No minutes yet: the transcript is the page. */
   transcriptFirst: boolean;
+  /** Meeting feedback, when its extension is on: a tab beside the minutes. */
+  review?: ReactNode;
 }) {
   const t = useT();
   const [panel, setPanel] = useState(true);
-  const [tab, setTab] = useState<"minutes" | "transcript">("minutes");
+  const [tab, setTab] = useState<"minutes" | "transcript" | "review">("minutes");
   // The tab rides on the panel's edge, at a third of the way down the screen whether or not the
   // page has scrolled: the panel is sticky, so its own top moves until it sticks.
   const aside = useRef<HTMLElement>(null);
@@ -92,6 +96,8 @@ export function MeetingBody({
     } catch {}
   }, []);
   useOpenSpeakers(meetingId, showTranscript);
+  // A point of feedback asks for the line it rests on.
+  useShowLine(meetingId, showTranscript);
 
   if (transcriptFirst) {
     // White like any meeting's page, with what was said in the grey it has in the panel — so a
@@ -124,7 +130,7 @@ export function MeetingBody({
               switching is what you want after reading down a long transcript. */}
           <div className="sticky top-14 z-20 -mx-4 bg-[var(--paper)] px-4 py-2 lg:hidden">
           <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
-            {(["minutes", "transcript"] as const).map((k) => (
+            {(review ? (["minutes", "transcript", "review"] as const) : (["minutes", "transcript"] as const)).map((k) => (
               <button
                 key={k}
                 type="button"
@@ -137,12 +143,35 @@ export function MeetingBody({
                     : "text-[var(--text-secondary)]"
                 }`}
               >
-                {k === "minutes" ? t("Minutes") : `${t("Transcript")} · ${lineCount}`}
+                {k === "minutes" ? t("Minutes") : k === "review" ? t("Feedback") : `${t("Transcript")} · ${lineCount}`}
               </button>
             ))}
           </div>
           </div>
-          <div className={`space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""}`}>{document}</div>
+          {/* A wide screen: the minutes and the feedback as tabs over the document. */}
+          {review ? (
+            <div role="tablist" className="hidden gap-5 border-b border-[var(--border)] text-sm lg:flex">
+              {(["minutes", "review"] as const).map((k) => {
+                const on = k === "review" ? tab === "review" : tab !== "review";
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setTab(k)}
+                    className={`-mb-px border-b-2 pb-2 ${
+                      on ? "border-[var(--accent)] font-semibold text-[var(--text-strong)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    {k === "minutes" ? t("Minutes") : t("Feedback")}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <div className={`space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""} ${tab === "review" ? "hidden" : ""}`}>{document}</div>
+          {review && tab === "review" ? <div>{review}</div> : null}
         </div>
       </div>
 
@@ -157,7 +186,7 @@ export function MeetingBody({
         style={{ "--tw": width ? `${width}px` : DEFAULT_WIDTH } as React.CSSProperties}
         className={`relative min-w-0 max-lg:mt-6 lg:sticky lg:top-0 lg:-my-6 lg:-mr-8 lg:h-dvh lg:shrink-0 lg:bg-[var(--panel)] ${
           dragging ? "" : "lg:transition-[width] lg:duration-300 lg:ease-out motion-reduce:lg:transition-none"
-        } ${tab === "minutes" ? "max-lg:hidden" : ""} ${panel ? "lg:w-[var(--tw)]" : "lg:w-0"}`}
+        } ${tab !== "transcript" ? "max-lg:hidden" : ""} ${panel ? "lg:w-[var(--tw)]" : "lg:w-0"}`}
       >
         {tabTop !== null ? (
           <PanelTab open={panel} onClick={() => togglePanel(!panel)} count={lineCount} top={tabTop} />

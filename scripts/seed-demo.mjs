@@ -301,6 +301,67 @@ async function main() {
     people: PEOPLE,
   });
 
+  // Meeting feedback (an extension) for the sync's facilitator, as the review job would have
+  // written it — for the extension's picture. The points name lines of the meeting above.
+  const syncLines = await prisma.transcript.findMany({
+    where: { meetingId: IDS.sync },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  const line = (i) => syncLines[Math.min(i, syncLines.length - 1)].id;
+  const criteria = JA
+    ? [
+        ["purpose", 2, "目的とゴールの共有", "冒頭で会議の目的と、終わるときに何が決まっていればよいかを示したか", 5, "冒頭で「今日はリリース日を決める」と明示"],
+        ["agenda", 1, "議題と時間配分", "議題の順番と時間の使い方が適切で、脱線を戻せたか", 4, "API の議題がやや長引いた"],
+        ["inclusion", 2, "発言の引き出し", "発言の少ない人に振る・質問するなど、全員が話せたか", 3, "鈴木さんへの問いかけが後半のみ"],
+        ["summary", 2, "論点の整理と要約", "議論の節目で要点をまとめ、論点を明確にしたか", 4, "議題の区切りごとに要約あり"],
+        ["decision", 2, "合意と意思決定", "結論を明確にし、決まったことを確認したか", 5, "決定を口頭で確認"],
+        ["actions", 2, "次のアクション", "担当者と期限を確認して終えたか", 3, "担当は確認、期限は一部のみ"],
+      ]
+    : [
+        ["purpose", 2, "Purpose and goal", "Said at the start what the meeting is for and what should be settled by its end", 5, "Opened with the decision the meeting had to make"],
+        ["agenda", 1, "Agenda and time", "Kept to a sensible order and pace, and brought digressions back", 4, "The API item ran a little long"],
+        ["inclusion", 2, "Drawing people in", "Asked quieter people, so everybody could speak", 3, "Asked Jordan only in the second half"],
+        ["summary", 2, "Summing up", "Summed up at turning points and made the open questions clear", 4, "Summed up after each item"],
+        ["decision", 2, "Decisions", "Made conclusions explicit and confirmed what was decided", 5, "Read the decisions back"],
+        ["actions", 2, "Next steps", "Ended with who does what by when", 3, "Owners named, dates for some"],
+      ];
+  await prisma.meetingReview.create({
+    data: {
+      meetingId: IDS.sync,
+      role: "facilitator",
+      person: PEOPLE[0],
+      score: 78,
+      seriesId: SERIES_ID,
+      model: "qwen3:8b",
+      participants: JSON.stringify(PEOPLE),
+      metrics: JSON.stringify({ minutes: 22, speakers: 3, share: 34, turns: 9, questions: 6, longestTurnSec: 70, quietestOtherShare: 24 }),
+      criteria: JSON.stringify(criteria.map(([id, weight, name, description]) => ({ id, weight, name, description }))),
+      result: JSON.stringify({
+        criteria: criteria.map(([id, , , , score, comment]) => ({ id, score, comment })),
+        strengths: JA
+          ? [
+              { text: "冒頭で会議のゴールを示し、最後に決定事項を読み上げて確認した", lineIds: [line(0), line(10)] },
+              { text: "意見が分かれたところで論点を2つに整理した", lineIds: [line(6)] },
+            ]
+          : [
+              { text: "Opened with the goal, and read the decisions back at the end", lineIds: [line(0), line(10)] },
+              { text: "Split the disagreement into two questions", lineIds: [line(6)] },
+            ],
+        improvements: JA
+          ? [
+              { text: "前半から鈴木さんに意見を求めると、計測の懸念が早く出ていた", lineIds: [line(5)] },
+              { text: "TODO の期限まで確認すると、次回の進み具合が追いやすい", lineIds: [] },
+            ]
+          : [
+              { text: "Asking Jordan earlier would have surfaced the analytics concern sooner", lineIds: [line(5)] },
+              { text: "Confirming a date for each action makes next week's check-in easier", lineIds: [] },
+            ],
+        summary: JA ? "目的と決定の確認は明確。発言の引き出しと期限の確認に伸びしろ。" : "Clear on purpose and decisions; room to grow in drawing people in and setting dates.",
+      }),
+    },
+  });
+
   // 2) In-progress meeting (no endedAt) with a partial transcript — for recording.png.
   const liveStart = new Date(now - 5 * 60_000);
   await makeMeeting({

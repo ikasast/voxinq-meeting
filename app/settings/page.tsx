@@ -24,6 +24,8 @@ import { CheckIcon, StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
 import { CLEAR_CHOICES } from "@/lib/emotion";
+import { ReviewCriteriaEditor } from "./review-criteria";
+import type { ReviewCriterion } from "@/lib/review/criteria";
 import { ExternalProviderNotice } from "./external-provider-notice";
 import { RemoteSttNotice } from "./remote-stt-notice";
 import { sttDestination } from "@/lib/stt/destination";
@@ -58,6 +60,8 @@ type PublicSettings = {
   summaryLanguage: string;
   vramBudgetMb: number;
   emotionThreshold: number;
+  facilitatorCriteria: ReviewCriterion[];
+  participantCriteria: ReviewCriterion[];
 };
 
 const SUMMARY_LANGUAGES: { id: string; label: string }[] = [
@@ -87,6 +91,7 @@ const TABS = [
   { id: "remote", label: "Remote access" },
   { id: "data", label: "Data" },
   { id: "appearance", label: "Appearance" },
+  { id: "review", label: "Feedback" },
   { id: "extensions", label: "Extensions" },
   // Only shown to an administrator; see the tab bar below. Last, because it is the one tab that
   // is not about the reader.
@@ -114,6 +119,7 @@ function settingLabel(t: (k: string) => string, label: string): string {
     Data: t("Data"),
     Appearance: t("Appearance"),
     Extensions: t("Extensions"),
+    Feedback: t("Feedback"),
     "Defaults for everyone": t("Defaults for everyone"),
     System: t("System"),
     Light: t("Light"),
@@ -333,6 +339,7 @@ export default function SettingsPage() {
     (tab_) =>
       (tab_.id !== "defaults" || settings.isAdmin) &&
       (tab_.id !== "remote" || extensions.externalShare) &&
+      (tab_.id !== "review" || extensions.review) &&
       (tab_.id !== "speakers" || extensions.speakers || extensions.emotion),
   );
 
@@ -751,6 +758,31 @@ export default function SettingsPage() {
           {tab === "remote" && extensions.externalShare ? <RemoteAccess /> : null}
 
           {tab === "extensions" ? <ExtensionsSettings isAdmin={settings.isAdmin} /> : null}
+
+          {/* Meeting feedback: what a good meeting looks like, for each of the two roles. */}
+          {tab === "review" && extensions.review ? (
+            <section>
+              <Field
+                label={t("Facilitator")}
+                hint={t("Each criterion is scored 1–5 and weighted; the feedback's score is out of 100. Feedback already written keeps the criteria it was scored with.")}
+              >
+                <ReviewCriteriaEditor
+                  role="facilitator"
+                  value={settings.facilitatorCriteria}
+                  language={settings.summaryLanguage === "en" ? "en" : "ja"}
+                  onChange={(v) => update("facilitatorCriteria", v)}
+                />
+              </Field>
+              <Field label={t("Participant")}>
+                <ReviewCriteriaEditor
+                  role="participant"
+                  value={settings.participantCriteria}
+                  language={settings.summaryLanguage === "en" ? "en" : "ja"}
+                  onChange={(v) => update("participantCriteria", v)}
+                />
+              </Field>
+            </section>
+          ) : null}
 
           {tab === "data" ? (
             <section className="space-y-6">

@@ -10,6 +10,7 @@ import { resolveScope } from "./db/owner";
 import type { LlmConfig, LlmProviderName } from "./llm/types";
 import { UI_LANGUAGES } from "./i18n";
 import { DEFAULT_TITLE_FORMAT } from "./meeting-title";
+import { cleanCriteria, type ReviewCriterion } from "./review/criteria";
 import { readExtensions } from "./extensions-store";
 import { withExtensions } from "./extensions-settings";
 import { prisma } from "./prisma";
@@ -94,6 +95,10 @@ export type AppSettings = {
   voiceprintThreshold: number; // cosine similarity needed to auto-name a diarized speaker from a voice profile (0..1)
   // How sure the Emotion extension must be before a line is marked (0.5..0.95). lib/emotion.ts.
   emotionThreshold: number;
+  // Meeting feedback: what a good meeting looks like, for the facilitator and for a participant.
+  // Empty means the built-in criteria (lib/review/criteria.ts).
+  facilitatorCriteria: ReviewCriterion[];
+  participantCriteria: ReviewCriterion[];
   // Ollama context window in tokens. 0 = use the built-in budget, which is what fits beside a
   // 7B model on 8 GB of VRAM. Raise it on a bigger card: it is a VRAM figure, not a model
   // limit, and asking for more than the card holds makes Ollama spill to the CPU instead of
@@ -130,6 +135,8 @@ function defaults(): AppSettings {
     vramBudgetMb: 0,
     voiceprintThreshold: 0.5,
     emotionThreshold: 0.8,
+    facilitatorCriteria: [],
+    participantCriteria: [],
     ollamaNumCtx: 0,
   };
 }
@@ -248,6 +255,8 @@ export async function readMachineSettings(): Promise<AppSettings> {
     ) {
       merged.voiceprintThreshold = base.voiceprintThreshold;
     }
+    merged.facilitatorCriteria = cleanCriteria(merged.facilitatorCriteria) ?? [];
+    merged.participantCriteria = cleanCriteria(merged.participantCriteria) ?? [];
     if (
       typeof merged.emotionThreshold !== "number" ||
       !(merged.emotionThreshold >= 0.5 && merged.emotionThreshold <= 0.95)

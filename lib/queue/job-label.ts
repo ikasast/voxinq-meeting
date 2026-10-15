@@ -10,6 +10,7 @@ import { JOB_LABEL, isJobKind } from "./types";
 export function jobLabel(t: (k: string) => string, kind: string): string {
   const table: Record<string, string> = {
     Minutes: t("Minutes"),
+    "Meeting feedback": t("Meeting feedback"),
     "Re-transcribe": t("Re-transcribe"),
     Diarize: t("Diarize"),
     "Encrypting your older meetings": t("Encrypting your older meetings"),
@@ -33,6 +34,8 @@ export function busyLabel(t: (k: string) => string, kind: string | null | undefi
       return t("Diarizing…");
     case "emotion":
       return t("Judging emotion…");
+    case "review":
+      return t("Writing feedback…");
     case "transcribe":
       return t("Transcribing…");
     case "recording":
