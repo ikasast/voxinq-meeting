@@ -6,7 +6,10 @@ import { readMachineSettings } from "./settings";
 // Which extensions an instance starts with, decided once — the first time it runs without an
 // extensions.json — and then written there, so it is never decided again.
 //
-// A new install starts with none: the core is the app, and an administrator adds what they want.
+// A new install starts with none but Speaker separation: the core is the app, and an
+// administrator adds what they want. Speaker separation is the exception because minutes that
+// cannot say who said what are the first thing a new user finds missing, and it needs nothing
+// outside the machine.
 // An instance coming up from 3.x had every one of these, and must not find on its first morning
 // that something it used has gone. So it keeps each one it shows signs of using. The ones that
 // leave no sign — a question asked, a batch queued, a correction applied — stay on: there is no
@@ -28,14 +31,15 @@ export type Evidence = {
 /** The decision, from the evidence. Pure, for the tests. */
 export function defaultsFrom(e: Evidence): ExtensionState {
   if (e.meetings === 0) {
-    return Object.fromEntries(EXTENSION_IDS.map((id) => [id, false])) as ExtensionState;
+    return { ...(Object.fromEntries(EXTENSION_IDS.map((id) => [id, false])) as ExtensionState), speakers: true };
   }
   return {
     // No sign is left by using these.
     ask: true,
     bulkMinutes: true,
     corrections: true,
-    speakers: e.speakers,
+    // On by default in v4, used before or not.
+    speakers: true,
     series: e.series,
     schedule: e.schedule,
     minutesFormats: e.minutesFormats,

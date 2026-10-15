@@ -6,6 +6,7 @@ import { EXTENSIONS, type ExtensionId } from "@/lib/extensions";
 import { useLocale, useT } from "@/app/locale-provider";
 import { useBackGuard } from "@/app/use-back-guard";
 import { useExtensions } from "../extensions-provider";
+import { Switch } from "../switch";
 
 // Settings → Extensions: what is added on top of recording, transcription and minutes
 // (lib/extensions.ts). Switched for the whole instance, by an administrator; everybody else sees
@@ -224,7 +225,7 @@ export function ExtensionsSettings({ isAdmin }: { isAdmin: boolean }) {
   };
 
   const toggleFor = (id: ExtensionId) => (
-    <OnOff
+    <Switch
       label={words[id].name}
       on={state[id]}
       disabled={!isAdmin || busy !== null}
@@ -274,34 +275,6 @@ export function ExtensionsSettings({ isAdmin }: { isAdmin: boolean }) {
         </ExtensionDetails>
       ) : null}
     </section>
-  );
-}
-
-function OnOff({
-  label,
-  on,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  on: boolean;
-  disabled: boolean;
-  onChange: (on: boolean) => void;
-}) {
-  const t = useT();
-  return (
-    <label className="flex shrink-0 items-center gap-2 text-xs text-[var(--text-secondary)]">
-      <input
-        type="checkbox"
-        role="switch"
-        checked={on}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 accent-[var(--accent)]"
-        aria-label={label}
-      />
-      {on ? t("On") : t("Off")}
-    </label>
   );
 }
 
