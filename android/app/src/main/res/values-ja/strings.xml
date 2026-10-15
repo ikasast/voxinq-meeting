@@ -61,4 +61,8 @@
     <string name="sending_leftovers">中断された録音の音声を送っています…</string>
     <string name="backlog_overflow">文字起こしサービスに 5 分以上つながらないため、古い音声から破棄しています。</string>
     <string name="open_failed">%1$s を開けるアプリがありません</string>
+    <string name="widget_label">すぐ録音・会議を作成</string>
+    <string name="widget_description">ワンタップで録音を始める、または会議を作成する</string>
+    <string name="widget_record">すぐ録音</string>
+    <string name="widget_new">会議を作成</string>
 </resources>
