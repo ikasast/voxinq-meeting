@@ -222,9 +222,6 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
-  "A line is marked only when the voice sounds this sure. Higher shows fewer, clearer marks.":
-    "声からこの確からしさ以上で判定できた発言にだけ印を付けます。高いほど印は少なく、はっきりしたものだけになります。",
-  "{p}% or more": "{p}% 以上",
   "e.g. Voxing": "例: ボクシンク",
   ".": "。",
   "Downloading… {percent}%": "ダウンロード中… {percent}%",
@@ -795,6 +792,9 @@ export const ja: Record<string, string> = {
     "発言の上に「声の様子を調べる」ボタンが出て、目立った発言に小さな印が付きます。比べる相手はその人自身の同じ会議での発言なので、マイクから遠い人や声の小さい人が「小さめ」と出ることはありません。",
   "The meeting's recording": "会議の録音",
   "Emotion": "感情推定",
+  "A line is marked only when the voice sounds this sure. Higher shows fewer, clearer marks.":
+    "声からこの確からしさ以上で判定できた発言にだけ印を付けます。高いほど印は少なく、はっきりしたものだけになります。",
+  "{p}% or more": "{p}% 以上",
   "Judge from the voice whether each line sounded joyful, angry or sad.": "声の調子から、各発言が喜び・怒り・悲しみのどれに聞こえるかを推定します。",
   "Looking back at where a meeting turned tense, or where it lightened.": "会議のどこで空気が張り詰め、どこで和らいだかを振り返りたい。",
   "A first look at how a session went, before reading it line by line.": "発言を1行ずつ読む前に、会議の雰囲気をざっとつかみたい。",
