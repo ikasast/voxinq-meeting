@@ -674,6 +674,14 @@ export const ja: Record<string, string> = {
   "Enroll a voice once and diarization will label that speaker by name automatically in every future meeting. You can also enroll people from a diarized meeting (name the speaker there, then “Save voice profiles”).":
     "声を一度登録しておくと、以後の会議では話者分離がその人を自動で名前付けします。話者分離済みの会議から登録することもできます（そこで話者に名前を付けてから「声紋を登録」）。",
   Enrolled: "登録済み",
+  "Rename {from} to {to}?": "{from} を {to} に変更しますか？",
+  Rename: "名前を変更",
+  "The name changes in {meetings} meetings (speakers and participants) and {members} series member lists as well. Minutes already written keep the old name until they are regenerated.":
+    "{meetings} 件の会議（話者と参加者）と、{members} 件のシリーズの常任メンバーの名前も変わります。作成済みの議事録は、再生成するまで古い名前のままです。",
+  "No meeting names this person yet; only the voice profile is renamed.": "この人の名前が入った会議はまだありません。声紋の名前だけを変更します。",
+  "New name for {name}": "{name} の新しい名前",
+  "Rename the voice profile of {name}": "{name} の声紋の名前を変更",
+  "A voice profile with that name already exists.": "その名前の声紋はすでにあります。",
   "No profiles yet.": "まだ声紋がありません。",
   "re-record": "録り直す",
   "Name for this voice": "この声の名前",

@@ -28,6 +28,8 @@ export const SERVER_MESSAGES = [
   "An email address is how they will sign in. Enter theirs.",
   "That email address is already in use.",
   "That username is taken.",
+  // Voice profiles.
+  "A voice profile with that name already exists.",
   "That username, email, or tailnet login is already taken.",
   "Usernames are 2–32 characters: letters, numbers, dot, dash, underscore.",
   "Display names are up to 60 characters.",
