@@ -61,8 +61,11 @@ export function TranscriptRow({
   onEdit,
   showTranslation,
   readOnly,
+  emotionClear,
 }: {
   showTranslation: boolean;
+  /** How sure a line has to sound to be marked (lib/emotion.ts). */
+  emotionClear?: number;
   item: Item;
   elapsed: number;
   labels: SpeakerNames;
@@ -186,7 +189,7 @@ export function TranscriptRow({
             {voiceOn || emotionOn ? (
               <VoiceMarks
                 marks={voiceOn ? marks(readCues(item.voice)) : []}
-                emotion={emotionOn ? emotionMark(readEmotion(item.emotion)) : null}
+                emotion={emotionOn ? emotionMark(readEmotion(item.emotion), emotionClear) : null}
               />
             ) : null}
           </p>

@@ -222,6 +222,9 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "A line is marked only when the voice sounds this sure. Higher shows fewer, clearer marks.":
+    "声からこの確からしさ以上で判定できた発言にだけ印を付けます。高いほど印は少なく、はっきりしたものだけになります。",
+  "{p}% or more": "{p}% 以上",
   "e.g. Voxing": "例: ボクシンク",
   ".": "。",
   "Downloading… {percent}%": "ダウンロード中… {percent}%",

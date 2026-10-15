@@ -7,8 +7,14 @@ import { emotionMark, readEmotion } from "@/lib/emotion";
 
 describe("a line's emotion", () => {
   it("is labelled when joy, anger or sadness is clearly ahead", () => {
-    expect(emotionMark([0.4, 0.0, 0.6, 0.0])).toEqual({ emotion: "anger", p: 0.6 });
     expect(emotionMark([0.05, 0.0, 0.07, 0.88])).toEqual({ emotion: "sadness", p: 0.88 });
+  });
+
+  it("asks for four in five unless the reader chose otherwise", () => {
+    // 60% sure: under the default, over a threshold of 50% (Settings -> Speakers).
+    expect(emotionMark([0.4, 0.0, 0.6, 0.0])).toBeNull();
+    expect(emotionMark([0.4, 0.0, 0.6, 0.0], 0.5)).toEqual({ emotion: "anger", p: 0.6 });
+    expect(emotionMark([0.1, 0.0, 0.0, 0.9], 0.95)).toBeNull();
   });
 
   it("is not labelled for neutral, or for a close call", () => {
@@ -70,5 +76,22 @@ describe("the meeting at a glance", () => {
     const { moodBuckets } = await import("@/app/[id]/mood-strip");
     const b = moodBuckets([line(0, 10, "joy"), line(1, 700, null)]);
     expect(b[0].standout).toBeNull();
+  });
+});
+
+describe("the strip and the threshold", () => {
+  const read = (p: string) => readFile(join(__dirname, "..", p), "utf8");
+
+  it("marks lines and colours minutes by the reader's threshold", async () => {
+    const list = await read("app/[id]/transcript-list.tsx");
+    expect(list).toContain("clear={emotionClear}");
+    expect(list).toContain("emotionClear={emotionClear}");
+    expect(await read("app/[id]/transcript-row.tsx")).toContain("emotionMark(readEmotion(item.emotion), emotionClear)");
+    expect(await read("app/[id]/mood-strip.tsx")).toContain("emotionMark(readEmotion(l.emotion), clear)");
+  });
+
+  it("moves a playing recording to the bar's minute, not only the page", async () => {
+    const list = await read("app/[id]/transcript-list.tsx");
+    expect(list).toMatch(/onJump=\{\(i\) => \{[\s\S]*?if \(el && !el\.paused\) seekTo\(wavPosition\(i\)\);/);
   });
 });
