@@ -17,7 +17,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { LocaleProvider } from "./locale-provider";
 import { DueMeetingAlert } from "./due-meeting-alert";
 import { Sidebar } from "./sidebar";
-import { sidebarMeetings } from "./sidebar-meetings";
+import { sidebarMeetings, sidebarSeries } from "./sidebar-meetings";
 import { DropToTranscribe } from "./drop-to-transcribe";
 import { LockedBanner } from "./locked-banner";
 import { ExternalNotice } from "./external-notice";
@@ -146,6 +146,7 @@ export default async function RootLayout({
               {/* v4 (design B): the meetings live in the sidebar, beside one main screen. */}
               <Sidebar
                 meetings={locked ? [] : await sidebarMeetings()}
+                series={locked ? [] : await sidebarSeries()}
                 external={external}
                 isAdmin={me?.isAdmin ?? false}
                 version={appVersion}

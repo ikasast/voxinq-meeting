@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { extensionEnabled } from "@/lib/extensions-store";
 
 // What the sidebar lists (app/sidebar.tsx): the caller's meetings, newest first, with only what a
 // row shows. Read by the root layout on every page, so it is one indexed query and a short take —
@@ -17,7 +18,12 @@ export type SidebarMeeting = {
   noMinutes: boolean;
   /** Kept at the top of the sidebar. */
   pinned: boolean;
+  /** The series it belongs to, when Series is on: it is then listed under its series. */
+  seriesId: string | null;
 };
+
+/** A series in the sidebar: its name, how many meetings it has, and when the latest was. */
+export type SidebarSeries = { id: string; name: string; count: number; lastAt: string };
 
 const SELECT = {
   id: true,
@@ -26,6 +32,7 @@ const SELECT = {
   endedAt: true,
   scheduledAt: true,
   pinnedAt: true,
+  seriesId: true,
   _count: { select: { transcripts: true, summaries: true } },
 } as const;
 
@@ -46,6 +53,7 @@ export async function sidebarMeetings(): Promise<SidebarMeeting[]> {
       select: SELECT,
     }),
   ]);
+  const seriesOn = await extensionEnabled("series");
   const seen = new Set(recent.map((m) => m.id));
   const rows = [...recent, ...pinned.filter((m) => !seen.has(m.id))];
   return rows.map((m) => {
@@ -58,6 +66,28 @@ export async function sidebarMeetings(): Promise<SidebarMeeting[]> {
       live: m.endedAt === null && !upcoming && m._count.transcripts > 0,
       noMinutes: m.endedAt !== null && m._count.transcripts > 0 && m._count.summaries === 0,
       pinned: m.pinnedAt !== null,
+      seriesId: seriesOn ? m.seriesId : null,
     };
   });
+}
+
+/**
+ * The series with meetings in them, the one met most recently first — the order somebody looks
+ * for them in. Empty while Series is off.
+ */
+export async function sidebarSeries(): Promise<SidebarSeries[]> {
+  if (!(await extensionEnabled("series"))) return [];
+  const rows = await prisma.series.findMany({
+    select: {
+      id: true,
+      name: true,
+      meetings: { where: { deletedAt: null }, orderBy: { startedAt: "desc" }, take: 1, select: { startedAt: true } },
+      _count: { select: { meetings: { where: { deletedAt: null } } } },
+    },
+  });
+  return rows
+    .filter((s) => s.meetings.length > 0)
+    .map((s) => ({ id: s.id, name: s.name, count: s._count.meetings, lastAt: s.meetings[0].startedAt.toISOString() }))
+    .sort((a, b) => b.lastAt.localeCompare(a.lastAt))
+    .slice(0, 30);
 }
