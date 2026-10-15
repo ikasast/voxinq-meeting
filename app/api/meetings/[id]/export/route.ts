@@ -7,6 +7,10 @@ import { readSettings } from "@/lib/settings";
 import { speakersInOrder, readNames, nameOf } from "@/lib/speakers";
 import { formatDateTime, formatDuration, formatOffset } from "@/lib/utils";
 import { displayOffset } from "@/lib/audio-position";
+import { extensionEnabled } from "@/lib/extensions-store";
+import { currentLocale, serverT } from "@/lib/i18n/server";
+import { formatDateTimeIn } from "@/lib/i18n/format";
+import { meetingInfoRows, minutesWithInfo } from "@/lib/meeting-info";
 
 export const runtime = "nodejs";
 
@@ -35,9 +39,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       transcripts: { orderBy: { createdAt: "asc" } },
       summaries: { orderBy: { createdAt: "desc" } },
       series: { select: { name: true } },
+      participants: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], select: { name: true } },
     },
   });
   if (!meeting) return apiError("not found", 404);
+
+  // What heads the minutes in every file they go out in: when, who, the series — in the reader's
+  // language, as the page shows them.
+  const locale = await currentLocale();
+  const t = await serverT();
+  const info = meetingInfoRows(
+    {
+      startedAt: meeting.startedAt,
+      endedAt: meeting.endedAt,
+      participants: meeting.participants.map((p) => p.name),
+      series: meeting.series && (await extensionEnabled("series")) ? meeting.series.name : null,
+    },
+    locale,
+  );
 
   const labels = readNames(meeting.speakerLabels);
   const latest = meeting.summaries[0];
@@ -52,19 +71,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   // download is supposed to mean.
   if (format === "docx") {
     if (!latest) return apiError("no minutes to export yet", 400);
-    const duration = formatDuration(meeting.startedAt, meeting.endedAt);
-    const subtitle = [
-      formatDateTime(meeting.startedAt) + (duration ? ` (${duration})` : ""),
-      meeting.series ? meeting.series.name : null,
-    ]
-      .filter(Boolean)
-      .join("  ·  ");
-
     const buf = await minutesDocx({
       title: meeting.title,
-      subtitle,
+      info,
+      locale,
       markdown: latest.summaryText,
-      footnote: `Exported from Voxinq Meeting on ${formatDateTime(new Date())}`,
+      footnote: t("Exported from Voxinq Meeting on {when}", { when: formatDateTimeIn(locale, new Date()) }),
     });
     return new NextResponse(new Uint8Array(buf), {
       headers: {
@@ -78,7 +90,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const files = new Map<string, string>();
 
   if (requested.includes("minutes") && latest) {
-    files.set("minutes.md", `# ${meeting.title} — Minutes\n\n${latest.summaryText}\n`);
+    files.set("minutes.md", minutesWithInfo(meeting.title, info, latest.summaryText));
   }
 
   if (requested.includes("transcript") && meeting.transcripts.length > 0) {

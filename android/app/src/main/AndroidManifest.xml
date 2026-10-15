@@ -96,6 +96,18 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- The home-screen widget: Record now and New meeting, side by side. -->
+        <receiver
+            android:name=".QuickWidget"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_info" />
+        </receiver>
         <!-- Where Android reports on an update the app installed (Updater). -->
         <receiver
             android:name=".UpdateReceiver"

@@ -82,6 +82,13 @@ On first launch the app asks for the server's address, the one you open Voxinq a
 such as `https://your-pc.your-tailnet.ts.net`. The phone has to be able to reach it, over
 Tailscale or otherwise. Long-press the app icon for **Change server**.
 
+## The widget
+
+A one-row widget (4 × 1, stretches sideways) with two buttons: **Record now** creates a meeting and
+starts recording it, **New meeting** opens the form. Add it from the home screen's widget list
+(search for Voxinq). The same two are also on a long press of the app icon. A tap opens the app
+and does what its button there would do; nothing runs from the widget itself.
+
 ## Against a development server
 
 Debug builds also accept `http://localhost`, so a server on the PC can be reached through adb:

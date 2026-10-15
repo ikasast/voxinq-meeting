@@ -362,8 +362,8 @@ export function SummarySection({
       {processing ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--accent-sub)]">
           <Spinner />
+          {/* No Stop here: the regenerate button in the heading has become one. */}
           <span className="mr-auto">{t("Generating new minutes. A new version will be added below when done…")}</span>
-          {!readOnly ? <StopButton onClick={stopGeneration} busy={stopping} /> : null}
         </div>
       ) : lastOutcome === "error" && !minutesRunning ? (
         <div className="mt-3 text-sm text-[var(--error)]">

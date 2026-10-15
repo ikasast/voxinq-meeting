@@ -21,7 +21,7 @@ export function RestScreenSetting({ labelClass, inputClass }: { labelClass: stri
   return (
     <div>
       <label htmlFor="restScreenSeconds" className={labelClass}>
-        {t("Rest the screen while recording")}
+        {t("Turn the screen off while recording")}
       </label>
       <select
         id="restScreenSeconds"

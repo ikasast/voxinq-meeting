@@ -24,6 +24,23 @@ type Pull = {
 
 const POLL_MS = 1500;
 
+/**
+ * Models to start from, smallest first. Ollama's own names, so picking one is all it takes to
+ * download it. The GPU column is the card it is comfortable on with a meeting's worth of context
+ * (lib/llm/context.ts), not the bare file; the Qwen 3 family leads because it writes Japanese
+ * well at every size.
+ */
+function suggestions(t: (k: string) => string) {
+  return [
+    { vram: t("No GPU / 6 GB"), model: "qwen3:4b", size: "2.5 GB", note: t("Light. Short, plain minutes.") },
+    { vram: "8 GB", model: "qwen3:8b", size: "5.2 GB", note: t("The default. Good minutes for everyday meetings.") },
+    { vram: "12 GB", model: "gemma3:12b", size: "8.1 GB", note: t("Smooth writing, in Japanese and English.") },
+    { vram: "16 GB", model: "qwen3:14b", size: "9.3 GB", note: t("More careful with long or technical meetings.") },
+    { vram: "16 GB", model: "gpt-oss:20b", size: "14 GB", note: t("Strong at sorting out decisions and tasks.") },
+    { vram: "24 GB", model: "qwen3:32b", size: "20 GB", note: t("The best of these, for difficult meetings.") },
+  ];
+}
+
 function gb(bytesOrMb: number, unit: "b" | "mb"): string {
   const mb = unit === "b" ? bytesOrMb / 1024 / 1024 : bytesOrMb;
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
@@ -269,6 +286,46 @@ export function OllamaModelField({
         ) : null}
         {error ? <p className="text-[var(--error)]">{error}</p> : null}
       </div>
+
+      {/* Which model to start from, by how much memory the card has: the question somebody faced
+          with an empty field actually has. Picking one fills the field, and an administrator gets
+          its Download button. Sizes are the download; loaded, a model needs that plus room for the
+          meeting (the context), which is what the GPU column allows for. */}
+      <details className="mt-3 text-xs">
+        <summary className="cursor-pointer text-[var(--text-secondary)]">{t("Models to try, by GPU memory")}</summary>
+        <table className="mt-2 w-full border-collapse overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
+          <thead>
+            <tr className="text-left text-[var(--text-muted)]">
+              <th className="px-3 py-1.5 font-normal">{t("GPU memory")}</th>
+              <th className="px-3 py-1.5 font-normal">{t("Model")}</th>
+              <th className="px-3 py-1.5 font-normal">{t("Download size")}</th>
+              <th className="hidden px-3 py-1.5 font-normal sm:table-cell">{t("What to expect")}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border)]">
+            {suggestions(t).map((s) => (
+              <tr key={s.model}>
+                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-[var(--text-secondary)]">{s.vram}</td>
+                <td className="whitespace-nowrap px-3 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onChange(s.model)}
+                    title={t("Use this model")}
+                    className={`text-left font-mono hover:underline ${sameModel(model, s.model) ? "font-semibold text-[var(--accent-sub)]" : "text-[var(--foreground)]"}`}
+                  >
+                    {s.model}
+                  </button>
+                </td>
+                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-[var(--text-muted)]">{s.size}</td>
+                <td className="hidden px-3 py-1.5 text-[var(--text-muted)] sm:table-cell">{s.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-1.5 text-[var(--text-muted)]">
+          {t("A guide, not a promise: the memory includes room for a long meeting. Without a GPU, use the smallest, and expect minutes to take several minutes.")}
+        </p>
+      </details>
 
       {/* What is on the disk, to give some of it back. Only for whoever can delete; for
           everybody else the suggestions in the field are the list. */}

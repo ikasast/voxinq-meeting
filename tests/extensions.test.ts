@@ -144,17 +144,19 @@ describe("what an instance starts with", () => {
     externalShare: false,
   };
 
-  it("is nothing on a new install: the core is the app, the rest is added", () => {
-    for (const on of Object.values(defaultsFrom(none))) expect(on).toBe(false);
+  it("is Speaker separation alone on a new install: the core is the app, the rest is added", () => {
+    const off = (s: Record<string, boolean>) => Object.entries(s).filter(([k]) => k !== "speakers").map(([, v]) => v);
+    expect(defaultsFrom(none).speakers).toBe(true);
+    for (const on of off(defaultsFrom(none))) expect(on).toBe(false);
     // Signs without meetings are not an upgrade: a settings file carried over is not use.
-    for (const on of Object.values(defaultsFrom({ ...none, externalAi: true }))) expect(on).toBe(false);
+    for (const on of off(defaultsFrom({ ...none, externalAi: true }))) expect(on).toBe(false);
   });
 
   it("keeps, coming up from 3.x, what leaves no sign of being used", () => {
     const s = defaultsFrom({ ...none, meetings: 12 });
-    expect([s.ask, s.bulkMinutes, s.corrections]).toEqual([true, true, true]);
-    expect([s.speakers, s.series, s.schedule, s.minutesFormats, s.translation, s.externalAi, s.externalShare]).toEqual(
-      [false, false, false, false, false, false, false],
+    expect([s.ask, s.bulkMinutes, s.corrections, s.speakers]).toEqual([true, true, true, true]);
+    expect([s.series, s.schedule, s.minutesFormats, s.translation, s.externalAi, s.externalShare]).toEqual(
+      [false, false, false, false, false, false],
     );
   });
 
@@ -167,5 +169,18 @@ describe("what an instance starts with", () => {
   it("decides every listed extension, so the file it writes is whole", () => {
     expect(Object.keys(defaultsFrom(none)).sort()).toEqual([...EXTENSION_IDS].sort());
     expect(Object.keys(defaultsFrom({ ...none, meetings: 1 })).sort()).toEqual([...EXTENSION_IDS].sort());
+  });
+});
+
+describe("the switches on Settings, Extensions", () => {
+  it("are switches that slide, announced as on or off", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const page = readFileSync(join(__dirname, "..", "app/settings/extensions-settings.tsx"), "utf8");
+    const sw = readFileSync(join(__dirname, "..", "app/switch.tsx"), "utf8");
+    expect(page).toContain("<Switch");
+    expect(page).not.toContain('type="checkbox"');
+    expect(sw).toContain('role="switch"');
+    expect(sw).toContain("aria-checked={on}");
   });
 });

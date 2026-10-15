@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher shortcut: a plus in the app's accent on a round tile. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#F5F7FA" android:pathData="M24,0a24,24 0,1 1,0 48a24,24 0,1 1,0 -48z" />
+    <path android:fillColor="#0E7490" android:pathData="M22.5,14h3v8.5h8.5v3h-8.5v8.5h-3v-8.5h-8.5v-3h8.5z" />
+</vector>

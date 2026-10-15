@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { prisma } from "@/lib/prisma";
-import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
+import { formatDateTimeIn } from "@/lib/i18n/format";
+import { meetingInfoRows } from "@/lib/meeting-info";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { PrintTrigger } from "./print-trigger";
 
@@ -39,6 +40,7 @@ export default async function PrintMinutes({
     include: {
       summaries: { orderBy: { createdAt: "desc" }, take: 1 },
       series: { select: { name: true } },
+      participants: { orderBy: [{ position: "asc" }, { createdAt: "asc" }], select: { name: true } },
     },
   });
   if (!meeting) notFound();
@@ -46,9 +48,15 @@ export default async function PrintMinutes({
   const minutes = meeting.summaries[0];
   const t = await serverT();
   const locale = await currentLocale();
-  const duration = meeting.endedAt
-    ? formatDurationIn(locale, meeting.endedAt.getTime() - meeting.startedAt.getTime())
-    : null;
+  const info = meetingInfoRows(
+    {
+      startedAt: meeting.startedAt,
+      endedAt: meeting.endedAt,
+      participants: meeting.participants.map((p) => p.name),
+      series: meeting.series && (await extensionEnabled("series")) ? meeting.series.name : null,
+    },
+    locale,
+  );
 
   return (
     <main className="print-sheet mx-auto max-w-3xl px-6 py-8">
@@ -65,12 +73,15 @@ export default async function PrintMinutes({
 
       <header className="mb-6 border-b border-[var(--border)] pb-4">
         <h1 className="text-2xl font-semibold text-[var(--text-strong)]">{meeting.title}</h1>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          {formatDateTimeIn(locale, meeting.startedAt)}
-          {meeting.endedAt ? ` – ${formatDateTimeIn(locale, meeting.endedAt)}` : ""}
-          {duration ? ` (${duration})` : ""}
-          {meeting.series && (await extensionEnabled("series")) ? `  ·  ${meeting.series.name}` : ""}
-        </p>
+        {/* When, who, the series — what heads the minutes in every file (lib/meeting-info.ts). */}
+        <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-0.5 text-sm">
+          {info.map((row) => (
+            <div key={row.label} className="contents">
+              <dt className="text-[var(--text-muted)]">{row.label}</dt>
+              <dd className="text-[var(--text-secondary)]">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
       </header>
 
       {minutes ? (

@@ -82,6 +82,14 @@ export async function PATCH(req: NextRequest) {
   ) {
     patch.vramBudgetMb = Math.round(body.vramBudgetMb);
   }
+  // Below an even chance the marks are noise, and above 95% almost nothing is ever marked.
+  if (
+    typeof body.emotionThreshold === "number" &&
+    body.emotionThreshold >= 0.5 &&
+    body.emotionThreshold <= 0.95
+  ) {
+    patch.emotionThreshold = Math.round(body.emotionThreshold * 100) / 100;
+  }
   // Update API keys only when a value is passed (empty string is ignored as "no change").
   if (typeof body.anthropicApiKey === "string" && cleanSetting(body.anthropicApiKey)) {
     patch.anthropicApiKey = cleanSetting(body.anthropicApiKey);
