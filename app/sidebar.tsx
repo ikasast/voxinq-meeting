@@ -23,7 +23,7 @@ import { busyLabel } from "@/lib/queue/job-label";
 import { useT } from "./locale-provider";
 import { useRecorderState } from "./recorder";
 import { useExtensions } from "./extensions-provider";
-import type { SidebarMeeting } from "./sidebar-meetings";
+import type { SidebarMeeting, SidebarSeries } from "./sidebar-meetings";
 
 // v4's one way around the app (design B): a sidebar with the meetings in it, beside one main
 // screen. New meeting and search at the top, the meetings by day, settings and the account at
@@ -50,7 +50,12 @@ function saveMode(m: Mode) {
 
 type Group = { key: string; label: string; items: SidebarMeeting[] };
 
-/** Pinned first, then upcoming, then by when they were, in this device's own days. */
+/**
+ * Pinned first, then upcoming, then by when they were, in this device's own days. A meeting in a
+ * series is not among the days: it is listed under its series (seriesSection), so the days hold
+ * the one-off meetings. Pinned and upcoming ones stay where they are — that is why they were put
+ * there.
+ */
 function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -64,6 +69,7 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
     { key: "earlier", label: t("Earlier"), items: [] },
   ];
   for (const m of meetings) {
+    if (m.seriesId && !m.pinned && !m.upcoming) continue;
     const at = new Date(m.at).getTime();
     const g = m.pinned
       ? 0
@@ -83,8 +89,30 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
   return groups.filter((g) => g.items.length > 0);
 }
 
+const OPEN_SERIES_KEY = "voxinq.sidebar.series";
+
+function readOpenSeries(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(OPEN_SERIES_KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** A series' latest meeting, as the row says it: today, yesterday, or the date. */
+function lastLabel(iso: string, t: (k: string) => string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (d.getTime() >= today) return t("Today");
+  if (d.getTime() >= today - 86_400_000) return t("Yesterday");
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 export function Sidebar({
   meetings,
+  series = [],
   external,
   isAdmin,
   version,
@@ -93,6 +121,8 @@ export function Sidebar({
   extras,
 }: {
   meetings: SidebarMeeting[];
+  /** The series to list, most recent first (sidebarSeries). */
+  series?: SidebarSeries[];
   external: boolean;
   isAdmin: boolean;
   version: string;
@@ -130,6 +160,18 @@ export function Sidebar({
   useEffect(() => setDrawer(false), [pathname]);
 
   const groups = useMemo(() => grouped(meetings, t), [meetings, t]);
+  // Which series are unfolded, remembered on this device. The one holding the meeting on screen
+  // is unfolded as well, so the place you are is always in sight.
+  const [openSeries, setOpenSeries] = useState<string[]>([]);
+  useEffect(() => setOpenSeries(readOpenSeries()), []);
+  const toggleSeries = (id: string) =>
+    setOpenSeries((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem(OPEN_SERIES_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   if (isAuthPath(pathname)) return null;
 
   const change = (m: Mode) => {
@@ -139,6 +181,9 @@ export function Sidebar({
   };
 
   const activeId = pathname.split("/")[1] ?? "";
+  const activeSeries =
+    meetings.find((m) => m.id === activeId)?.seriesId ??
+    (pathname.startsWith("/series/") ? pathname.split("/")[2] : null);
 
   const togglePin = async (m: SidebarMeeting) => {
     const res = await fetch(`/api/meetings/${m.id}`, {
@@ -148,6 +193,80 @@ export function Sidebar({
     }).catch(() => null);
     if (res?.ok) router.refresh();
   };
+
+  // The series, each a row that opens to its latest meetings (mockup A, 2026-10-15). The name goes
+  // to the series' page; the chevron folds it.
+  const seriesSection = (
+    <div className="mt-3 border-b border-[var(--border)] pb-3">
+      <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-muted)]">{t("Series")}</p>
+      <ul>
+        {series.map((s) => {
+          const open = openSeries.includes(s.id) || activeSeries === s.id;
+          const items = meetings.filter((m) => m.seriesId === s.id && !m.upcoming).slice(0, 3);
+          return (
+            <li key={s.id}>
+              <div className="group flex items-center rounded-md hover:bg-[var(--hover-surface)]">
+                <button
+                  type="button"
+                  onClick={() => toggleSeries(s.id)}
+                  aria-expanded={open}
+                  aria-label={`${open ? t("Fold") : t("Unfold")}: ${s.name}`}
+                  className="flex h-7 w-6 shrink-0 items-center justify-center text-[var(--text-muted)] hover:text-[var(--foreground)]"
+                >
+                  <svg aria-hidden viewBox="0 0 16 16" className={`h-3 w-3 transition-transform motion-reduce:transition-none ${open ? "rotate-90" : ""}`}>
+                    <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <Link
+                  href={`/series/${s.id}`}
+                  aria-current={pathname === `/series/${s.id}` ? "page" : undefined}
+                  className={`flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pr-2 text-sm ${
+                    pathname === `/series/${s.id}` ? "text-[var(--text-strong)]" : "text-[var(--text-secondary)] group-hover:text-[var(--foreground)]"
+                  }`}
+                >
+                  <SeriesIcon className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+                  <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-[var(--text-muted)]">
+                    {lastLabel(s.lastAt, t)} · {s.count}
+                  </span>
+                </Link>
+              </div>
+              {open ? (
+                <ul className="mb-1">
+                  {items.map((m) => (
+                    <li key={m.id}>
+                      <Link
+                        href={`/${m.id}`}
+                        aria-current={m.id === activeId ? "page" : undefined}
+                        className={`flex items-center gap-2 rounded-md py-1 pl-8 pr-2 text-[13px] ${
+                          m.id === activeId
+                            ? "bg-[color-mix(in_srgb,var(--accent)_14%,transparent)] text-[var(--text-strong)]"
+                            : "text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
+                        }`}
+                      >
+                        <LiveDot id={m.id} live={m.live} />
+                        <span className="min-w-0 flex-1 truncate">{m.title}</span>
+                      </Link>
+                    </li>
+                  ))}
+                  {s.count > items.length ? (
+                    <li>
+                      <Link
+                        href={`/series/${s.id}`}
+                        className="block rounded-md py-1 pl-8 pr-2 text-xs text-[var(--accent-sub)] hover:bg-[var(--hover-surface)]"
+                      >
+                        {t("All {n} meetings →", { n: s.count })}
+                      </Link>
+                    </li>
+                  ) : null}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
 
   const list = (
     <nav aria-label={t("Meetings")} className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
@@ -159,8 +278,13 @@ export function Sidebar({
         // rather than start something new, and at full strength they read as more lists.
         groups.map((g, i) => {
           const own = g.key === "pinned" || g.key === "upcoming";
-          const ruled = own && i < groups.length - 1;
+          const ruled = own && (i < groups.length - 1 || series.length > 0);
+          // The series go after the last list of its own, before the days.
+          const seriesHere =
+            series.length > 0 && !own && (i === 0 || groups[i - 1].key === "pinned" || groups[i - 1].key === "upcoming");
           return (
+            <div key={g.key}>
+            {seriesHere ? seriesSection : null}
             <div
               key={g.key}
               className={ruled ? "mt-3 border-b border-[var(--border)] pb-3" : own || i === 0 ? "mt-3" : "mt-5"}
@@ -218,9 +342,12 @@ export function Sidebar({
                 ))}
               </ul>
             </div>
+            </div>
           );
         })
       )}
+      {/* Only series, or series after the lists of their own: nothing above put them in. */}
+      {series.length > 0 && groups.every((g) => g.key === "pinned" || g.key === "upcoming") ? seriesSection : null}
       <Link
         href="/?list=1"
         className="mt-3 block rounded-md px-2 py-1.5 text-xs text-[var(--accent-sub)] hover:bg-[var(--hover-surface)]"
