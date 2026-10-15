@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Long-press the app icon to point the app at another server. -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The widget's two buttons, also on a long press of the icon. -->
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_record"
+        android:shortcutId="quick_record"
+        android:shortcutShortLabel="@string/widget_record">
+        <intent
+            android:action="io.github.ikasast.voxinq.QUICK_RECORD"
+            android:targetClass="io.github.ikasast.voxinq.MainActivity"
+            android:targetPackage="io.github.ikasast.voxinq" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new"
+        android:shortcutId="new_meeting"
+        android:shortcutShortLabel="@string/widget_new">
+        <intent
+            android:action="io.github.ikasast.voxinq.NEW_MEETING"
+            android:targetClass="io.github.ikasast.voxinq.MainActivity"
+            android:targetPackage="io.github.ikasast.voxinq" />
+    </shortcut>
     <shortcut
         android:enabled="true"
         android:icon="@mipmap/ic_launcher"

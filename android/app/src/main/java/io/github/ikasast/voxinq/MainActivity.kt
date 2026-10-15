@@ -51,6 +51,10 @@ class MainActivity : ComponentActivity() {
 
         /** A meeting's own page, for a notification about one that is not being recorded. */
         const val ACTION_OPEN_MEETING = "io.github.ikasast.voxinq.OPEN_MEETING"
+
+        /** From the widget and the launcher shortcuts: start recording a new meeting, or set one up. */
+        const val ACTION_QUICK_RECORD = "io.github.ikasast.voxinq.QUICK_RECORD"
+        const val ACTION_NEW_MEETING = "io.github.ikasast.voxinq.NEW_MEETING"
         const val EXTRA_MEETING = "meetingId"
         const val EXTRA_AUTOSTART = "autostart"
         private const val BRIDGE = "VoxinqAndroid"
@@ -204,6 +208,11 @@ class MainActivity : ComponentActivity() {
         // The activity is exported, so these extras can come from anywhere: only an id goes in
         // a path, and the most a forged intent can do is open a meeting's own page.
         val action = intent?.action
+        // The widget's two buttons: fixed pages, nothing from the intent goes into the path.
+        QuickWidget.pathFor(action)?.let {
+            open(origin, it)
+            return
+        }
         val opening = intent?.takeIf { action == ACTION_OPEN_RECORDING || action == ACTION_OPEN_MEETING }
         val meeting = opening?.getStringExtra(EXTRA_MEETING)?.takeIf { MEETING_ID.matches(it) }
         // Record, from a meeting's reminder: the page starts the recording itself when it is
