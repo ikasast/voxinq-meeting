@@ -46,8 +46,7 @@ export default function NewMeetingForm({
   const bookedDay = dayFromKey(date);
   const t = useT();
   const { schedule, series: seriesOn } = useExtensions();
-  const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);
-  const [title, setTitle] = useState(dayTitle);
+  const [typed, setTyped] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [series, setSeries] = useState(fromSeries ?? "");
   // Empty means "record it now", which is how every meeting was made until this existed.
@@ -55,6 +54,12 @@ export default function NewMeetingForm({
   // and finding the date blank would make the click look like it did nothing. The hour is a
   // starting point, not a guess to be defended — it is the first thing anybody changes.
   const [scheduledAt, setScheduledAt] = useState(() => (bookedDay ? `${date}T09:00` : ""));
+  // The offered name follows the time it is for until somebody types over it: a shape with the
+  // time in it would otherwise keep the hour the form was opened at. Empty when the reader chose
+  // to name every meeting themselves, and then the form will not go without one.
+  const [openedAt] = useState(() => new Date());
+  const offered = defaultMeetingTitle(scheduledAt ? new Date(scheduledAt) : (bookedDay ?? openedAt), titleFormat);
+  const title = typed ?? offered;
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +100,7 @@ export default function NewMeetingForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim() || dayTitle,
+          title: title.trim(),
           description: description.trim(),
           series: series.trim(),
           // datetime-local has no zone; it is wall-clock time on this device, which is what
@@ -125,7 +130,7 @@ export default function NewMeetingForm({
             id="title"
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => setTyped(e.target.value)}
             placeholder={t("Weekly research sync #2")}
             maxLength={200}
             autoFocus

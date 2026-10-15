@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TITLE_FORMAT, TITLE_FORMATS, defaultMeetingTitle } from "../lib/meeting-title";
+import { DEFAULT_TITLE_FORMAT, TITLE_FORMATS, defaultMeetingTitle, namedMeetingTitle } from "../lib/meeting-title";
 import { dayFromKey } from "../lib/utils";
 
 // A default title is what somebody reads in a list months later, and it is the one piece of a
@@ -57,19 +57,20 @@ describe("a day picked in the calendar", () => {
 describe("the New meeting screen", () => {
   const form = readFileSync(join(__dirname, "..", "app/new/new-meeting-form.tsx"), "utf8");
 
-  it("titles a booked meeting for the day it was booked on", () => {
+  it("titles a booked meeting for the time it was booked for", () => {
     // The calendar's "+ Add a meeting on this day" arrives here as ?date=. Filling the date in
     // and then titling the meeting *today* is the click looking as though it was ignored.
     expect(form).toContain("const bookedDay = dayFromKey(date);");
-    expect(form).toContain("const dayTitle = defaultMeetingTitle(bookedDay, titleFormat);");
-    expect(form).toContain("useState(dayTitle)");
+    expect(form).toContain(
+      "defaultMeetingTitle(scheduledAt ? new Date(scheduledAt) : (bookedDay ?? openedAt), titleFormat)",
+    );
   });
 
-  it("uses the same day if the title is cleared", () => {
-    // The field is editable and can be emptied. What it falls back to has to be the booked day
-    // too, or clearing the box silently moves the meeting's name to today.
-    expect(form).toContain("title: title.trim() || dayTitle,");
-    expect(form).not.toContain("defaultMeetingTitle())");
+  it("will not make a meeting with no name", () => {
+    // With "blank" chosen the field starts empty and the reader names the meeting; emptying it
+    // is not a way to get a default instead.
+    expect(form).toContain('setError(t("Please enter a title."));');
+    expect(form).toContain("title: title.trim(),");
   });
 
   it("is handed the shape by the server, not left to fetch it", () => {
@@ -90,12 +91,12 @@ describe("the callers that never show a title", () => {
       expect(readFileSync(join(__dirname, "..", p), "utf8"), p).not.toContain("defaultMeetingTitle");
     }
     const route = readFileSync(join(__dirname, "..", "app/api/meetings/route.ts"), "utf8");
-    expect(route).toContain("typed || defaultMeetingTitle(scheduledAt ?? new Date()");
+    expect(route).toContain("typed || namedMeetingTitle(scheduledAt ?? new Date()");
   });
 });
 
 describe("the shapes on offer", () => {
-  const day = new Date(2026, 6, 11);
+  const day = new Date(2026, 6, 11, 14, 30);
 
   it("each produce their own sample", () => {
     // The settings screen shows `sample` as the label and stores `id`. If the two ever disagree
@@ -108,12 +109,26 @@ describe("the shapes on offer", () => {
 
   it("cover the ways a date is written", () => {
     expect(TITLE_FORMATS.map((f) => f.sample)).toEqual([
+      "",
       "20260711",
-      "2026-07-11",
+      "20260711 14:30",
       "Jul 11, 2026",
+      "Jul 11, 2026 14:30",
       "11 Jul 2026",
+      "11 Jul 2026 14:30",
       "2026年7月11日",
+      "2026年7月11日 14:30",
     ]);
+  });
+
+  it("leave a meeting nobody is asked about named for its date, even with blank chosen", () => {
+    expect(defaultMeetingTitle(day, "blank")).toBe("");
+    expect(namedMeetingTitle(day, "blank")).toBe("20260711");
+    expect(namedMeetingTitle(day, "ja-time")).toBe("2026年7月11日 14:30");
+  });
+
+  it("give the shape that was dropped the compact one", () => {
+    expect(defaultMeetingTitle(day, "iso")).toBe("20260711");
   });
 
   it("start where this app started, so nobody's titles move under them", () => {
