@@ -503,6 +503,50 @@ export function TranscriptList({
     [speakerLabels, meetingId, t],
   );
 
+  // Voices given the same name: one person the separation heard as two. Grouped by name, in the
+  // order the speakers first speak, so the first of each group is the one the others join.
+  const sameNamed = useMemo(() => {
+    const groups = new Map<string, string[]>();
+    for (const k of managerKeys) {
+      const name = speakerLabels[k]?.trim();
+      if (name) groups.set(name, [...(groups.get(name) ?? []), k]);
+    }
+    return [...groups.entries()].filter(([, keys]) => keys.length > 1);
+  }, [managerKeys, speakerLabels]);
+  const [merging, setMerging] = useState(false);
+  const mergeSpeakers = useCallback(
+    async (name: string, keys: string[]) => {
+      const ok = await confirm({
+        title: t("Make {name} one speaker?", { name }),
+        message: t(
+          "The {n} voices named {name} become one speaker, with all their lines. This cannot be split again without separating the recording afresh.",
+          { n: keys.length, name },
+        ),
+        confirmLabel: t("Merge"),
+        danger: true,
+      });
+      if (!ok) return;
+      const [into, ...from] = keys;
+      setMerging(true);
+      try {
+        const res = await fetch(`/api/meetings/${meetingId}/merge-speakers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ into, from }),
+        });
+        const d = (await res.json().catch(() => null)) as { speakerLabels?: SpeakerNames; error?: string } | null;
+        if (!res.ok || !d?.speakerLabels) throw new Error(d?.error ?? `HTTP ${res.status}`);
+        setTranscripts((prev) => prev.map((l) => (from.includes(l.speakerType) ? { ...l, speakerType: into } : l)));
+        setSpeakerLabels(d.speakerLabels);
+      } catch (e) {
+        setError(t("Could not merge the speakers ({reason})", { reason: (e as Error).message }));
+      } finally {
+        setMerging(false);
+      }
+    },
+    [confirm, meetingId, t],
+  );
+
   // Where *this* run would send the audio: the picked endpoint, or the default when the picker
   // is left alone. Null for anything on this machine or your own network.
   const uploadTo = (() => {
@@ -1171,6 +1215,25 @@ export function TranscriptList({
                 <>
                   <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
                   <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("A name here changes every line by that speaker.")}</p>
+                  {/* The same name on two voices: offer to make them one, which needs no recording. */}
+                  {sameNamed.map(([name, keys]) => (
+                    <div
+                      key={name}
+                      className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)]"
+                    >
+                      <span className="min-w-0 flex-1">
+                        {t("{name} is the name of {n} voices.", { name, n: keys.length })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => void mergeSpeakers(name, keys)}
+                        disabled={merging || busy}
+                        className="btn-outline !px-2.5 !py-0.5 text-xs"
+                      >
+                        {t("Make them one speaker")}
+                      </button>
+                    </div>
+                  ))}
 
                   {/* Voice profiles: what makes the next meeting name these people by itself. */}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
