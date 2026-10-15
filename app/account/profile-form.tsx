@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Avatar } from "../avatar";
 import { useT } from "../locale-provider";
+import { FieldRow } from "../field-row";
 
 // Your name and your face.
 //
@@ -85,24 +86,26 @@ export function ProfileForm({
   };
 
   return (
-    <form onSubmit={save} className="card space-y-3 p-4">
-      <h2 className="text-sm font-medium text-[var(--text-strong)]">
-        {t("Name and picture")}
-      </h2>
-
-      <div className="flex items-center gap-3">
-        {preview ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={preview}
-            alt=""
-            aria-hidden
-            className="h-14 w-14 shrink-0 rounded-full border border-[var(--border)] object-cover"
-          />
-        ) : (
-          <Avatar username={username} name={name} hasImage={hasImage} size={56} />
+    <form onSubmit={save} className="[&>div:nth-last-child(2)]:border-b-0">
+      <FieldRow
+        label={t("Picture")}
+        hint={t(
+          "Shown as a circle, so anything outside the middle square is trimmed. It is resized to {size}px here before it is sent — the original never leaves this device.",
+          { size: SIZE },
         )}
-        <div className="flex flex-wrap gap-2">
+      >
+        <div className="flex items-center gap-3">
+          {preview ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={preview}
+              alt=""
+              aria-hidden
+              className="h-10 w-10 shrink-0 rounded-full border border-[var(--border)] object-cover"
+            />
+          ) : (
+            <Avatar username={username} name={name} hasImage={hasImage} size={40} />
+          )}
           <input
             ref={input}
             type="file"
@@ -132,18 +135,28 @@ export function ProfileForm({
             </button>
           ) : null}
         </div>
-      </div>
-      <p className="text-xs text-[var(--text-muted)]">
-        {t(
-          "Shown as a circle, so anything outside the middle square is trimmed. It is resized to {size}px here before it is sent — the original never leaves this device.",
-          { size: SIZE },
-        )}
-      </p>
+      </FieldRow>
 
-      <div>
-        <label htmlFor="email" className="label">
-          {t("Email")}
-        </label>
+      <FieldRow
+        label={t("Display name")}
+        htmlFor="displayName"
+        hint={t("What other people see beside your work in the queue. Empty falls back to your username.")}
+      >
+        <input
+          id="displayName"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={username}
+          disabled={busy}
+          className="input max-w-sm"
+        />
+      </FieldRow>
+
+      <FieldRow
+        label={t("Email")}
+        htmlFor="email"
+        hint={t("What you type to sign in from outside the tailnet. Nothing is ever sent to it.")}
+      >
         <input
           id="email"
           type="email"
@@ -154,38 +167,19 @@ export function ProfileForm({
           autoCorrect="off"
           placeholder="you@example.com"
           disabled={busy}
-          className="input mt-1"
+          className="input max-w-sm"
           required
         />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t("What you type to sign in from outside the tailnet. Nothing is ever sent to it.")}
-        </p>
-      </div>
+      </FieldRow>
 
-      <div>
-        <label htmlFor="displayName" className="label">
-          {t("Display name")}
-        </label>
-        <input
-          id="displayName"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={username}
-          disabled={busy}
-          className="input mt-1"
-        />
-        <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {t(
-            "What other people see beside your work in the queue. Empty falls back to your username.",
-          )}
-        </p>
+      {/* One save for the three rows above, under their values. */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] pb-4 sm:pl-[12.5rem]">
+        <button type="submit" disabled={busy} className="btn-ink !px-3 !py-1 !text-xs">
+          {busy ? t("Saving…") : t("Save the name, picture and email")}
+        </button>
+        {error ? <span className="text-xs text-[var(--error)]">{error}</span> : null}
+        {msg ? <span className="text-xs text-[var(--accent-sub)]">{msg}</span> : null}
       </div>
-
-      {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-      {msg ? <p className="text-sm text-[var(--accent-sub)]">{msg}</p> : null}
-      <button type="submit" disabled={busy} className="btn-ink">
-        {busy ? t("Saving…") : t("Save")}
-      </button>
     </form>
   );
 }

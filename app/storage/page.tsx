@@ -109,7 +109,7 @@ function Panel({ title, total, sub, parts, children }: {
 }) {
   const widths = barWidths(parts.map((p) => p.bytes));
   return (
-    <section className="card space-y-3 p-6">
+    <section className="space-y-3 border-t border-[var(--border)] pt-5">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-sm font-semibold text-[var(--text-strong)]">{title}</h2>
         <span className="text-2xl font-semibold tabular-nums text-[var(--text-strong)]">{total}</span>
@@ -249,7 +249,7 @@ export default async function StoragePage() {
   const biggest = largest[0]?.[1].audio ?? 0;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div data-paper className="mx-auto max-w-3xl space-y-6 pt-2 lg:pt-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Storage")}</h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -274,7 +274,7 @@ export default async function StoragePage() {
           ) : null}
         </Panel>
       ) : (
-        <section className="card p-6">
+        <section className="border-t border-[var(--border)] pt-5">
           <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Audio recordings")}</h2>
           <p className="mt-2 text-sm text-[var(--warning)]">
             {t("The recordings could not be measured: the transcription service did not answer.")}
@@ -291,15 +291,15 @@ export default async function StoragePage() {
       </Panel>
 
       {largest.length > 0 ? (
-        <section className="card space-y-3 p-6">
-          <h2 className="section-title text-sm font-semibold text-[var(--text-strong)]">{t("Largest recordings")}</h2>
-          <ul className="space-y-3">
+        <section className="space-y-2 border-t border-[var(--border)] pt-5">
+          <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Largest recordings")}</h2>
+          <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
             {largest.map(([id, r]) => {
               const m = byId.get(id)!;
               const fate = fateOf(r, m.deletedAt !== null);
               const length = r.seconds ? formatDurationIn(locale, r.seconds * 1000) : null;
               return (
-                <li key={id} className="space-y-1">
+                <li key={id} className="space-y-1 py-2.5">
                   <div className="flex items-baseline justify-between gap-3">
                     <Link
                       href={`/${id}`}

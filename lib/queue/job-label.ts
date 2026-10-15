@@ -13,6 +13,7 @@ export function jobLabel(t: (k: string) => string, kind: string): string {
     "Re-transcribe": t("Re-transcribe"),
     Diarize: t("Diarize"),
     "Encrypting your older meetings": t("Encrypting your older meetings"),
+    Emotion: t("Emotion"),
   };
   const label = isJobKind(kind) ? JOB_LABEL[kind] : kind;
   return table[label] ?? label;

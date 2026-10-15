@@ -172,7 +172,6 @@ export const ja: Record<string, string> = {
   "{speakers} of {total} expected to speak — diarization is told to look for {n}.":
     "{total}人中 {speakers}人が発言する想定です。話者分離は {n} を探します。",
   "as many as it finds": "見つかった数だけ",
-  "Back to list": "一覧へ戻る",
   "1 person": "1人",
   "Number of speakers": "話者の人数",
   "Automatic (from the participants)": "自動（参加者の人数から）",
@@ -992,8 +991,6 @@ export const ja: Record<string, string> = {
   "identified by your tailnet login": "tailnet のログインで識別",
   "1 signed-in device": "ログイン中の端末 1台",
   "{n} signed-in devices": "ログイン中の端末 {n}台",
-  "Tailnet login: {login}": "tailnet のログイン: {login}",
-  "Name and picture": "名前と画像",
   "Choose a picture": "画像を選ぶ",
   "Choose another": "別の画像を選ぶ",
   "That file could not be read as an image.": "そのファイルは画像として読み込めませんでした。",
@@ -1004,7 +1001,6 @@ export const ja: Record<string, string> = {
     "順番待ちなどで他の人に見える名前です。空ならユーザー名が使われます。",
   "What you type to sign in from outside the tailnet. Nothing is ever sent to it.":
     "tailnet の外からログインするときに入力するアドレスです。ここに何かが送られることはありません。",
-  "Change your password": "パスワードを変更",
   "Set a password": "パスワードを設定",
   "Your account was made from your tailnet login, so it has no password — inside the tailnet you are never asked for one. Set one to be able to sign in from anywhere else.":
     "このアカウントは tailnet のログインから作られたためパスワードがありません。tailnet の中では尋ねられないからです。それ以外の場所からログインするには設定してください。",
@@ -1012,6 +1008,10 @@ export const ja: Record<string, string> = {
   Save: "保存",
   "Saved. You can now sign in from anywhere with it.":
     "保存しました。これでどこからでもログインできます。",
+  Picture: "写真",
+  Set: "設定済み",
+  Change: "変更",
+  "Save the name, picture and email": "名前・写真・メールを保存",
   "Signed-in devices": "ログイン中の端末",
   "Ends every session, including this one. Use it for a phone you no longer have — the sessions live on the server, so this takes effect at once rather than whenever the browser next asks.":
     "この端末を含め、すべてのセッションを終了します。手元に無くなったスマートフォンなどに使ってください。セッションはサーバー側にあるので、ブラウザの次のアクセスを待たずに即座に効きます。",
@@ -1140,7 +1140,6 @@ export const ja: Record<string, string> = {
   // ---- Archive ----
 
   // ---- Trash ----
-  "Deleted meetings": "削除した会議",
   "Deleted meetings are permanently removed after {n} days. Until then, you can restore them.":
     "削除した会議は {n} 日後に完全に消えます。それまでは元に戻せます。",
   "The trash is empty.": "ゴミ箱は空です。",
