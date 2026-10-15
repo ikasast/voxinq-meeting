@@ -805,7 +805,7 @@ export default function SettingsPage() {
               <Field
                 label={t("Default meeting name")}
                 htmlFor="meetingTitleFormat"
-                hint={t("Until somebody names it. A booked meeting is named for its day.")}
+                hint={t("Until somebody names it. Record now uses the date even when this is blank.")}
               >
                 <select
                   id="meetingTitleFormat"
@@ -818,7 +818,7 @@ export default function SettingsPage() {
                       to look at both rather than to decode `yyyyMMdd`. */}
                   {TITLE_FORMATS.map((f) => (
                     <option key={f.id} value={f.id}>
-                      {f.sample}
+                      {f.id === "blank" ? t("Blank — type one each time") : f.sample}
                     </option>
                   ))}
                 </select>
@@ -826,7 +826,7 @@ export default function SettingsPage() {
 
               {/* Per device, like the theme: a phone in a pocket and a laptop on the table want
                   different answers (app/rest-screen.ts). */}
-              <Field label={t("Rest the screen")}>
+              <Field label={t("Turn the screen off")}>
                 <RestScreenSetting labelClass="sr-only" inputClass={inputClass} />
               </Field>
 

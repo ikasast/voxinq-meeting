@@ -122,7 +122,7 @@ export const ja: Record<string, string> = {
   "The input is clipping — turn the source down; recognition cannot recover a clipped word":
     "入力が割れています — 音源を下げてください。割れた音は認識で復元できません",
   "Screen resting. Recording continues. Activate to show the recording screen.":
-    "休止画面です。録音は続いています。触れると録音画面に戻ります。",
+    "消灯中です。録音は続いています。触れると録音画面に戻ります。",
   "Recording — touch to show": "録音中 — 触れると表示",
   Transcript: "発言",
   "Something else is using the GPU": "GPU を他の処理が使っています",
@@ -284,8 +284,10 @@ export const ja: Record<string, string> = {
   "Leave it empty for a local server.": "ローカルのサーバーなら空欄で構いません。",
   "This device only. System follows the OS.": "この端末だけの設定。「システム」は OS に合わせます。",
   "Of the screens. The minutes' language is under Minutes.": "画面の言語です。議事録の言語は「議事録」で設定します。",
-  "Until somebody names it. A booked meeting is named for its day.": "名前を付けるまでの仮の名前。予約した会議はその日付になります。",
-  "Rest the screen": "画面を休ませる",
+  "Until somebody names it. Record now uses the date even when this is blank.":
+    "名前を付けるまでの仮の名前。「空欄」でも「すぐ録音」の会議には日付が入ります。",
+  "Blank — type one each time": "空欄 — 毎回入力する",
+  "Turn the screen off": "自動で消灯",
   "{feeling} more than the rest of the meeting ({of} of {n})": "{feeling}な発言が会議全体より多め（{n} 件中 {of} 件）",
   "this meeting": "この会議",
   "For example:": "たとえば:",
@@ -577,7 +579,7 @@ export const ja: Record<string, string> = {
   "Japanese (fixed)": "日本語に固定",
   "English (fixed)": "英語に固定",
   "Ollama (default)": "Ollama（既定）",
-  "Never — keep the screen on": "休ませない — 画面を点けたまま",
+  "Never — keep the screen on": "消灯しない — 画面を点けたまま",
   "After 30 seconds": "30秒後",
   "After 1 minute": "1分後",
   "After 5 minutes": "5分後",
@@ -634,7 +636,7 @@ export const ja: Record<string, string> = {
   Theme: "テーマ",
   "Follow my browser": "ブラウザに合わせる",
   "Default meeting name": "会議の既定の名前",
-  "Rest the screen while recording": "録音中に画面を休ませる",
+  "Turn the screen off while recording": "録音中に自動で消灯",
 
   "Publishing is managed from your private network. Open Settings on a device connected to your Tailscale tailnet (or the host itself) to turn public access on or off.":
     "公開の切り替えは、プライベートネットワークの中から行います。Tailscale の tailnet に接続した端末（またはホスト自身）で設定を開いてください。",
