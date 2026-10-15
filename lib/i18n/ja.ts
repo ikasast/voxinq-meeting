@@ -222,6 +222,7 @@ export const ja: Record<string, string> = {
   "Models, language and glossary": "モデル・言語・用語集",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
+  "Copy with meeting info": "会議情報つきでコピー",
   "e.g. Voxing": "例: ボクシンク",
   ".": "。",
   "Downloading… {percent}%": "ダウンロード中… {percent}%",
