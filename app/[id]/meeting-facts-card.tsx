@@ -59,7 +59,7 @@ export async function MeetingFacts({
         <span aria-hidden className="transition-transform group-open:rotate-90">
           ›
         </span>
-        {t("Models, language and glossary")}
+        {t("Models and settings used")}
       </summary>
       <dl className="mt-2 grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-xs">
         {rows.map((r) => (
