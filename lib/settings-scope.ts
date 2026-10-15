@@ -61,6 +61,8 @@ export const USER_KEYS = [
   "summaryLanguage",
   // Voiceprints are per person, so the confidence needed to match one is too.
   "voiceprintThreshold",
+  // How sure a line has to sound before it is marked: what one reader finds noise another reads.
+  "emotionThreshold",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export type MachineKey = (typeof MACHINE_KEYS)[number];

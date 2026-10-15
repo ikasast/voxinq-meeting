@@ -92,6 +92,8 @@ export type AppSettings = {
    */
   vramBudgetMb: number;
   voiceprintThreshold: number; // cosine similarity needed to auto-name a diarized speaker from a voice profile (0..1)
+  // How sure the Emotion extension must be before a line is marked (0.5..0.95). lib/emotion.ts.
+  emotionThreshold: number;
   // Ollama context window in tokens. 0 = use the built-in budget, which is what fits beside a
   // 7B model on 8 GB of VRAM. Raise it on a bigger card: it is a VRAM figure, not a model
   // limit, and asking for more than the card holds makes Ollama spill to the CPU instead of
@@ -127,6 +129,7 @@ function defaults(): AppSettings {
     summaryLanguage: process.env.SUMMARY_LANGUAGE ?? "ja",
     vramBudgetMb: 0,
     voiceprintThreshold: 0.5,
+    emotionThreshold: 0.8,
     ollamaNumCtx: 0,
   };
 }
@@ -244,6 +247,12 @@ export async function readMachineSettings(): Promise<AppSettings> {
       !(merged.voiceprintThreshold > 0 && merged.voiceprintThreshold < 1)
     ) {
       merged.voiceprintThreshold = base.voiceprintThreshold;
+    }
+    if (
+      typeof merged.emotionThreshold !== "number" ||
+      !(merged.emotionThreshold >= 0.5 && merged.emotionThreshold <= 0.95)
+    ) {
+      merged.emotionThreshold = base.emotionThreshold;
     }
     // Below 2048 there is not room for the instructions, let alone a transcript; a number that
     // small is a mistake rather than a choice, so fall back rather than generate garbage.

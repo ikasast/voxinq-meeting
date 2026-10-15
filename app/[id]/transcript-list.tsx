@@ -43,6 +43,7 @@ import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
 import { MoodStrip } from "./mood-strip";
+import { CLEAR } from "@/lib/emotion";
 import { SpellingFix } from "./spelling-fix";
 import { readStored } from "@/lib/i18n/stored";
 import { useRecorderApi, useRecorderState } from "@/app/recorder";
@@ -50,7 +51,7 @@ import { type Item, TranscriptRow } from "./transcript-row";
 import { Step, type StepState, ToolPanel } from "./tool-panel";
 import { HEAD_BUTTON, ROW_BUTTON } from "./transcript-buttons";
 
-type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string };
+type SttSettings = { sttProfiles?: PublicSttProfile[]; sttDefaultProfileId?: string; emotionThreshold?: number };
 
 /** The tools above the lines that open a panel under them. */
 type Tool = "speakers" | "fix" | "retrans" | null;
@@ -216,6 +217,7 @@ export function TranscriptList({
         setSttProfiles(d?.sttProfiles ?? []);
         setDefaultProfileId(d?.sttDefaultProfileId ?? "");
         setRemoteHost(d ? sttDestination(d) : null);
+        if (typeof d?.emotionThreshold === "number") setEmotionClear(d.emotionThreshold);
       })
       .catch(() => {
         setSttProfiles([]);
@@ -256,6 +258,9 @@ export function TranscriptList({
 
   // Where every line starts in the recording, for the trim bar's ticks.
   const linePositions = useMemo(() => transcripts.map((_, i) => wavPosition(i)), [transcripts, wavPosition]);
+
+  // How sure a line has to sound to be marked (Settings → Speakers), for the lines and the strip.
+  const [emotionClear, setEmotionClear] = useState(CLEAR);
 
   const seekTo = useCallback((seconds: number) => {
     const el = audioRef.current;
@@ -1419,7 +1424,18 @@ export function TranscriptList({
 
       {/* The meeting at a glance, a minute at a time, from what Emotion found (mood-strip.tsx). */}
       {!live && transcripts.length > 0 ? (
-        <MoodStrip lines={transcripts} elapsed={elapsedSeconds} showEmotion={extensions.emotion} />
+        <MoodStrip
+          lines={transcripts}
+          elapsed={elapsedSeconds}
+          showEmotion={extensions.emotion}
+          clear={emotionClear}
+          // While the recording is playing, a bar moves it to the minute as well as the page:
+          // listening is how somebody checks what a coloured minute was.
+          onJump={(i) => {
+            const el = audioRef.current;
+            if (el && !el.paused) seekTo(wavPosition(i));
+          }}
+        />
       ) : null}
 
       {transcripts.length === 0 ? (
@@ -1438,6 +1454,7 @@ export function TranscriptList({
               key={line.id}
               item={line}
               elapsed={elapsedSeconds(i)}
+              emotionClear={emotionClear}
               labels={speakerLabels}
               reassignKeys={reassignKeys}
               showSpeaker={multiSpeaker}

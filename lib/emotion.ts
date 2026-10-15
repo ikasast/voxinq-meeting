@@ -8,8 +8,15 @@
 export const EMOTIONS = ["neutral", "joy", "anger", "sadness"] as const;
 export type Emotion = (typeof EMOTIONS)[number];
 
-/** How sure before a line is labelled. */
-export const CLEAR = 0.5;
+/**
+ * How sure before a line is labelled, unless the reader has chosen (Settings → Speakers). At an
+ * even chance most lines of a real meeting came out joyful, angry or sad, and the marks stopped
+ * meaning anything; four in five is where they start to stand out.
+ */
+export const CLEAR = 0.8;
+
+/** The thresholds offered on the settings screen. */
+export const CLEAR_CHOICES = [0.5, 0.6, 0.7, 0.8, 0.9] as const;
 
 /** The stored probabilities, read back; anything unreadable is nothing. */
 export function readEmotion(raw: string | null | undefined): number[] | null {
@@ -25,10 +32,13 @@ export function readEmotion(raw: string | null | undefined): number[] | null {
 }
 
 /** The label worth showing on a line, with how sure it was — or null. */
-export function emotionMark(probs: number[] | null): { emotion: Exclude<Emotion, "neutral">; p: number } | null {
+export function emotionMark(
+  probs: number[] | null,
+  clear: number = CLEAR,
+): { emotion: Exclude<Emotion, "neutral">; p: number } | null {
   if (!probs) return null;
   let best = 1;
   for (let i = 2; i < 4; i++) if (probs[i] > probs[best]) best = i;
-  if (probs[best] < CLEAR || probs[best] <= probs[0]) return null;
+  if (probs[best] < clear || probs[best] <= probs[0]) return null;
   return { emotion: EMOTIONS[best] as Exclude<Emotion, "neutral">, p: probs[best] };
 }

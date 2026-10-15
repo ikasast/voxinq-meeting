@@ -29,6 +29,8 @@ export type MoodBucket = {
   count: number;
   /** The first of them, to go to. */
   firstId: string | null;
+  /** Its index among the lines, for whoever wants to play from it. */
+  firstIndex: number | null;
   /** The feeling that stands out in it against the whole meeting, and its share of the lines. */
   standout: { feeling: Feeling; share: number; of: number } | null;
 };
@@ -46,7 +48,9 @@ export function bucketSeconds(duration: number): number {
 
 /** The lines, a bucket at a time, with what stands out in each. Lines with no time are left out. */
 export function moodBuckets(points: { id: string; at: number | null; feeling: Feeling | null }[]): MoodBucket[] {
-  const placed = points.filter((p): p is { id: string; at: number; feeling: Feeling | null } => p.at !== null);
+  const placed = points
+    .map((p, index) => ({ ...p, index }))
+    .filter((p): p is { id: string; at: number; feeling: Feeling | null; index: number } => p.at !== null);
   if (placed.length === 0) return [];
   const duration = Math.max(...placed.map((p) => p.at)) + 1;
   const size = bucketSeconds(duration);
@@ -71,7 +75,14 @@ export function moodBuckets(points: { id: string; at: number | null; feeling: Fe
         }
       }
     }
-    return { start: i * size, end: (i + 1) * size, count: inIt.length, firstId: inIt[0]?.id ?? null, standout };
+    return {
+      start: i * size,
+      end: (i + 1) * size,
+      count: inIt.length,
+      firstId: inIt[0]?.id ?? null,
+      firstIndex: inIt[0]?.index ?? null,
+      standout,
+    };
   });
 }
 
@@ -79,18 +90,24 @@ export function MoodStrip({
   lines,
   elapsed,
   showEmotion,
+  clear,
+  onJump,
 }: {
   lines: Line[];
   /** Seconds from the start of the meeting to each line, by index. */
   elapsed: (i: number) => number | null;
   showEmotion: boolean;
+  /** How sure a line has to sound to count (lib/emotion.ts). */
+  clear?: number;
+  /** After the page has moved to a bar's first line, with that line's index. */
+  onJump?: (index: number) => void;
 }) {
   const t = useT();
   if (!showEmotion) return null;
   const points = lines.map((l, i) => ({
     id: l.id,
     at: elapsed(i),
-    feeling: (emotionMark(readEmotion(l.emotion))?.emotion ?? null) as Feeling | null,
+    feeling: (emotionMark(readEmotion(l.emotion), clear)?.emotion ?? null) as Feeling | null,
   }));
   // Nothing judged yet: no strip, rather than a row of grey bars that looks like a finding.
   if (!lines.some((l) => readEmotion(l.emotion))) return null;
@@ -100,9 +117,10 @@ export function MoodStrip({
   if (!buckets.some((b) => b.standout)) return null;
   const busiest = Math.max(1, ...buckets.map((b) => b.count));
 
-  const jump = (id: string) => {
+  const jump = (id: string, index: number | null) => {
     const row = document.getElementById(`line-${id}`);
     if (!row) return;
+    if (index !== null) onJump?.(index);
     row.scrollIntoView({ behavior: "smooth", block: "center" });
     row.classList.add("ring-2", "ring-[var(--accent)]");
     setTimeout(() => row.classList.remove("ring-2", "ring-[var(--accent)]"), 1600);
@@ -138,7 +156,7 @@ export function MoodStrip({
             key={b.start}
             type="button"
             role="listitem"
-            onClick={() => b.firstId && jump(b.firstId)}
+            onClick={() => b.firstId && jump(b.firstId, b.firstIndex)}
             disabled={!b.firstId}
             title={label}
             aria-label={label}

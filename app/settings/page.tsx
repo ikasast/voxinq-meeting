@@ -23,6 +23,7 @@ import { RestScreenSetting } from "./rest-screen-setting";
 import { CheckIcon, StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
+import { CLEAR_CHOICES } from "@/lib/emotion";
 import { ExternalProviderNotice } from "./external-provider-notice";
 import { RemoteSttNotice } from "./remote-stt-notice";
 import { sttDestination } from "@/lib/stt/destination";
@@ -56,6 +57,7 @@ type PublicSettings = {
   meetingTitleFormat: string;
   summaryLanguage: string;
   vramBudgetMb: number;
+  emotionThreshold: number;
 };
 
 const SUMMARY_LANGUAGES: { id: string; label: string }[] = [
@@ -331,7 +333,7 @@ export default function SettingsPage() {
     (tab_) =>
       (tab_.id !== "defaults" || settings.isAdmin) &&
       (tab_.id !== "remote" || extensions.externalShare) &&
-      (tab_.id !== "speakers" || extensions.speakers),
+      (tab_.id !== "speakers" || extensions.speakers || extensions.emotion),
   );
 
   return (
@@ -533,6 +535,28 @@ export default function SettingsPage() {
 
           {/* Voice profiles (speaker auto-naming) */}
           {tab === "speakers" && extensions.speakers ? <VoiceProfiles /> : null}
+          {tab === "speakers" && extensions.emotion ? (
+            <section className={extensions.speakers ? "mt-8" : undefined}>
+              <Field
+                label={t("Emotion")}
+                htmlFor="emotionThreshold"
+                hint={t("A line is marked only when the voice sounds this sure. Higher shows fewer, clearer marks.")}
+              >
+                <select
+                  id="emotionThreshold"
+                  value={String(settings.emotionThreshold)}
+                  onChange={(e) => update("emotionThreshold", Number(e.target.value))}
+                  className={inputClass}
+                >
+                  {CLEAR_CHOICES.map((p) => (
+                    <option key={p} value={String(p)}>
+                      {t("{p}% or more", { p: Math.round(p * 100) })}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </section>
+          ) : null}
 
           {/* Minutes (language, background, format) */}
           {tab === "minutes" ? (
