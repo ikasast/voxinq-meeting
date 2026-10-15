@@ -175,6 +175,21 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
       ),
       needs: t("The NVIDIA GPU build, HF_TOKEN with two models' terms accepted, and about 1.3 GB downloaded on first use"),
     },
+    review: {
+      name: t("Meeting feedback"),
+      summary: t(
+        "Feedback for a meeting's facilitator or one participant, scored out of 100 against criteria you set, with its history.",
+      ),
+      scenes: [
+        t("Getting better at running a weekly meeting, one meeting at a time."),
+        t("Seeing which kinds of meeting someone runs well, and which they are still finding their feet in."),
+        t("Feedback for a participant who wants to take a fuller part."),
+      ],
+      where: t(
+        "A Feedback tab beside the minutes on each meeting's page, Feedback in the navigation for the history, and Settings, Feedback for the criteria. Only you see the feedback you ask for.",
+      ),
+      needs: t("Speaker separation, and the minutes model (LLM)"),
+    },
     externalAi: {
       name: t("External AI"),
       summary: t(

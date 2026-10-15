@@ -15,7 +15,7 @@ import type { ContextKey } from "@/lib/minutes-context";
 export const RECORDING_KIND = "recording";
 
 /** Every kind the dispatcher knows how to run. Anything else in the table is ignored. */
-export const JOB_KINDS = ["minutes", "transcribe", "diarize", "encrypt", "emotion"] as const;
+export const JOB_KINDS = ["minutes", "transcribe", "diarize", "encrypt", "emotion", "review"] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
 
 export const JOB_STATUSES = ["queued", "running", "done", "error", "cancelled"] as const;
@@ -50,6 +50,7 @@ export const JOB_LABEL: Record<JobKind, string> = {
   diarize: "Diarize",
   encrypt: "Encrypting your older meetings",
   emotion: "Emotion",
+  review: "Meeting feedback",
 };
 
 export function isJobKind(v: unknown): v is JobKind {

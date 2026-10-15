@@ -63,6 +63,9 @@ export const USER_KEYS = [
   "voiceprintThreshold",
   // How sure a line has to sound before it is marked: what one reader finds noise another reads.
   "emotionThreshold",
+  // What a good meeting looks like is each person's own view.
+  "facilitatorCriteria",
+  "participantCriteria",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export type MachineKey = (typeof MACHINE_KEYS)[number];

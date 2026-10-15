@@ -28,6 +28,11 @@ export const SERVER_MESSAGES = [
   "An email address is how they will sign in. Enter theirs.",
   "That email address is already in use.",
   "That username is taken.",
+  // Meeting feedback.
+  "Meeting feedback is switched off.",
+  "Nobody of that name speaks in this meeting.",
+  "Feedback is already being written for this meeting.",
+  "The model's answer could not be read as feedback. Try again, or with another model.",
   // Voice profiles.
   "A voice profile with that name already exists.",
   "That username, email, or tailnet login is already taken.",

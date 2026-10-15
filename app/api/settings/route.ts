@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readExtensions } from "@/lib/extensions-store";
 import { keysKeptWhileOff, withExtensions } from "@/lib/extensions-settings";
+import { cleanCriteria } from "@/lib/review/criteria";
 import { apiError } from "@/lib/api";
 import {
   type AppSettings,
@@ -89,6 +90,11 @@ export async function PATCH(req: NextRequest) {
     body.emotionThreshold <= 0.95
   ) {
     patch.emotionThreshold = Math.round(body.emotionThreshold * 100) / 100;
+  }
+  // Meeting feedback's criteria: lists, cleaned the same way they are read back.
+  for (const key of ["facilitatorCriteria", "participantCriteria"] as const) {
+    const list = cleanCriteria(body[key]);
+    if (list) patch[key] = list;
   }
   // Update API keys only when a value is passed (empty string is ignored as "no change").
   if (typeof body.anthropicApiKey === "string" && cleanSetting(body.anthropicApiKey)) {

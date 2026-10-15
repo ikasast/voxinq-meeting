@@ -79,6 +79,12 @@ export const EXTENSIONS = [
     needs: "The NVIDIA GPU build, HF_TOKEN with two models' terms accepted, and about 1.3 GB downloaded on first use",
   },
   {
+    id: "review",
+    name: "Meeting feedback",
+    description: "Feedback for a meeting's facilitator or one participant, scored out of 100 against criteria you set, with its history.",
+    needs: "Speaker separation, and the minutes model (LLM)",
+  },
+  {
     id: "externalAi",
     name: "External AI",
     description: "Write minutes with Anthropic or an OpenAI-compatible service, and transcribe with a service of your choosing.",

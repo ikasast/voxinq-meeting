@@ -25,6 +25,7 @@ import { MeetingTitle } from "./meeting-title";
 import { SummarySection } from "./summary-section";
 import { TranscriptList } from "./transcript-list";
 import { MeetingBody } from "./meeting-body";
+import { ReviewPanel } from "./review-panel";
 import { RecordingDock } from "./recording-dock";
 
 export const dynamic = "force-dynamic";
@@ -239,6 +240,25 @@ export default async function MeetingPage({
         }
         lineCount={meeting.transcripts.length}
         transcriptFirst={meeting.summaries.length === 0}
+        review={
+          // Meeting feedback: for a named speaker, so only once there are lines and from inside.
+          extensions.review && !external && meeting.transcripts.length > 0 ? (
+            <ReviewPanel
+              meetingId={meeting.id}
+              people={[
+                ...new Set(
+                  separatedSpeakers(
+                    meeting.transcripts.map((l) => l.speakerType),
+                    readNames(meeting.speakerLabels),
+                    t,
+                  )
+                    .speakers.filter((s) => s.named)
+                    .map((s) => s.name),
+                ),
+              ]}
+            />
+          ) : undefined
+        }
         document={
           <>
 

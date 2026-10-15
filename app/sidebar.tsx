@@ -16,6 +16,7 @@ import {
   QueueIcon,
   SearchIcon,
   SeriesIcon,
+  FeedbackIcon,
 } from "./icons";
 import { isAuthPath } from "./auth-paths";
 import { type QueuedJob, useQueue } from "./use-my-queue-count";
@@ -362,6 +363,11 @@ export function Sidebar({
       {extensions.series ? (
         <FootLink rail={rail} href="/series" label={t("Series")} active={pathname.startsWith("/series")}>
           <SeriesIcon />
+        </FootLink>
+      ) : null}
+      {extensions.review && !external ? (
+        <FootLink rail={rail} href="/reviews" label={t("Feedback")} active={pathname.startsWith("/reviews")}>
+          <FeedbackIcon />
         </FootLink>
       ) : null}
       {!external ? (

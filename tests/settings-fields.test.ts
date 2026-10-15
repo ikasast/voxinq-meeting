@@ -35,7 +35,7 @@ function appSettingsFields(): { name: string; type: string }[] {
 const API_KEYS = ["anthropicApiKey", "openaiApiKey"];
 // Endpoint keys live inside sttProfiles, one per entry, and are handled as a list rather than
 // as named fields -- see tests/stt-profiles.test.ts for that they never reach the browser.
-const LIST_FIELDS = ["sttProfiles", "minutesTemplates"];
+const LIST_FIELDS = ["sttProfiles", "minutesTemplates", "facilitatorCriteria", "participantCriteria"];
 // Not editable from the settings screen; they live in settings.json only.
 const FILE_ONLY = ["voiceprintThreshold", "ollamaNumCtx"];
 

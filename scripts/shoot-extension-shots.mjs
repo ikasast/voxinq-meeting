@@ -40,6 +40,7 @@ const W = JA
       misheard: "エンベリング",
       fixed: (text) => text.replace("エンベリング", "エンベディング"),
       writeAll: "まとめて作成",
+      feedbackTab: "振り返り",
       askTitle: "この議事録について質問する",
       fixWording: "表記の修正",
       suggest: "用語集から候補を出す",
@@ -63,6 +64,7 @@ const W = JA
       misheard: "in bedding",
       fixed: (text) => text.replace("in bedding", "embedding"),
       writeAll: "Write them all",
+      feedbackTab: "Feedback",
       askTitle: "Ask about these minutes",
       fixWording: "Fix wording",
       suggest: "Suggest from the glossary",
@@ -249,6 +251,17 @@ const SHOTS = {
     // The strip over the transcript and the first lines: one that sounded joyful, one sad.
     await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
     return panelDown(page, 6);
+  },
+
+  async review(page) {
+    // The Feedback tab on the sync: the demo's review of its facilitator, from the score to the
+    // points with their links to the lines.
+    await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
+    await page.getByRole("tab", { name: W.feedbackTab }).last().click();
+    const card = page.locator("section", { has: page.locator("text=/\/ 100/") }).first();
+    await card.waitFor();
+    await page.mouse.move(1, 1);
+    return padded(card, 16);
   },
 
   async externalAi(page) {

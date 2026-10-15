@@ -49,6 +49,7 @@ export function defaultsFrom(e: Evidence): ExtensionState {
     // New in v4: nothing to have been using.
     voiceCues: false,
     emotion: false,
+    review: false,
   };
 }
 

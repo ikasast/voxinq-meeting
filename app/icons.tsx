@@ -179,6 +179,15 @@ export const QueueIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+/** Meeting feedback: a rising line of scores. */
+export const FeedbackIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M4 20h16" />
+    <path d="M5 16l4.5-4.5 3.5 3L19 8" />
+    <path d="M15 8h4v4" />
+  </Base>
+);
+
 export const PersonIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>
     <circle cx="12" cy="8" r="3.5" />
