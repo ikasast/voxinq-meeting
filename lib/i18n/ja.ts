@@ -219,7 +219,7 @@ export const ja: Record<string, string> = {
   Purpose: "目的",
   Status: "状態",
   "Edit participants": "参加者を編集",
-  "Models, language and glossary": "モデル・言語・用語集",
+  "Models and settings used": "使用したモデルと設定",
   "Share minutes": "議事録を共有",
   "Copy transcript": "発言をコピー",
   "Copy with meeting info": "会議情報つきでコピー",
