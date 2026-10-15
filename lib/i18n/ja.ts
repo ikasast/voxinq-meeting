@@ -856,8 +856,6 @@ export const ja: Record<string, string> = {
     "何もインストールできない端末から、自分の議事録を読む。",
   "Settings, Remote access. Visitors from outside sign in with the password and can only read and download; recording and editing stay on the tailnet.":
     "設定の「外部公開」で切り替えます。外からの閲覧はパスワードでログインし、読むこととダウンロードだけができます。録音と編集は tailnet の中だけです。",
-  "On": "有効",
-  "Off": "無効",
   "Only an administrator switches extensions on or off.": "拡張機能を切り替えられるのは管理者だけです。",
   "This feature is switched off. An administrator can switch it on under Settings, Extensions.":
     "この機能は無効になっています。管理者が「設定 → 拡張機能」で有効にできます。",
