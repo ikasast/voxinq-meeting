@@ -84,7 +84,7 @@ Tailscale or otherwise. Long-press the app icon for **Change server**.
 
 ## The widget
 
-A one-row widget (4 × 1, stretches sideways) with two buttons: **Record now** creates a meeting and
+A one-row widget (4 × 1, stretches sideways), and a compact 2 × 1 one, with two buttons: **Record now** creates a meeting and
 starts recording it, **New meeting** opens the form. Add it from the home screen's widget list
 (search for Voxinq). The same two are also on a long press of the app icon. A tap opens the app
 and does what its button there would do; nothing runs from the widget itself.

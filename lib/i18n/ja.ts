@@ -313,6 +313,13 @@ export const ja: Record<string, string> = {
   "The recording is no longer kept, so the voices cannot be told apart.": "録音が残っていないため、声を聞き分けられません。",
   "Separate again": "分け直す",
   "Name them": "名前を付ける",
+  "{name} is the name of {n} voices.": "「{name}」が {n} つの声に付いています。",
+  "Make them one speaker": "1人の話者にまとめる",
+  "Make {name} one speaker?": "「{name}」を1人の話者にまとめますか？",
+  "The {n} voices named {name} become one speaker, with all their lines. This cannot be split again without separating the recording afresh.":
+    "「{name}」と名付けた {n} つの声を、すべての発言ごと1人の話者にまとめます。まとめた後は、録音から話者を分離し直さない限り元に戻せません。",
+  Merge: "まとめる",
+  "Could not merge the speakers ({reason})": "話者をまとめられませんでした（{reason}）",
   "A name here changes every line by that speaker.": "ここで付けた名前は、その話者のすべての発言に反映されます。",
   "Remember their voices": "声を覚える",
   "The named speakers are then named automatically in later meetings.": "名前を付けた人は、次の会議から自動で名前が付きます。",

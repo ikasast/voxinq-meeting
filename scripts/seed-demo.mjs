@@ -75,48 +75,48 @@ const LIVE_LINES = [
   ["self", "Nice. I'll review the caching proposal this afternoon."],
 ];
 
-const SYNC_MINUTES = `## Overview
+const SYNC_MINUTES = `# Overview
 - The onboarding redesign is ready in staging; testing drop-off fell from **40% to 18%**. Target ship date: **next Wednesday**.
 - Remaining launch blockers: finishing analytics instrumentation and final empty-state copy.
 - API rate limits are being hit at peak — short-term caching approved; per-tenant limits planned for next quarter.
 
-## Discussion
-### Onboarding redesign
+# Discussion
+## Onboarding redesign
 - The new three-step flow is live in staging with a large drop in testing drop-off (40% → 18%).
 - Empty-state illustrations still need final copy. On small screens the third step is cramped, so the summary card will collapse under a toggle.
 
-### Analytics & launch readiness
+## Analytics & launch readiness
 - Analytics events are only half instrumented — this is the main blocker for launch.
 
-### API rate limits
+## API rate limits
 - Peak traffic hits the 10k/min ceiling. **Decision: cache the profile endpoint now; design per-tenant limits next quarter.**
 
-## Decisions
+# Decisions
 - Ship the onboarding redesign next **Wednesday**.
 - Cache the profile endpoint as the short-term rate-limit fix.
 
-## Action items
+# Action items
 - **Jordan** — finish analytics instrumentation before launch.
 - **Sam** — send final empty-state illustrations to design by **Thursday**.
 - **Jordan** — write up the caching plan by **Monday**.
 `;
 
-const DESIGN_MINUTES = `## Overview
+const DESIGN_MINUTES = `# Overview
 - Reviewed the new settings layout; the grouped-tabs approach was approved.
 - One open question on mobile spacing, to be resolved in the next iteration.
 
-## Decisions
+# Decisions
 - Adopt the tabbed settings layout.
 
-## Action items
+# Action items
 - **Sam** — tighten mobile spacing and share a revised mock.
 `;
 
-const RESEARCH_MINUTES = `## Overview
+const RESEARCH_MINUTES = `# Overview
 - Compared three local embedding models for on-device search; the smallest was accurate enough.
 - Agreed to defer semantic search until after the onboarding launch.
 
-## Decisions
+# Decisions
 - Ship keyword search now; revisit semantic search next quarter.
 `;
 
@@ -149,48 +149,48 @@ const LIVE_LINES_JA = [
   ["self", "ありがとうございます。私は午後にキャッシュの提案を確認します。"],
 ];
 
-const SYNC_MINUTES_JA = `## 概要
+const SYNC_MINUTES_JA = `# 概要
 - 新規登録フローの作り直しがステージングで確認でき、テストでの離脱が **40% から 18%** に低下。リリース目標は **来週水曜**。
 - 残る課題は計測イベントの実装と、空状態の文言の確定。
 - ピーク時に API のレート制限に到達。短期はキャッシュで対応し、テナント別の上限は来期に設計する。
 
-## 議論
-### 新規登録フローの作り直し
+# 議論
+## 新規登録フローの作り直し
 - 新しい3ステップの画面をステージングに反映済み。テストでの離脱が 40% → 18% に低下。
 - 空状態のイラストは文言が未確定。スマホの狭い画面では3ステップ目が窮屈なため、サマリーのカードを折りたたみに変更する。
 
-### 計測とリリース準備
+## 計測とリリース準備
 - 計測イベントの実装が半分残っており、これがリリースの主な障害。
 
-### API のレート制限
+## API のレート制限
 - ピーク時に毎分1万件の上限に到達。**決定: まずプロフィール取得をキャッシュし、テナント別の上限は来期に設計する。**
 
-## 決定事項
+# 決定事項
 - 新規登録フローの作り直しを **来週水曜** にリリースする。
 - 短期のレート制限対策として、プロフィール取得をキャッシュする。
 
-## ToDo
+# ToDo
 - **鈴木** — リリース前に計測イベントの実装を完了する。
 - **田中** — 空状態のイラストを **木曜** までにデザインへ渡す。
 - **鈴木** — キャッシュの方針を **月曜** までにまとめる。
 `;
 
-const DESIGN_MINUTES_JA = `## 概要
+const DESIGN_MINUTES_JA = `# 概要
 - 新しい設定画面のレイアウトを確認し、タブでまとめる方式を採用することにした。
 - スマホでの余白について1点未決。次の反復で解消する。
 
-## 決定事項
+# 決定事項
 - 設定画面はタブ方式を採用する。
 
-## ToDo
+# ToDo
 - **田中** — スマホの余白を詰めた案を共有する。
 `;
 
-const RESEARCH_MINUTES_JA = `## 概要
+const RESEARCH_MINUTES_JA = `# 概要
 - 端末内検索のために、ローカルで動く埋め込みモデルを3種類比較。最も小さいもので精度は十分だった。
 - 意味検索の導入は、新規登録フローのリリース後に見送る。
 
-## 決定事項
+# 決定事項
 - まずキーワード検索を出し、意味検索は来期に再検討する。
 `;
 

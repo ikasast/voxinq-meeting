@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The two-cell widget: the same buttons as the row, each a picture over a short word. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="4dp">
+
+    <LinearLayout
+        android:id="@+id/widget_record"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_button"
+        android:contentDescription="@string/widget_record"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="4dp">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_widget_record" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:text="@string/widget_record_short"
+            android:textColor="@color/widget_text"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_new"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="4dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_button"
+        android:contentDescription="@string/widget_new"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="4dp">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_widget_add" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:text="@string/widget_new_short"
+            android:textColor="@color/widget_text"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>
