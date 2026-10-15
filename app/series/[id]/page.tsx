@@ -10,22 +10,10 @@ import { SeriesSettings } from "./series-settings";
 import { DeleteSeriesButton } from "./delete-series-button";
 import { CalendarPlusIcon, SeriesIcon } from "../../icons";
 import { PROPS_GRID, Prop } from "../../[id]/property";
+import { plainLead } from "@/lib/minutes-lead";
 
 export const dynamic = "force-dynamic";
 
-// The lead section of a minutes document: everything from the first "## " heading up to
-// the next one (typically the overview), as plain text — the row shows two lines of it, and
-// "###" or "- " at the start of them is markup, not content.
-function plainLead(minutes: string, maxChars = 300): string {
-  const text = minutes.trim();
-  const m = text.match(/^##\s[^\n]*\n([\s\S]*?)(?=\n##\s|$)/m);
-  const lead = (m ? m[1] : text)
-    .split("\n")
-    .map((l) => l.replace(/^\s*(#{1,6}\s+|[-*+]\s+|\d+\.\s+)/, "").replace(/\*\*/g, "").trim())
-    .filter(Boolean)
-    .join(" ");
-  return lead.length > maxChars ? `${lead.slice(0, maxChars)}…` : lead;
-}
 
 // Series page (v4): its details as a table under its title, like a meeting's — the regular
 // members, the shared background, the format and the glossary — and its meetings as rows,
