@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/session";
 import { serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
-import { Avatar } from "../avatar";
 import { AccountForm } from "./account-form";
 import { ProfileForm } from "./profile-form";
 
@@ -30,40 +29,31 @@ export default async function AccountPage() {
   ]);
 
   const t = await serverT();
+  // v4: the page is a table like Settings — what it is on the left, its value or its control
+  // on the right, a hairline between rows — rather than a column of cards.
   return (
-    <div className="mx-auto max-w-md space-y-4">
-      <div className="flex items-center gap-3">
-        <Avatar
+    <div data-paper className="mx-auto max-w-3xl space-y-5 pt-2 lg:pt-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Account")}</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          {t("Signed in as")} <strong className="font-medium text-[var(--text-secondary)]">{me.username}</strong>
+          {me.isAdmin ? ` · ${t("Administrator")}` : ""}
+          {me.via === "tailnet" ? ` · ${t("identified by your tailnet login")}` : ""}
+        </p>
+      </div>
+      <div className="border-t border-[var(--border)]">
+        <ProfileForm
           username={me.username}
+          email={row.email}
           name={me.name}
           hasImage={row.imageType !== null}
-          size={48}
         />
-        <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
-          {me.name || me.username}
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          {t("Signed in as")} <strong>{me.username}</strong>
-          {me.isAdmin ? ` · ${t("Administrator")}` : ""} ·{" "}
-          {me.via === "tailnet"
-            ? t("identified by your tailnet login")
-            : t(sessions === 1 ? "1 signed-in device" : "{n} signed-in devices", { n: sessions })}
-        </p>
-        {row.tailscaleLogin ? (
-          <p className="text-xs text-[var(--text-muted)]">
-            {t("Tailnet login: {login}", { login: row.tailscaleLogin })}
-          </p>
-        ) : null}
-        </div>
+        <AccountForm
+          hasPassword={Boolean(row.passwordHash)}
+          sessions={sessions}
+          tailnetLogin={row.tailscaleLogin}
+        />
       </div>
-      <ProfileForm
-        username={me.username}
-        email={row.email}
-        name={me.name}
-        hasImage={row.imageType !== null}
-      />
-      <AccountForm hasPassword={Boolean(row.passwordHash)} />
     </div>
   );
 }

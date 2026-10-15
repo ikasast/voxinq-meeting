@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { Suspense } from "react";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
 import { RecorderProvider } from "./recorder";
 import { RecordingBar } from "./recording-bar";
 import { ExtensionsProvider } from "./extensions-provider";
 import { readExtensions } from "@/lib/extensions-store";
-import { NavTracker } from "./back-link";
 import { currentUser } from "@/lib/auth/session";
 import { currentLocale } from "@/lib/i18n/server";
 import { hasKey } from "@/lib/crypto/key-cache";
@@ -134,10 +132,6 @@ export default async function RootLayout({
         />
         <LocaleProvider locale={locale}>
           <ExtensionsProvider value={extensions}>
-          {/* Which page was before this one, for "Back to list" (app/back-link.tsx). */}
-          <Suspense fallback={null}>
-            <NavTracker />
-          </Suspense>
           <ConfirmProvider>
           {/* The recording lives above every page, so leaving the recording screen does not
               stop it (recorder.tsx); the bar below shows it from everywhere else. */}

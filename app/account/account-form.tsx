@@ -3,9 +3,21 @@
 import { useState } from "react";
 import { useT } from "../locale-provider";
 import { RecoveryCode } from "../recovery-code";
+import { FieldRow } from "../field-row";
 
-export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
+export function AccountForm({
+  hasPassword,
+  sessions,
+  tailnetLogin,
+}: {
+  hasPassword: boolean;
+  /** Sessions open on any device, this one included. */
+  sessions: number;
+  tailnetLogin: string | null;
+}) {
   const t = useT();
+  // The password's fields stay folded until asked for: most visits are not to change it.
+  const [changing, setChanging] = useState(false);
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -41,6 +53,7 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
         return;
       }
       setMsg(t("Saved. You can now sign in from anywhere with it."));
+      setChanging(false);
       setCurrent("");
       setPassword("");
       setConfirm("");
@@ -73,82 +86,108 @@ export function AccountForm({ hasPassword }: { hasPassword: boolean }) {
   }
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={save} className="card space-y-3 p-4">
-        <h2 className="text-sm font-medium text-[var(--text-strong)]">
-          {hasPassword ? t("Change your password") : t("Set a password")}
-        </h2>
-        {!hasPassword ? (
-          <p className="text-xs text-[var(--text-muted)]">
-            {t(
-              "Your account was made from your tailnet login, so it has no password — inside the tailnet you are never asked for one. Set one to be able to sign in from anywhere else.",
-            )}
-          </p>
-        ) : null}
-        {hasPassword ? (
-          <div>
-            <label htmlFor="current" className="label">
-              {t("Current password")}
-            </label>
-            <input
-              id="current"
-              type="password"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              autoComplete="current-password"
-              className="input mt-1"
-              required
-            />
+    <>
+      <FieldRow label={t("Password")}>
+        {changing ? (
+          <form onSubmit={save} className="max-w-sm space-y-3">
+            {!hasPassword ? (
+              <p className="text-xs text-[var(--text-muted)]">
+                {t(
+                  "Your account was made from your tailnet login, so it has no password — inside the tailnet you are never asked for one. Set one to be able to sign in from anywhere else.",
+                )}
+              </p>
+            ) : null}
+            {hasPassword ? (
+              <div>
+                <label htmlFor="current" className="label">
+                  {t("Current password")}
+                </label>
+                <input
+                  id="current"
+                  type="password"
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  autoComplete="current-password"
+                  className="input mt-1"
+                  required
+                />
+              </div>
+            ) : null}
+            <div>
+              <label htmlFor="new" className="label">
+                {t("New password")}
+              </label>
+              <input
+                id="new"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                className="input mt-1"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="again" className="label">
+                {t("New password again")}
+              </label>
+              <input
+                id="again"
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+                className="input mt-1"
+                required
+              />
+            </div>
+            {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
+            <div className="flex gap-2">
+              <button type="submit" disabled={busy || !password} className="btn-ink !px-3 !py-1 !text-xs">
+                {busy ? t("Saving…") : t("Save")}
+              </button>
+              <button type="button" onClick={() => setChanging(false)} disabled={busy} className="btn-outline !px-3 !py-1 !text-xs">
+                {t("Cancel")}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 pt-1.5 text-sm">
+            <span className="text-[var(--foreground)]">{hasPassword ? t("Set") : t("Not set")}</span>
+            <button type="button" onClick={() => setChanging(true)} className="btn-outline !px-3 !py-1 !text-xs">
+              {hasPassword ? t("Change") : t("Set a password")}
+            </button>
+            {msg ? <span className="text-xs text-[var(--accent-sub)]">{msg}</span> : null}
           </div>
-        ) : null}
-        <div>
-          <label htmlFor="new" className="label">
-            {t("New password")}
-          </label>
-          <input
-            id="new"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            className="input mt-1"
-            required
-          />
-        </div>
-        <div>
-          <label htmlFor="again" className="label">
-            {t("New password again")}
-          </label>
-          <input
-            id="again"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            autoComplete="new-password"
-            className="input mt-1"
-            required
-          />
-        </div>
-        {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-        {msg ? <p className="text-sm text-[var(--accent-sub)]">{msg}</p> : null}
-        <button type="submit" disabled={busy || !password} className="btn-ink">
-          {busy ? t("Saving…") : t("Save")}
-        </button>
-      </form>
+        )}
+      </FieldRow>
 
-      <div className="card space-y-2 p-4">
-        <h2 className="text-sm font-medium text-[var(--text-strong)]">
-          {t("Signed-in devices")}
-        </h2>
-        <p className="text-xs text-[var(--text-muted)]">
-          {t(
-            "Ends every session, including this one. Use it for a phone you no longer have — the sessions live on the server, so this takes effect at once rather than whenever the browser next asks.",
-          )}
-        </p>
-        <button type="button" onClick={signOutEverywhere} disabled={busy} className="btn-outline">
-          {t("Sign out everywhere")}
-        </button>
-      </div>
-    </div>
+      <FieldRow
+        label={t("Signed-in devices")}
+        hint={t(
+          "Ends every session, including this one. Use it for a phone you no longer have — the sessions live on the server, so this takes effect at once rather than whenever the browser next asks.",
+        )}
+      >
+        <div className="flex flex-wrap items-center gap-3 pt-1.5 text-sm">
+          <span className="tabular-nums text-[var(--foreground)]">
+            {t(sessions === 1 ? "1 signed-in device" : "{n} signed-in devices", { n: sessions })}
+          </span>
+          <button
+            type="button"
+            onClick={signOutEverywhere}
+            disabled={busy}
+            className="btn-outline !px-3 !py-1 !text-xs text-[var(--error)]"
+          >
+            {t("Sign out everywhere")}
+          </button>
+        </div>
+      </FieldRow>
+
+      {tailnetLogin ? (
+        <FieldRow label={t("Tailnet login")}>
+          <p className="pt-1.5 text-sm text-[var(--foreground)]">{tailnetLogin}</p>
+        </FieldRow>
+      ) : null}
+    </>
   );
 }

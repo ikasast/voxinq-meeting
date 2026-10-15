@@ -219,11 +219,9 @@ describe("the ways off a page", () => {
   it("go back to the list rather than open a new one on top", () => {
     // Not on a meeting's own page any more: the sidebar is the list there (v4, design B), and on a
     // phone it is the menu in the top bar.
-    // The series pages lost theirs in v4 too: Series is in the sidebar.
-    for (const p of ["app/trash/trash-list.tsx"]) {
-      expect(read(p), p).toMatch(/<BackLink href="\/"[^>]*>\s*\{t\("Back to list"\)\}/);
-    }
-    expect(read("app/layout.tsx")).toContain("<NavTracker />");
+    // The series pages lost theirs in v4 too, and the trash last: the sidebar is in sight on
+    // every one of them.
+    expect(read("app/trash/trash-list.tsx")).not.toContain("Back to list");
   });
 
   it("page through months without piling up history", () => {

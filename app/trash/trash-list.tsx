@@ -6,7 +6,6 @@ import { formatDateTimeIn } from "@/lib/i18n/format";
 import { useConfirm } from "../confirm-dialog";
 import { useLocale, useT } from "../locale-provider";
 import { RestoreIcon, TrashIcon } from "../icons";
-import { BackLink } from "../back-link";
 
 type TrashItem = {
   id: string;
@@ -78,43 +77,33 @@ export function TrashList() {
     }
   };
 
+  // v4: a plain page like the queue's — a title, a line on what this is, and the meetings as
+  // rows between rules, each with its two actions as quiet buttons at the end.
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="eyebrow">{t("Trash")}</p>
-          <p className="eyebrow-sub">{t("Deleted meetings")}</p>
-        </div>
-        <BackLink href="/" className="btn-outline shrink-0">
-          {t("Back to list")}
-        </BackLink>
+    <div data-paper className="mx-auto max-w-3xl space-y-4 pt-2 lg:pt-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{t("Trash")}</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          {t(
+            "Deleted meetings are permanently removed after {n} days. Until then, you can restore them.",
+            { n: purgeAfterDays },
+          )}
+        </p>
       </div>
-
-      <p className="text-sm text-[var(--text-muted)]">
-        {t(
-          "Deleted meetings are permanently removed after {n} days. Until then, you can restore them.",
-          { n: purgeAfterDays },
-        )}
-      </p>
 
       {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
 
       {items === null ? (
         <p className="text-sm text-[var(--text-muted)]">{t("Loading…")}</p>
       ) : items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-[var(--surface)] p-12 text-center">
-          <p className="text-[var(--text-secondary)]">{t("The trash is empty.")}</p>
-        </div>
+        <p className="border-y border-[var(--border)] py-6 text-sm text-[var(--text-muted)]">{t("The trash is empty.")}</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
           {items.map((m) => (
-            <li
-              key={m.id}
-              className="card flex flex-wrap items-center justify-between gap-3 p-4"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium text-[var(--text-strong)]">{m.title}</p>
-                <p className="mt-1 text-xs text-[var(--text-muted)]">
+            <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-[var(--text-strong)]">{m.title}</p>
+                <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                   {formatDateTimeIn(locale, m.startedAt)} ·{" "}
                   {t(m.transcriptCount === 1 ? "1 utterance" : "{n} utterances", {
                     n: m.transcriptCount,
@@ -126,26 +115,25 @@ export function TrashList() {
                   · {t("deleted {when}", { when: formatDateTimeIn(locale, m.deletedAt) })}
                 </p>
               </div>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={() => void restore(m.id)}
                   disabled={busy === m.id}
-                  className="btn-soft"
-                  title={t("Restore")}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-[var(--accent-sub)] hover:bg-[var(--hover-surface)] disabled:opacity-50"
                 >
-                  <RestoreIcon />
+                  <RestoreIcon className="h-3.5 w-3.5" />
                   {t("Restore")}
                 </button>
                 <button
                   type="button"
                   onClick={() => void purge(m.id, m.title)}
                   disabled={busy === m.id}
-                  className="btn-danger"
                   title={t("Delete permanently")}
+                  aria-label={`${t("Delete permanently")}: ${m.title}`}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--error)] disabled:opacity-50"
                 >
-                  <TrashIcon />
-                  {t("Delete")}
+                  <TrashIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
             </li>

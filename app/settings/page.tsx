@@ -32,6 +32,7 @@ import { MinutesTemplates } from "./minutes-templates";
 import type { MinutesTemplate } from "@/lib/minutes-templates";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
+import { FieldRow } from "../field-row";
 
 type PublicSettings = {
   /** Whether the reader may change the settings that describe the machine. */
@@ -148,33 +149,8 @@ function settingLabel(t: (k: string) => string, label: string): string {
  * One setting as a row of a table (v4, like a meeting's details): what it is at the left, the
  * control at the right, and under the control at most a line about it.
  */
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid gap-x-6 gap-y-1.5 border-b border-[var(--border)] py-4 last:border-b-0 sm:grid-cols-[11rem_minmax(0,1fr)]">
-      {htmlFor ? (
-        <label htmlFor={htmlFor} className="pt-2 text-sm text-[var(--text-secondary)]">
-          {label}
-        </label>
-      ) : (
-        <p className="pt-2 text-sm text-[var(--text-secondary)]">{label}</p>
-      )}
-      <div className="min-w-0">
-        {children}
-        {hint ? <div className="mt-1.5 space-y-1 text-xs text-[var(--text-muted)]">{hint}</div> : null}
-      </div>
-    </div>
-  );
-}
+// The rows of this page are the shared FieldRow (app/field-row.tsx).
+const Field = FieldRow;
 
 /** How long after the last change it is saved. Long enough not to save every keystroke. */
 const SAVE_AFTER_MS = 700;
