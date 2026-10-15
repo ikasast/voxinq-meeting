@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
-import { DownloadIcon } from "../icons";
+import { CopyIcon, DownloadIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
 
@@ -33,6 +33,7 @@ export function DownloadMeetingButton({
   const [hasRecording, setHasRecording] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const askRecording = () => {
     setError(null);
@@ -61,6 +62,30 @@ export function DownloadMeetingButton({
       setError(e instanceof Error ? e.message : t("Download failed"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // The minutes with the meeting's details above them — when, who, the series — as the Markdown
+  // file has them, onto the clipboard: for pasting into a mail or a chat, where the file would be
+  // one more thing to open. The text comes from the server, which writes the details in the
+  // reader's language; handed to the clipboard as a promise, so Safari still counts it as the
+  // click's own doing.
+  const copyWithInfo = async () => {
+    setError(null);
+    const text = fetch(file("minutes"), { cache: "no-store" }).then(async (r) => {
+      if (!r.ok) throw new Error(t("Copy failed"));
+      return new Blob([await r.text()], { type: "text/plain" });
+    });
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": text })]);
+      } else {
+        await navigator.clipboard.writeText(await (await text).text());
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError(t("Copy failed"));
     }
   };
 
@@ -120,6 +145,21 @@ export function DownloadMeetingButton({
         {(close) => (
           <div onClick={() => void close()}>
             <p className="px-3 pb-1 pt-1.5 text-[11px] font-medium text-[var(--text-muted)]">{t("Minutes")}</p>
+            {hasMinutes ? (
+              <button type="button" role="menuitem" onClick={() => void copyWithInfo()} className={MENU_ITEM}>
+                <span className="file-badge file-txt inline-flex justify-center">
+                  <CopyIcon className="h-3 w-3" />
+                </span>
+                {t("Copy with meeting info")}
+              </button>
+            ) : (
+              <span role="menuitem" aria-disabled className={`${MENU_ITEM} opacity-50`}>
+                <span className="file-badge file-txt inline-flex justify-center">
+                  <CopyIcon className="h-3 w-3" />
+                </span>
+                {t("Copy with meeting info")}
+              </span>
+            )}
             {row("md", file("minutes"), "Markdown", hasMinutes)}
             {row("docx", `/api/meetings/${meetingId}/export?format=docx`, "Word", hasMinutes)}
             {hasMinutes ? (
@@ -161,6 +201,10 @@ export function DownloadMeetingButton({
       {error ? (
         <span role="alert" className="absolute right-0 top-full mt-1 whitespace-nowrap text-xs text-[var(--error)]">
           {error}
+        </span>
+      ) : copied ? (
+        <span role="status" className="absolute right-0 top-full mt-1 whitespace-nowrap text-xs text-[var(--accent)]">
+          {t("Copied")}
         </span>
       ) : null}
     </span>

@@ -26,7 +26,7 @@ describe("minutesDocx", () => {
     const xml = await documentXml(
       await minutesDocx({
         title: "定例会議",
-        subtitle: "2026-08-17",
+        info: [{ label: "When", value: "2026-08-17" }],
         markdown: "## 決定事項\n\n- 予算を承認\n\n本文。",
         footnote: "Exported from Voxinq Meeting",
       }),
@@ -59,11 +59,44 @@ describe("minutesDocx", () => {
     expect(xml).not.toMatch(/<w:t[^>]*>[^<]*<tag>/);
   });
 
-  it("names Yu Gothic as the document's font, rather than leaving Word to pick MS Mincho", async () => {
-    const buf = await minutesDocx({ title: "定例会議", markdown: "本文" });
+  it("looks like a blank Word document: theme fonts and Word's own styles, no font named", async () => {
+    const buf = await minutesDocx({ title: "定例会議", markdown: "# 議題\n\n本文", locale: "ja" });
+    const zip = await JSZip.loadAsync(buf);
+    const styles = await zip.file("word/styles.xml")!.async("text");
+    // Fonts through the theme (+Body / +Headings), so Design → Fonts restyles the whole file.
+    expect(styles).toMatch(/<w:docDefaults>[\s\S]*w:eastAsiaTheme="minorEastAsia"/);
+    expect(styles).not.toContain("游ゴシック");
+    // A Japanese Word's: 10.5 pt text, headings in the headings font, none of the library's blue.
+    expect(styles).toContain('<w:sz w:val="21"/>');
+    expect(styles).toMatch(/w:styleId="Heading1"[\s\S]*?majorEastAsia/);
+    expect(styles).not.toContain("2E74B5");
+    expect(styles.match(/w:styleId="Heading1"/g)).toHaveLength(1);
+    // And the theme those names point at, where Word looks for it.
+    expect(Object.keys(zip.files)).toContain("word/theme/theme1.xml");
+    expect(await zip.file("word/_rels/document.xml.rels")!.async("text")).toContain("theme/theme1.xml");
+    expect(await zip.file("[Content_Types].xml")!.async("text")).toContain("/word/theme/theme1.xml");
+  });
+
+  it("follows an English Word's defaults for an English reader", async () => {
+    const buf = await minutesDocx({ title: "Weekly", markdown: "# Agenda", locale: "en" });
     const styles = await (await JSZip.loadAsync(buf)).file("word/styles.xml")!.async("text");
-    expect(styles).toMatch(/<w:rFonts[^>]*w:eastAsia="游ゴシック"/);
-    expect(styles).toMatch(/<w:rFonts[^>]*w:ascii="游ゴシック"/);
+    expect(styles).toContain('<w:sz w:val="22"/>');
+    expect(styles).toMatch(/w:styleId="Heading1"[\s\S]*?2F5496/);
+  });
+
+  it("puts the meeting's details under the title", async () => {
+    const xml = await documentXml(
+      await minutesDocx({
+        title: "定例会議",
+        markdown: "本文",
+        info: [
+          { label: "日時", value: "2026年10月15日 10:00" },
+          { label: "参加者", value: "佐藤、田中" },
+        ],
+      }),
+    );
+    expect(xml.indexOf("参加者")).toBeGreaterThan(xml.indexOf("定例会議"));
+    expect(xml.indexOf("佐藤、田中")).toBeLessThan(xml.indexOf("本文"));
   });
 
   it("handles minutes that are empty", async () => {

@@ -8,6 +8,9 @@ import {
   type ISectionOptions,
 } from "docx";
 import { parseMarkdownBlocks, type Block, type Inline } from "./markdown-blocks";
+import { asWordDocument } from "./docx-word-defaults";
+import type { Locale } from "./i18n";
+import type { MeetingInfoRow } from "./meeting-info";
 
 // Minutes as a Word document, for the meeting that has to be filed rather than read on screen.
 //
@@ -16,10 +19,9 @@ import { parseMarkdownBlocks, type Block, type Inline } from "./markdown-blocks"
 // platform already ships a good one). It is also why PDF is produced by printing from the
 // browser instead of rendered here: a server-side PDF *would* have to carry that font.
 //
-// But it is named. With none named, Word falls back to its own defaults for a document with no
-// theme, and Japanese text came out in MS Mincho — a print face from another era, in minutes
-// that read on screen everywhere else. Yu Gothic ships with Word on Windows and on the Mac.
-const FONT = "游ゴシック";
+// Nor is one named: the styles and the theme are a blank Word document's (docx-word-defaults.ts),
+// so the text is in the theme's fonts and the minutes look like anything else typed on that
+// machine. (They were in Yu Gothic, named outright; before that Word fell back to MS Mincho.)
 
 const HEADINGS = {
   1: HeadingLevel.HEADING_1,
@@ -57,8 +59,8 @@ function toParagraph(block: Block): Paragraph {
     case "quote":
       return new Paragraph({
         indent: { left: 480 }, // twips — about 0.33 inch
-        children: runs(block.spans).map((r) => r),
-        style: "IntenseQuote",
+        children: runs(block.spans),
+        style: "Quote",
       });
     case "rule":
       return new Paragraph({ border: { bottom: { style: "single", size: 6, color: "999999" } } });
@@ -69,8 +71,10 @@ function toParagraph(block: Block): Paragraph {
 
 export type MinutesDocInput = {
   title: string;
-  /** Rendered under the title — date range, series, that sort of thing. */
-  subtitle?: string;
+  /** Under the title: when, who, the series (meeting-info.ts). */
+  info?: MeetingInfoRow[];
+  /** Whose Word the file should look like it came from: a Japanese one or an English one. */
+  locale?: Locale;
   /** The minutes themselves, as the LLM wrote them. */
   markdown: string;
   /** Shown in small print at the end, e.g. when and by what it was generated. */
@@ -83,14 +87,15 @@ export async function minutesDocx(input: MinutesDocInput): Promise<Buffer> {
     new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: input.title })] }),
   ];
 
-  if (input.subtitle) {
+  const info = input.info ?? [];
+  info.forEach((row, i) => {
     body.push(
       new Paragraph({
-        children: [new TextRun({ text: input.subtitle, color: "666666", size: 20 })],
-        spacing: { after: 240 },
+        children: [new TextRun({ text: `${row.label}: `, bold: true }), new TextRun({ text: row.value })],
+        spacing: { after: i === info.length - 1 ? 240 : 0 },
       }),
     );
-  }
+  });
 
   for (const block of parseMarkdownBlocks(input.markdown)) body.push(toParagraph(block));
 
@@ -107,11 +112,6 @@ export async function minutesDocx(input: MinutesDocInput): Promise<Buffer> {
   const section: ISectionOptions = { properties: {}, children: body };
 
   const doc = new Document({
-    styles: {
-      default: {
-        document: { run: { font: { ascii: FONT, eastAsia: FONT, hAnsi: FONT, cs: FONT } } },
-      },
-    },
     // Word needs a numbering definition to exist before a paragraph can reference it.
     numbering: {
       config: [
@@ -130,5 +130,5 @@ export async function minutesDocx(input: MinutesDocInput): Promise<Buffer> {
     sections: [section],
   });
 
-  return Packer.toBuffer(doc);
+  return asWordDocument(await Packer.toBuffer(doc), input.locale ?? "en");
 }
