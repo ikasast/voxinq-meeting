@@ -91,6 +91,11 @@ export const ja: Record<string, string> = {
   Preparing: "準備中",
   Listening: "認識中",
   Reconnecting: "再接続中",
+  "Recording on this device": "この端末に録音中",
+  "Cannot reach the transcription service. Recording carries on, and what is said in the meantime is transcribed once it is back.":
+    "文字起こしサービスに接続できません。録音は続けています。つながったら、その間の音声も文字起こしします。",
+  "The recording is kept on this device. Once the server can be reached, send it from the notice at the top of the page.":
+    "録音はこの端末に残しました。サーバーにつながったら、画面上部の案内から送れます。",
   "Only {gb} GB is left where recordings are kept (about {hours} hours of recording). Delete old recordings or free up disk space.":
     "録音の保存先の空きが残り {gb} GB です（録音およそ {hours} 時間分）。古い録音を削除するか、ディスクを空けてください。",
   "Open storage": "ストレージを見る",

@@ -18,7 +18,7 @@ import { useExtensions } from "@/app/extensions-provider";
 import { readRestSeconds, subscribeRestSeconds } from "@/app/rest-screen";
 import { backGuards, useBackGuard } from "@/app/use-back-guard";
 import { useRecorder } from "@/app/recorder";
-import { type LinkState, runningTime, STATUS_DOT, statusText } from "@/app/recording-status";
+import { isRecording, type LinkState, runningTime, STATUS_DOT, statusText } from "@/app/recording-status";
 
 /** A job holding the GPU when a recording wants it. Mirrors lib/queue/recording.ts. */
 type Contender = { id: string; kind: string; meetingId: string | null; title: string | null };
@@ -90,7 +90,7 @@ export function RecordingDock({
     recorder;
   const mine = recSession?.meetingId === meetingId;
   const status: LinkState = mine ? recorder.status : "idle";
-  const active = status === "connecting" || status === "open" || status === "reconnecting";
+  const active = isRecording(status);
   const level = mine ? recorder.level : 0;
   // Set while the input is hitting the rails. Clipping cannot be undone afterwards, so this is
   // shown during the meeting rather than reported as a quality problem later.
@@ -398,6 +398,11 @@ export function RecordingDock({
           );
         } else if (e.kind === "resync") {
           void resync();
+        } else if (e.kind === "kept") {
+          // Said, not shown as an error: nothing is lost, it is waiting (local-recordings-banner).
+          const kept = t("The recording is kept on this device. Once the server can be reached, send it from the notice at the top of the page.");
+          setToast(kept);
+          window.setTimeout(() => setToast((shown) => (shown === kept ? null : shown)), TOAST_MS * 2);
         } else if (e.kind === "ended") {
           // Stop in the app's notification has ended the meeting; go where the end buttons go.
           endedRef.current = true;
@@ -407,7 +412,7 @@ export function RecordingDock({
           announce(e.message);
         }
       }),
-    [recSubscribe, meetingId, resync, leave, announce],
+    [recSubscribe, meetingId, resync, leave, announce, t],
   );
 
   // Back on this screen while it records (from the bar, or reopened from the app's
@@ -895,6 +900,15 @@ export function RecordingDock({
           </span>
         </span>
       </Prop>
+
+      {status === "local" ? (
+        // Not an error: the recording is going on, only into this browser for now.
+        <p
+          className={`${PROPS_WIDE} rounded-md border border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--paper))] px-3 py-2 text-sm text-[var(--foreground)]`}
+        >
+          {t("Cannot reach the transcription service. Recording carries on, and what is said in the meantime is transcribed once it is back.")}
+        </p>
+      ) : null}
 
       {lastError ? (
         <p className={`${PROPS_WIDE} flex items-start gap-2 text-sm text-[var(--error)]`}>

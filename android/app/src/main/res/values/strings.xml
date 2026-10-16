@@ -30,6 +30,10 @@
     <string name="reminder_untitled">A booked meeting</string>
     <string name="reminder_text">It is time for this meeting (booked for %1$s).</string>
     <string name="reminder_record">Record</string>
+    <string name="reminder_text_offline">It is time for this meeting (booked for %1$s). The server cannot be reached, so the recording is kept on the phone and sent once it can be.</string>
+    <string name="server_down_title">Cannot reach the Voxinq server</string>
+    <string name="server_down_text">Not reachable since %1$s. If it is not back for “%2$s” at %3$s, the recording can be kept on the phone and sent once it is.</string>
+    <string name="server_down_open">Open the app</string>
     <string name="record_failed_title">Not recording: %1$s</string>
     <string name="record_failed_background">Android did not let the app use the microphone from here. Open Voxinq and record from the meeting.</string>
     <string name="record_failed_microphone">The microphone could not be started. Open Voxinq and record from the meeting.</string>

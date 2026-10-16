@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -43,6 +44,11 @@ import java.util.concurrent.TimeUnit
  * recorded from the laptop, moved, or deleted, and "your meeting is starting" about a meeting
  * that already happened is worse than saying nothing. Only when the server cannot be reached
  * does it fall back to what it knew.
+ *
+ * **A server that stays out of reach is said, before a meeting.** The check is also the one thing
+ * that hears from the server while nobody is using the app, so it is the one place to notice that
+ * it has gone quiet. With a booked meeting coming, that is worth knowing ahead: the meeting can
+ * still be recorded on the phone (RecorderService), and somebody can still fix the server.
  */
 object Reminders {
     /** A booked meeting, as the server describes it. */
@@ -75,6 +81,15 @@ object Reminders {
      */
     const val EARLY_MS = 2L * 60 * 1000
 
+    /**
+     * How long the server has to be out of reach before it is said: three checks in a row, so a
+     * restart or a moment off the network says nothing.
+     */
+    const val DOWN_FOR_MS = 30L * 60 * 1000
+
+    /** How far ahead a booked meeting makes a server out of reach worth saying. */
+    const val DOWN_AHEAD_MS = 3L * 60 * 60 * 1000
+
     /** How long a meeting stays "already mentioned", comfortably past the endpoint's window. */
     private const val TOLD_FOR_MS = 6L * 60 * 60 * 1000
     private const val TOLD_MAX = 50
@@ -82,6 +97,13 @@ object Reminders {
     private const val PREFS = "voxinq.reminders"
     private const val KEY_TOLD = "told"
     private const val KEY_ASKED = "asked"
+    /** When the checks started failing to reach the server; absent while it answers. */
+    private const val KEY_DOWN_SINCE = "downSince"
+    /** The [KEY_DOWN_SINCE] that has been said already, so one outage is said once. */
+    private const val KEY_DOWN_TOLD = "downTold"
+    /** What the last answer had coming, for saying what an outage puts at risk. */
+    private const val KEY_SOON = "soon"
+    private const val NOTIFICATION_DOWN = 999
     private const val CHANNEL = "reminders"
     private const val NOTIFICATION_BASE = 1000
     private const val TAG = "VoxinqReminders"
@@ -131,6 +153,36 @@ object Reminders {
         val coming = reply.soon.firstOrNull { it.id == knew.id } ?: return null
         return coming.takeIf { it.at <= now + earlyMs }
     }
+
+    /**
+     * The meeting to mention, if the server out of reach since [downSince] is worth saying now:
+     * out of reach for [DOWN_FOR_MS], not said for this outage yet, and a booked meeting within
+     * [DOWN_AHEAD_MS]. The soonest one.
+     */
+    fun downNotice(now: Long, downSince: Long?, told: Long?, soon: List<Booked>): Booked? {
+        if (downSince == null || told == downSince || now - downSince < DOWN_FOR_MS) return null
+        return soon.filter { it.at > now && it.at <= now + DOWN_AHEAD_MS }.minByOrNull { it.at }
+    }
+
+    /**
+     * Whether a reply means the server is out of reach: no answer, or a proxy in front of it
+     * (tailscale serve) saying the app behind it is not answering. Anything else, a login page
+     * included, is a server that answers.
+     */
+    fun unreachable(code: Int?): Boolean = code == null || code == 502 || code == 503 || code == 504
+
+    /** The meetings as kept between checks. */
+    fun soonToJson(soon: List<Booked>): String =
+        JSONArray(soon.map { JSONObject().put("id", it.id).put("title", it.title).put("at", it.at) }).toString()
+
+    fun soonFromJson(text: String?): List<Booked> = runCatching {
+        val a = JSONArray(text ?: "[]")
+        (0 until a.length()).mapNotNull { i ->
+            val o = a.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optString("id")
+            if (!MEETING_ID.matches(id)) null else Booked(id, o.optString("title"), o.optLong("at"))
+        }
+    }.getOrDefault(emptyList())
 
     /**
      * What `/api/meetings/due` answered.
@@ -283,18 +335,22 @@ object Reminders {
                 .header("User-Agent", "VoxinqAndroid/${BuildConfig.VERSION_NAME}")
                 .apply { cookie?.let { header("Cookie", it) } }
                 .build()
-            try {
+            val (code, text) = try {
                 http.newCall(request).execute().use { res ->
-                    if (res.isSuccessful) res.body?.string() else null
+                    res.code to (if (res.isSuccessful) res.body?.string() else null)
                 }
             } catch (e: Exception) {
                 Log.d(TAG, "cannot reach the server: ${e.javaClass.simpleName}")
-                null
+                null to null
             }
+            reached(context, !unreachable(code))
+            text
         } ?: return null
         val reply = parse(body) ?: return null
 
-        schedule(context, toSchedule(System.currentTimeMillis(), reply.soon))
+        val coming = toSchedule(System.currentTimeMillis(), reply.soon)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_SOON, soonToJson(coming)).apply()
+        schedule(context, coming)
         for (meeting in reply.due) announce(context, meeting)
         return reply
     }
@@ -324,6 +380,32 @@ object Reminders {
         prefs.edit().putString(KEY_TOLD, told.put(meeting.id, now).toString()).apply()
     }
 
+    /** Whether the last check found the server out of reach. */
+    fun serverDown(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).contains(KEY_DOWN_SINCE)
+
+    /**
+     * Note what the check found. Back: the outage is over, and its notice goes. Still out of
+     * reach: said once, if a meeting is coming ([downNotice]).
+     */
+    @Synchronized
+    private fun reached(context: Context, up: Boolean) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (up) {
+            if (prefs.contains(KEY_DOWN_SINCE)) {
+                prefs.edit().remove(KEY_DOWN_SINCE).remove(KEY_DOWN_TOLD).apply()
+                NotificationManagerCompat.from(context).cancel(NOTIFICATION_DOWN)
+            }
+            return
+        }
+        val now = System.currentTimeMillis()
+        val since = if (prefs.contains(KEY_DOWN_SINCE)) prefs.getLong(KEY_DOWN_SINCE, now) else now
+        if (!prefs.contains(KEY_DOWN_SINCE)) prefs.edit().putLong(KEY_DOWN_SINCE, since).apply()
+        val told = if (prefs.contains(KEY_DOWN_TOLD)) prefs.getLong(KEY_DOWN_TOLD, 0L) else null
+        val meeting = downNotice(now, since, told, soonFromJson(prefs.getString(KEY_SOON, null))) ?: return
+        if (notifyDown(context, since, meeting)) prefs.edit().putLong(KEY_DOWN_TOLD, since).apply()
+    }
+
     // ---- The notification ----
 
     /**
@@ -335,6 +417,49 @@ object Reminders {
      */
     fun cancel(context: Context, meetingId: String) {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_BASE + (meetingId.hashCode() and 0xffff))
+    }
+
+    /**
+     * Say that the server has been out of reach since [since], with the meeting it puts at risk.
+     * Opening the app shows its offline screen, where the phone can record. Returns whether it
+     * could be said.
+     */
+    private fun notifyDown(context: Context, since: Long, meeting: Booked): Boolean {
+        val manager = NotificationManagerCompat.from(context)
+        manager.createNotificationChannel(
+            NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_HIGH)
+                .setName(context.getString(R.string.channel_reminders))
+                .setDescription(context.getString(R.string.channel_reminders_description))
+                .build(),
+        )
+        val allowed = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!allowed || !manager.areNotificationsEnabled()) return false
+        val time = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val text = context.getString(
+            R.string.server_down_text,
+            time.format(Date(since)),
+            meeting.title.ifBlank { context.getString(R.string.reminder_untitled) },
+            time.format(Date(meeting.at)),
+        )
+        val open = PendingIntent.getActivity(
+            context,
+            NOTIFICATION_DOWN,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val notice = NotificationCompat.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_recording)
+            .setContentTitle(context.getString(R.string.server_down_title))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(open)
+            .addAction(0, context.getString(R.string.server_down_open), open)
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .build()
+        manager.notify(NOTIFICATION_DOWN, notice)
+        return true
     }
 
     private fun notifyDue(context: Context, meeting: Booked) {
@@ -367,10 +492,14 @@ object Reminders {
      */
     private fun build(context: Context, meeting: Booked): Notification {
         val at = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(meeting.at))
+        // Out of reach, Record still records, on the phone and sent later (RecorderService), and
+        // the notice says so, so pressing it is not a leap of faith.
+        val text = context.getString(if (serverDown(context)) R.string.reminder_text_offline else R.string.reminder_text, at)
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_recording)
             .setContentTitle(meeting.title.ifBlank { context.getString(R.string.reminder_untitled) })
-            .setContentText(context.getString(R.string.reminder_text, at))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open(context, meeting, autostart = false))
             .addAction(0, context.getString(R.string.reminder_record), RecorderService.recordIntent(context, meeting))
             .setAutoCancel(true)

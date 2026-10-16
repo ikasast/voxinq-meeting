@@ -138,6 +138,12 @@ dated for when it was recorded (or it goes into its booked meeting), and transcr
 The phone's copy goes once the server has it. A recording's menu also offers **Send now**,
 **Share as a file** (a WAV) and **Delete**.
 
+The phone also notices when the server stays out of reach. If the quarter-hourly check has failed
+for half an hour and a booked meeting is less than three hours away, it says so once, naming the
+meeting, so there is time to fix the server or to plan on recording on the phone. The notice goes
+when the server answers again. A booked meeting's own notice, given while the server is out of
+reach, says that its recording will be kept on the phone.
+
 ## A meeting you booked
 
 When a meeting has a time, the phone says so at that time, with **Record** in the notice. Pressing

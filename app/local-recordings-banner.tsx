@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useT } from "./locale-provider";
 import { formatDateTimeIn } from "@/lib/i18n/format";
-import { fileOf, listLocal, removeLocal, sendLocal, type LocalRecording } from "@/lib/local-recordings";
+import { fileOf, listLocal, LOCAL_KEPT_EVENT, removeLocal, sendLocal, type LocalRecording } from "@/lib/local-recordings";
 import { useConfirm } from "./confirm-dialog";
 
 // Recordings this browser holds that the server does not have yet (lib/local-recordings.ts): a
@@ -29,7 +29,11 @@ export function LocalRecordingsBanner() {
   useEffect(() => {
     load();
     window.addEventListener("online", load);
-    return () => window.removeEventListener("online", load);
+    window.addEventListener(LOCAL_KEPT_EVENT, load);
+    return () => {
+      window.removeEventListener("online", load);
+      window.removeEventListener(LOCAL_KEPT_EVENT, load);
+    };
   }, [load]);
 
   if (items.length === 0) return null;

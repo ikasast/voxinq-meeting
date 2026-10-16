@@ -12,6 +12,9 @@
 // shape: change one, change the other.
 
 export const DB_NAME = "voxinq-local";
+
+/** Sent on `window` when a recording is kept to be sent, so whatever lists them looks again. */
+export const LOCAL_KEPT_EVENT = "voxinq:local-kept";
 const DB_VERSION = 1;
 
 export type LocalKind = "copy" | "offline";
@@ -104,6 +107,7 @@ export async function finishLocal(id: string, keep: boolean): Promise<void> {
   if (rec) store.put({ ...rec, state: "waiting", endedAt: Date.now() });
   await done(tx);
   db.close();
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(LOCAL_KEPT_EVENT));
 }
 
 /**
