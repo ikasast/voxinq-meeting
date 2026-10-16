@@ -9,6 +9,7 @@
     <string name="setup_invalid">Enter an address that starts with https://, or just the host name.</string>
 
     <string name="offline_title">Cannot reach the server</string>
+    <string name="offline_body_database">The server answers, but cannot reach its database.</string>
     <string name="offline_body">%1$s did not answer. Check that the server is running and that this phone can reach it.</string>
     <string name="retry">Retry</string>
     <string name="change_server">Change server</string>

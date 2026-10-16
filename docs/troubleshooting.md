@@ -193,6 +193,15 @@ audio is kept in the browser, and if the server ends up missing any of it — a 
 the five minutes the page holds, or a tab closed before the end — the same banner offers to
 send it as a meeting of its own, named "… (copy from this device)".
 
+If the server answers but its **database** does not, pages show "Something went wrong in Voxinq"
+and say that the database cannot be reached, with **Record in this browser**. The Android app
+goes to its own offline screen instead, so it records on the phone. Start the database, for
+example with `docker compose up -d`, and the waiting recordings can be sent.
+
+When the disk that holds the recordings has less than 5 GB free, a banner at the top says how
+much is left, as hours of recording. With accounts, only administrators see it. A full disk
+cuts the recording that hits it short and stops the database writing.
+
 ## The recording screen went black on its own
 
 That is **Settings → Appearance → Rest the screen while recording**, which is off by default

@@ -19,6 +19,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -240,13 +241,13 @@ class MainActivity : ComponentActivity() {
         if (action == ACTION_QUICK_RECORD) {
             progress.isVisible = true
             Thread {
-                val up = reachable(origin)
+                val probe = probe(origin)
                 runOnUiThread {
                     progress.isVisible = false
-                    if (up) {
+                    if (probe == Probe.UP) {
                         open(origin, "/quick-record")
                     } else {
-                        showOffline(origin)
+                        showOffline(origin, noDatabase = probe == Probe.NO_DATABASE)
                         recordOffline()
                     }
                 }
@@ -397,26 +398,46 @@ class MainActivity : ComponentActivity() {
         open(origin, null)
     }
 
-    /** Whether the server answers at all — any reply will do, a login page included. */
-    private fun reachable(origin: String): Boolean = try {
+    /** What asking the server found: whether it can take a recording. */
+    private enum class Probe { UP, DOWN, NO_DATABASE }
+
+    /**
+     * Whether the server can take a recording. Down: no answer, or a proxy in front of it
+     * (tailscale serve) saying the app behind it is not answering. No database: the app answers
+     * and says it cannot reach its own, so nothing it is asked to make can be kept. Any other
+     * reply, a login page included, is up.
+     */
+    private fun probe(origin: String): Probe = try {
         val c = java.net.URL("$origin/api/health").openConnection() as java.net.HttpURLConnection
         c.connectTimeout = PROBE_MS
-        c.readTimeout = PROBE_MS
+        // Longer to read than to connect: with its database down the server takes a few seconds
+        // to say so, waiting out its own check of it.
+        c.readTimeout = PROBE_MS + 3_000
         c.instanceFollowRedirects = false
         try {
-            c.responseCode > 0
+            when (c.responseCode) {
+                502, 503, 504 -> Probe.DOWN
+                200 -> {
+                    val db = runCatching {
+                        org.json.JSONObject(c.inputStream.bufferedReader().readText()).optJSONObject("db")
+                    }.getOrNull()
+                    if (db != null && !db.optBoolean("ok", true)) Probe.NO_DATABASE else Probe.UP
+                }
+                else -> Probe.UP
+            }
         } finally {
             c.disconnect()
         }
     } catch (_: Exception) {
-        false
+        Probe.DOWN
     }
 
     // ---- Recording on the phone, while the server cannot be reached ----
 
-    private fun showOffline(origin: String) {
+    private fun showOffline(origin: String, noDatabase: Boolean = false) {
         setup.isVisible = false
-        findViewById<TextView>(R.id.offline_body).text = getString(R.string.offline_body, origin)
+        findViewById<TextView>(R.id.offline_body).text =
+            if (noDatabase) getString(R.string.offline_body_database) else getString(R.string.offline_body, origin)
         offline.isVisible = true
         refreshOffline()
     }
@@ -573,6 +594,31 @@ class MainActivity : ComponentActivity() {
             progress.isVisible = false
             loadFailed = true
             showOffline(origin)
+        }
+
+        /**
+         * A page that came back as an error. From a proxy whose app is not answering (tailscale
+         * serve says 502) it is the same as no answer, and used to be shown as that proxy's bare
+         * "Bad Gateway". From the app itself it is the app's own error page, unless the reason is
+         * its database: then nothing can be kept there, and the phone records instead.
+         */
+        override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+            if (!request.isForMainFrame) return
+            when (response.statusCode) {
+                502, 503, 504 -> {
+                    progress.isVisible = false
+                    loadFailed = true
+                    showOffline(origin)
+                }
+                500 -> Thread {
+                    if (probe(origin) == Probe.NO_DATABASE) {
+                        runOnUiThread {
+                            loadFailed = true
+                            showOffline(origin, noDatabase = true)
+                        }
+                    }
+                }.start()
+            }
         }
     }
 

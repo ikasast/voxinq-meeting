@@ -656,7 +656,21 @@ async def health() -> dict:
         # Runs a subprocess the first time, so keep it off the event loop.
         **await asyncio.to_thread(_diarization_info),
         **await asyncio.to_thread(_vram_info),
+        "disk": _disk_info(),
     }
+
+
+def _disk_info() -> dict | None:
+    """Room left where recordings are kept, for the web app to warn before it runs out.
+
+    A full disk fails quietly: the recording of the meeting that hits it is cut short, and the
+    database stops writing. Free and total bytes of the filesystem holding RECORDINGS_DIR.
+    """
+    try:
+        usage = shutil.disk_usage(RECORDINGS_DIR)
+    except OSError:
+        return None
+    return {"free": usage.free, "total": usage.total}
 
 
 @app.post("/preload")

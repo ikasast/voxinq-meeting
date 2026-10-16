@@ -22,12 +22,19 @@ import { prisma } from "@/lib/prisma";
 let cached: boolean | null = null;
 let checkedAt = 0;
 const RECHECK_MS = 10_000;
+const COUNT_WAIT_MS = 1_500;
 
 export async function hasUsersCached(): Promise<boolean> {
   if (cached === true) return true;
   if (cached !== null && Date.now() - checkedAt < RECHECK_MS) return cached;
   try {
-    cached = (await prisma.user.count()) > 0;
+    // Bounded: with the database down, every request would otherwise wait out the driver's own
+    // connection timeout here, before the page it asked for has even started failing.
+    const count = await Promise.race([
+      prisma.user.count(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), COUNT_WAIT_MS)),
+    ]);
+    cached = count > 0;
   } catch {
     // A database that cannot be reached is not a reason to let everybody in. The pages behind
     // this will fail on their own and say something more useful than the proxy could.

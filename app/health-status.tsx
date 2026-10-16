@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { sttHttpBase } from "@/lib/stt/client";
 import { useT } from "./locale-provider";
@@ -18,9 +19,26 @@ import { useT } from "./locale-provider";
 
 type Problem = { id: "stt" | "llm" | "db"; text: string };
 
-export function ServiceAlert({ showStt }: { showStt: boolean }) {
+/** Below this much room where recordings are kept, it is said. A few working days of meetings. */
+export const LOW_DISK_BYTES = 5 * 1024 ** 3;
+
+/** An hour of what the service keeps: 16 kHz, mono, 16-bit. */
+const BYTES_PER_HOUR = 16_000 * 2 * 3600;
+
+/** What to say about the room left, or null while there is enough. */
+export function lowDisk(free: number | undefined): { gb: string; hours: number } | null {
+  if (typeof free !== "number" || !Number.isFinite(free) || free >= LOW_DISK_BYTES) return null;
+  return { gb: (free / 1024 ** 3).toFixed(1), hours: Math.floor(free / BYTES_PER_HOUR) };
+}
+
+/**
+ * `showDisk`: whether to say that the disk is filling up — for whoever can do something about
+ * it, which with accounts is an administrator.
+ */
+export function ServiceAlert({ showStt, showDisk = false }: { showStt: boolean; showDisk?: boolean }) {
   const t = useT();
   const [problems, setProblems] = useState<Problem[]>([]);
+  const [disk, setDisk] = useState<{ gb: string; hours: number } | null>(null);
   const [checking, setChecking] = useState(false);
 
   const check = useCallback(async () => {
@@ -35,6 +53,8 @@ export function ServiceAlert({ showStt }: { showStt: boolean }) {
         try {
           const res = await fetch(`${sttHttpBase()}/health`, { signal: AbortSignal.timeout(8000), cache: "no-store" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const body = (await res.json().catch(() => null)) as { disk?: { free?: number } | null } | null;
+          setDisk(showDisk ? lowDisk(body?.disk?.free) : null);
           reason = null;
           break;
         } catch (e) {
@@ -65,7 +85,7 @@ export function ServiceAlert({ showStt }: { showStt: boolean }) {
 
     setProblems(found);
     setChecking(false);
-  }, [showStt, t]);
+  }, [showStt, showDisk, t]);
 
   useEffect(() => {
     void check();
@@ -80,22 +100,42 @@ export function ServiceAlert({ showStt }: { showStt: boolean }) {
     };
   }, [check]);
 
-  if (problems.length === 0) return null;
-  return (
+  const diskNotice = disk ? (
     <div
-      role="alert"
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[color-mix(in_srgb,var(--error)_30%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-4 py-2 text-sm text-[var(--error)] lg:px-8"
+      role="status"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[color-mix(in_srgb,var(--warning)_35%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--paper))] px-4 py-2 text-sm text-[var(--foreground)] lg:px-8"
     >
-      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[var(--error)]" />
-      <span className="min-w-0 flex-1">{problems.map((p) => p.text).join(" · ")}</span>
-      <button
-        type="button"
-        onClick={() => void check()}
-        disabled={checking}
-        className="shrink-0 text-xs underline-offset-2 hover:underline disabled:opacity-50"
-      >
-        {checking ? t("Checking…") : t("Check again")}
-      </button>
+      <span className="min-w-0 flex-1">
+        {t(
+          "Only {gb} GB is left where recordings are kept (about {hours} hours of recording). Delete old recordings or free up disk space.",
+          { gb: disk.gb, hours: disk.hours },
+        )}
+      </span>
+      <Link href="/storage" className="btn-outline !px-3 !py-1 !text-xs">
+        {t("Open storage")}
+      </Link>
     </div>
+  ) : null;
+
+  if (problems.length === 0) return diskNotice;
+  return (
+    <>
+      {diskNotice}
+      <div
+        role="alert"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[color-mix(in_srgb,var(--error)_30%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-4 py-2 text-sm text-[var(--error)] lg:px-8"
+      >
+        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[var(--error)]" />
+        <span className="min-w-0 flex-1">{problems.map((p) => p.text).join(" · ")}</span>
+        <button
+          type="button"
+          onClick={() => void check()}
+          disabled={checking}
+          className="shrink-0 text-xs underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          {checking ? t("Checking…") : t("Check again")}
+        </button>
+      </div>
+    </>
   );
 }
