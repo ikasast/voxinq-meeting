@@ -144,6 +144,10 @@ meeting, so there is time to fix the server or to plan on recording on the phone
 when the server answers again. A booked meeting's own notice, given while the server is out of
 reach, says that its recording will be kept on the phone.
 
+When the server's address is on a tailnet (a `.ts.net` name or a 100.64.0.0/10 address) and no VPN
+is up on the phone, the app says **Tailscale is off** instead of "Cannot reach the server", with
+**Open Tailscale** when Tailscale's app is installed. The notice before a meeting says the same.
+
 ## A meeting you booked
 
 When a meeting has a time, the phone says so at that time, with **Record** in the notice. Pressing

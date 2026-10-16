@@ -116,6 +116,7 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/offline_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/offline_title"
@@ -152,6 +153,20 @@
                         android:layout_marginStart="8dp"
                         android:text="@string/change_server" />
                 </LinearLayout>
+
+                <!-- Only when Tailscale is off and installed (Tailscale.kt). -->
+                <Button
+                    android:id="@+id/open_tailscale"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="28dp"
+                    android:backgroundTint="@color/accent_soft"
+                    android:minHeight="52dp"
+                    android:text="@string/open_tailscale"
+                    android:textAllCaps="false"
+                    android:textColor="@color/accent"
+                    android:textSize="16sp"
+                    android:visibility="gone" />
 
                 <Button
                     android:id="@+id/record_offline"

@@ -9,6 +9,10 @@
     <string name="setup_invalid">Enter an address that starts with https://, or just the host name.</string>
 
     <string name="offline_title">Cannot reach the server</string>
+    <string name="tailscale_off_title">Tailscale is off</string>
+    <string name="tailscale_off_body">Turn on Tailscale on this phone to reach the server.</string>
+    <string name="tailscale_off_notice">Turn on Tailscale before “%1$s” at %2$s. If it stays off, the recording can be kept on the phone and sent later.</string>
+    <string name="open_tailscale">Open Tailscale</string>
     <string name="offline_body_database">The server answers, but cannot reach its database.</string>
     <string name="offline_body">%1$s did not answer. Check that the server is running and that this phone can reach it.</string>
     <string name="retry">Retry</string>
@@ -61,6 +65,7 @@ A new meeting is created and the audio is transcribed on your server.</string>
     <string name="import_while_recording">A meeting is being recorded. Try again once it has finished.</string>
 
     <string name="widget_label">Record now · New meeting</string>
+    <string name="widget_label_compact">Record · New (small)</string>
     <string name="widget_description">Start recording a meeting, or set one up, in one tap</string>
     <string name="widget_record">Record now</string>
     <string name="widget_new">New meeting</string>

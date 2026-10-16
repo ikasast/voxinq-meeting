@@ -36,6 +36,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -436,8 +437,25 @@ class MainActivity : ComponentActivity() {
 
     private fun showOffline(origin: String, noDatabase: Boolean = false) {
         setup.isVisible = false
-        findViewById<TextView>(R.id.offline_body).text =
-            if (noDatabase) getString(R.string.offline_body_database) else getString(R.string.offline_body, origin)
+        // Tailscale off is the likeliest reason a tailnet server is out of reach, and the one the
+        // person holding the phone can fix: said as that, with its app a tap away.
+        val tailscaleOff = !noDatabase && Tailscale.looksOff(this, origin)
+        findViewById<TextView>(R.id.offline_title).text =
+            getString(if (tailscaleOff) R.string.tailscale_off_title else R.string.offline_title)
+        findViewById<TextView>(R.id.offline_body).text = when {
+            noDatabase -> getString(R.string.offline_body_database)
+            tailscaleOff -> getString(R.string.tailscale_off_body)
+            else -> getString(R.string.offline_body, origin)
+        }
+        val openTailscale = if (tailscaleOff) Tailscale.openIntent(this) else null
+        findViewById<Button>(R.id.open_tailscale).apply {
+            isVisible = openTailscale != null
+            setOnClickListener { openTailscale?.let { runCatching { startActivity(it) } } }
+        }
+        // Below Open Tailscale, Record follows closely: the two are the screen's way forward.
+        findViewById<Button>(R.id.record_offline).updateLayoutParams<android.view.ViewGroup.MarginLayoutParams> {
+            topMargin = ((if (openTailscale != null) 10 else 28) * resources.displayMetrics.density).toInt()
+        }
         offline.isVisible = true
         refreshOffline()
     }
