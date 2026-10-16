@@ -436,25 +436,34 @@ object Reminders {
             PackageManager.PERMISSION_GRANTED
         if (!allowed || !manager.areNotificationsEnabled()) return false
         val time = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val text = context.getString(
-            R.string.server_down_text,
-            time.format(Date(since)),
-            meeting.title.ifBlank { context.getString(R.string.reminder_untitled) },
-            time.format(Date(meeting.at)),
-        )
-        val open = PendingIntent.getActivity(
+        val title = meeting.title.ifBlank { context.getString(R.string.reminder_untitled) }
+        // Tailscale off on this phone: something to fix here, before the meeting (Tailscale.kt).
+        val tailscaleOff = Tailscale.looksOff(context, ServerAddress.load(context))
+        val text = if (tailscaleOff) {
+            context.getString(R.string.tailscale_off_notice, title, time.format(Date(meeting.at)))
+        } else {
+            context.getString(R.string.server_down_text, time.format(Date(since)), title, time.format(Date(meeting.at)))
+        }
+        val app = PendingIntent.getActivity(
             context,
             NOTIFICATION_DOWN,
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        val tailscale = Tailscale.openIntent(context)?.takeIf { tailscaleOff }?.let {
+            PendingIntent.getActivity(context, NOTIFICATION_DOWN + 1, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        }
         val notice = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_recording)
-            .setContentTitle(context.getString(R.string.server_down_title))
+            .setContentTitle(context.getString(if (tailscaleOff) R.string.tailscale_off_title else R.string.server_down_title))
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(open)
-            .addAction(0, context.getString(R.string.server_down_open), open)
+            .setContentIntent(app)
+            .addAction(
+                0,
+                context.getString(if (tailscale != null) R.string.open_tailscale else R.string.server_down_open),
+                tailscale ?: app,
+            )
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .build()

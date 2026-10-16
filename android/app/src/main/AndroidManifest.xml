@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Whether a VPN is up, to tell Tailscale being off from the server being down (Tailscale.kt). -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
@@ -22,6 +24,11 @@
     <!-- Updating itself from the page's offer (Updater). Android still asks the person, once to
          allow it and again for each install. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Tailscale's app, to offer opening it when it is off (Tailscale.kt). -->
+    <queries>
+        <package android:name="com.tailscale.ipn" />
+    </queries>
 
     <!-- No backup: the app holds the session cookie for the user's server. -->
     <application
@@ -112,7 +119,7 @@
         <receiver
             android:name=".QuickWidgetCompact"
             android:exported="true"
-            android:label="@string/widget_label">
+            android:label="@string/widget_label_compact">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

@@ -65,6 +65,8 @@
   const T = ja ? {
     title: "Voxinq に接続できません",
     why: "サーバーが止まっているか、Tailscale がつながっていません。",
+    offlineTitle: "この端末がネットワークにつながっていません",
+    offlineWhy: "Wi-Fi やモバイル通信を確認してください。",
     retry: "もう一度つなぐ",
     record: "● このブラウザで録音する",
     recordNote: "このブラウザ内に保存します。録音中はこのタブを開いたまま、画面を消さないでください。つながったら、Voxinq の画面から送れます。",
@@ -84,6 +86,8 @@
   } : {
     title: "Cannot reach Voxinq",
     why: "The server is down, or Tailscale is not connected.",
+    offlineTitle: "This device is offline",
+    offlineWhy: "Check Wi-Fi or mobile data.",
     retry: "Try again",
     record: "● Record in this browser",
     recordNote: "Kept in this browser. While recording, keep this tab open and the screen on. Once Voxinq is back, send it from there.",
@@ -102,6 +106,16 @@
     noMic: "The microphone could not be used: ",
   };
   document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = T[el.dataset.t]; });
+  // The one cause a browser can see for itself: no network at all. Tailscale's state it cannot,
+  // so anything else stays "the server, or Tailscale".
+  const said = () => {
+    const off = navigator.onLine === false;
+    document.querySelector('[data-t="title"]').textContent = off ? T.offlineTitle : T.title;
+    document.querySelector('[data-t="why"]').textContent = off ? T.offlineWhy : T.why;
+  };
+  said();
+  window.addEventListener("online", said);
+  window.addEventListener("offline", said);
 
   // The app's database (lib/local-recordings.ts).
   const openDb = () => new Promise((resolve, reject) => {

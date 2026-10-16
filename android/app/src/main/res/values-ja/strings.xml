@@ -6,6 +6,10 @@
     <string name="setup_invalid">https:// で始まるアドレス、またはホスト名を入力してください。</string>
 
     <string name="offline_title">サーバーに接続できません</string>
+    <string name="tailscale_off_title">Tailscale がオフになっています</string>
+    <string name="tailscale_off_body">このスマホの Tailscale をオンにすると、サーバーにつながります。</string>
+    <string name="tailscale_off_notice">%2$s「%1$s」の前に、Tailscale をオンにしてください。オフのままでも、録音はスマホに残して後で送れます。</string>
+    <string name="open_tailscale">Tailscale を開く</string>
     <string name="offline_body_database">サーバーは応答していますが、データベースに接続できません。</string>
     <string name="offline_body">%1$s から応答がありません。サーバーが動いていること、このスマホから届くことを確認してください。</string>
     <string name="retry">再試行</string>
@@ -67,6 +71,7 @@
     <string name="backlog_overflow">文字起こしサービスに 5 分以上つながらないため、古い音声から破棄しています。</string>
     <string name="open_failed">%1$s を開けるアプリがありません</string>
     <string name="widget_label">すぐ録音・会議を作成</string>
+    <string name="widget_label_compact">すぐ録音・会議を作成（小）</string>
     <string name="widget_description">ワンタップで録音を始める、または会議を作成する</string>
     <string name="widget_record">すぐ録音</string>
     <string name="widget_new">会議を作成</string>

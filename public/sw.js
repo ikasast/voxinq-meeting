@@ -12,7 +12,9 @@
 // app scripts or styles) and is served only when a page could not be fetched at all — the server
 // is down, or the tailnet is — so that a meeting can still be recorded in the browser and sent
 // once the server is back (lib/local-recordings.ts).
-const OFFLINE_CACHE = "voxinq-offline-v1";
+// Bumped whenever offline.html changes: the worker is only installed again, and the page fetched
+// again, when this file changes, and the old cache goes on activate.
+const OFFLINE_CACHE = "voxinq-offline-v2";
 const OFFLINE_URL = "/offline.html";
 
 // A notification for a meeting whose time has come. Clicking it should land on the thing it
