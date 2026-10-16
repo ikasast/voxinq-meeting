@@ -14,11 +14,31 @@ export const runtime = "nodejs";
 // request quietly reaches the wrong server.
 const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
+/**
+ * A time the caller knows, if it is one: a date in the past, after the year 2000. A clock a few
+ * minutes ahead is allowed for; anything later is a mistake rather than a meeting.
+ */
+function knownTime(v: unknown): Date | undefined {
+  if (typeof v !== "string") return undefined;
+  const d = new Date(v);
+  const t = d.getTime();
+  if (!Number.isFinite(t) || t < Date.UTC(2000, 0, 1) || t > Date.now() + 5 * 60_000) return undefined;
+  return d;
+}
+
 // Mark a meeting as ended (set endedAt). Called from the recording screen's end action,
 // after the STT server has finished saving the WAV — so we can read its recorded length
 // and store it (shown as the meeting's actual recording time in the list).
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+//
+// A recording made away from the server — on a phone with no connection, or in another app and
+// imported — happened at a time of its own, and the caller may know it: when it started (an
+// offline recording) or when the file was last written (an imported file). Given either, the
+// meeting is placed then, using the recording's length for the other end; otherwise it ends now.
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const asked = (await req.json().catch(() => null)) as { startedAt?: unknown; endedAt?: unknown } | null;
+  const knownStart = knownTime(asked?.startedAt);
+  const knownEnd = knownTime(asked?.endedAt);
 
   // Best-effort: fetch the recorded length from STT. Never fails the "end" over this.
   let recordedMs: number | undefined;
@@ -41,15 +61,22 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // recorded and wrong afterwards -- recorded on Wednesday, a meeting booked for Tuesday
     // would read "Tue 14:00 – Wed 15:20". Now that the length is known, wind the start back
     // from the end to where the recording actually began.
-    const endedAt = new Date();
     const before = await prisma.meeting.findUnique({
       where: { id },
       select: { scheduledAt: true },
     });
-    const correctedStart =
+    let endedAt = new Date();
+    let correctedStart =
       before?.scheduledAt && recordedMs !== undefined
         ? new Date(endedAt.getTime() - recordedMs)
         : undefined;
+    if (knownStart) {
+      correctedStart = knownStart;
+      endedAt = recordedMs !== undefined ? new Date(knownStart.getTime() + recordedMs) : (knownEnd ?? endedAt);
+    } else if (knownEnd) {
+      endedAt = knownEnd;
+      if (recordedMs !== undefined) correctedStart = new Date(knownEnd.getTime() - recordedMs);
+    }
 
     const ended = await prisma.meeting.update({
       where: { id },
