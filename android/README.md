@@ -126,6 +126,18 @@ and it delivers it — the audio is appended to that meeting's recording and rec
 lines it had already recognised are saved. `files/pending/<meeting id>/` is where that lives;
 an empty directory means nothing is owed.
 
+## When the server cannot be reached
+
+The screen that says so offers **Record on this phone**: the recording is kept on the phone
+(`files/offline/`, about 110 MB an hour) with no live transcript, and listed there as waiting.
+**Record now** on the widget does the same by itself when the server does not answer within a few
+seconds, and so does **Record** on a booked meeting's notice — into that meeting.
+
+Once the app reaches the server again, each one is sent: a meeting is made for it, named and
+dated for when it was recorded (or it goes into its booked meeting), and transcribed in the queue.
+The phone's copy goes once the server has it. A recording's menu also offers **Send now**,
+**Share as a file** (a WAV) and **Delete**.
+
 ## A meeting you booked
 
 When a meeting has a time, the phone says so at that time, with **Record** in the notice. Pressing

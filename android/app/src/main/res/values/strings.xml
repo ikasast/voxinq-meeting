@@ -62,6 +62,24 @@ A new meeting is created and the audio is transcribed on your server.</string>
     <string name="widget_record_short">Record</string>
     <string name="widget_new_short">New</string>
 
+    <string name="record_offline">● Record on this phone</string>
+    <string name="record_offline_note">Saved on this phone, and sent to be transcribed once the server answers.</string>
+    <string name="offline_recording_title">Recording on this phone (offline)</string>
+    <string name="offline_recording_text">Sent once the server answers</string>
+    <string name="offline_recording_hint">Recording carries on with the screen off. It is transcribed once it reaches the server.</string>
+    <string name="offline_stop">Stop and save</string>
+    <string name="offline_saved_title">On this phone, waiting to be sent</string>
+    <string name="offline_item_title">Recording of %1$s</string>
+    <string name="offline_item_waiting">%1$s · waiting to be sent</string>
+    <string name="offline_item_booked">%1$s · waiting to be sent (booked meeting)</string>
+    <string name="offline_minutes">%1$d min</string>
+    <string name="offline_seconds">%1$d s</string>
+    <string name="offline_send_now">Send now</string>
+    <string name="offline_share">Share as a file</string>
+    <string name="offline_delete">Delete</string>
+    <string name="offline_delete_confirm">Delete this recording from the phone? It has not been sent.</string>
+    <string name="offline_upload_title">Recording from this phone</string>
+
     <string name="mic_permission_denied">Recording needs permission to use the microphone.</string>
     <string name="another_recording">Another meeting is being recorded in the app. Stop it first.</string>
     <string name="mic_failed">Cannot start the microphone: %1$s</string>

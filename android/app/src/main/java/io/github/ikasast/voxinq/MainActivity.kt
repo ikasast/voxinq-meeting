@@ -55,6 +55,12 @@ class MainActivity : ComponentActivity() {
         /** From the widget and the launcher shortcuts: start recording a new meeting, or set one up. */
         const val ACTION_QUICK_RECORD = "io.github.ikasast.voxinq.QUICK_RECORD"
         const val ACTION_NEW_MEETING = "io.github.ikasast.voxinq.NEW_MEETING"
+
+        /** The offline recording's notification: the screen with its timer and Stop. */
+        const val ACTION_SHOW_OFFLINE = "io.github.ikasast.voxinq.SHOW_OFFLINE"
+
+        /** How long the widget's Record now waits for the server before recording on the phone. */
+        private const val PROBE_MS = 4_000
         const val EXTRA_MEETING = "meetingId"
         const val EXTRA_AUTOSTART = "autostart"
         private const val BRIDGE = "VoxinqAndroid"
@@ -70,6 +76,11 @@ class MainActivity : ComponentActivity() {
     private var server: String? = null
 
     private var pendingStart: RecorderConfig? = null
+    /** Recording on the phone was asked for before the microphone was allowed. */
+    private var pendingOffline = false
+    /** Whether the page being loaded failed, so a finished load can be told from an error page. */
+    private var loadFailed = false
+    private val ticker = android.os.Handler(android.os.Looper.getMainLooper())
     private var pendingMicGrant: PermissionRequest? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
@@ -77,6 +88,11 @@ class MainActivity : ComponentActivity() {
         val mic = result[Manifest.permission.RECORD_AUDIO] ?: hasMic()
         pendingMicGrant?.let { if (mic) it.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else it.deny() }
         pendingMicGrant = null
+        if (pendingOffline) {
+            pendingOffline = false
+            if (mic) recordOffline() else Toast.makeText(this, R.string.mic_permission_denied, Toast.LENGTH_SHORT).show()
+            return@registerForActivityResult
+        }
         val start = pendingStart ?: return@registerForActivityResult
         pendingStart = null
         if (mic) {
@@ -129,6 +145,11 @@ class MainActivity : ComponentActivity() {
             web?.reload()
         }
         findViewById<Button>(R.id.change_server).setOnClickListener { showSetup() }
+        findViewById<Button>(R.id.record_offline).setOnClickListener { recordOffline() }
+        findViewById<Button>(R.id.offline_stop).setOnClickListener {
+            startService(Intent(this, RecorderService::class.java).setAction(RecorderService.ACTION_STOP_OFFLINE))
+            ticker.postDelayed({ refreshOffline() }, 400)
+        }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -173,6 +194,7 @@ class MainActivity : ComponentActivity() {
         // Lines saved while nobody was looking are not replayed one by one: the page reloads
         // the transcript instead.
         if (RecorderBus.state.recording) RecorderBus.post(message("resync"))
+        if (offline.isVisible || OfflineState.recording) refreshOffline()
         // Back from allowing the app to install updates: carry on with the one that asked.
         pendingUpdate?.let { version ->
             if (Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()) {
@@ -183,6 +205,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        ticker.removeCallbacksAndMessages(null)
         RecorderBus.setVisible(false)
         web?.onPause()
         // And again on the way out. A meeting booked in the app was booked after onStart asked,
@@ -208,6 +231,28 @@ class MainActivity : ComponentActivity() {
         // The activity is exported, so these extras can come from anywhere: only an id goes in
         // a path, and the most a forged intent can do is open a meeting's own page.
         val action = intent?.action
+        if (action == ACTION_SHOW_OFFLINE || OfflineState.recording) {
+            showOffline(origin)
+            return
+        }
+        // Record now, from the widget: the server is asked first, briefly, because a meeting
+        // that cannot be created there is recorded on the phone instead of not at all.
+        if (action == ACTION_QUICK_RECORD) {
+            progress.isVisible = true
+            Thread {
+                val up = reachable(origin)
+                runOnUiThread {
+                    progress.isVisible = false
+                    if (up) {
+                        open(origin, "/quick-record")
+                    } else {
+                        showOffline(origin)
+                        recordOffline()
+                    }
+                }
+            }.start()
+            return
+        }
         // The widget's two buttons: fixed pages, nothing from the intent goes into the path.
         QuickWidget.pathFor(action)?.let {
             open(origin, it)
@@ -352,6 +397,147 @@ class MainActivity : ComponentActivity() {
         open(origin, null)
     }
 
+    /** Whether the server answers at all — any reply will do, a login page included. */
+    private fun reachable(origin: String): Boolean = try {
+        val c = java.net.URL("$origin/api/health").openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = PROBE_MS
+        c.readTimeout = PROBE_MS
+        c.instanceFollowRedirects = false
+        try {
+            c.responseCode > 0
+        } finally {
+            c.disconnect()
+        }
+    } catch (_: Exception) {
+        false
+    }
+
+    // ---- Recording on the phone, while the server cannot be reached ----
+
+    private fun showOffline(origin: String) {
+        setup.isVisible = false
+        findViewById<TextView>(R.id.offline_body).text = getString(R.string.offline_body, origin)
+        offline.isVisible = true
+        refreshOffline()
+    }
+
+    private fun recordOffline() {
+        if (RecorderBus.state.recording || OfflineState.recording) {
+            refreshOffline()
+            return
+        }
+        val needed = buildList {
+            if (!hasMic()) add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= 33 && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (!hasMic()) {
+            pendingOffline = true
+            permissions.launch(needed.toTypedArray())
+            return
+        }
+        RecorderService.startOffline(this)
+        ticker.postDelayed({ refreshOffline() }, 400)
+    }
+
+    /** The offline screen as things stand: recording or not, and what is waiting to be sent. */
+    private fun refreshOffline() {
+        ticker.removeCallbacksAndMessages(null)
+        val recording = OfflineState.recording
+        findViewById<View>(R.id.offline_idle).isVisible = !recording
+        findViewById<View>(R.id.offline_recording).isVisible = recording
+        val timer = findViewById<android.widget.Chronometer>(R.id.offline_timer)
+        if (recording) {
+            timer.base = android.os.SystemClock.elapsedRealtime() - (System.currentTimeMillis() - OfflineState.startedAt)
+            timer.start()
+            val meter = findViewById<android.widget.ProgressBar>(R.id.offline_meter)
+            val tick = object : Runnable {
+                override fun run() {
+                    if (!OfflineState.recording) {
+                        refreshOffline()
+                        return
+                    }
+                    meter.progress = (kotlin.math.sqrt(OfflineState.level) * 140).toInt().coerceIn(0, 100)
+                    ticker.postDelayed(this, 150)
+                }
+            }
+            ticker.post(tick)
+        } else {
+            timer.stop()
+        }
+
+        val saved = OfflineStore.list(filesDir, OfflineState.dir)
+        findViewById<View>(R.id.offline_list_title).isVisible = saved.isNotEmpty()
+        val list = findViewById<android.widget.LinearLayout>(R.id.offline_list)
+        list.removeAllViews()
+        val date = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
+        for (s in saved) {
+            val row = layoutInflater.inflate(android.R.layout.simple_list_item_2, list, false)
+            row.findViewById<TextView>(android.R.id.text1).apply {
+                text = s.title ?: getString(R.string.offline_item_title, date.format(java.util.Date(s.startedAt)))
+                setTextColor(getColor(R.color.foreground))
+            }
+            row.findViewById<TextView>(android.R.id.text2).apply {
+                val length = if (s.seconds < 60) getString(R.string.offline_seconds, s.seconds) else getString(R.string.offline_minutes, s.seconds / 60)
+                text = getString(if (s.meetingId != null) R.string.offline_item_booked else R.string.offline_item_waiting, length)
+                setTextColor(getColor(R.color.text_secondary))
+            }
+            row.setOnClickListener { offlineMenu(it, s) }
+            list.addView(row)
+        }
+    }
+
+    private fun offlineMenu(anchor: View, s: OfflineStore.Saved) {
+        val menu = android.widget.PopupMenu(this, anchor)
+        menu.menu.add(0, 1, 0, R.string.offline_send_now)
+        menu.menu.add(0, 2, 1, R.string.offline_share)
+        menu.menu.add(0, 3, 2, R.string.offline_delete)
+        menu.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> {
+                    ImportService.sendOffline(this)
+                    Toast.makeText(this, R.string.import_started, Toast.LENGTH_SHORT).show()
+                }
+                2 -> shareOffline(s)
+                3 -> android.app.AlertDialog.Builder(this)
+                    .setMessage(R.string.offline_delete_confirm)
+                    .setPositiveButton(R.string.offline_delete) { _, _ ->
+                        OfflineStore.delete(s)
+                        refreshOffline()
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+            true
+        }
+        menu.show()
+    }
+
+    /** As a WAV file, to keep or send another way — the copy goes in the cache, not the phone. */
+    private fun shareOffline(s: OfflineStore.Saved) {
+        Thread {
+            // One copy at a time: an earlier share's file has done its job.
+            val dir = java.io.File(cacheDir, "shared").apply { deleteRecursively(); mkdirs() }
+            val out = java.io.File(dir, "voxinq-${s.startedAt}.wav")
+            runCatching {
+                out.outputStream().buffered().use { o ->
+                    o.write(OfflineStore.wavHeader(s.bytes))
+                    s.audio.inputStream().use { it.copyTo(o) }
+                }
+            }.onSuccess {
+                val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", out)
+                runOnUiThread {
+                    val send = Intent(Intent.ACTION_SEND).setType("audio/wav").putExtra(Intent.EXTRA_STREAM, uri)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    startActivity(Intent.createChooser(send, null))
+                }
+            }.onFailure {
+                runOnUiThread { Toast.makeText(this, it.message ?: it.javaClass.simpleName, Toast.LENGTH_SHORT).show() }
+            }
+        }.start()
+    }
+
     private fun showSetup() {
         offline.isVisible = false
         setup.isVisible = true
@@ -373,17 +559,20 @@ class MainActivity : ComponentActivity() {
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             progress.isVisible = true
+            loadFailed = false
         }
 
         override fun onPageFinished(view: WebView, url: String?) {
             progress.isVisible = false
+            // The server answered: whatever was recorded on the phone while it did not goes now.
+            if (!loadFailed && !OfflineState.recording) ImportService.sendOffline(this@MainActivity)
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
             if (!request.isForMainFrame) return
             progress.isVisible = false
-            findViewById<TextView>(R.id.offline_body).text = getString(R.string.offline_body, origin)
-            offline.isVisible = true
+            loadFailed = true
+            showOffline(origin)
         }
     }
 

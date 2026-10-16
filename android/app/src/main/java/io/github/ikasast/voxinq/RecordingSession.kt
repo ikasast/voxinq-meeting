@@ -139,7 +139,7 @@ class RecordingSession(
 
     /** The caller has checked RECORD_AUDIO. Throws when no microphone can be opened. */
     fun start() {
-        val rec = openMicrophone()
+        val rec = openMicrophone(config.room)
         rec.startRecording()
         if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
             rec.release()
@@ -249,36 +249,6 @@ class RecordingSession(
     }
 
     // ---- The microphone ----
-
-    @SuppressLint("MissingPermission") // checked by the service before a session exists
-    private fun openMicrophone(): AudioRecord {
-        val rate = AudioProcessor.SAMPLE_RATE
-        val format = AudioFormat.Builder()
-            .setSampleRate(rate)
-            .setChannelMask(AudioFormat.CHANNEL_IN_MONO)
-            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-            .build()
-        val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        val size = maxOf(min, AudioProcessor.FRAME_SAMPLES * 2) * 4
-        // Standard keeps the platform's echo cancellation and noise suppression, as the browser
-        // does with them on; Room asks for the source meant for recognition, which has neither
-        // (lib/stt/mic-constraints.ts). The plain microphone is the fallback for either.
-        val sources = if (config.room) {
-            listOf(MediaRecorder.AudioSource.VOICE_RECOGNITION, MediaRecorder.AudioSource.MIC)
-        } else {
-            listOf(MediaRecorder.AudioSource.VOICE_COMMUNICATION, MediaRecorder.AudioSource.MIC)
-        }
-        for (source in sources) {
-            val rec = try {
-                AudioRecord.Builder().setAudioSource(source).setAudioFormat(format).setBufferSizeInBytes(size).build()
-            } catch (_: Exception) {
-                null
-            }
-            if (rec?.state == AudioRecord.STATE_INITIALIZED) return rec
-            rec?.release()
-        }
-        throw IllegalStateException("no microphone could be opened")
-    }
 
     private fun capture(rec: AudioRecord) {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)

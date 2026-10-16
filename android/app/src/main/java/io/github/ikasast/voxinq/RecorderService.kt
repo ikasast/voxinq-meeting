@@ -52,6 +52,13 @@ class RecorderService : Service() {
         /** How long after starting to look again at whether the microphone is really listening. */
         private const val SILENCE_CHECK_MS = 2_000L
 
+        /**
+         * Record on the phone alone, because the server cannot be reached (OfflineRecording).
+         * From the offline screen, the widget, or a booked meeting's notice; sent later.
+         */
+        const val ACTION_START_OFFLINE = "io.github.ikasast.voxinq.action.START_OFFLINE"
+        const val ACTION_STOP_OFFLINE = "io.github.ikasast.voxinq.action.STOP_OFFLINE"
+
         /** Deliver what an earlier run left behind. No microphone; see deliverLeftovers. */
         const val ACTION_DELIVER = "io.github.ikasast.voxinq.action.DELIVER"
         private const val EXTRA_CONFIG = "config"
@@ -108,6 +115,14 @@ class RecorderService : Service() {
             }
         }
 
+        /** From the visible app: record on the phone, to be sent once the server answers. */
+        fun startOffline(context: Context) {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, RecorderService::class.java).setAction(ACTION_START_OFFLINE),
+            )
+        }
+
         /** The page's Stop: the recording ends, the meeting does not — the page does that. */
         fun stop(context: Context) {
             context.startService(Intent(context, RecorderService::class.java).setAction(ACTION_STOP))
@@ -126,6 +141,8 @@ class RecorderService : Service() {
     }
 
     private var session: RecordingSession? = null
+    /** A recording kept on the phone, while the server is out of reach. */
+    private var offline: OfflineRecording? = null
     private var config: RecorderConfig? = null
     private var status = "connecting"
     private var startedAt = 0L
@@ -148,8 +165,10 @@ class RecorderService : Service() {
             ACTION_STOP -> finish(endMeeting = false)
             ACTION_END -> finish(endMeeting = true)
             ACTION_DELIVER -> deliver()
+            ACTION_START_OFFLINE -> beginOffline(null, null)
+            ACTION_STOP_OFFLINE -> finishOffline()
             ACTION_RECORD_BOOKED -> recordBooked(intent.getStringExtra(EXTRA_MEETING), intent.getStringExtra(EXTRA_TITLE))
-            else -> if (session == null) stopSelf()
+            else -> if (session == null && offline == null) stopSelf()
         }
         return START_NOT_STICKY
     }
@@ -254,8 +273,15 @@ class RecorderService : Service() {
             val planned = withContext(Dispatchers.IO) { fetchPlan(origin, meetingId, cookie) }
             planned.onFailure { e ->
                 Log.w(TAG, "recording plan", e)
-                Reminders.notifyRecordFailed(this@RecorderService, meetingId, title, getString(R.string.record_failed_server, e.message ?: e.javaClass.simpleName))
                 preparingTitle = null
+                // The server out of reach is not a reason to lose the meeting: it is recorded on
+                // the phone and sent to this meeting once the server answers. A server that
+                // answered and said no is a refusal, and is said as one.
+                if (e is java.io.IOException) {
+                    beginOffline(meetingId, title)
+                    return@onFailure
+                }
+                Reminders.notifyRecordFailed(this@RecorderService, meetingId, title, getString(R.string.record_failed_server, e.message ?: e.javaClass.simpleName))
                 stopEverything()
             }
             planned.onSuccess { cfg ->
@@ -347,6 +373,60 @@ class RecorderService : Service() {
         }
     }
 
+    /**
+     * Record on the phone alone. `meetingId` is a booked meeting this recording is for (from its
+     * notice), which it is sent into later; without one a meeting is made for it when it is sent.
+     */
+    private fun beginOffline(meetingId: String?, title: String?) {
+        if (session != null || offline != null) {
+            goForeground(config)
+            return
+        }
+        deliverJob?.cancel()
+        delivering = false
+        if (!goForeground(null, offlineRecording = true)) {
+            stopEverything()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            stopEverything()
+            return
+        }
+        meetingId?.let { Reminders.cancel(this, it) }
+        startedAt = System.currentTimeMillis()
+        val dir = OfflineStore.create(filesDir, startedAt, meetingId, title)
+        val rec = OfflineRecording(dir, room = true)
+        try {
+            rec.start()
+        } catch (e: Exception) {
+            Log.w(TAG, "offline microphone", e)
+            dir.deleteRecursively()
+            if (meetingId != null) Reminders.notifyRecordFailed(this, meetingId, title, getString(R.string.record_failed_microphone))
+            stopEverything()
+            return
+        }
+        offline = rec
+        OfflineState.recording = true
+        OfflineState.startedAt = startedAt
+        OfflineState.dir = dir
+        holdLocks()
+        goForeground(null, offlineRecording = true)
+    }
+
+    /** Stop the recording kept on the phone, and keep it to send. */
+    private fun finishOffline() {
+        val rec = offline
+        if (rec == null) {
+            if (session == null) stopEverything()
+            return
+        }
+        offline = null
+        rec.stop()
+        OfflineState.reset()
+        startedAt = 0L
+        stopEverything()
+    }
+
     private fun refuse(reason: String) {
         RecorderBus.post(message("error", "message" to reason))
         RecorderBus.post(message("status", "status" to "error"))
@@ -386,6 +466,10 @@ class RecorderService : Service() {
     }
 
     override fun onDestroy() {
+        // A recording kept on the phone keeps what it has: the file is already written.
+        offline?.stop()
+        offline = null
+        OfflineState.reset()
         // Stopped by something other than the two Stops. Nothing can be saved any more, but the
         // microphone must not be left open.
         session?.let { s -> CoroutineScope(Dispatchers.IO).launch { s.stop() } }
@@ -439,7 +523,7 @@ class RecorderService : Service() {
     // ---- The notification ----
 
     /** False when Android refused: then there is no foreground service, and no microphone. */
-    private fun goForeground(cfg: RecorderConfig?, delivering: Boolean = false): Boolean {
+    private fun goForeground(cfg: RecorderConfig?, delivering: Boolean = false, offlineRecording: Boolean = false): Boolean {
         // Default importance, but silent. A low-importance channel files the notification under
         // "Silent", collapsed, where its Stop is a tap further away than it should be.
         NotificationManagerCompat.from(this).createNotificationChannel(
@@ -458,7 +542,7 @@ class RecorderService : Service() {
             ServiceCompat.startForeground(
                 this,
                 NOTIFICATION,
-                notification(cfg, delivering),
+                if (offlineRecording) offlineNotification() else notification(cfg, delivering),
                 if (delivering) ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 else ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
             )
@@ -475,6 +559,33 @@ class RecorderService : Service() {
         val allowed = Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (allowed) NotificationManagerCompat.from(this).notify(NOTIFICATION, notification(cfg))
+    }
+
+    /** While recording on the phone: how long, and Stop and save. */
+    private fun offlineNotification(): Notification {
+        val open = PendingIntent.getActivity(
+            this, 2,
+            Intent(this, MainActivity::class.java)
+                .setAction(MainActivity.ACTION_SHOW_OFFLINE)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val stop = PendingIntent.getService(
+            this, 3, Intent(this, RecorderService::class.java).setAction(ACTION_STOP_OFFLINE), PendingIntent.FLAG_IMMUTABLE,
+        )
+        val builder = NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_recording)
+            .setContentTitle(getString(R.string.offline_recording_title))
+            .setContentText(getString(R.string.offline_recording_text))
+            .setContentIntent(open)
+            .setOngoing(true)
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .addAction(0, getString(R.string.offline_stop), stop)
+        if (startedAt > 0) builder.setWhen(startedAt).setShowWhen(true).setUsesChronometer(true)
+        return builder.build()
     }
 
     private fun notification(cfg: RecorderConfig?, delivering: Boolean = false): Notification {

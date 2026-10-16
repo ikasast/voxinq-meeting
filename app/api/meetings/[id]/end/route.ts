@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { knownTime } from "@/lib/known-time";
 
 export const runtime = "nodejs";
 
@@ -13,18 +14,6 @@ export const runtime = "nodejs";
 // publishing the same port, say) silently answers instead of the STT service, and this
 // request quietly reaches the wrong server.
 const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
-
-/**
- * A time the caller knows, if it is one: a date in the past, after the year 2000. A clock a few
- * minutes ahead is allowed for; anything later is a mistake rather than a meeting.
- */
-function knownTime(v: unknown): Date | undefined {
-  if (typeof v !== "string") return undefined;
-  const d = new Date(v);
-  const t = d.getTime();
-  if (!Number.isFinite(t) || t < Date.UTC(2000, 0, 1) || t > Date.now() + 5 * 60_000) return undefined;
-  return d;
-}
 
 // Mark a meeting as ended (set endedAt). Called from the recording screen's end action,
 // after the STT server has finished saving the WAV — so we can read its recorded length

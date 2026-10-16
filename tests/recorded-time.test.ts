@@ -17,9 +17,18 @@ describe("ending a meeting with a known time", () => {
     expect(route).toContain("new Date(knownEnd.getTime() - recordedMs)");
   });
 
-  it("refuses a time in the future or before 2000", () => {
-    expect(route).toContain("t > Date.now() + 5 * 60_000");
-    expect(route).toContain("t < Date.UTC(2000, 0, 1)");
+  it("refuses a time in the future or before 2000", async () => {
+    const { knownTime } = await import("@/lib/known-time");
+    expect(knownTime("2099-01-01T00:00:00Z")).toBeUndefined();
+    expect(knownTime("1999-12-31T00:00:00Z")).toBeUndefined();
+    expect(knownTime("not a date")).toBeUndefined();
+    expect(knownTime("2026-10-01T01:00:00Z")?.toISOString()).toBe("2026-10-01T01:00:00.000Z");
+  });
+
+  it("names and dates a meeting created for an offline recording by when it was recorded", () => {
+    const create = read("app/api/meetings/route.ts");
+    expect(create).toContain("const recordedAt = knownTime(body?.recordedAt);");
+    expect(create).toContain("namedMeetingTitle(recordedAt ?? scheduledAt ?? new Date()");
   });
 
   it("is told the file's time when a file is dropped in", () => {
