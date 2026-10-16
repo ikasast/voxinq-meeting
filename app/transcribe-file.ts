@@ -40,7 +40,13 @@ export async function transcribeFile(
     throw new Error(d?.error ?? `Upload failed (HTTP ${up.status})`);
   }
   // It happened before the file existed, so it is over.
-  await fetch(`/api/meetings/${id}/end`, { method: "POST" }).catch(() => {});
+  // When the file was last written is, for a recorder app's file, when the recording ended: the
+  // meeting is placed then rather than at the moment it was dropped here.
+  await fetch(`/api/meetings/${id}/end`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endedAt: new Date(file.lastModified).toISOString() }),
+  }).catch(() => {});
 
   onPhase?.("queueing");
   // The model, the language and the rest come from the settings, as for any recording.
