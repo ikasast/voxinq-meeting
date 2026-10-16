@@ -19,7 +19,7 @@ export function runningTime(totalSeconds: number): string {
 
 /**
  * What the status line says. Each word is spelled out in a t() call of its own so the
- * translation check can see all five.
+ * translation check can see all of them.
  */
 export function statusText(t: (k: string) => string, status: LinkState): string {
   switch (status) {
@@ -29,6 +29,8 @@ export function statusText(t: (k: string) => string, status: LinkState): string 
       return t("Listening");
     case "reconnecting":
       return t("Reconnecting");
+    case "local":
+      return t("Recording on this device");
     case "error":
       return t("Error");
     default:
@@ -36,12 +38,18 @@ export function statusText(t: (k: string) => string, status: LinkState): string 
   }
 }
 
-/** The dot beside it: red and pulsing while listening, amber while getting there. */
+/** The dot beside it: red and pulsing while listening, amber while getting there or alone. */
 export const STATUS_DOT: Record<LinkState, string> = {
   open: "bg-[var(--error)] animate-pulse",
   connecting: "bg-[var(--warning)] animate-pulse",
   reconnecting: "bg-[var(--warning)] animate-pulse",
+  local: "bg-[var(--warning)] animate-pulse",
   error: "bg-[var(--error)]",
   closed: "bg-[var(--border-strong)]",
   idle: "bg-[var(--border-strong)]",
 };
+
+/** Still taking audio, whatever the transcription service is doing. */
+export function isRecording(status: LinkState): boolean {
+  return status === "connecting" || status === "open" || status === "reconnecting" || status === "local";
+}

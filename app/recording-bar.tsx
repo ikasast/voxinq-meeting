@@ -35,7 +35,7 @@ export function RecordingBar() {
   if (hidden) return null;
 
   const listening = r.status === "open";
-  const trouble = r.status === "error" || r.status === "closed";
+  const trouble = r.status === "error" || r.status === "closed" || r.status === "local";
   const elapsed = s.startedAt ? Math.max(0, Math.floor((now - s.startedAt) / 1000)) : null;
   const title = s.title || t("Meeting");
 

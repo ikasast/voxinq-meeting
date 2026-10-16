@@ -13,6 +13,7 @@ import {
   startNative,
 } from "@/lib/stt/native";
 import { useT } from "./locale-provider";
+import { isRecording } from "./recording-status";
 
 // The recording, for the whole app (v4).
 //
@@ -45,6 +46,8 @@ export type RecorderEvent =
   | { kind: "resync"; meetingId: string }
   /** Stop in the app's notification ended the meeting. */
   | { kind: "ended"; meetingId: string }
+  /** Stopped with the server missing some of it: the copy in this browser is kept, to be sent. */
+  | { kind: "kept"; meetingId: string }
   | { kind: "error"; meetingId: string; message: string };
 
 export type RecordingSession = {
@@ -253,6 +256,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       onError: (message: string) => report(readStored(t, message)),
       onLevel: level10,
       onClipping: clipped,
+      onKept: () => emit({ kind: "kept", meetingId }),
     }),
     [keepLine, emit, report, level10, clipped, t],
   );
@@ -378,7 +382,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     finish();
   }, [finish]);
 
-  const recording = status === "open" || status === "connecting" || status === "reconnecting";
+  const recording = isRecording(status);
   const native = session?.native ?? false;
 
   // Closing the tab stops a browser recording, so the tab asks first. Not in the app, where the

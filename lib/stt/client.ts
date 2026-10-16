@@ -11,7 +11,11 @@ import { storedText } from "@/lib/i18n/stored";
 // The page hears back through SttHandlers: text still being heard, finished lines, the state of
 // the link, errors, and how loud the input is.
 
-export type LinkStatus = "connecting" | "open" | "reconnecting" | "closed" | "error";
+/**
+ * "local": the transcription service has not answered for a while, or said it cannot go on, and
+ * the audio is going only into this browser's copy (lib/local-recordings.ts). Still recording.
+ */
+export type LinkStatus = "connecting" | "open" | "reconnecting" | "local" | "closed" | "error";
 
 export type SttHandlers = {
   // Provisional (interim text mid-segment).
@@ -36,6 +40,8 @@ export type SttHandlers = {
   onLevel?: (rms: number) => void;
   /** Fraction of samples that hit the rails in the last ~100 ms. */
   onClipping?: (ratio: number) => void;
+  /** At the end: the server did not get all of it, and the copy in this browser was kept. */
+  onKept?: () => void;
 };
 
 export type SttHandle = {
@@ -51,6 +57,17 @@ declare global {
   interface Window {
     __VOXINQ_STT_WS__?: string;
   }
+}
+
+// The first few tries come quickly and say "reconnecting": most drops are a moment's. After that
+// the recording is said to be going on this device alone, and the tries never stop — a service
+// that comes back at minute forty still gets the rest of the meeting — but slow down, to one
+// every thirty seconds.
+export const QUICK_RETRIES = 5;
+
+/** How long to wait before try `n` (1-based) to reconnect. */
+export function reconnectDelay(n: number): number {
+  return n <= QUICK_RETRIES ? 2000 : Math.min(30_000, 2000 * 2 ** (n - QUICK_RETRIES));
 }
 
 const BUILT_IN_WS_URL = process.env.NEXT_PUBLIC_STT_WS_URL ?? "ws://localhost:8000/ws";
@@ -209,7 +226,7 @@ export async function startMic(
   let stopped = false;
   let fatal = false; // explicit server error (e.g. model load failure). do not reconnect
   let retries = 0;
-  const MAX_RETRIES = 5;
+  const retryDelay = reconnectDelay;
 
   // Audio buffer awaiting send. Audio from before the connection opens (model loading)
   // or during reconnects is buffered locally and flushed after "open". This ensures:
@@ -258,11 +275,16 @@ export async function startMic(
             pending.push(buf.slice(0));
             if (pending.length >= 50) void flush();
           },
-          async end(keep: boolean) {
+          /** Whether a copy was kept, to be sent. */
+          async end(keep: boolean): Promise<boolean> {
             await flush();
             const got = await id;
             id = Promise.resolve(null);
-            if (got) await finishLocal(got, keep).catch(() => {});
+            if (!got) return false;
+            return finishLocal(got, keep).then(
+              () => keep,
+              () => false,
+            );
           },
         };
       })()
@@ -275,8 +297,8 @@ export async function startMic(
   };
 
   const connect = () => {
-    log(retries > 0 ? `reconnecting (${retries}/${MAX_RETRIES})` : "connecting", wsUrl());
-    handlers.onStatus(retries > 0 ? "reconnecting" : "connecting");
+    log(retries > 0 ? `reconnecting (${retries})` : "connecting", wsUrl());
+    handlers.onStatus(retries === 0 ? "connecting" : retries <= QUICK_RETRIES ? "reconnecting" : "local");
     const sock = new WebSocket(wsUrl());
     sock.binaryType = "arraybuffer";
     ws = sock;
@@ -323,9 +345,11 @@ export async function startMic(
           if (msg.text) handlers.onTranslation?.(msg.seq, msg.text);
           break;
         case "error":
+          // The service cannot go on (a model that will not load, say). Not tried again, but
+          // not stopped either: the audio goes on into the copy, to be sent once it is fixed.
           fatal = true;
           handlers.onError(msg.message);
-          handlers.onStatus("error");
+          handlers.onStatus(copy ? "local" : "error");
           break;
       }
     });
@@ -333,29 +357,33 @@ export async function startMic(
     sock.addEventListener("close", (ev) => {
       if (stopped || sock !== ws) return; // 意図的な停止 or 旧接続の残骸
       opened = false;
-      if (!fatal && retries < MAX_RETRIES) {
-        // Auto-reconnect on unexpected disconnects. Audio during the gap keeps buffering in backlog.
-        retries += 1;
-        handlers.onStatus("reconnecting");
-        setTimeout(() => {
-          if (!stopped) connect();
-        }, 2000);
-      } else {
-        if (!fatal) {
-          handlers.onError(
-            storedText("Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.", {
-              code: ev.code,
-              reason: ev.reason ? `, ${ev.reason}` : "",
-              n: MAX_RETRIES,
-            }),
-          );
-        }
+      if (fatal) return;
+      if (!copy && retries >= QUICK_RETRIES) {
+        // Nothing keeps the audio past the backlog here, so this is the end of it.
+        handlers.onError(
+          storedText("Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.", {
+            code: ev.code,
+            reason: ev.reason ? `, ${ev.reason}` : "",
+            n: QUICK_RETRIES,
+          }),
+        );
         handlers.onStatus("error");
+        return;
       }
+      // Reconnect on an unexpected disconnect. Audio during the gap goes into the backlog (and
+      // the copy), and is sent once the service is back.
+      retries += 1;
+      handlers.onStatus(retries <= QUICK_RETRIES ? "reconnecting" : "local");
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        if (!stopped) connect();
+      }, retryDelay(retries));
     });
     // the error event is handled by the close that immediately follows
   };
 
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
   connect();
 
   // On returning from a phone screen lock or a backgrounded tab:
@@ -367,8 +395,7 @@ export async function startMic(
     if (ctx.state === "suspended") void ctx.resume().catch(() => {});
     const closed =
       !ws || ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED;
-    if (closed) {
-      retries = 0;
+    if (closed && !retryTimer) {
       connect();
     }
   };
@@ -408,6 +435,7 @@ export async function startMic(
   return {
     stop: async () => {
       stopped = true;
+      if (retryTimer) clearTimeout(retryTimer);
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", onVisibility);
       }
@@ -449,7 +477,7 @@ export async function startMic(
       await Promise.race([serverDone, new Promise((r) => setTimeout(r, 10000))]);
       try { sock?.close(); } catch {}
       // Delivered whole, the copy has done its job; otherwise it stays to be sent.
-      await copy?.end(!delivered);
+      if (copy && (await copy.end(!delivered))) handlers.onKept?.();
       handlers.onStatus("closed");
     },
   };
