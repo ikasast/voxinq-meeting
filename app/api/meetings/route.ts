@@ -3,6 +3,7 @@ import { extensionEnabled } from "@/lib/extensions-store";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { namedMeetingTitle } from "@/lib/meeting-title";
+import { knownTime } from "@/lib/known-time";
 import { prisma } from "@/lib/prisma";
 import { readSettings } from "@/lib/settings";
 
@@ -35,7 +36,11 @@ export async function POST(req: NextRequest) {
     sttLanguage?: unknown;
     whisperModel?: unknown;
     scheduledAt?: unknown;
+    recordedAt?: unknown;
   }>(req);
+  // A recording made away from the server (the Android app's offline recording): the meeting
+  // is named and dated for when it was recorded, not for when it arrived.
+  const recordedAt = knownTime(body?.recordedAt);
 
   const typed = typeof body?.title === "string" ? body.title.trim() : "";
   if (typed.length > TITLE_MAX) return apiError(`title must be ${TITLE_MAX} chars or fewer`, 400);
@@ -78,7 +83,7 @@ export async function POST(req: NextRequest) {
   // The day it is *for*, so a meeting booked for next Tuesday is named next Tuesday rather than
   // today. Settings are read only when there is nothing to read them for.
   const title =
-    typed || namedMeetingTitle(scheduledAt ?? new Date(), (await readSettings()).meetingTitleFormat);
+    typed || namedMeetingTitle(recordedAt ?? scheduledAt ?? new Date(), (await readSettings()).meetingTitleFormat);
 
   const created = await prisma.meeting.create({
     data: {
@@ -86,7 +91,7 @@ export async function POST(req: NextRequest) {
       description,
       sttLanguage,
       whisperModel,
-      ...(scheduledAt ? { scheduledAt, startedAt: scheduledAt } : {}),
+      ...(scheduledAt ? { scheduledAt, startedAt: scheduledAt } : recordedAt ? { startedAt: recordedAt } : {}),
       // The caller's own series of that name: see seriesIdForName.
       seriesId: seriesName ? await seriesIdForName(seriesName) : undefined,
     },

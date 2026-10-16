@@ -91,7 +91,7 @@ describe("the callers that never show a title", () => {
       expect(readFileSync(join(__dirname, "..", p), "utf8"), p).not.toContain("defaultMeetingTitle");
     }
     const route = readFileSync(join(__dirname, "..", "app/api/meetings/route.ts"), "utf8");
-    expect(route).toContain("typed || namedMeetingTitle(scheduledAt ?? new Date()");
+    expect(route).toContain("typed || namedMeetingTitle(recordedAt ?? scheduledAt ?? new Date()");
   });
 });
 

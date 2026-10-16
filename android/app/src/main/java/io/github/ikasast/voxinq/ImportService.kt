@@ -52,6 +52,8 @@ import java.util.concurrent.TimeUnit
 class ImportService : Service() {
     companion object {
         const val ACTION_IMPORT = "io.github.ikasast.voxinq.action.IMPORT"
+        /** Send what was recorded on the phone while the server was out of reach (OfflineStore). */
+        const val ACTION_SEND_OFFLINE = "io.github.ikasast.voxinq.action.SEND_OFFLINE"
         private const val EXTRA_TITLE = "title"
         private const val EXTRA_BYTES = "bytes"
 
@@ -66,6 +68,18 @@ class ImportService : Service() {
 
         /** How often the progress notification is allowed to move. */
         private const val PROGRESS_EVERY_MS = 500L
+
+        /**
+         * Send every recording waiting on the phone. Called once the server has answered — the
+         * app loaded its page — and from the offline screen's Send now.
+         */
+        fun sendOffline(context: Context) {
+            if (OfflineStore.list(context.filesDir, OfflineState.dir).isEmpty()) return
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, ImportService::class.java).setAction(ACTION_SEND_OFFLINE),
+            )
+        }
 
         fun start(context: Context, uri: Uri, title: String, bytes: Long) {
             ContextCompat.startForegroundService(
@@ -94,8 +108,16 @@ class ImportService : Service() {
             .build()
     }
 
-    /** One shared file, as it arrived. */
-    private data class Pending(val uri: Uri, val title: String, val bytes: Long)
+    /**
+     * One shared file, as it arrived — or a recording made on the phone (`offline`), which is
+     * raw PCM sent with a WAV header in front and placed at the time it was recorded.
+     */
+    private data class Pending(
+        val uri: Uri,
+        val title: String,
+        val bytes: Long,
+        val offline: OfflineStore.Saved? = null,
+    )
 
     /**
      * Shares waiting their turn, oldest first.
@@ -126,6 +148,10 @@ class ImportService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lastStart = startId
+        if (intent?.action == ACTION_SEND_OFFLINE) {
+            queueOffline()
+            return START_NOT_STICKY
+        }
         if (intent?.action != ACTION_IMPORT) {
             stopIfIdle()
             return START_NOT_STICKY
@@ -153,6 +179,30 @@ class ImportService : Service() {
             worker = scope.launch(Dispatchers.Main) { drain() }
         }
         return START_NOT_STICKY
+    }
+
+    /** Every recording on the phone not already on its way, behind whatever is being sent. */
+    private fun queueOffline() {
+        val already = (waiting.mapNotNull { it.offline?.dir } + listOfNotNull(current?.offline?.dir)).toSet()
+        val saved = OfflineStore.list(filesDir, OfflineState.dir).filter { it.dir !in already }
+        val label = getString(R.string.offline_upload_title)
+        if (saved.isEmpty()) {
+            goForeground(ongoing(current?.title ?: label))
+            stopIfIdle()
+            return
+        }
+        for (s in saved) {
+            waiting.addLast(
+                Pending(Uri.fromFile(s.audio), s.title ?: label, s.bytes + 44, offline = s),
+            )
+        }
+        if (worker?.isActive == true) {
+            goForeground(ongoing(current?.title ?: label))
+        } else {
+            begin()
+            goForeground(ongoing(waiting.first().title))
+            worker = scope.launch(Dispatchers.Main) { drain() }
+        }
     }
 
     private suspend fun drain() {
@@ -185,24 +235,32 @@ class ImportService : Service() {
         var meetingId: String? = null
         try {
             val cookie = CookieManager.getInstance().getCookie(origin)
+            val offline = job.offline
             withContext(Dispatchers.IO) {
-                val id = createMeeting(origin, cookie, job.title)
+                // A recording made for a booked meeting goes into that meeting; anything else
+                // gets a meeting of its own, named and dated for when it was recorded.
+                val id = offline?.meetingId ?: createMeeting(origin, cookie, if (offline != null) "" else job.title, offline?.startedAt)
                 meetingId = id
-                upload(origin, cookie, id, job.uri, job.bytes)
+                upload(origin, cookie, id, job.uri, job.bytes, wav = offline != null)
                 // The meeting is over — it happened before the file existed. This is also what
-                // reads the recording's length back and winds the start time to match it.
-                post(origin, cookie, "/api/meetings/$id/end", "{}")
+                // reads the recording's length back and winds the start time to match it; a
+                // recording made on the phone says when it began.
+                val ended = if (offline != null) JSONObject().put("startedAt", iso(offline.startedAt)).toString() else "{}"
+                post(origin, cookie, "/api/meetings/$id/end", ended)
                 // Recognition is a queued job from here on. Nothing else to wait for.
                 post(origin, cookie, "/api/meetings/$id/transcribe", "{}")
             }
+            // On the server now: the phone's copy is no longer the only one.
+            offline?.let { OfflineStore.delete(it) }
             tell(job.title, getString(R.string.import_queued), meetingId)
         } catch (e: Exception) {
             // The service going away is not the import failing; there is nothing left to tell.
             if (e is CancellationException) throw e
             Log.w(TAG, "import", e)
             // A meeting with nothing in it is litter, and the next attempt will make another.
-            // It goes to the trash rather than for good, in case the upload did land.
-            meetingId?.let { id ->
+            // It goes to the trash rather than for good, in case the upload did land. Not a
+            // booked meeting, though: that one existed before, and is still somebody's plan.
+            meetingId?.takeIf { job.offline?.meetingId == null }?.let { id ->
                 withContext(Dispatchers.IO) {
                     runCatching { discard(origin, CookieManager.getInstance().getCookie(origin), id) }
                 }
@@ -213,15 +271,17 @@ class ImportService : Service() {
 
     // ---- The four calls ----
 
-    private fun createMeeting(origin: String, cookie: String?, title: String): String {
-        val body = JSONObject().put("title", title).toString()
+    private fun createMeeting(origin: String, cookie: String?, title: String, recordedAt: Long? = null): String {
+        val body = JSONObject().put("title", title).apply {
+            recordedAt?.let { put("recordedAt", iso(it)) }
+        }.toString()
         val answer = post(origin, cookie, "/api/meetings", body)
         return JSONObject(answer).stringOrNull("id") ?: throw IOException("the server did not name the meeting")
     }
 
-    private fun upload(origin: String, cookie: String?, id: String, uri: Uri, bytes: Long) {
+    private fun upload(origin: String, cookie: String?, id: String, uri: Uri, bytes: Long, wav: Boolean = false) {
         val request = request(origin, cookie, "/api/meetings/$id/recording")
-            .post(fileBody(uri, bytes))
+            .post(fileBody(uri, bytes, wav))
             .build()
         http.newCall(request).execute().use { res ->
             val text = res.body?.string().orEmpty()
@@ -235,7 +295,7 @@ class ImportService : Service() {
      * Opened inside `writeTo`, so a connection that fails on its first attempt can be retried:
      * the second attempt gets a fresh stream rather than an exhausted one.
      */
-    private fun fileBody(uri: Uri, bytes: Long): RequestBody = object : RequestBody() {
+    private fun fileBody(uri: Uri, bytes: Long, wav: Boolean = false): RequestBody = object : RequestBody() {
         override fun contentType() = "application/octet-stream".toMediaType()
 
         override fun contentLength() = if (bytes > 0) bytes else -1
@@ -246,6 +306,12 @@ class ImportService : Service() {
             input.use {
                 val buffer = ByteArray(64 * 1024)
                 var sent = 0L
+                // The phone's own recording is bare PCM: a header in front makes it a WAV file.
+                if (wav) {
+                    val header = OfflineStore.wavHeader(bytes - 44)
+                    sink.write(header)
+                    sent += header.size
+                }
                 var shown = 0L
                 while (true) {
                     val read = it.read(buffer)
@@ -292,6 +358,12 @@ class ImportService : Service() {
         JSONObject(text).let { it.stringOrNull("error") ?: it.stringOrNull("detail") }
     } catch (_: Exception) {
         null
+    }
+
+    private fun iso(ms: Long): String {
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+        f.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return f.format(java.util.Date(ms))
     }
 
     // ---- What the person sees ----

@@ -90,52 +90,168 @@
         </LinearLayout>
     </ScrollView>
 
-    <LinearLayout
+    <!-- The server does not answer: say so, offer to try again, and offer to record on the
+         phone anyway (OfflineRecording), with what is already waiting to be sent below. -->
+    <ScrollView
         android:id="@+id/offline"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/background"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="28dp"
+        android:fillViewport="true"
         android:visibility="gone">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/offline_title"
-            android:textColor="@color/foreground"
-            android:textSize="20sp" />
-
-        <TextView
-            android:id="@+id/offline_body"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:lineSpacingMultiplier="1.2"
-            android:textColor="@color/text_secondary"
-            android:textSize="15sp" />
-
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:orientation="horizontal">
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:padding="28dp">
 
-            <Button
-                android:id="@+id/retry"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:id="@+id/offline_idle"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/retry" />
+                android:layout_marginTop="48dp"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
 
-            <Button
-                android:id="@+id/change_server"
-                style="?android:attr/borderlessButtonStyle"
-                android:layout_width="wrap_content"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/offline_title"
+                    android:textColor="@color/foreground"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:id="@+id/offline_body"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.2"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="15sp" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/retry"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/retry" />
+
+                    <Button
+                        android:id="@+id/change_server"
+                        style="?android:attr/borderlessButtonStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/change_server" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/record_offline"
+                    android:textAllCaps="false"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="28dp"
+                    android:backgroundTint="@color/error"
+                    android:minHeight="56dp"
+                    android:text="@string/record_offline"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:text="@string/record_offline_note"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- While recording on the phone. -->
+            <LinearLayout
+                android:id="@+id/offline_recording"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/change_server" />
+                android:layout_marginTop="72dp"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:drawablePadding="8dp"
+                    android:text="@string/offline_recording_title"
+                    android:textColor="@color/foreground"
+                    android:textSize="15sp" />
+
+                <Chronometer
+                    android:id="@+id/offline_timer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFeatureSettings="tnum"
+                    android:textColor="@color/foreground"
+                    android:textSize="48sp" />
+
+                <ProgressBar
+                    android:id="@+id/offline_meter"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="220dp"
+                    android:layout_height="8dp"
+                    android:layout_marginTop="10dp"
+                    android:max="100"
+                    android:progressTint="@color/accent" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.2"
+                    android:text="@string/offline_recording_hint"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+
+                <Button
+                    android:id="@+id/offline_stop"
+                    android:textAllCaps="false"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="28dp"
+                    android:backgroundTint="@color/error"
+                    android:minHeight="56dp"
+                    android:paddingHorizontal="28dp"
+                    android:text="@string/offline_stop"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <!-- What is waiting to be sent. -->
+            <TextView
+                android:id="@+id/offline_list_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:text="@string/offline_saved_title"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/offline_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical" />
         </LinearLayout>
-    </LinearLayout>
+    </ScrollView>
 </FrameLayout>

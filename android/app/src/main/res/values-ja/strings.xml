@@ -67,4 +67,21 @@
     <string name="widget_new">会議を作成</string>
     <string name="widget_record_short">すぐ録音</string>
     <string name="widget_new_short">会議を作成</string>
+    <string name="record_offline">● 録音だけする</string>
+    <string name="record_offline_note">この端末に保存し、つながったら送って文字起こしします。</string>
+    <string name="offline_recording_title">端末に録音中（オフライン）</string>
+    <string name="offline_recording_text">サーバーにつながったら送ります</string>
+    <string name="offline_recording_hint">画面を消しても録音は続きます。文字起こしは、サーバーにつながってから行います。</string>
+    <string name="offline_stop">停止して保存</string>
+    <string name="offline_saved_title">この端末に残っている録音</string>
+    <string name="offline_item_title">%1$s の録音</string>
+    <string name="offline_item_waiting">%1$s · 送信待ち</string>
+    <string name="offline_item_booked">%1$s · 送信待ち（予定の会議）</string>
+    <string name="offline_minutes">%1$d分</string>
+    <string name="offline_seconds">%1$d秒</string>
+    <string name="offline_send_now">今すぐ送る</string>
+    <string name="offline_share">ファイルとして共有</string>
+    <string name="offline_delete">削除</string>
+    <string name="offline_delete_confirm">この録音を端末から削除しますか？まだ送っていません。</string>
+    <string name="offline_upload_title">端末の録音</string>
 </resources>
