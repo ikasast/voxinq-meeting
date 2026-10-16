@@ -3,8 +3,8 @@ name: Publish images
 # Publishes the images the compose file pulls, so installing needs only docker-compose.yml
 # and .env — no clone, no Node, no Python.
 #
-# Runs on a published release, and on demand. Not on every push: the STT image is ~21 GB and
-# takes half an hour to build.
+# Runs on a published release, and on demand. Not on every push: the STT image is ~21 GB, and
+# a release takes about ten minutes to build all three.
 on:
   release:
     types: [published]
@@ -72,9 +72,20 @@ jobs:
       contents: read
       packages: write
     steps:
-      # The image is ~21 GB — a stock runner has about 14 GB free, so the build dies part
-      # way through without this. Reclaiming the preinstalled toolchains gets it to ~45 GB.
+      # The image is ~21 GB and the build wants about 45 GB free. Runners used to have about
+      # 14 GB, so every run reclaimed the preinstalled toolchains first. That took 7 minutes
+      # (an apt purge and an 11 GB rm), nearly half the release. Since 2026 they start with
+      # about 86 GB free (measured on v4.0.0-beta.5), so the reclaim now runs only when a
+      # runner comes up short.
+      - name: Check disk space
+        id: disk
+        run: |
+          df -h /
+          free=$(df --output=avail -BG / | tail -1 | tr -dc '0-9')
+          echo "free=$free" >> "$GITHUB_OUTPUT"
+          echo "${free} GB free"
       - name: Free disk space
+        if: steps.disk.outputs.free < 50
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: true
@@ -84,6 +95,7 @@ jobs:
           large-packages: true
           swap-storage: true
       - name: Show available space
+        if: steps.disk.outputs.free < 50
         run: df -h /
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
