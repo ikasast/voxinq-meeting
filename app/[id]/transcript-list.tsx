@@ -1023,7 +1023,8 @@ export function TranscriptList({
                   liveOffline ? "bg-[var(--text-muted)]" : "animate-pulse bg-red-500"
                 }`}
               />
-              {liveOffline ? t("Reconnecting…") : t("Live")}
+              {/* The audio of the gap is kept — in memory, and in this browser's copy or the app's file. */}
+              {liveOffline ? t("Reconnecting — the recording is kept on this device") : t("Live")}
             </span>
           ) : null}
         </h2>

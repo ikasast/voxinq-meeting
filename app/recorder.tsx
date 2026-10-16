@@ -342,6 +342,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
             ...r.options,
             micStream: r.micStream,
             source: r.source,
+            // A copy in this browser, for a drop longer than the page can hold (local-recordings.ts).
+            keepCopy: { title: r.title || undefined },
           });
         }
         starting.current = attempt;

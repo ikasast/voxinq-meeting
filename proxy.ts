@@ -121,6 +121,6 @@ export const config = {
   // it silently removes the browser's offer to install the app. The file is static, holds no
   // data and caches nothing (see public/sw.js).
   matcher: [
-    "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|sw.js|logo[^/]*\.svg|worklets/).*)",
+    "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|sw.js|offline.html|logo[^/]*\.svg|worklets/).*)",
   ],
 };

@@ -1,4 +1,5 @@
 import { antiAliasStages } from "@/lib/audio/lowpass";
+import { appendLocal, createLocal, finishLocal } from "@/lib/local-recordings";
 import { fromDiarizer, MIC_SPEAKER } from "@/lib/speakers";
 import { micConstraints, micGain, streamIsLive } from "./mic-constraints";
 import { storedText } from "@/lib/i18n/stored";
@@ -96,6 +97,11 @@ export async function startMic(
      * a check. Recording owns it from here and stops it at the end.
      */
     micStream?: MediaStream;
+    /**
+     * Keep a copy of the audio in this browser while it records (lib/local-recordings.ts), for a
+     * drop longer than the backlog holds or a tab closed before the end. Named after the meeting.
+     */
+    keepCopy?: { title?: string };
   },
 ): Promise<SttHandle> {
   const log = (...args: unknown[]) => console.log("[stt]", ...args);
@@ -211,6 +217,56 @@ export async function startMic(
   //  - the path is not clogged by sending nonstop until the server finishes reading
   const backlog: ArrayBuffer[] = [];
   const MAX_BACKLOG_CHUNKS = 3000; // 100ms x 3000 = ~5 min. drop oldest when exceeded
+  // Set once audio has been dropped from the backlog: the server will not have all of it, so the
+  // copy kept in the browser is the only whole recording, and is kept to be sent.
+  let lostAudio = false;
+
+  // The copy in this browser: the same PCM, written in five-second pieces. Best effort — a
+  // browser with no IndexedDB, or none to spare, records exactly as it did before.
+  const copy = opts?.keepCopy
+    ? (() => {
+        let id: Promise<string | null> = createLocal({
+          kind: "copy",
+          format: "pcm16k",
+          meetingId: opts.meetingId,
+          title: opts.keepCopy?.title,
+        }).catch(() => null);
+        let seq = 0;
+        let pending: ArrayBuffer[] = [];
+        let writing: Promise<unknown> = Promise.resolve();
+        const flush = () => {
+          if (pending.length === 0) return writing;
+          const parts = pending;
+          pending = [];
+          const joined = new Uint8Array(parts.reduce((a, p) => a + p.byteLength, 0));
+          let at = 0;
+          for (const p of parts) {
+            joined.set(new Uint8Array(p), at);
+            at += p.byteLength;
+          }
+          const n = seq++;
+          // Read now, not when the write gets its turn: it describes the audio being written.
+          const behind = lostAudio || backlog.length > 0 || !(ws && ws.readyState === WebSocket.OPEN);
+          writing = writing.then(async () => {
+            const got = await id;
+            if (got) await appendLocal(got, n, joined.buffer, { behind }).catch(() => {});
+          });
+          return writing;
+        };
+        return {
+          add(buf: ArrayBuffer) {
+            pending.push(buf.slice(0));
+            if (pending.length >= 50) void flush();
+          },
+          async end(keep: boolean) {
+            await flush();
+            const got = await id;
+            id = Promise.resolve(null);
+            if (got) await finishLocal(got, keep).catch(() => {});
+          },
+        };
+      })()
+    : null;
 
   const flushBacklog = () => {
     while (backlog.length > 0 && ws && ws.readyState === WebSocket.OPEN) {
@@ -326,11 +382,15 @@ export async function startMic(
     // Clipping is destroyed information, not a level to be turned down later — surface it while
     // the meeting is still running and the input can be fixed.
     if (clipRatio > 0.001) handlers.onClipping?.(clipRatio);
+    if (!stopped) copy?.add(buf);
     if (opened && ws && ws.readyState === WebSocket.OPEN) {
       ws.send(buf);
     } else if (!stopped && !fatal) {
       backlog.push(buf);
-      if (backlog.length > MAX_BACKLOG_CHUNKS) backlog.shift();
+      if (backlog.length > MAX_BACKLOG_CHUNKS) {
+        backlog.shift();
+        lostAudio = true;
+      }
     }
     if (handlers.onLevel) {
       const arr = new Int16Array(buf);
@@ -371,6 +431,8 @@ export async function startMic(
         });
         sock.addEventListener("close", () => resolve());
       });
+      // Whether the server is getting all of it: open to the end, and nothing dropped on the way.
+      const delivered = Boolean(sock && sock.readyState === WebSocket.OPEN) && !lostAudio;
       try {
         if (sock && sock.readyState === WebSocket.OPEN) {
           flushBacklog(); // deliver any leftover audio before end
@@ -386,6 +448,8 @@ export async function startMic(
       try { await ctx.close(); } catch {}
       await Promise.race([serverDone, new Promise((r) => setTimeout(r, 10000))]);
       try { sock?.close(); } catch {}
+      // Delivered whole, the copy has done its job; otherwise it stays to be sent.
+      await copy?.end(!delivered);
       handlers.onStatus("closed");
     },
   };
