@@ -173,7 +173,7 @@ export default async function RootLayout({
                 {/* Outside the private network, say what can be done from here; anywhere, say
                     when a service is not answering — and nothing at all while they are. */}
                 {external ? <ExternalNotice /> : null}
-                {locked ? null : <ServiceAlert showStt={!external} />}
+                {locked ? null : <ServiceAlert showStt={!external} showDisk={!external && (!me || me.isAdmin)} />}
                 {/* Recordings this browser kept that the server does not have yet. */}
                 {locked || external ? null : <LocalRecordingsBanner />}
                 {/* In the Android app, when it is behind this server: the update (app-update.tsx). */}

@@ -6,6 +6,7 @@
     <string name="setup_invalid">https:// で始まるアドレス、またはホスト名を入力してください。</string>
 
     <string name="offline_title">サーバーに接続できません</string>
+    <string name="offline_body_database">サーバーは応答していますが、データベースに接続できません。</string>
     <string name="offline_body">%1$s から応答がありません。サーバーが動いていること、このスマホから届くことを確認してください。</string>
     <string name="retry">再試行</string>
     <string name="change_server">サーバーを変更</string>

@@ -315,6 +315,9 @@ class RecorderService : Service() {
         http.newCall(request).execute().use { res ->
             val body = res.body?.string().orEmpty()
             val json = runCatching { JSONObject(body) }.getOrNull()
+            // A server that cannot do it (its database down, the app behind the proxy not
+            // answering) is as good as out of reach: the meeting is recorded on the phone.
+            if (res.code >= 500) throw java.io.IOException(json?.stringOrNull("error") ?: "HTTP ${res.code}")
             if (!res.isSuccessful) throw IllegalStateException(json?.stringOrNull("error") ?: "HTTP ${res.code}")
             json ?: throw IllegalStateException("HTTP ${res.code}")
             json.put("meetingId", meetingId)

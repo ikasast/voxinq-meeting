@@ -91,6 +91,9 @@ export const ja: Record<string, string> = {
   Preparing: "準備中",
   Listening: "認識中",
   Reconnecting: "再接続中",
+  "Only {gb} GB is left where recordings are kept (about {hours} hours of recording). Delete old recordings or free up disk space.":
+    "録音の保存先の空きが残り {gb} GB です（録音およそ {hours} 時間分）。古い録音を削除するか、ディスクを空けてください。",
+  "Open storage": "ストレージを見る",
   Error: "エラー",
   Stopped: "停止中",
   "● Model ready": "● モデル準備完了",

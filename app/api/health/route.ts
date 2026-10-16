@@ -25,7 +25,16 @@ async function checkDb(): Promise<{ ok: boolean; detail?: string }> {
 // STT is checked by the browser hitting `${sttHttpBase()}/health` directly (recording goes
 // browser->STT directly, so a check via the web server would not verify the actual recording path).
 export async function GET() {
-  const [s, db] = await Promise.all([readEffectiveSettings(), checkDb()]);
+  // Side by side: each waits out its own timeout when its service is down, and the phone's
+  // probe (MainActivity) reads this to tell a server without its database from one that is gone.
+  const [db, llm] = await Promise.all([checkDb(), checkLlm()]);
+  return NextResponse.json({ db, llm });
+}
+
+type LlmHealth = { ok: boolean; provider: string; detail?: string };
+
+async function checkLlm(): Promise<LlmHealth> {
+  const s = await readEffectiveSettings();
 
   if (s.llmProvider === "ollama") {
     try {
@@ -34,12 +43,9 @@ export async function GET() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return NextResponse.json({ db, llm: { ok: true, provider: "ollama", detail: s.ollamaModel } });
+      return { ok: true, provider: "ollama", detail: s.ollamaModel };
     } catch {
-      return NextResponse.json({
-        db,
-        llm: { ok: false, provider: "ollama", detail: translate(await currentLocale(), "Cannot reach Ollama") },
-      });
+      return { ok: false, provider: "ollama", detail: translate(await currentLocale(), "Cannot reach Ollama") };
     }
   }
 
@@ -53,27 +59,21 @@ export async function GET() {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return NextResponse.json({ db, llm: { ok: true, provider: "openai", detail: s.openaiModel } });
+      return { ok: true, provider: "openai", detail: s.openaiModel };
     } catch {
-      return NextResponse.json({
-        db,
-        llm: {
-          ok: false,
-          provider: "openai",
-          detail: translate(await currentLocale(), "Cannot reach the LLM (check the Base URL)"),
-        },
-      });
+      return {
+        ok: false,
+        provider: "openai",
+        detail: translate(await currentLocale(), "Cannot reach the LLM (check the Base URL)"),
+      };
     }
   }
 
   // For cloud LLMs (with a key), avoid the cost/latency of a live check and only verify a key is set.
   const hasKey = s.llmProvider === "anthropic" ? Boolean(s.anthropicApiKey) : Boolean(s.openaiApiKey);
-  return NextResponse.json({
-    db,
-    llm: {
-      ok: hasKey,
-      provider: s.llmProvider,
-      detail: hasKey ? undefined : translate(await currentLocale(), "API key not set"),
-    },
-  });
+  return {
+    ok: hasKey,
+    provider: s.llmProvider,
+    detail: hasKey ? undefined : translate(await currentLocale(), "API key not set"),
+  };
 }
