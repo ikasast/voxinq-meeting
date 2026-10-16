@@ -23,6 +23,7 @@ import { ServiceAlert } from "./health-status";
 import { AppUpdate } from "./app-update";
 import { LocalRecordingsBanner } from "./local-recordings-banner";
 import { InstallApp } from "./install-app";
+import { DisplaySizeKeeper } from "./display-size-keeper";
 import { Tooltips } from "./tooltips";
 import { version as appVersion } from "../package.json";
 import { isExternalRequest } from "@/lib/is-tailnet";
@@ -131,6 +132,13 @@ export default async function RootLayout({
             __html: `try{var t=localStorage.getItem("voxinq.theme");if(t!=="light"&&t!=="dark")t="system";if(t==="light"||(t==="system"&&matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.dataset.theme="light"}catch(e){}`,
           }}
         />
+        {/* In the Android app, the page's size (app/display-size.ts), before the first paint so it
+            is not laid out twice. The same arithmetic as viewportFor there. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(navigator.userAgent.indexOf("VoxinqAndroid/")>=0){var s=Number(localStorage.getItem("voxinq.displaySize"));if([100,115,130].indexOf(s)<0)s=115;var m=document.querySelector('meta[name="viewport"]');if(m&&s!==100&&screen.width>0)m.setAttribute("content","width="+Math.round(screen.width*100/s)+", initial-scale="+s/100)}}catch(e){}`,
+          }}
+        />
         <LocaleProvider locale={locale}>
           <ExtensionsProvider value={extensions}>
           <ConfirmProvider>
@@ -185,6 +193,7 @@ export default async function RootLayout({
               {external || locked ? null : <RecordingBar />}
               {/* Every `title` on the page, shown above what it describes (tooltips.tsx). */}
               <Tooltips />
+              <DisplaySizeKeeper />
             </div>
           </RecorderProvider>
           </ConfirmProvider>
