@@ -119,7 +119,9 @@ export const config = {
   // sw.js is in that list for a harder reason than convenience: a service worker script that
   // answers with a redirect cannot register at all, so gating it does not protect anything —
   // it silently removes the browser's offer to install the app. The file is static, holds no
-  // data and caches nothing (see public/sw.js).
+  // data and caches nothing of the app (see public/sw.js). offline.html is the one file it does
+  // keep — fetched when the worker installs, which a login redirect would leave it without — and
+  // is just as static: the page shown when the server cannot be reached.
   matcher: [
     "/((?!_next/static|_next/image|icons/|favicon.ico|apple-icon.png|icon.png|manifest.webmanifest|sw.js|offline.html|logo[^/]*\.svg|worklets/).*)",
   ],
