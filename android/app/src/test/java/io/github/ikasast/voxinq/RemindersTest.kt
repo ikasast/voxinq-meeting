@@ -153,4 +153,52 @@ class RemindersTest {
         val reply = Reminders.Reply(due = emptyList(), soon = emptyList())
         assertNull(Reminders.dueAtAlarm(standup, reply, now))
     }
+
+    // ---- A server that stays out of reach ----
+
+    private val review = Reminders.Booked("m-review", "Design review", at(2 * hour))
+
+    @Test
+    fun an_outage_is_said_once_it_has_lasted_and_a_meeting_is_coming() {
+        val since = at(-Reminders.DOWN_FOR_MS)
+        assertEquals(review, Reminders.downNotice(now, since, null, listOf(review)))
+        // A restart, a moment off the network: not yet.
+        assertNull(Reminders.downNotice(now, at(-10 * 60_000), null, listOf(review)))
+        // Said for this outage already.
+        assertNull(Reminders.downNotice(now, since, since, listOf(review)))
+        // A new outage is said again.
+        assertEquals(review, Reminders.downNotice(now, since, at(-5 * hour), listOf(review)))
+        assertNull(Reminders.downNotice(now, null, null, listOf(review)))
+    }
+
+    @Test
+    fun an_outage_with_nothing_coming_says_nothing() {
+        val since = at(-hour)
+        val later = Reminders.Booked("m-later", "Tomorrow", at(20 * hour))
+        val past = Reminders.Booked("m-past", "This morning", at(-3 * hour))
+        assertNull(Reminders.downNotice(now, since, null, listOf(later, past)))
+        assertNull(Reminders.downNotice(now, since, null, emptyList()))
+        val soonest = Reminders.Booked("m-soon", "Stand-up", at(30 * 60_000))
+        assertEquals(soonest, Reminders.downNotice(now, since, null, listOf(review, later, soonest)))
+    }
+
+    @Test
+    fun only_no_answer_or_a_gateway_error_is_out_of_reach() {
+        assertTrue(Reminders.unreachable(null))
+        assertTrue(Reminders.unreachable(502))
+        assertTrue(Reminders.unreachable(504))
+        assertFalse(Reminders.unreachable(200))
+        // A login page or an expired session is a server that answers.
+        assertFalse(Reminders.unreachable(302))
+        assertFalse(Reminders.unreachable(401))
+        assertFalse(Reminders.unreachable(500))
+    }
+
+    @Test
+    fun what_is_coming_survives_between_checks() {
+        val kept = Reminders.soonFromJson(Reminders.soonToJson(listOf(review, standup)))
+        assertEquals(listOf(review, standup), kept)
+        assertEquals(emptyList<Reminders.Booked>(), Reminders.soonFromJson("not json"))
+        assertEquals(emptyList<Reminders.Booked>(), Reminders.soonFromJson("""[{"id":"../x","title":"","at":1}]"""))
+    }
 }
