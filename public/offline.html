@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voxinq Meeting</title>
+<!--
+  Shown by the service worker (sw.js) in place of any page when the server cannot be reached —
+  the server is down, or the tailnet is. It is the one file the worker keeps, so it must stand on
+  its own: no app scripts, styles or fonts, which would come from the server it cannot reach.
+
+  It records in this browser (MediaRecorder) into the same IndexedDB database the app reads
+  (lib/local-recordings.ts: database "voxinq-local", stores "recordings" and "chunks"). The app
+  offers to send what is there once it loads again. Change the shape here and there together.
+-->
+<style>
+  :root { color-scheme: light dark; --bg:#f5f7fa; --paper:#fff; --fg:#1f2937; --muted:#6b7280; --border:#e3e7ec; --red:#ef4444; --accent:#0e7490; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b1220; --paper:#111a2b; --fg:#e5e7eb; --muted:#9ca3af; --border:#1f2a3d; --accent:#06b6d4; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+  main { max-width: 34rem; margin: 0 auto; padding: 48px 20px; }
+  h1 { font-size: 1.4rem; margin: 0 0 6px; }
+  p { line-height: 1.6; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  button { font: inherit; border-radius: 10px; border: 1px solid var(--border); background: var(--paper); color: var(--fg); padding: 8px 14px; cursor: pointer; }
+  .record { display:block; width:100%; margin-top: 22px; padding: 14px; background: var(--red); border-color: var(--red); color: #fff; font-weight: 600; font-size: 1rem; }
+  .timer { font-size: 3rem; font-variant-numeric: tabular-nums; text-align:center; margin: 18px 0 6px; font-weight: 300; }
+  .rec { text-align:center; margin-top: 30px; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background: var(--red); margin-right: 6px; }
+  ol { padding-left: 1.2em; line-height: 1.8; color: var(--muted); }
+  ul { list-style: none; padding: 0; margin: 8px 0 0; border-top: 1px solid var(--border); }
+  li { display:flex; gap:10px; align-items:center; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  li span { flex: 1; }
+  .row { display:flex; gap:8px; margin-top: 14px; flex-wrap: wrap; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <section id="idle">
+    <h1 data-t="title"></h1>
+    <p class="muted" data-t="why"></p>
+    <div class="row"><button id="retry" data-t="retry"></button></div>
+    <button id="start" class="record" data-t="record"></button>
+    <p class="muted" data-t="recordNote"></p>
+    <h2 style="font-size:1rem;margin-top:26px" data-t="otherTitle"></h2>
+    <ol><li data-t="other1" style="display:list-item;border:0;padding:0"></li><li data-t="other2" style="display:list-item;border:0;padding:0"></li></ol>
+  </section>
+  <section id="recording" class="rec" hidden>
+    <div><span class="dot"></span><span data-t="recording"></span></div>
+    <div class="timer" id="timer">0:00</div>
+    <p class="muted" data-t="keepOpen"></p>
+    <button id="stop" class="record" style="width:auto;display:inline-block;padding:12px 26px" data-t="stop"></button>
+  </section>
+  <section id="saved" hidden>
+    <h2 style="font-size:.95rem;margin-top:28px" class="muted" data-t="savedTitle"></h2>
+    <ul id="list"></ul>
+  </section>
+  <p class="muted" id="error" hidden></p>
+</main>
+<script>
+(() => {
+  const ja = (navigator.language || "").toLowerCase().startsWith("ja");
+  document.documentElement.lang = ja ? "ja" : "en";
+  const T = ja ? {
+    title: "Voxinq に接続できません",
+    why: "サーバーが止まっているか、Tailscale がつながっていません。",
+    retry: "もう一度つなぐ",
+    record: "● このブラウザで録音する",
+    recordNote: "このブラウザ内に保存します。録音中はこのタブを開いたまま、画面を消さないでください。つながったら、Voxinq の画面から送れます。",
+    otherTitle: "ほかの方法",
+    other1: "端末の録音アプリで録る（iPhone・Mac はボイスメモ、Windows はサウンドレコーダー）",
+    other2: "復旧したら、Voxinq の画面にファイルをドロップする（録音した日時の会議になります）",
+    recording: "このブラウザで録音中",
+    keepOpen: "このタブを開いたまま、画面を消さないでください。",
+    stop: "停止して保存",
+    savedTitle: "このブラウザにある、まだ送っていない録音",
+    save: "保存",
+    del: "削除",
+    delAsk: "この録音を削除しますか？まだ送っていません。",
+    rec: "このブラウザの録音",
+    min: (n) => `${n}分`,
+    noMic: "マイクを使えませんでした：",
+  } : {
+    title: "Cannot reach Voxinq",
+    why: "The server is down, or Tailscale is not connected.",
+    retry: "Try again",
+    record: "● Record in this browser",
+    recordNote: "Kept in this browser. While recording, keep this tab open and the screen on. Once Voxinq is back, send it from there.",
+    otherTitle: "Another way",
+    other1: "Record with the device's own recorder (Voice Memos on iPhone and Mac, Sound Recorder on Windows)",
+    other2: "Once the server is back, drop the file onto Voxinq — it becomes a meeting at the time it was recorded",
+    recording: "Recording in this browser",
+    keepOpen: "Keep this tab open and the screen on.",
+    stop: "Stop and save",
+    savedTitle: "In this browser, not sent yet",
+    save: "Save",
+    del: "Delete",
+    delAsk: "Delete this recording? It has not been sent.",
+    rec: "Recording in this browser",
+    min: (n) => `${n} min`,
+    noMic: "The microphone could not be used: ",
+  };
+  document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = T[el.dataset.t]; });
+
+  // The app's database (lib/local-recordings.ts).
+  const openDb = () => new Promise((resolve, reject) => {
+    const r = indexedDB.open("voxinq-local", 1);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if (!db.objectStoreNames.contains("recordings")) db.createObjectStore("recordings", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("chunks")) db.createObjectStore("chunks", { keyPath: ["id", "seq"] });
+    };
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  const req = (r) => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const done = (tx) => new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+
+  async function put(rec) { const db = await openDb(); const tx = db.transaction("recordings", "readwrite"); tx.objectStore("recordings").put(rec); await done(tx); db.close(); }
+  async function addChunk(id, seq, data, bytes) {
+    const db = await openDb();
+    const tx = db.transaction(["recordings", "chunks"], "readwrite");
+    tx.objectStore("chunks").put({ id, seq, data });
+    const store = tx.objectStore("recordings");
+    const rec = await req(store.get(id));
+    if (rec) { rec.bytes += bytes; rec.updatedAt = Date.now(); store.put(rec); }
+    await done(tx); db.close();
+  }
+  async function all() { const db = await openDb(); const list = await req(db.transaction("recordings").objectStore("recordings").getAll()); db.close(); return list.filter((r) => r.bytes > 0).sort((a, b) => a.startedAt - b.startedAt); }
+  async function blobOf(rec) {
+    const db = await openDb();
+    const chunks = await req(db.transaction("chunks").objectStore("chunks").getAll(IDBKeyRange.bound([rec.id, 0], [rec.id, Number.MAX_SAFE_INTEGER])));
+    db.close();
+    const parts = chunks.map((c) => c.data);
+    if (rec.format !== "pcm16k") return new Blob(parts, { type: rec.mimeType || "audio/webm" });
+    // A copy of a recording to the server: raw 16 kHz mono 16-bit PCM, made a WAV file.
+    const size = parts.reduce((n, p) => n + (p.size ?? p.byteLength), 0);
+    const h = new DataView(new ArrayBuffer(44));
+    const ascii = (at, str) => [...str].forEach((c, i) => h.setUint8(at + i, c.charCodeAt(0)));
+    ascii(0, "RIFF"); h.setUint32(4, 36 + size, true); ascii(8, "WAVE"); ascii(12, "fmt ");
+    h.setUint32(16, 16, true); h.setUint16(20, 1, true); h.setUint16(22, 1, true); h.setUint32(24, 16000, true);
+    h.setUint32(28, 32000, true); h.setUint16(32, 2, true); h.setUint16(34, 16, true); ascii(36, "data"); h.setUint32(40, size, true);
+    return new Blob([h.buffer, ...parts], { type: "audio/wav" });
+  }
+  async function remove(id) {
+    const db = await openDb();
+    const tx = db.transaction(["recordings", "chunks"], "readwrite");
+    tx.objectStore("recordings").delete(id);
+    tx.objectStore("chunks").delete(IDBKeyRange.bound([id, 0], [id, Number.MAX_SAFE_INTEGER]));
+    await done(tx); db.close();
+  }
+
+  const $ = (id) => document.getElementById(id);
+  async function showList() {
+    let list = [];
+    try { list = await all(); } catch { /* no IndexedDB: nothing to show */ }
+    $("saved").hidden = list.length === 0;
+    const ul = $("list");
+    ul.textContent = "";
+    for (const rec of list) {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      const ms = rec.format === "pcm16k" ? (rec.bytes / 32000) * 1000 : (rec.endedAt || rec.updatedAt) - rec.startedAt;
+      const mins = Math.max(1, Math.round(ms / 60000));
+      label.textContent = `${rec.title || T.rec} · ${new Date(rec.startedAt).toLocaleString()} · ${T.min(mins)}`;
+      const save = document.createElement("button");
+      save.textContent = T.save;
+      save.onclick = async () => {
+        const url = URL.createObjectURL(await blobOf(rec));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `voxinq-${rec.startedAt}.${rec.format === "pcm16k" ? "wav" : (rec.mimeType || "").includes("mp4") ? "m4a" : "webm"}`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      };
+      const del = document.createElement("button");
+      del.textContent = T.del;
+      del.onclick = async () => { if (confirm(T.delAsk)) { await remove(rec.id); showList(); } };
+      li.append(label, save, del);
+      ul.append(li);
+    }
+  }
+
+  let recorder = null, stream = null, lock = null, tick = null, rec = null, seq = 0;
+  const fmt = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
+  $("retry").onclick = () => location.reload();
+  $("start").onclick = async () => {
+    $("error").hidden = true;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: true } });
+    } catch (e) {
+      $("error").textContent = T.noMic + (e && e.message ? e.message : e);
+      $("error").hidden = false;
+      return;
+    }
+    const type = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+    recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    const now = Date.now();
+    rec = { id: `${now}-${Math.random().toString(36).slice(2, 8)}`, kind: "offline", format: "media", mimeType: recorder.mimeType || type, startedAt: now, updatedAt: now, state: "recording", bytes: 0 };
+    seq = 0;
+    await put(rec);
+    recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) addChunk(rec.id, seq++, e.data, e.data.size); };
+    recorder.start(5000);
+    try { lock = await navigator.wakeLock?.request("screen"); } catch { lock = null; }
+    $("idle").hidden = true; $("recording").hidden = false; $("saved").hidden = true;
+    tick = setInterval(() => { $("timer").textContent = fmt(Date.now() - now); }, 500);
+  };
+  $("stop").onclick = async () => {
+    if (!recorder) return;
+    await new Promise((resolve) => { recorder.onstop = resolve; recorder.stop(); });
+    stream.getTracks().forEach((t) => t.stop());
+    clearInterval(tick);
+    try { await lock?.release(); } catch {}
+    // Let the last piece be written before it is marked as ready.
+    await new Promise((r) => setTimeout(r, 300));
+    const db = await openDb();
+    const tx = db.transaction("recordings", "readwrite");
+    const store = tx.objectStore("recordings");
+    const saved = await req(store.get(rec.id));
+    if (saved) store.put({ ...saved, state: "waiting", endedAt: Date.now() });
+    await done(tx); db.close();
+    recorder = null; rec = null;
+    $("recording").hidden = true; $("idle").hidden = false;
+    showList();
+  };
+  showList();
+})();
+</script>
+</body>
+</html>

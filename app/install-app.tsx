@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "./locale-provider";
 import { useBackGuard } from "./use-back-guard";
+import { appVersionFrom } from "@/lib/app-version";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -47,9 +48,18 @@ export function InstallApp() {
   const [dismissed, setDismissed] = useState(true); // assume hidden until the check runs
 
   // Registering it is what makes the browser consider the app installable at all; see
-  // public/sw.js, which caches nothing on purpose.
+  // public/sw.js, which caches nothing of the app on purpose.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    // Not in the Android app: it is already installed, and when the server cannot be reached
+    // its own screen records on the phone — the worker's offline page would stand in its way.
+    if (appVersionFrom(navigator.userAgent)) {
+      void navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => Promise.all(regs.map((r) => r.unregister())))
+        .catch(() => {});
+      return;
+    }
     navigator.serviceWorker.register("/sw.js").catch(() => {
       // Blocked by policy or private mode. The app works; it just cannot be installed.
     });

@@ -174,6 +174,25 @@ Usually the business-background context leaking in, or the transcript being trun
 sizes the LLM context from the input and chunk-summarizes long meetings; if you changed models,
 make sure the endpoint's context window is adequate. Keep `llmBackground` concise.
 
+## The server cannot be reached — and a meeting is starting
+
+The server is down, or the tailnet is. A meeting can still be recorded and sent later:
+
+- **Android app** — it says the server cannot be reached and offers **Record on this phone**
+  (the widget's Record now does the same on its own). The recording is kept on the phone and
+  sent to be transcribed, at the time it was recorded, as soon as the server answers again.
+- **A browser that has opened Voxinq before over https** (PC, iPhone) — instead of an error it shows a page
+  that can **record in this browser**. Keep the tab open and the screen on while it records.
+  The next time Voxinq loads, a banner offers to send it.
+- **Anything else** — record with the device's own recorder (Voice Memos, Sound Recorder) and
+  drop the file onto Voxinq once it is back. It becomes a meeting at the time the file was
+  recorded.
+
+If the connection drops *during* a recording in the browser, nothing needs doing: a copy of the
+audio is kept in the browser, and if the server ends up missing any of it — a drop longer than
+the five minutes the page holds, or a tab closed before the end — the same banner offers to
+send it as a meeting of its own, named "… (copy from this device)".
+
 ## The recording screen went black on its own
 
 That is **Settings → Appearance → Rest the screen while recording**, which is off by default
