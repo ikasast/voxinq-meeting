@@ -2,9 +2,9 @@ import Link from "next/link";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { MeetingListPane } from "./meeting-list-pane";
 import { currentLocale, serverT } from "@/lib/i18n/server";
-import { formatDateTimeIn } from "@/lib/i18n/format";
 import { HomeStart } from "./home-start";
 import { sidebarMeetings } from "./sidebar-meetings";
+import { ListDate } from "./list-date";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export default async function HomePage({
                     <span className="tag-warn shrink-0">{t("No minutes")}</span>
                   ) : null}
                   <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
-                    {formatDateTimeIn(locale, new Date(m.at))}
+                    <ListDate locale={locale} at={new Date(m.at)} />
                   </span>
                 </Link>
               </li>

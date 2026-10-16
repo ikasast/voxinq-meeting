@@ -89,6 +89,10 @@ starts recording it, **New meeting** opens the form. Add it from the home screen
 (search for Voxinq). The same two are also on a long press of the app icon. A tap opens the app
 and does what its button there would do; nothing runs from the widget itself.
 
+## Display size
+
+The app draws its pages at 115% by default: text, icons and spacing together. **Settings → Appearance → Display size**, shown only in the app, offers 100%, 115% and 130% for this phone. The page itself does it, laying itself out for a narrower screen through its viewport, so it needs no app update. The phone's own font size still applies on top.
+
 ## Against a development server
 
 Debug builds also accept `http://localhost`, so a server on the PC can be reached through adb:

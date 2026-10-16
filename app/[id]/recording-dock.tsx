@@ -1000,7 +1000,11 @@ export function RecordingDock({
           className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-[var(--border-strong)] bg-[var(--elevated)] p-2 shadow-lg"
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
         >
-          <div className="flex w-32 items-center justify-end gap-2 pl-2">
+          {/* Narrower slots below 370 px — a small phone, or the Android app drawing larger
+              (app/display-size.ts) — where 8rem a side would push the dock past the screen.
+              The meter stays (it is the proof that sound arrives); Rest screen goes, since the
+              screen still rests by itself (Settings → Appearance). */}
+          <div className="flex w-32 items-center justify-end gap-2 pl-2 max-[370px]:w-24">
             {active ? (
               <>
                 <button
@@ -1016,7 +1020,7 @@ export function RecordingDock({
                         )
                   }
                   aria-label={t("Rest screen")}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)]"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] max-[370px]:hidden"
                 >
                   <MoonIcon className="h-3.5 w-3.5" />
                 </button>
@@ -1073,7 +1077,7 @@ export function RecordingDock({
             )}
           </button>
 
-          <div className="flex w-32 items-center pr-1">
+          <div className="flex w-32 items-center pr-1 max-[370px]:w-24">
             {active && clipping ? (
               <span className="mr-1 text-[10px] font-medium text-[var(--warning)]">{t("Input too loud")}</span>
             ) : null}
@@ -1149,7 +1153,7 @@ export function RecordingDock({
 
       {toast ? (
         // Above the dock.
-        <div className="fixed bottom-28 left-1/2 z-40 -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--elevated)] px-4 py-2 text-sm text-[var(--foreground)] shadow-lg">
+        <div className="fixed bottom-28 left-1/2 z-40 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md border border-[var(--border)] bg-[var(--elevated)] px-4 py-2 text-sm text-[var(--foreground)] shadow-lg">
           {toast}
         </div>
       ) : null}

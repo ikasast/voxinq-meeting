@@ -26,6 +26,7 @@ import { LiveStatus } from "./live-status";
 import { RecordingBadges } from "./recording-badges";
 import { SampleMeetingButton } from "./sample-meeting-button";
 import { SwipeableRow } from "./swipeable-row";
+import { ListDate } from "./list-date";
 
 type MeetingCardData = {
   id: string;
@@ -326,7 +327,7 @@ export async function MeetingListPane({
               );
             })()}
             <span className="ml-auto shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
-              {formatDateTimeIn(locale, m.startedAt)}
+              <ListDate locale={locale} at={m.startedAt} />
             </span>
           </div>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">

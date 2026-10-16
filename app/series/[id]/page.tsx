@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { isExternalRequest } from "@/lib/is-tailnet";
-import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
+import { formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { extensionEnabled } from "@/lib/extensions-store";
@@ -11,6 +11,7 @@ import { DeleteSeriesButton } from "./delete-series-button";
 import { CalendarPlusIcon, SeriesIcon } from "../../icons";
 import { PROPS_GRID, Prop } from "../../[id]/property";
 import { plainLead } from "@/lib/minutes-lead";
+import { ListDate } from "@/app/list-date";
 
 export const dynamic = "force-dynamic";
 
@@ -132,7 +133,7 @@ export default async function SeriesPage({
                       <span className="tag-warn shrink-0">{t("No minutes")}</span>
                     ) : null}
                     <span className="ml-auto shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
-                      {formatDateTimeIn(locale, m.startedAt)}
+                      <ListDate locale={locale} at={m.startedAt} />
                       {m.endedAt ? ` · ${formatDurationIn(locale, m.endedAt.getTime() - m.startedAt.getTime()) ?? ""}` : ""}
                     </span>
                   </span>

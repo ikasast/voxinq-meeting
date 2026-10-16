@@ -20,6 +20,7 @@ import { ReminderNotifications } from "./reminder-notifications";
 import { ExtensionsSettings } from "./extensions-settings";
 import { useExtensions } from "../extensions-provider";
 import { RestScreenSetting } from "./rest-screen-setting";
+import { DisplaySizeSetting, useInAndroidApp } from "./display-size-setting";
 import { CheckIcon, StorageIcon } from "../icons";
 import { RemoteAccess } from "./remote-access";
 import { VoiceProfiles } from "./voice-profiles";
@@ -164,6 +165,7 @@ const SAVE_AFTER_MS = 700;
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const t = useT();
+  const inApp = useInAndroidApp();
   const router = useRouter();
   const extensions = useExtensions();
   // Edited as a whole, because a key typed into one entry must survive editing another.
@@ -837,6 +839,13 @@ export default function SettingsPage() {
               <Field label={t("Turn the screen off")}>
                 <RestScreenSetting labelClass="sr-only" inputClass={inputClass} />
               </Field>
+
+              {/* The Android app only (app/display-size.ts). */}
+              {inApp ? (
+                <Field label={t("Display size")}>
+                  <DisplaySizeSetting inputClass={inputClass} />
+                </Field>
+              ) : null}
 
               {/* Per device, like the theme above it. */}
               {extensions.schedule ? (

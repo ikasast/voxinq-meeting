@@ -99,6 +99,12 @@ export const ja: Record<string, string> = {
   "Only {gb} GB is left where recordings are kept (about {hours} hours of recording). Delete old recordings or free up disk space.":
     "録音の保存先の空きが残り {gb} GB です（録音およそ {hours} 時間分）。古い録音を削除するか、ディスクを空けてください。",
   "Open storage": "ストレージを見る",
+  "Display size": "表示の大きさ",
+  "Standard (100%)": "標準（100%）",
+  "Larger (115%)": "大きめ（115%）",
+  "Large (130%)": "大（130%）",
+  "Text, icons and spacing together, in this app only. The phone's own font size still applies on top.":
+    "文字・アイコン・余白をまとめて大きくします。このアプリだけの設定です。スマホ本体の文字サイズも、これに上乗せされます。",
   Error: "エラー",
   Stopped: "停止中",
   "● Model ready": "● モデル準備完了",

@@ -40,6 +40,29 @@ export function formatDateTimeIn(
   return `${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, at ${z2(d.getHours())}:${z2(d.getMinutes())}`;
 }
 
+/**
+ * The short form for a list on a phone: "Oct 16, 14:58" / "10/16 14:58" this year, and the date
+ * alone otherwise ("Oct 16, 2025" / "2025/10/16"). The long form took most of a narrow row, and
+ * the meeting's name was what gave way.
+ */
+export function formatShortDateTimeIn(
+  locale: Locale,
+  value: Date | string | null | undefined,
+  now: Date = new Date(),
+): string {
+  if (!value) return "";
+  const d = asDate(value);
+  const thisYear = d.getFullYear() === now.getFullYear();
+  if (locale === "ja") {
+    return thisYear
+      ? `${d.getMonth() + 1}/${d.getDate()} ${z2(d.getHours())}:${z2(d.getMinutes())}`
+      : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+  }
+  return thisYear
+    ? `${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${z2(d.getHours())}:${z2(d.getMinutes())}`
+    : `${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 /** "2 hr 5 min" / "2時間5分". Null for a meeting that has not ended. */
 export function formatDurationIn(locale: Locale, ms: number | null | undefined): string | null {
   if (ms == null || !(ms > 0)) return null;
