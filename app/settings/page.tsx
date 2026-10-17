@@ -470,7 +470,7 @@ export default function SettingsPage() {
                   id="sttGlossary"
                   value={settings.sttGlossary}
                   onChange={(e) => update("sttGlossary", e.target.value)}
-                  rows={2}
+                  rows={5}
                   placeholder={t("e.g. Acme Corp, Project Aurora, Jane Doe, Voxinq Meeting")}
                   className="input resize-y"
                 />

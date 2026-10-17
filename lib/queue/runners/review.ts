@@ -1,7 +1,7 @@
 import { extensionEnabled } from "@/lib/extensions-store";
 import { prisma } from "@/lib/prisma";
 import { getLlmConfig, readEffectiveSettings } from "@/lib/settings";
-import { CONTEXT_BUDGET, estTokens, providerFor } from "@/lib/llm/provider";
+import { CONTEXT_BUDGET, estTokens, ollamaContextBudget, providerFor } from "@/lib/llm/provider";
 import { nameOf, readNames } from "@/lib/speakers";
 import { formatOffset } from "@/lib/utils";
 import { defaultCriteria, isReviewRole, overallScore, type ReviewRole } from "@/lib/review/criteria";
@@ -64,8 +64,10 @@ export async function runReview(job: { meetingId: string | null; params: string 
   const minutes = meeting.summaries[0]?.summaryText ?? "";
   // What is left for the lines once the instructions, the minutes and the answer have their room.
   // Counted in characters, which for Japanese is about a token each and errs on the safe side.
+  // The window in force: for Ollama, the one set under Settings when there is one.
+  const budget = cfg.provider === "ollama" ? ollamaContextBudget(cfg.ollamaNumCtx) : CONTEXT_BUDGET[cfg.provider];
   const room =
-    CONTEXT_BUDGET[cfg.provider] - ANSWER_TOKENS - estTokens(system) - estTokens(minutes) - estTokens(meeting.description ?? "") - 1500;
+    budget - ANSWER_TOKENS - estTokens(system) - estTokens(minutes) - estTokens(meeting.description ?? "") - 1500;
   const shownLines: ReviewLine[] = lines.map((l) => ({
     id: l.id,
     speaker: l.speaker,
