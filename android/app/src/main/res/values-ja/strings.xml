@@ -94,4 +94,19 @@
     <string name="offline_delete">削除</string>
     <string name="offline_delete_confirm">この録音を端末から削除しますか？まだ送っていません。</string>
     <string name="offline_upload_title">端末の録音</string>
+
+    <!-- アプリのロック（AppLock.kt） -->
+    <string name="lock_title">Voxinq はロックされています</string>
+    <string name="lock_body">指紋・顔、またはスマホの画面ロックで開きます。</string>
+    <string name="lock_unlock">ロックを解除</string>
+    <string name="lock_insecure_title">このサーバーでは画面ロックが必要です</string>
+    <string name="lock_insecure_body">管理者が Voxinq のロックを必須にしていますが、このスマホには画面ロックがありません。設定するとアプリを開けます。ウィジェットや通知からの録音はそのまま使えます。</string>
+    <string name="lock_set_up">画面ロックを設定</string>
+    <string name="lock_prompt_unlock">Voxinq のロックを解除</string>
+    <string name="lock_prompt_on">ロックをオンにする</string>
+    <string name="lock_prompt_off">ロックをオフにする</string>
+    <string name="lock_offer_title">指紋や顔で Voxinq をロックしますか？</string>
+    <string name="lock_offer_body">スマホをなくしても、議事録を開かれないようにします。おすすめです。\n\n録音の開始（通知・ウィジェット・時計）はロック中も使えます。設定 → 表示 からいつでも変えられます。</string>
+    <string name="lock_offer_yes">ロックする</string>
+    <string name="lock_offer_no">今はしない</string>
 </resources>

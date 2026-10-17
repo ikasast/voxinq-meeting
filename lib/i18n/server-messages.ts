@@ -55,6 +55,7 @@ export const SERVER_MESSAGES = [
   "You cannot disable your own account.",
   "Only an administrator sets the defaults everybody starts from.",
   "Only an administrator switches extensions on or off.",
+  "Only an administrator can require the app lock.",
   "This feature is switched off. An administrator can switch it on under Settings, Extensions.",
 
   // Voice cues.

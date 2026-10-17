@@ -269,4 +269,58 @@
                 android:orientation="vertical" />
         </LinearLayout>
     </ScrollView>
+
+    <!-- Over everything, the page and the native screens alike, while the app is locked
+         (AppLock.kt). What is underneath keeps running — a recording started from the widget or
+         a watch goes on — it is only not shown. -->
+    <LinearLayout
+        android:id="@+id/lock"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/background"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="28dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_mark" />
+
+        <TextView
+            android:id="@+id/lock_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:text="@string/lock_title"
+            android:textColor="@color/foreground"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/lock_body"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.2"
+            android:text="@string/lock_body"
+            android:textColor="@color/text_secondary"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/lock_unlock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:minHeight="52dp"
+            android:paddingHorizontal="28dp"
+            android:text="@string/lock_unlock"
+            android:textAllCaps="false"
+            android:textSize="16sp" />
+    </LinearLayout>
 </FrameLayout>

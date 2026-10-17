@@ -79,9 +79,14 @@ export async function proxy(req: NextRequest) {
   // where the first account comes from, and it refuses on its own once one exists. `/reset/…`
   // is open because somebody who could sign in would not be holding a reset link — the link is
   // the credential, and it checks itself.
+  //
+  // `/api/app-lock` answers one yes or no — whether this server requires the Android app to be
+  // locked — and the app asks for it natively, without the page's cookie. It has to reach the app
+  // that is not signed in yet: that is the app the rule is for.
   if (
     pathname === "/login" ||
     pathname === "/setup" ||
+    (pathname === "/api/app-lock" && req.method === "GET") ||
     pathname.startsWith("/reset/") ||
     pathname.startsWith("/api/auth/")
   ) {

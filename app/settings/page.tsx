@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TITLE_FORMATS } from "@/lib/meeting-title";
 import { HouseDefaults } from "./house-defaults";
+import { AppLockPolicy } from "./app-lock-policy";
+import { AppLockSetting } from "./app-lock-setting";
 import { OllamaModelField } from "./ollama-model-field";
 import { MachineNote } from "./machine-note";
 import {
@@ -775,7 +777,12 @@ export default function SettingsPage() {
             </section>
           ) : null}
 
-          {tab === "defaults" ? <HouseDefaults /> : null}
+          {tab === "defaults" ? (
+            <>
+              <HouseDefaults />
+              <AppLockPolicy />
+            </>
+          ) : null}
 
           {tab === "appearance" ? (
             <section>
@@ -846,6 +853,8 @@ export default function SettingsPage() {
                   <DisplaySizeSetting inputClass={inputClass} />
                 </Field>
               ) : null}
+              {/* The Android app only, and only one new enough to have it (app-lock-setting.tsx). */}
+              {inApp ? <AppLockSetting inputClass={inputClass} /> : null}
 
               {/* Per device, like the theme above it. */}
               {extensions.schedule ? (

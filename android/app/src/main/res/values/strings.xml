@@ -99,4 +99,19 @@ A new meeting is created and the audio is transcribed on your server.</string>
     <string name="sending_leftovers">Sending audio kept from an interrupted recording…</string>
     <string name="backlog_overflow">The transcription service has been unreachable for over five minutes, so the oldest audio is being dropped.</string>
     <string name="open_failed">No app on this phone can open %1$s</string>
+
+    <!-- The app lock (AppLock.kt). -->
+    <string name="lock_title">Voxinq is locked</string>
+    <string name="lock_body">Open it with your fingerprint, your face or the phone\'s screen lock.</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_insecure_title">This server needs a screen lock</string>
+    <string name="lock_insecure_body">Your administrator requires Voxinq to be locked, and this phone has no screen lock. Set one up to open the app. Recording from the widget or a reminder still works.</string>
+    <string name="lock_set_up">Set up a screen lock</string>
+    <string name="lock_prompt_unlock">Unlock Voxinq</string>
+    <string name="lock_prompt_on">Turn on the lock</string>
+    <string name="lock_prompt_off">Turn off the lock</string>
+    <string name="lock_offer_title">Lock Voxinq with your fingerprint or face?</string>
+    <string name="lock_offer_body">If this phone is lost, nobody can open your minutes. Recommended.\n\nStarting a recording, from a notification, the widget or a watch, still works while it is locked. You can change this at any time in Settings → Appearance.</string>
+    <string name="lock_offer_yes">Lock it</string>
+    <string name="lock_offer_no">Not now</string>
 </resources>
