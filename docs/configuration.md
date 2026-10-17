@@ -66,6 +66,7 @@ A native install and the `voxinq` launcher read them from the environment as the
 | `STT_PRELOAD` | `1` | Load the model when the service starts, so the first meeting does not wait for it. `0` loads it when a meeting first needs it instead. |
 | `STT_IDLE_RELEASE_SECONDS` | `600` | Release the model from VRAM after this long with nothing to recognise. |
 | `STT_RECORDING_RETENTION_DAYS` | `7` | Delete recordings (the WAV) this many days old, except protected ones. `0` or less keeps them. |
+| `WHISPER_CPP_MODELS_DIR` | pywhispercpp's own | Where whisper.cpp keeps the models it downloads. The Docker images set `/data/huggingface/whisper.cpp`, on the same volume as the other models, so they survive a recreate. |
 | `STT_RECORDINGS_DIR` | `stt-service/recordings` | Where recordings and their `segments.json` live. The Docker image sets `/data/recordings`, on a volume. |
 | `STT_PARTIAL_MS` | `1200` | How often a provisional transcription of the line still being spoken is pushed to the recording screen. `0` turns partials off. |
 | `STT_TRANSLATE_MODEL` / `STT_TRANSLATE_THREADS` | — | The translation model's repository, and its CPU threads. |
