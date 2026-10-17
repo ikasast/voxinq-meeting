@@ -27,6 +27,8 @@
      (--panel). Dark keeps the page darkest; light makes it white against grey. */
   --paper: #0b1220;
   --panel: #1b2536;
+  /* The sidebar's foot (its links and account), set apart from the list above it. */
+  --sidebar-foot: #141d2c;
   /* The main button (btn-ink): a wash of the accent, not a fill. */
   --btn-primary-bg: color-mix(in srgb, #06b6d4 16%, transparent);
   --btn-primary-hover: color-mix(in srgb, #06b6d4 26%, transparent);
@@ -84,6 +86,7 @@ html[data-theme="light"] {
   --header: #ffffff;
   --paper: #ffffff;
   --panel: #f5f7fa;
+  --sidebar-foot: #e5eaf1;
   --btn-primary-bg: #e3f6fa;
   --btn-primary-hover: #cdeef5;
   --btn-primary-border: #9fd8e6;

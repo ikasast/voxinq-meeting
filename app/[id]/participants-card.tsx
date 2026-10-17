@@ -103,6 +103,9 @@ export function ParticipantsRow({
   //
   // So: buttons for the names that exist, a plain box for the ones that do not.
   const suggestions = knownNames.filter((n) => !people.some((p) => p.name === n));
+  const talking = people.filter((p) => p.speaking);
+  const silent = people.filter((p) => !p.speaking);
+  const sep = locale === "ja" ? "、" : ", ";
 
   return (
     <>
@@ -126,17 +129,16 @@ export function ParticipantsRow({
         {people.length === 0 ? (
           <span className="text-[var(--text-muted)]">{readOnly ? t("Nobody recorded.") : t("Not set")}</span>
         ) : (
-          people.map((p, i) => (
-            <span key={p.name}>
-              {i > 0 ? (locale === "ja" ? "、" : ", ") : null}
-              <span
-                className={p.speaking ? "" : "text-[var(--text-muted)]"}
-                title={p.speaking ? undefined : t("Attended, but did not speak")}
-              >
-                {p.name}
+          // Who spoke, then who did not under a label of its own (mockup 3B). A shade of grey
+          // alone said it too quietly, and said nothing about what it meant.
+          <>
+            {talking.length > 0 ? <span>{talking.map((p) => p.name).join(sep)}</span> : null}
+            {silent.length > 0 ? (
+              <span className={`block text-xs text-[var(--text-muted)] ${talking.length > 0 ? "mt-0.5" : ""}`}>
+                {t("Did not speak: {names}", { names: silent.map((p) => p.name).join(sep) })}
               </span>
-            </span>
-          ))
+            ) : null}
+          </>
         )}
         {saving ? <span className="ml-2 text-xs text-[var(--text-muted)]">{t("Saving…")}</span> : null}
       </Prop>
@@ -147,6 +149,9 @@ export function ParticipantsRow({
             <p className="text-xs text-[var(--text-muted)]">
               {t("Add who was there. Ticked names are the ones expected to speak.")}
             </p>
+          ) : null}
+          {people.length > 0 ? (
+            <p className="mb-1 text-xs text-[var(--text-muted)]">{t("Tick who speaks.")}</p>
           ) : null}
           {people.length > 0 ? (
             <ul className="flex flex-col gap-1">
