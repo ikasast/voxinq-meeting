@@ -164,6 +164,45 @@ def test_faster_whisper_on_cpu_defers() -> None:
     assert backends.live_transcription_available(b) is False
 
 
+def test_whisper_cpp_models_go_where_the_image_says() -> None:
+    # In a container pywhispercpp's default directory is the writable layer, so a model kept
+    # there vanished with every recreate. The directory has to reach the binding.
+    import types
+
+    seen: dict[str, object] = {}
+
+    class FakeModel:
+        def __init__(self, model: str, **kwargs: object) -> None:
+            seen.update(kwargs, model=model)
+            self._ctx = object()
+
+    fake = types.ModuleType("pywhispercpp.model")
+    fake.Model = FakeModel  # type: ignore[attr-defined]
+    saved = {k: sys.modules.get(k) for k in ("pywhispercpp", "pywhispercpp.model")}
+    saved_env = os.environ.get("WHISPER_CPP_MODELS_DIR")
+    sys.modules["pywhispercpp"] = types.ModuleType("pywhispercpp")
+    sys.modules["pywhispercpp.model"] = fake
+    try:
+        os.environ["WHISPER_CPP_MODELS_DIR"] = "/data/huggingface/whisper.cpp"
+        backends.WhisperCppBackend("cpu").load("small")
+        assert seen["model"] == "small"
+        assert seen["models_dir"] == "/data/huggingface/whisper.cpp"
+
+        del os.environ["WHISPER_CPP_MODELS_DIR"]
+        backends.WhisperCppBackend("cpu").load("small")
+        assert seen["models_dir"] is None
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+        if saved_env is None:
+            os.environ.pop("WHISPER_CPP_MODELS_DIR", None)
+        else:
+            os.environ["WHISPER_CPP_MODELS_DIR"] = saved_env
+
+
 def test_whisper_cpp_actually_decodes_at_the_beam_size_finals_use() -> None:
     """Run a real decode through the whisper.cpp backend, or skip.
 

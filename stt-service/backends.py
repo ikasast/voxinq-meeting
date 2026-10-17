@@ -235,6 +235,17 @@ GGML_ALIASES = {
 }
 
 
+def whisper_cpp_models_dir() -> str | None:
+    """Where pywhispercpp keeps the models it downloads itself (tiny...large-v3-turbo).
+
+    Its default is the platform's user-data directory, which is persistent on a desktop but, in
+    a container, is the writable layer: gone with every recreate. Every update re-downloaded the
+    weights, and a server with no way out lost recognition altogether. The images point this
+    into the volume; unset keeps pywhispercpp's own default.
+    """
+    return os.environ.get("WHISPER_CPP_MODELS_DIR") or None
+
+
 def resolve_ggml(model_name: str) -> str:
     """A name pywhispercpp will accept: its own, or a downloaded file's path."""
     alias = GGML_ALIASES.get(model_name)
@@ -266,6 +277,7 @@ class WhisperCppBackend:
 
         model = Model(
             resolve_ggml(model_name),
+            models_dir=whisper_cpp_models_dir(),
             print_realtime=False,
             print_progress=False,
             print_timestamps=False,

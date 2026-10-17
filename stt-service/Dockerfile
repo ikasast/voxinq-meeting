@@ -69,6 +69,7 @@ RUN /app/diarization/.venv/bin/python /app/diarization/fetch_models.py
 # volume, every restart re-downloads several GB of model weights.
 ENV STT_RECORDINGS_DIR=/data/recordings \
     HF_HOME=/data/huggingface \
+    WHISPER_CPP_MODELS_DIR=/data/huggingface/whisper.cpp \
     WHISPER_DEVICE=cuda \
     STT_HOST=0.0.0.0 \
     STT_PORT=8000
