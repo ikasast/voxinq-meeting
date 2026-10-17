@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   CloseIcon,
   GearIcon,
@@ -91,6 +91,12 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
 }
 
 const OPEN_SERIES_KEY = "voxinq.sidebar.series";
+
+/** The sidebar's foot: its own tone, a firmer rule and a shade along the top (mockup 5B). */
+const FOOT =
+  "border-t border-[var(--border-strong)] bg-[var(--sidebar-foot)] shadow-[inset_0_6px_8px_-8px_rgba(0,0,0,0.25)]";
+/** Hover inside the foot, a step from its tone: --hover-surface alone is nearly the same colour. */
+const FOOT_STYLE = { "--hover-surface": "color-mix(in srgb, var(--foreground) 8%, var(--sidebar-foot))" } as CSSProperties;
 
 /**
  * How many series are listed, the most recently met first; the rest are on the Series page. A list
@@ -466,7 +472,9 @@ export function Sidebar({
         </form>
       </div>
       {list}
-      <div className="border-t border-[var(--border)] px-2 py-2">
+      {/* The foot, in a tone of its own with a shade along its top (mockup 5B), so the links read
+          apart from the meetings. Its rows lighten on hover rather than vanish into it. */}
+      <div className={`${FOOT} px-2 py-2`} style={FOOT_STYLE}>
         <QueueNow jobs={queueJobs} />
         {footLinks(false)}
         <div className="mt-2 flex items-center gap-2 px-2">
@@ -480,7 +488,7 @@ export function Sidebar({
   );
 
   const rail = (
-    <div className="flex h-full w-14 flex-col items-center gap-1 border-r border-[var(--border)] bg-[var(--panel)] py-3">
+    <div className="flex h-full w-14 flex-col items-center gap-1 border-r border-[var(--border)] bg-[var(--panel)] pt-3">
       <IconButton label={t("Open the sidebar")} onClick={() => change("open")}>
         <PanelLeftIcon className="h-5 w-5" />
       </IconButton>
@@ -502,8 +510,10 @@ export function Sidebar({
         <SearchIcon className="h-5 w-5" />
       </IconButton>
       <div className="flex-1" />
-      {footLinks(true)}
-      <div className="mt-1">{account}</div>
+      <div className={`${FOOT} flex w-full flex-col items-center gap-1 pb-1 pt-2`} style={FOOT_STYLE}>
+        {footLinks(true)}
+        <div className="mt-1">{account}</div>
+      </div>
     </div>
   );
 

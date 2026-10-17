@@ -8,12 +8,14 @@ import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
 import { PROP_BUTTON, PROPS_WIDE, Prop } from "./property";
 
-// Section to edit the meeting's purpose (description) and series afterward. The description
-// feeds the minutes-generation prompt; the series links recurring meetings: the previous one's
-// minutes become LLM reference context. (Tags were removed in v4.)
+// The meeting's series and purpose, as rows of its details (property.tsx), each with its own
+// pencil that opens its editor in the row's place. The purpose feeds the minutes prompt; the
+// series links recurring meetings, whose previous minutes become the LLM's reference. (Tags
+// were removed in v4.)
 //
-// Rows of the meeting's details (property.tsx) — series, purpose — and the one editor for both,
-// opened in their place from the purpose's pencil.
+// The series used to be edited from the purpose's pencil, inside one form for both, and its row
+// was shown only once there was a series, so a meeting without one gave no hint that it could
+// have one (mockup 4, 2026-10-17).
 export function MeetingMeta({
   id,
   description,
@@ -28,22 +30,22 @@ export function MeetingMeta({
   readOnly?: boolean;
 }) {
   const router = useRouter();
-  const [savedDesc, setSavedDesc] = useState(description ?? "");
   const t = useT();
   const seriesOn = useExtensions().series;
+  const [savedDesc, setSavedDesc] = useState(description ?? "");
   const [savedSeries, setSavedSeries] = useState(series ?? "");
   const [draftDesc, setDraftDesc] = useState(description ?? "");
   const [draftSeries, setDraftSeries] = useState(series ?? "");
   const [seriesOptions, setSeriesOptions] = useState<string[]>([]);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<"none" | "series" | "purpose">("none");
   // A long agenda shows its first lines until it is clicked.
   const [whole, setWhole] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // When opening the editor, offer the existing series as suggestions.
+  // When the series editor opens, offer the existing series.
   useEffect(() => {
-    if (!editing) return;
+    if (editing !== "series") return;
     let cancelled = false;
     fetch("/api/series")
       .then((r) => (r.ok ? r.json() : null))
@@ -60,31 +62,28 @@ export function MeetingMeta({
     setDraftDesc(savedDesc);
     setDraftSeries(savedSeries);
     setError(null);
-    setEditing(false);
+    setEditing("none");
   };
 
-  const save = async () => {
+  // Each editor sends only its own field; the other is left as it is.
+  const save = async (body: { description: string } | { series: string | null }) => {
     setPending(true);
     setError(null);
     try {
       const res = await fetch(`/api/meetings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: draftDesc.trim(),
-          // Not sent without Series: the field is not shown, and an empty one would detach it.
-          ...(seriesOn ? { series: draftSeries.trim() || null } : {}),
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
       const updated = (await res.json()) as { series: string | null };
-      setSavedDesc(draftDesc.trim());
+      if ("description" in body) setSavedDesc(body.description);
       setSavedSeries(updated.series ?? "");
       setDraftSeries(updated.series ?? "");
-      setEditing(false);
+      setEditing("none");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("Failed to save"));
@@ -93,8 +92,97 @@ export function MeetingMeta({
     }
   };
 
-  if (editing) {
-    return (
+  const buttons = (onSave: () => void) => (
+    <>
+      {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={cancel} disabled={pending} className="btn-outline">
+          {t("Cancel")}
+        </button>
+        <button type="button" onClick={onSave} disabled={pending} className="btn-ink">
+          {pending ? t("Saving…") : t("Save")}
+        </button>
+      </div>
+    </>
+  );
+
+  const pencil = (what: "series" | "purpose", label: string) =>
+    !readOnly ? (
+      <button type="button" onClick={() => setEditing(what)} className={PROP_BUTTON} title={label} aria-label={label}>
+        <PencilIcon className="h-3.5 w-3.5" />
+      </button>
+    ) : null;
+
+  const linked = seriesId && savedSeries === (series ?? "");
+  const choices = seriesOptions.filter((n) => n !== draftSeries.trim());
+  const saveSeries = () => void save({ series: draftSeries.trim() || null });
+
+  const seriesRow = !seriesOn ? null : editing === "series" ? (
+    <div className={`${PROPS_WIDE} space-y-2 border-y border-[var(--border)] py-3`}>
+      <label htmlFor="series" className="block text-sm font-medium text-[var(--text-strong)]">
+        {t("Series (recurring meetings)")}
+      </label>
+      <input
+        id="series"
+        type="text"
+        value={draftSeries}
+        onChange={(e) => setDraftSeries(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") saveSeries();
+          if (e.key === "Escape") cancel();
+        }}
+        placeholder={t("e.g. Weekly sync")}
+        maxLength={60}
+        autoFocus
+        disabled={pending}
+        className="input"
+      />
+      {choices.length > 0 ? (
+        <div className="flex flex-wrap gap-1">
+          {choices.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setDraftSeries(n)}
+              className="rounded-full border border-[var(--border-strong)] px-2.5 py-0.5 text-xs text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent-sub)]"
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("Leave it empty to take the meeting out of its series. A new name starts a new series.")}{" "}
+        {t(
+          "Meetings in the same series share context: the previous meeting’s minutes are given to the LLM as reference when generating minutes.",
+        )}
+      </p>
+      {buttons(saveSeries)}
+    </div>
+  ) : (
+    <Prop label={t("Series")} action={pencil("series", t("Change the series"))}>
+      {!savedSeries ? (
+        <span className="text-[var(--text-muted)]">{t("None")}</span>
+      ) : linked ? (
+        <Link
+          href={`/series/${seriesId}`}
+          title={t("Open the series page (timeline & defaults)")}
+          className="inline-flex items-center gap-1 text-[var(--accent-sub)] hover:underline"
+        >
+          <SeriesIcon className="h-3.5 w-3.5 shrink-0 self-center" />
+          {savedSeries}
+        </Link>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-[var(--accent-sub)]">
+          <SeriesIcon className="h-3.5 w-3.5 shrink-0 self-center" />
+          {savedSeries}
+        </span>
+      )}
+    </Prop>
+  );
+
+  const purposeRow =
+    editing === "purpose" ? (
       <div className={`${PROPS_WIDE} space-y-3 border-y border-[var(--border)] py-3`}>
         <p className="text-sm font-medium text-[var(--text-strong)]">{t("Purpose & agenda")}</p>
         <textarea
@@ -106,87 +194,10 @@ export function MeetingMeta({
           disabled={pending}
           className="input resize-y"
         />
-
-        {seriesOn ? (
-        <div>
-          <label htmlFor="series" className="label">
-            {t("Series (recurring meetings)")}
-          </label>
-          <input
-            id="series"
-            type="text"
-            list="series-options"
-            value={draftSeries}
-            onChange={(e) => setDraftSeries(e.target.value)}
-            placeholder={t("e.g. Weekly sync (empty = none)")}
-            maxLength={60}
-            disabled={pending}
-            className="input mt-1"
-          />
-          <datalist id="series-options">
-            {seriesOptions.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t(
-              "Meetings in the same series share context: the previous meeting’s minutes are given to the LLM as reference when generating minutes.",
-            )}
-          </p>
-        </div>
-        ) : null}
-
-        {error ? <p className="text-sm text-[var(--error)]">{error}</p> : null}
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={cancel} disabled={pending} className="btn-outline">
-            {t("Cancel")}
-          </button>
-          <button type="button" onClick={save} disabled={pending} className="btn-ink">
-            {pending ? t("Saving…") : t("Save")}
-          </button>
-        </div>
+        {buttons(() => void save({ description: draftDesc.trim() }))}
       </div>
-    );
-  }
-
-  const linked = seriesId && savedSeries === (series ?? "");
-  return (
-    <>
-      {seriesOn && savedSeries ? (
-        <Prop label={t("Series")}>
-          {linked ? (
-            <Link
-              href={`/series/${seriesId}`}
-              title={t("Open the series page (timeline & defaults)")}
-              className="inline-flex items-center gap-1 text-[var(--accent-sub)] hover:underline"
-            >
-              <SeriesIcon className="h-3.5 w-3.5 shrink-0 self-center" />
-              {savedSeries}
-            </Link>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[var(--accent-sub)]">
-              <SeriesIcon className="h-3.5 w-3.5 shrink-0 self-center" />
-              {savedSeries}
-            </span>
-          )}
-        </Prop>
-      ) : null}
-      <Prop
-        label={t("Purpose")}
-        action={
-          !readOnly ? (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className={PROP_BUTTON}
-              title={t("Edit the purpose and agenda")}
-              aria-label={t("Edit the purpose and agenda")}
-            >
-              <PencilIcon className="h-3.5 w-3.5" />
-            </button>
-          ) : null
-        }
-      >
+    ) : (
+      <Prop label={t("Purpose")} action={pencil("purpose", t("Edit the purpose and agenda"))}>
         {savedDesc ? (
           <p
             onClick={() => setWhole((v) => !v)}
@@ -198,6 +209,12 @@ export function MeetingMeta({
           <span className="text-[var(--text-muted)]">{t("Not set")}</span>
         )}
       </Prop>
+    );
+
+  return (
+    <>
+      {seriesRow}
+      {purposeRow}
     </>
   );
 }
