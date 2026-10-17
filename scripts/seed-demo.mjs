@@ -3,6 +3,7 @@
 //   node scripts/seed-demo.mjs              # insert / reset the demo meetings
 //   LOCALE=ja node scripts/seed-demo.mjs    # …in Japanese, for the ja screenshots
 //   node scripts/seed-demo.mjs --clean      # remove them again
+//   HERO_ENDED=1 node scripts/seed-demo.mjs # the standup ended, with its minutes (README hero)
 //
 // Point DATABASE_URL at a THROWAWAY database if you don't want demo rows in your real one:
 //   (bash)  DATABASE_URL="postgresql://voxinq:pw@localhost:5432/voxinq_demo" node scripts/seed-demo.mjs
@@ -140,6 +141,45 @@ const SYNC_LINES_JA = [
   ["partner-1", "キャッシュの方針は月曜までにまとめます。"],
   ["self", "ありがとうございます。まとめると、水曜に新規登録フローをリリース、鈴木さんが計測、田中さんが木曜にイラスト、月曜にキャッシュの方針。以上です。"],
 ];
+
+// The standup's minutes, for the end of the README hero: the same meeting, ended and written up.
+const LIVE_MINUTES = `# Overview
+- A quick standup: the onboarding flow is in staging, and the last pieces are due today.
+
+# Discussion
+## Progress
+- **Sam** wrapped the staging deploy of the onboarding flow; the empty-state copy goes to design today.
+- **Jordan** is instrumenting the analytics events, expected done by end of day.
+
+## Next
+- **Alex** reviews the caching proposal this afternoon.
+
+# Action items
+- **Sam** — hand the empty-state copy to design today.
+- **Jordan** — finish the analytics events by end of day.
+- **Alex** — review the caching proposal this afternoon.
+`;
+
+const LIVE_MINUTES_JA = `# 概要
+- 朝会。新規登録フローはステージングに反映済みで、残りの作業は今日中に終わる見込み。
+
+# 議論
+## 進み具合
+- **田中**：新規登録フローのステージング反映まで完了。空状態の文言は今日デザインに渡す。
+- **鈴木**：計測イベントを実装中。今日中に終わる見込み。
+
+## このあと
+- **佐藤**：午後にキャッシュの提案を確認する。
+
+# 宿題
+- **田中** — 空状態の文言を今日デザインに渡す。
+- **鈴木** — 計測イベントを今日中に仕上げる。
+- **佐藤** — 午後にキャッシュの提案を確認する。
+`;
+
+// The README hero ends on the standup written up: ended, with its minutes. Seeded on request
+// rather than always, because recording.png is of the same meeting still in progress.
+const HERO_ENDED = process.env.HERO_ENDED === "1";
 
 const LIVE_LINES_JA = [
   ["self", "録音を開始しました。朝会を始めます。田中さんからお願いします。"],
@@ -362,19 +402,20 @@ async function main() {
     },
   });
 
-  // 2) In-progress meeting (no endedAt) with a partial transcript — for recording.png.
-  const liveStart = new Date(now - 5 * 60_000);
+  // 2) In-progress meeting (no endedAt) with a partial transcript — for recording.png. With
+  //    HERO_ENDED, the same meeting ended and written up, for the last frames of the hero.
+  const liveStart = new Date(now - (HERO_ENDED ? 7 : 5) * 60_000);
   await makeMeeting({
     id: IDS.live,
     seriesId: SERIES_ID,
     title: JA ? "プロダクト定例 — 朝会" : "Weekly Product Sync — standup",
     description: JA ? "毎日の朝会。" : "Daily standup.",
     startedAt: liveStart,
-    endedAt: null,
-    recordedMs: null,
+    endedAt: HERO_ENDED ? minutesAt(liveStart, 6.5) : null,
+    recordedMs: HERO_ENDED ? 6.5 * 60_000 : null,
     labels: LABELS,
     lines: JA ? LIVE_LINES_JA : LIVE_LINES,
-    minutes: null,
+    minutes: HERO_ENDED ? (JA ? LIVE_MINUTES_JA : LIVE_MINUTES) : null,
     tags: JA ? ["朝会"] : ["Standup"],
     people: PEOPLE,
   });

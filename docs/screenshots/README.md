@@ -8,10 +8,11 @@ app is for, these say what it looks like.
 
 | Filename | What it shows | Retaken by |
 | --- | --- | --- |
-| `recording.png` | Recording screen: model state, live transcript, and the recording control at the bottom. | `shoot-screenshots.mjs` |
-| `minutes.png` | Meeting detail: minutes in the middle, the column beside them — progress, agenda, who was there, what it was recorded with — and the list, with one meeting still waiting for its minutes. | `shoot-screenshots.mjs` |
-| `workflow.png` | README hero: the six-step pipeline (record → transcribe → speakers → minutes → ask → series), a band of what each kind of hardware does, and a strip on encryption, accounts, search and self-hosting. **Says more than any drawing can**, which is why it is the hero and not one. | by hand |
-| `demo.gif` | Usage section: slideshow of home → new meeting → recording → minutes. | `shoot-demo-gif.mjs` |
+| `hero-light.gif`, `hero-dark.gif` | README hero: a phone records the standup while a PC's browser shows each line as it arrives, then the meeting ended and both on its minutes. Light and dark, picked by the reader's theme through `<picture>`. | `shoot-hero.mjs` |
+| `phone-recording.png`, `phone-transcript.png`, `phone-minutes.png` | README "What it does": three phone screens side by side — recording live, a meeting's transcript, its minutes. A phone screen stays readable at a third of the README's width, where a PC one would not. | `shoot-screenshots.mjs` |
+| `recording.png` | The recording screen on a PC: model state, live transcript, and the recording dock. | `shoot-screenshots.mjs` |
+| `minutes.png` | A meeting on a PC: its details, the minutes, and the transcript beside them. | `shoot-screenshots.mjs` |
+| `workflow.png` | The README hero before 4.0: the six-step pipeline drawn by hand. No longer shown; kept as the style reference the illustrations were drawn from. | by hand |
 | `../../public/extension-shots/<locale>/<id>.webp` | One per extension, cut out of the screen where it shows up, for the details dialog on Settings → Extensions. Served by the app, so they live in `public/`. | `shoot-extension-shots.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
 
@@ -61,12 +62,12 @@ npm run build && npx next start -p 3100
 # 4. the photographs
 npm i -D playwright && npx playwright install chromium
 BASE_URL=http://127.0.0.1:3100 node scripts/shoot-screenshots.mjs
-BASE_URL=http://127.0.0.1:3100 node scripts/shoot-demo-gif.mjs   # needs ffmpeg on PATH
+BASE_URL=http://127.0.0.1:3100 node scripts/shoot-hero.mjs   # needs DATABASE_URL and ffmpeg on PATH
 
 # The Japanese set. Re-seed first: the shots are of a Japanese meeting, not a translated one.
 LOCALE=ja node scripts/seed-demo.mjs
 BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-screenshots.mjs
-BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-demo-gif.mjs
+BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-hero.mjs
 
 # The pictures on Settings → Extensions, one set per language. They need DATABASE_URL too:
 # the corrections shot looks up the line it fixes. The answer, the fix and the Tailscale Funnel
@@ -85,9 +86,12 @@ photographed (below 1536 the right-hand column stacks), a 2× device pixel ratio
 sharp, a frame fitted to each page instead of a band of empty background, and one shared height
 for `recording.png` and `minutes.png` because the README puts them side by side.
 
-`shoot-demo-gif.mjs` shoots at the same 1600 and scales to 1100. It used to shoot at 1280, which
-is under that 1536 threshold, so the last frame — the one the slideshow travels towards — showed
-a stack of detail cards and no minutes.
+`shoot-hero.mjs` records for real on the phone, against the stand-in's WebSocket, so the dock shows
+Stop, the meter and Listening; the lines not yet "said" are hidden frame by frame. For its last
+frames it re-seeds the standup as ended, with its minutes (`HERO_ENDED=1`), and seeds the demo
+back when it is done, which is why it needs `DATABASE_URL`. The fake microphone is a test tone loud
+enough to clip, so both scripts take the "Input too loud" warning off the frame: no real room
+sounds like that.
 
 The stand-ins are asked for their health, and the pages show the answer, so they report a
 configuration that exists — which model, which backend, live transcription available, Ollama
@@ -113,7 +117,3 @@ that untrue — so treat it as documentation, and check it when the documentatio
 Both are compressed the same way as the illustrations next door: `sharp`, palette PNG, long edge
 1600 (1280 for the card). That took `workflow.png` from 4.1MB to 477KB with the smallest type
 still crisp — checked by cropping the bottom strip and looking at it.
-
-`demo.gif` is scripted but only as a slideshow of four still pages. A real screen recording
-(ScreenToGif, ~20–30 s, <10 MB) shows the app actually working and is worth doing by hand
-when someone has the time; drop it in over the generated one.

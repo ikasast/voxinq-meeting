@@ -512,6 +512,23 @@ npm run build && npm start
 
 ## After installing
 
+### Check that it works
+
+Installed and usable in a meeting are not the same thing, so run one short meeting through from the
+phone before the first real one:
+
+- [ ] Voxinq opens on the phone
+- [ ] **New meeting** → **Record now**, then **Check the microphone** on the meeting's page shows the level moving
+- [ ] Start recording and speak — text appears (without a GPU, it appears after you stop)
+- [ ] **End** → **Generate minutes** — the minutes appear on the meeting's page
+- [ ] With Speaker separation on, **End** → **Diarize** — the lines are split by speaker
+
+If separating speakers fails on an NVIDIA PC, it needs a Hugging Face token (`HF_TOKEN`) —
+see [Speaker separation](#speaker-separation). Without an NVIDIA GPU no token is needed. Anything
+else: [Troubleshooting](troubleshooting.md).
+
+After a restart, Voxinq comes back up with Docker Desktop, which starts at sign-in by default.
+
 ### What works right away
 
 Worth knowing in which order things start needing setup, so a missing step looks like a missing

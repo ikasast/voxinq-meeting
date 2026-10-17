@@ -36,13 +36,30 @@ const MAX_HEIGHT = 1400; // past this a README image is scaled down too far to r
 const READY = {
   en: {
     transcript: "Transcript",
-    progress: "Progress",
+    minutes: "Minutes",
+    start: "Start recording",
+    stop: "Stop recording",
+    tooLoud: "Input too loud",
   },
   ja: {
     transcript: "発言",
-    progress: "進み具合",
+    minutes: "議事録",
+    start: "録音を開始",
+    stop: "録音を停止",
+    tooLoud: "入力が大きすぎます",
   },
 };
+
+// The README's "what it does": three phone screens side by side — recording, the transcript, the
+// minutes. A phone screen stays readable at a third of the README's width, where a PC one would
+// not. The recording one records for real against scripts/shots-stubs.mjs (its WebSocket), so the
+// dock shows Stop, the meter and Listening.
+const PHONE = { width: 390, height: 844 };
+const PHONE_SHOTS = [
+  { file: "phone-recording.png", url: "/demo-live-recording", record: true },
+  { file: "phone-transcript.png", url: "/demo-weekly-sync", tab: "transcript" },
+  { file: "phone-minutes.png", url: "/demo-weekly-sync", tab: "minutes" },
+];
 
 // Only what a README shows. A dashboard and a settings shot used to be taken too, and nothing
 // displayed either — they were a megabyte of the repository kept current for nobody.
@@ -58,14 +75,15 @@ const SHOTS = [
   {
     file: "minutes.png",
     url: "/demo-weekly-sync",
-    ready: (page) => page.getByText(READY[LOCALE].progress).first().waitFor(),
+    ready: (page) => page.getByRole("tab", { name: READY[LOCALE].minutes }).first().waitFor(),
     fixedHeight: 1000,
   },
 ];
 
 async function main() {
   await mkdir(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  // A fake microphone for the phone's recording shot.
+  const browser = await chromium.launch({ args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] });
   const context = await browser.newContext({
     viewport: VIEWPORT,
     deviceScaleFactor: SCALE,
@@ -112,7 +130,60 @@ async function main() {
     console.log(`  ${LOCALE}/${shot.file}  <- ${shot.url}  (${VIEWPORT.width}x${height})`);
   }
 
+  await phoneShots(browser);
   await browser.close();
+}
+
+async function phoneShots(browser) {
+  const r = READY[LOCALE];
+  const context = await browser.newContext({
+    viewport: PHONE,
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+    colorScheme: "light",
+    reducedMotion: "reduce",
+    permissions: ["microphone"],
+    locale: LOCALE === "ja" ? "ja-JP" : "en-GB",
+    extraHTTPHeaders: { "Accept-Language": LOCALE === "ja" ? "ja-JP,ja" : "en-GB,en" },
+  });
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem("voxinq.theme", "light");
+    } catch {}
+  });
+  for (const shot of PHONE_SHOTS) {
+    const page = await context.newPage();
+    await page.goto(`${BASE}${shot.url}`, { waitUntil: "networkidle" });
+    if (shot.record) {
+      await page.getByRole("button", { name: r.start }).first().click();
+      await page.getByRole("button", { name: r.stop }).first().waitFor({ timeout: 15_000 });
+      await page.waitForTimeout(1200);
+      await page.evaluate((tooLoud) => {
+        // The fake microphone is a test tone loud enough to clip, which no real room is.
+        for (const el of document.querySelectorAll("span")) if (el.textContent.trim() === tooLoud) el.style.display = "none";
+        document.querySelectorAll(".ring-1").forEach((el) => el.classList.remove("ring-1"));
+        document.querySelectorAll('span[class*="bg-[var(--warning)]"]').forEach((el) => (el.style.background = "var(--accent-solid)"));
+        document.querySelectorAll("details").forEach((d) => (d.open = false));
+        window.scrollTo(0, document.body.scrollHeight);
+      }, r.tooLoud);
+    } else {
+      const label = shot.tab === "minutes" ? r.minutes : r.transcript;
+      await page.getByRole("tab", { name: new RegExp(`^${label}`) }).first().click();
+      await page.waitForTimeout(500);
+      // From the tabs down: the details above them are the same on every shot.
+      await page.evaluate(() => {
+        const tabs = document.querySelector('[role="tab"]');
+        if (tabs) window.scrollTo(0, tabs.getBoundingClientRect().top + window.scrollY - 64);
+      });
+    }
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(OUT, shot.file) });
+    console.log(`  ${LOCALE}/${shot.file}  <- ${shot.url}  (phone)`);
+    if (shot.record) await page.getByRole("button", { name: r.stop }).first().click().catch(() => {});
+    await page.close();
+  }
+  await context.close();
 }
 
 main().catch((err) => {

@@ -1,88 +1,54 @@
-# Voxinq Meeting — 日本語ガイド
+<div align="center">
 
-> **スマホで会議を録音し、自分の PC で文字起こし・話者分離・議事録作成まで行う、
-> 自前で動かす会議記録アプリです。**
-> 既定では音声も議事録も外部のサービスに送りません。
+# Voxinq Meeting
 
-[English README](README.md)
+**スマホで会議を録音し、自分の PC で文字起こし・話者分離・議事録作成まで行う会議記録アプリです。既定では、音声も議事録も外部のサービスに送りません。**
 
-**[📱 Android アプリを入手する](https://github.com/ikasast/voxinq-meeting/releases/latest)** — 最新リリースの *Assets* にある `.apk` です（[入れ方](#android-アプリの入れ方)）
+[**English README →**](README.md)
 
-![録音・文字起こし・話者分離・議事録・質問・シリーズの6工程と各工程の例](docs/screenshots/workflow.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/ja/hero-dark.gif">
+  <img alt="スマホで会議を録音すると、PC のブラウザにも発言が話者付きで次々に出て、会議を終えると両方が議事録に切り替わる" src="docs/screenshots/ja/hero-light.gif">
+</picture>
 
-```mermaid
-flowchart LR
-    phone["📱 スマホ<br/>録音・確認"]
-    pc["🖥 自分の PC<br/>文字起こし → 話者分離 → 議事録<br/>音声とデータの保存"]
-    phone -- "Tailscale（暗号化された専用の経路）" --> pc
-```
+![Runs on](https://img.shields.io/badge/runs%20on-NVIDIA%20%C2%B7%20Apple%20silicon%20%C2%B7%20CPU-76b900)
+![Self-hosted](https://img.shields.io/badge/self--hosted-local--first-2ea44f)
+[![Android app](https://img.shields.io/badge/Android-app-3ddc84)](https://github.com/ikasast/voxinq-meeting/releases/latest)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-**役割分担は「スマホ＝録音する端末、PC＝処理と保存をするサーバー」です。** PC は会議のあいだ
-起動しておき、スマホからつなぎます。PC のブラウザだけで使うこともできます。
+**[📦 セットアップ](#はじめ方)** · **[📱 Android アプリを入手](https://github.com/ikasast/voxinq-meeting/releases/latest)** · **[📖 詳しいドキュメント](#詳しいドキュメント)**
 
-**推奨構成**：NVIDIA GPU 搭載の PC ＋ Android スマホ ＋ Tailscale
+</div>
 
----
+## できること
 
-## 目次
+| 録音する | 発言を読む | 議事録を受け取る |
+| --- | --- | --- |
+| ![スマホで録音中の画面。発言がその場で出て、下に経過時間と停止ボタン](docs/screenshots/ja/phone-recording.png) | ![会議の発言の一覧。発言ごとに話者と時刻](docs/screenshots/ja/phone-transcript.png) | ![議事録。概要、議題ごとの議論、決定事項、宿題](docs/screenshots/ja/phone-minutes.png) |
+| スマホで録音すると、話したそばから発言が出ます。PC のブラウザで同時に見ることもできます。 | 発言ごとに、誰がいつ話したかが付きます。聞き間違いを直す、そこから再生する、会議に質問する、ができます。 | 自分の PC の AI が、選んだ形式で議事録を書きます。Word や PDF に書き出せます。 |
 
-1. [必要なもの](#1-必要なもの)
-2. [セットアップ（最短手順）](#2-セットアップ最短手順)
-3. [動作確認](#3-動作確認)
-4. [基本的な使い方](#4-基本的な使い方)
-5. [よく使う機能](#5-よく使う機能)
-6. [困ったとき](#6-困ったとき)
-7. [詳しいドキュメント](#7-詳しいドキュメント)
+## なぜ自分のマシンで動かすのか
 
----
+- **音声も文字起こしも議事録も、手元から出ません。** 文字起こしや議事録を外部のサービスに頼むかは
+  その都度自分で選び、送り先は画面に表示されます。
+- **何人で使っても、サブスクのような固定費がかかりません。**
+- **モデルを自分で選べます。** 文字起こし（Whisper）と議事録の AI を、手元の性能や会議の内容に合わせて
+  選び、いつでも入れ替えられます。手元でも、別のマシンでも構いません。
+- **データを丸ごと持ち出せます。** すべてのデータを 1 つのファイルに書き出し、別のマシンに戻せます。
+  どこかのサービスに縛られません。
 
-## 1. 必要なもの
+## はじめ方
 
-| もの | 内容 |
-| --- | --- |
-| **PC** | Windows / Linux / macOS。会議のあいだ起動しておきます |
-| **GPU** | **推奨**：NVIDIA 製、VRAM 8GB 以上。**必須ではありません**（下記） |
-| **空き容量** | 約 40GB（GPU 無しなら約 20GB）。初回はイメージとモデルで十数 GB をダウンロードします |
-| **Docker Desktop** | PC に入れます。無料です |
-| **スマホ** | Android を推奨（専用アプリで画面を消しても録音が続きます）。iPhone はブラウザから使えます（下記） |
-| **Tailscale** | PC とスマホの両方に入れます。個人利用は無料です |
+NVIDIA GPU 搭載の Windows PC を例にしています。**推奨構成**は、その PC ＋ Android スマホ ＋ Tailscale です。
 
-**GPU が無い場合**：Mac でも GPU の無い PC でも動きます。違いは、文字が会議中ではなく
-**会議の終了後にまとめて出る**ことと、議事録の作成に時間がかかること（1 本 15 分前後）です。
-→ [GPU の種類による違い](docs/ja/setup.md#gpu-の種類による違い)
+**① 入れる**：PC に [Docker Desktop](https://www.docker.com/products/docker-desktop/) と
+[Tailscale](https://tailscale.com/download)、スマホに Tailscale を入れ、**同じアカウント**でログインします。
 
-**iPhone の場合**：ブラウザで録音するため、**画面を消すと録音が止まることがあります**。
-画面を点けたまま使ってください（録音中は自動で消えないようにしています）。画面を消したまま
-長い会議を録るなら Android の専用アプリです。
+**② Tailscale で HTTPS を使えるようにする**：[管理コンソールの DNS](https://login.tailscale.com/admin/dns) で
+**MagicDNS** と **HTTPS Certificates** を有効にします。PC のアドレスは `<ホスト名>.<テイルネット名>.ts.net`
+という形です（[機器一覧](https://login.tailscale.com/admin/machines)でコピーできます）。
 
-### この構成でできること
-
-1. スマホで会議を録音する
-2. 話しながら文字起こしされる（GPU 無しなら会議の終了後）
-3. 会議の後に「誰が話したか」を分ける
-4. 自分の PC の AI で議事録を作る
-5. スマホか PC で確認・修正し、議事録に質問する
-
----
-
-## 2. セットアップ（最短手順）
-
-NVIDIA GPU 搭載の Windows PC を例にしています。ほかの環境や、コマンドを使わずに入れる方法は
-[詳しい導入手順](docs/ja/setup.md) にあります。
-
-**① PC に Docker Desktop と Tailscale を、スマホに Tailscale を入れる**
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)（NVIDIA GPU の PC では
-  既定の WSL2 バックエンドのまま）
-- [Tailscale](https://tailscale.com/download)。PC とスマホで**同じアカウント**にログインします
-
-**② Tailscale で HTTPS を使えるようにし、PC のアドレスを調べる**
-
-[管理コンソールの DNS](https://login.tailscale.com/admin/dns) で **MagicDNS** と
-**HTTPS Certificates** を有効にします。PC のアドレスは `<ホスト名>.<テイルネット名>.ts.net`
-という形で、[管理コンソールの機器一覧](https://login.tailscale.com/admin/machines)でコピーできます。
-
-**③ Voxinq のファイルを 2 つ取得する**
+**③ ファイルを 2 つ取得し、`.env` に 4 項目を書く**
 
 ```bash
 mkdir voxinq
@@ -91,8 +57,6 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 ```
 
-**④ `.env` に 4 項目を書く**
-
 ```env
 POSTGRES_PASSWORD="自分で決めるパスワード"
 DATABASE_URL="postgresql://voxinq:上と同じパスワード@db:5432/voxinq"
@@ -100,33 +64,14 @@ TZ="Asia/Tokyo"
 STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"
 ```
 
-- `STT_WS_URL` は、スマホから文字起こしサービスに届くアドレスです。**スマホで録音するなら必須**です
-- ほかの項目は、使いたくなったときに足せば十分です → [`.env` の全項目](docs/ja/setup.md#env-に何を書くか)
+`STT_WS_URL` は、スマホから文字起こしサービスに届くアドレスで、スマホで録音するなら必須です。
+ほかの項目は、使いたくなったときに足せば十分です（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
 
-**⑤ 起動する**
+**④ 起動し、議事録用の AI モデルを入れ、スマホから届くようにする**
 
 ```bash
 docker compose up -d
-```
-
-GPU の無い PC では、`docker-compose.cpu.yml` も取得して次のように起動します。
-
-```bash
-curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
-docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
-```
-
-**⑥ 議事録用の AI モデルを入れる**
-
-```bash
 docker compose exec ollama ollama pull qwen3:8b
-```
-
-アプリの **設定 → LLM** から管理者がダウンロードすることもできます。
-
-**⑦ スマホに公開する**
-
-```bash
 tailscale serve --bg --https=443 localhost:3000
 tailscale serve --bg --https=8443 localhost:8000
 ```
@@ -134,121 +79,69 @@ tailscale serve --bg --https=8443 localhost:8000
 > ⚠️ 8443（文字起こしサービス）には認証がありません。**Tailscale の外（Funnel など）には
 > 絶対に公開しないでください。**
 
-**⑧ スマホで開く**
+**⑤ スマホで `https://<ホスト名>.<テイルネット名>.ts.net` を開く**：Android はアプリ（下記）で、
+iPhone は Safari で開きます。最初の本番の前に、[短い会議を 1 本通しで試してください](docs/ja/setup.md#動作確認)。
 
-- **Android**：アプリを入れ（下記）、初回に `https://<ホスト名>.<テイルネット名>.ts.net` を入力します
-- **iPhone**：Safari で `https://<ホスト名>.<テイルネット名>.ts.net/` を開き、画面右上の
-  ⤓ アイコンから**ホーム画面に追加**します
+<details>
+<summary><b>NVIDIA GPU が無い PC や Mac の場合</b></summary>
 
-#### Android アプリの入れ方
+GPU の無い PC でも Mac でも動きます。違いは、文字が会議中ではなく**会議の終了後にまとめて出る**ことと、
+議事録の作成に時間がかかることです。起動時に CPU 用の設定も読み込みます。
 
-1. スマホで **[最新のリリース](https://github.com/ikasast/voxinq-meeting/releases/latest)** を開きます。
-2. **Assets** の `voxinq-<版>.apk` をタップしてダウンロードします。
-3. ダウンロードしたファイルを開きます。ブラウザからのインストールを許可するか聞かれたら許可し、**インストール** をタップします。
-4. Voxinq を開き、サーバーのアドレス `https://<ホスト名>.<テイルネット名>.ts.net` を入力します。
+```bash
+curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
+docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+```
 
-**更新はアプリが知らせます**：サーバーがアプリより新しい版になると、アプリの上部に **更新** が出ます。
-押して Android の確認に答えれば完了です（サーバーアドレスや送信待ちの音声は残ります）。
-4.0.0-beta.3 以降のアプリから使えます。それより前のアプリには、APK へのリンクが出ます。
-詳しくは [アプリの README](android/README.md)。
+→ [GPU の種類による違い](docs/ja/setup.md#gpu-の種類による違い)
+</details>
 
-これでセットアップは完了です。PC を再起動しても、Docker Desktop が起動すれば Voxinq も自動で立ち上がります
-（Docker Desktop の「ログイン時に起動」が既定で有効です）。
+<details>
+<summary><b>ほかの入れ方</b>（<code>voxinq</code> コマンド、Homebrew、Scoop、ソースから）</summary>
 
----
+すべての入れ方と、常駐のさせ方は [詳しい導入手順](docs/ja/setup.md) にあります。
+</details>
 
-## 3. 動作確認
+<details>
+<summary><b>Android アプリの入れ方</b></summary>
 
-「インストールできた」と「会議で使える」は別なので、一度だけ通しで試してください。
-スマホから、短い会議を 1 本録ります。
+1. スマホで **[最新のリリース](https://github.com/ikasast/voxinq-meeting/releases/latest)** を開き、
+   **Assets** の `voxinq-<版>.apk` をタップします。
+2. ダウンロードしたファイルを開きます。ブラウザからのインストールを許可するか聞かれたら許可し、**インストール** をタップします。
+3. Voxinq を開き、`https://<ホスト名>.<テイルネット名>.ts.net` を入力します。
 
-- [ ] スマホで Voxinq が開ける
-- [ ] **新しい会議** → **会議を準備する** → **マイクを確認する** で、レベルが動く
-- [ ] **録音を開始** して話すと、文字が出る（GPU 無しなら、終了後に出れば OK）
-- [ ] **議事録を作成** で終了すると、会議のページに議事録が出る
-- [ ] 会議のページで **話者を分離** すると、発言が話者ごとに分かれる
+画面を消しても録音が続き、サーバーにつながらないときもスマホに録音を残し、予定の会議の時刻に通知します。
+サーバーのほうが新しくなると、上部に **更新** が出ます。詳しくは [アプリの README](android/README.md)。
+</details>
 
-話者の分離に失敗する場合、NVIDIA GPU の PC では `HF_TOKEN` の設定が必要です
-→ [HF_TOKEN の取り方](docs/ja/setup.md#hf_token-の取り方nvidia-gpu-での話者分離に必要)。GPU の無い PC では設定不要です。
+## 拡張機能
 
-うまくいかないときは [困ったとき](#6-困ったとき) へ。
+録音・文字起こし・議事録が中心で、ほかは管理者が **設定 → 拡張機能** で入れ切りします。
 
----
+- **話者分離** — 誰の発言かを分けます。一度声を登録すると、以降の会議で名前が付きます
+- **シリーズ** — 定例会議の背景とメンバーを共有し、前回の議事録を踏まえて次を書きます
+- **予定とリマインド** — 先の会議を入れておき、時刻になったら知らせます
+- **振り返り** — ファシリテーターや参加者を、決めた基準で 100 点満点で評価します
+- **会議に質問** — 会議の議事録や発言、シリーズ全体に質問できます
+- **まとめて議事録** — 議事録の無い会議を、一度にまとめて順番待ちに入れます
+- **議事録の形式** — 自分の形式や書き方の指示を使えます
+- **訂正の提案** — 用語集・シリーズ・参加者と照らして、発言の直しを提案します
+- **翻訳** — 外国語の発言の下に日本語訳を出します
+- **声の調子** — いつもより大きい・高い・速い声の発言に印を付けます
+- **感情** — 発言が喜び・怒り・悲しみのどれに聞こえたかを判定します
+- **読み取り専用の共有** — Tailscale の外から見られる、パスワード付きのリンクを作ります
+- **外部の AI** — 議事録や文字起こしを、選んだ外部サービスに頼めます
 
-## 4. 基本的な使い方
+拡張機能でなくても、アカウントごとの暗号化、Markdown・Word・PDF への書き出し、全データのバックアップ、
+日本語・英語の画面はいつでも使えます。
 
-![会議一覧 → 新しい会議 → 録音 → 議事録、の4画面](docs/screenshots/ja/demo.gif)
-
-### 会議の前
-
-- PC が起動していることを確認し、スマホで Voxinq を開きます
-- **新しい会議** で会議を作ります。「目的と議題」を書いておくと議事録の精度が上がります
-- 先の会議は、日時を入れておけば「予定」に並び、Android アプリはその時刻に通知します
-
-### 会議中
-
-- **会議を準備する** → **マイクを確認する** → **録音を開始**
-- **いちばん高くつく失敗は「録れていなかった」**です。録音前のマイク確認は 10 秒で済みます
-- ブラウザで録音しているときは、**録音画面から他のページへ移らないでください**（録音が止まります）
-
-### 会議の後
-
-終了ボタンは 3 つあります。どれを押しても会議のページに移り、処理は PC 側で続くので、
-**スマホは閉じて構いません**。
-
-| ボタン | 動作 |
-| --- | --- |
-| **議事録を作成** | 終了して議事録を作る（通常はこれ） |
-| **話者を分離** | 終了して、先に「誰の発言か」を分ける |
-| **終了のみ** | 終了だけ。処理は後で |
-
-### 確認と修正
-
-- 議事録と文字起こしは、スマホでも PC でも見られます
-- 聞き間違いは発言ごとに直せます。同じ誤変換は **検索と置換** でまとめて直せます
-- 議事録は作り直せます。形式を変えることもできます
-- 「前回までの TODO は？」のように、議事録に**質問**できます
-
----
-
-## 5. よく使う機能
-
-| 機能 | 概要 |
-| --- | --- |
-| 話者の自動命名 | 一度声を登録すると、以降の会議で名前が自動で付きます |
-| シリーズ | 定例会議をまとめ、前回までの議事録を踏まえて書かせます |
-| 予定 | 先の会議を入れておき、時刻に通知・ワンタップで録音 |
-| まとめて議事録 | 録っておいた会議の議事録を一度に作ります |
-| 既存の録音から | 音声ファイルをドロップ（Android は共有）すると議事録まで作ります |
-| 日本語訳 | 外国語の発言に日本語訳を並べます |
-| 複数人で使う | アカウントごとに会議を分け、本人の鍵で暗号化します |
-| バックアップ | 全データを 1 ファイルに書き出し、別の PC に戻せます |
-
-→ [機能の説明](docs/ja/guide.md)
-
----
-
-## 6. 困ったとき
-
-| 症状 | まず確認すること |
-| --- | --- |
-| スマホで開けない・真っ白 | スマホの Tailscale がつながっているか。`https://` で開いているか |
-| 録音しても文字が出ない | `STT_WS_URL` が正しいか。GPU 無しなら終了後に出るのが正常です |
-| 議事録ができない | `ollama pull` が済んでいるか（設定 → LLM で確認できます） |
-| 話者分離が失敗する | NVIDIA GPU の PC なら `HF_TOKEN` |
-| 予約の通知が来ない | Android アプリの通知の許可と、電池設定が「制限」になっていないか |
-
-→ [困ったときの詳しい対処](docs/ja/troubleshooting.md)
-
----
-
-## 7. 詳しいドキュメント
+## 詳しいドキュメント
 
 | ドキュメント | 内容 |
 | --- | --- |
-| [詳しい導入手順](docs/ja/setup.md) | 環境別の入れ方（Docker / `voxinq` コマンド / ネイティブ）、コマンドを使わない導入、`.env` の全項目、GPU の種類による違い、`HF_TOKEN`、更新のしかた |
-| [機能の説明](docs/ja/guide.md) | 録音から議事録までの詳しい流れ、キュー、各機能、設定画面、Android アプリ |
-| [セキュリティと外部公開](docs/ja/security.md) | 何が外に出るか、アカウントと暗号化、復旧コード、Tailscale の外からの閲覧、WireGuard |
+| [詳しい導入手順](docs/ja/setup.md) | 環境別の入れ方、`.env` の全項目、GPU の種類による違い、`HF_TOKEN`、動作確認、更新のしかた |
+| [機能の説明](docs/ja/guide.md) | 録音から議事録までの流れ、各機能、設定画面、Android アプリ |
+| [セキュリティと外部公開](docs/ja/security.md) | 何が外に出るか、アカウントと暗号化、復旧コード、Tailscale の外からの閲覧 |
 | [困ったとき・FAQ](docs/ja/troubleshooting.md) | 症状別の対処とよくある質問 |
 | [仕組み](docs/architecture.md)（英語） | 構成と設計の判断 |
 

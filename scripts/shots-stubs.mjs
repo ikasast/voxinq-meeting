@@ -10,12 +10,36 @@
 //
 // See docs/screenshots/README.md for the whole recipe.
 import http from "node:http";
+import { createHash } from "node:crypto";
 
 const STT_PORT = Number(process.env.SHOTS_STT_PORT ?? 8103);
 const LLM_PORT = Number(process.env.SHOTS_LLM_PORT ?? 11435);
 
-function serve(port, answer) {
-  http
+// Just enough of a WebSocket for the recording screen to believe it is recording: the
+// handshake, then "open" once the page has said how it wants to record. What it sends after that
+// (audio) is read and dropped, and nothing is ever recognised, so no line is added.
+function socket(req, sock) {
+  const key = req.headers["sec-websocket-key"];
+  if (!key) return sock.destroy();
+  const accept = createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+  sock.write(
+    `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`,
+  );
+  const text = (s) => {
+    const body = Buffer.from(s);
+    sock.write(Buffer.concat([Buffer.from([0x81, body.length]), body])); // short frames only
+  };
+  let opened = false;
+  sock.on("data", () => {
+    if (opened) return;
+    opened = true;
+    text(JSON.stringify({ type: "status", status: "open" }));
+  });
+  sock.on("error", () => {});
+}
+
+function serve(port, answer, upgrade) {
+  const server = http
     .createServer((req, res) => {
       // The page calls the transcription service from the browser, so it needs CORS.
       res.setHeader("Access-Control-Allow-Origin", "*");
@@ -30,6 +54,7 @@ function serve(port, answer) {
       });
     })
     .listen(port, "127.0.0.1", () => console.log(`listening on ${port}`));
+  if (upgrade) server.on("upgrade", upgrade);
 }
 
 serve(STT_PORT, (method, path) => {
@@ -55,7 +80,7 @@ serve(STT_PORT, (method, path) => {
     return { exists: true, protected: false, durationSec: 1320, sizeBytes: 42_240_000, segments: [] };
   }
   return {};
-});
+}, socket);
 
 serve(LLM_PORT, (_method, path) => {
   if (path === "/api/version") return { version: "0.12.3" };
