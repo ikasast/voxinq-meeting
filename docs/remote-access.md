@@ -330,6 +330,7 @@ never leave the STT service reachable without an auth layer.
 - Want it to "just work" → **Tailscale**.
 - Want no third party, and only need to read minutes on the go → **WireGuard, view only**.
 - Want no third party and full recording → **WireGuard with Caddy**, accepting the extra setup.
+- Want the server itself unable to reach the internet → [A closed server](closed-network.md).
 
 ---
 

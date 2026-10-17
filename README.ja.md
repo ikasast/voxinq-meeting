@@ -142,6 +142,7 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
 | [詳しい導入手順](docs/ja/setup.md) | 環境別の入れ方、`.env` の全項目、GPU の種類による違い、`HF_TOKEN`、動作確認、更新のしかた |
 | [機能の説明](docs/ja/guide.md) | 録音から議事録までの流れ、各機能、設定画面、Android アプリ |
 | [セキュリティと外部公開](docs/ja/security.md) | 何が外に出るか、アカウントと暗号化、復旧コード、Tailscale の外からの閲覧 |
+| [閉じたサーバーで動かす](docs/ja/closed-network.md) | インターネットに出られない専用サーバー、準備と更新、入口の固め方 |
 | [困ったとき・FAQ](docs/ja/troubleshooting.md) | 症状別の対処とよくある質問 |
 | [仕組み](docs/architecture.md)（英語） | 構成と設計の判断 |
 

@@ -7,6 +7,7 @@ want to do:
 | --- | --- |
 | **Install it** (all three routes, background services, phone access) | 📦 [Setup](setup.md) |
 | **Reach it from a phone / share read-only** (Tailscale, in-app publish toggle, WireGuard, public URL) | 🌐 [Remote access](remote-access.md) |
+| **Run it on a server that cannot reach the internet** (what needs the internet, closing it, updating it, who is still let in) | 🔒 [A closed server](closed-network.md) |
 | **Change a setting** (every `.env` variable and `settings.json` option) | ⚙️ [Configuration](configuration.md) |
 | **Use a different LLM** (Ollama, vLLM, LM Studio, Anthropic, OpenAI, external GPU) | 🤖 [LLM providers](llm-providers.md) |
 | **Learn the features** (record, upload, speakers, series, feedback, ask, minutes in bulk, fixing words, export, recording without the server) | 📖 [Usage & recipes](usage.md) |
