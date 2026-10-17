@@ -2,33 +2,39 @@
 
 ## Finding your way round
 
-Navigation is a rail down the left edge on a desktop-sized window, and the bar along the top on
-anything narrower. **Meetings** is the list, **New meeting** and **Record NOW** both start one —
-the second skips the setup screen — **Queue** shows the work waiting for the GPU, and **Help**
-opens this documentation.
+**The sidebar** is down the left on a wide window, and a drawer from the ☰ at the top on a phone:
 
-A meeting's own page puts the minutes and the transcript in the middle, and everything *about*
-the meeting in a column to its right: how far it has got, the agenda and tags, who was there,
-and what it was recorded and written with. On a window narrower than about 1536px that column
-moves above the content rather than beside it.
+- **New meeting** and **Search meetings** at the top.
+- Your meetings below them: **Pinned**, **Upcoming** (booked and not recorded yet), the
+  **Series** you met in most recently, then the rest by day — **Today**, **Yesterday**, **This
+  week**, **Earlier**. **All meetings** opens the full list.
+- Along the foot, on a tone of its own: **Series**, **Feedback**, **Queue**, **People** (for an
+  administrator), **Help** and **Settings**, with your account and the version under them.
 
-**Progress** answers the question that otherwise takes reading the whole screen — is this
-finished, and what is left:
+The ▯ beside the logo folds it to a strip of icons, and ✕ hides it.
 
-```
-✓ Recorded              22 min
-✓ Transcribed           14 utterances
-○ Speakers separated
-✓ Minutes
-```
+**The first screen** offers the three ways to start: **Record now** (one tap, and it is
+recording), **Plan a meeting** (a name, an agenda and a time first) and **Audio file** (bring a
+recording, or drop one anywhere on the page). Under them are the meetings you had most recently.
 
-A circle is "not run", not "failed". Separating speakers and writing minutes are both optional
-and can be done in either order, so a meeting you never intended to diarize is not being nagged
-at.
+**A meeting's page** starts with its details, one row each: **When**, **Participants**,
+**Speakers**, **Series**, **Purpose**, and while it can record, **Recording** — the source, and
+whether the model is ready. *Models and settings used* folds away what it was transcribed and
+written with. Below them are the **Minutes** and **Feedback** tabs, and the **transcript** sits
+beside them on a wide window (its tab on the edge folds it away). On a phone, the transcript is a
+third tab.
 
+What can be done to the meeting as a whole is along the top beside its title: download, pin,
+**Next meeting in this series** under "…", and **Move to Trash**.
+
+**Extensions.** Recording, transcription and minutes are always there. Much of the rest — speaker
+separation, series, booking ahead, feedback, asking, translation and more — is an extension, and an
+administrator switches each on under **Settings → Extensions**. Off hides its screens and keeps its
+data. Sections below say when a feature is one.
 ## Booking a meeting before it happens
 
-**New meeting → When** puts a meeting in the diary instead of recording it now. It appears
+**Plan a meeting** on the first screen, with a **When**, puts a meeting in the diary instead of
+recording it now (the **Schedule and reminders** extension). It appears
 under **Upcoming** at the top of the list, soonest first, and opens on its own page rather than
 the recording screen — because the point of booking it is to settle the title, agenda, series
 and participants calmly beforehand, rather than while everyone waits to start.
@@ -74,77 +80,65 @@ recording starts immediately.
 
 ## Record a meeting
 
-1. **New meeting** → set the title, purpose, and the recording settings for this meeting
-   (model, language, source). They are shown, not hidden behind a disclosure,
-   because picking the wrong model is silent and costly.
-2. **Set up meeting** → creates the meeting, opens the recording screen and starts loading
-   the transcription model. Recording does *not* start yet.
-3. **Check the microphone** — the panel above the record button opens the mic, draws the level,
-   and says whether anything arrived. Worth the ten seconds: a meeting nobody recorded cannot
-   be recovered, and a muted headset, an input the laptop switched on its own, or another app
-   holding the microphone all look exactly like a working setup until the transcript comes back
-   empty.
+1. **Record now** on the first screen. The meeting is made — named by the date, until you name it —
+   and its page opens recording. Or open a planned meeting and press record on its page.
+2. **Check the microphone** first if there is time: the button on the meeting's page opens the
+   mic, draws the level and says whether anything arrived. Worth the ten seconds: a meeting nobody
+   recorded cannot be recovered, and a muted headset, an input the laptop switched on its own, or
+   another app holding the microphone all look exactly like a working setup until the transcript
+   comes back empty. The microphone it opens is **handed to the recording** — no second
+   permission prompt, and no chance of recording a different input than the one you tested.
+3. **Speak.** Words appear about a second behind you and firm up into the final wording when you
+   pause. **Recording** in the details says *Listening* while they do.
 
-   The microphone it opens is **handed to the recording** — no second permission prompt, and no
-   chance of the recording opening a different input than the one you just tested. It closes
-   itself after a minute if nothing starts; checking again is free, and starting without a
-   check works exactly as it always did.
-
-4. Wait for **● Model ready** in the bar at the top (a cold load takes tens of seconds), then
-   **Start recording** — the wide button at the bottom of the screen — and speak. Words appear
-   about a second behind you and firm up into the final wording when you pause.
-
-   On a machine with no GPU acceleration the badge instead reads **● Transcribes when the
-   meeting ends**, and no text appears while you record. That is the design, not a fault:
-   recognition there is slower than speech, so the meeting is recorded and transcribed in one
-   pass at the end. The model is the same, though the weights are quantised differently for
-   that runtime and the transcript is not identical to a CUDA one — see
+   On a machine with no GPU acceleration it reads **Transcribes when the meeting ends** instead,
+   and no text appears while you record. That is the design, not a fault: recognition there is
+   slower than speech, so the meeting is recorded and transcribed in one pass at the end. See
    [what runs on what](setup.md#what-runs-on-what).
-   **If something else is using the GPU, you are asked rather than stopped.** Minutes,
-   diarization or a re-transcription already running are named, with two answers:
+
+   **If something else is using the GPU, you are asked rather than stopped.** Minutes, separation
+   or a re-transcription already running are named, with two answers:
 
    - **Interrupt and transcribe live** — what was running goes back to the *front* of the
      [queue](#the-queue) with the reason recorded on it, and starts again when the meeting ends.
    - **Record only** — leave it running. The audio is kept and transcribed after the meeting, so
      nothing is lost; what you give up is reading along while you talk. A **recording only**
-     badge sits beside the status for the rest of the meeting.
+     badge stays beside the status.
 
-   Neither answer is the destructive one, which is why this is a question. It is also rare on
-   purpose: work that runs somewhere else — recognition sent to an endpoint, minutes written by
-   a cloud model — is never in the way, and never asks.
+4. **End** — the menu beside the record button:
+   - **Generate minutes** — minutes are written in the background.
+   - **Diarize** — speakers are separated first (enrolled voices get their names); write the
+     minutes after checking them. With the Speaker separation extension.
+   - **End only** — just stop; do the rest later.
+   - **End without saving** — for a meeting started by mistake. It goes to Trash, where it can be
+     restored for 30 days.
 
-5. End with one of the quiet buttons above it:
-   - **Generate minutes** — minutes are generated in the background.
-   - **Diarize** — speaker diarization starts automatically on the meeting page
-     (enrolled voices get their names); generate minutes after reviewing the speakers.
-   - **End only** — just stop; generate or diarize later.
-   - **End without saving** — for a meeting started by mistake. It goes to the trash, where it
-     can be restored for 30 days; nothing is transcribed on the way out, and the recording is
-     not protected, so it expires on its own.
+   When nothing was transcribed during the meeting — on a machine that transcribes at the end, or
+   after **Record only** — ending it puts the transcription in the queue, and the minutes follow
+   once it is done. The page can be closed.
 
-   When nothing was transcribed during the meeting — on a machine that transcribes at the end,
-   or after **Record only** — ending it puts the transcription in the [queue](#the-queue), and
-   **Generate minutes** and **Diarize** follow once it is done. The meeting page opens straight
-   away and shows the transcription waiting its turn; it can be closed.
+**The dock** at the bottom holds what is pressed while recording: the moon to **rest the screen**
+(black, with the running time still counting; a touch brings it back), the input level, the
+running time, the record button, and **End**. *Settings → Appearance* can rest the screen by itself
+after a while; phones and the Android app do it after a minute unless told otherwise.
 
-The first three land on the meeting itself, where the minutes appear as they finish;
-**End without saving** goes back to the list.
+**The recording goes on when you leave the page.** Open another meeting, the settings or the
+list, and a bar at the bottom says what is recording, with its time and **Stop**. Closing the tab
+does stop a browser recording, and the tab asks first.
+
+**A dropped connection costs nothing.** For a few seconds the status says *Reconnecting*; after
+that, **Recording on this device**, and the tries go on, every thirty seconds at most, for as long
+as it takes. What is said meanwhile is sent and transcribed once the service is back. The browser
+also keeps a copy of the whole recording; if the server ends up missing any of it — a drop longer
+than the five minutes the page holds, or the tab closed while the connection was down — a banner at
+the top offers to send it as a meeting of its own, named "… (copy from this device)". See also
+[when the server cannot be reached](#when-the-server-cannot-be-reached).
 
 Tips:
-- **Start and Stop are at the bottom**, where a thumb reaches them; the status, the input level
-  and the recording source stay at the top, where they are read rather than pressed.
-- The tips under the mic check fold away once recording starts, and stay open if you open them
-  again.
-- On a phone the screen is kept on for you, because letting it sleep stops the microphone on
-  some devices. That is also what empties the battery, so the screen can **rest**: black, with
-  the running time still counting. **Rest screen** in the top bar does it now, and
-  *Settings → Appearance* can do it by itself after 30 seconds, 1, 5 or 10 minutes of nobody
-  touching it (never, by default). A touch brings it back. Recording is not affected — what you
-  lose while it rests is the live transcript.
-- There is deliberately no link away from the recording screen: navigating away unmounts it
-  and drops the recording. Leave via the end actions.
-- Choose the source (mic / PC audio / both) from the top bar; you can switch mid-recording.
-- For "both", use headphones to avoid the mic double-capturing PC audio.
+- Choose the source — **Microphone**, **PC audio** or both — in the **Recording** row; you can
+  switch mid-recording. For both, use headphones, or the mic picks up the PC's audio twice.
+- On a phone in a browser, keep the screen on: some phones stop the microphone when it sleeps,
+  which is why the page keeps it awake while recording. The Android app does not have this limit.
 
 ### Recording with the Android app
 
@@ -157,6 +151,13 @@ the recording to the app, which holds the microphone in a service of its own. So
 - **Losing the network costs nothing.** Audio is written to the phone before it is sent, and sent
   when the connection comes back — an outage of twenty minutes included. If the system kills the
   app mid-meeting, what it had recorded is sent the next time the app is opened.
+- **No server at all is not the end either.** When the server cannot be reached, the app offers
+  **Record on this phone**, and sends the recording once the server answers, as a meeting dated
+  when it was recorded. Tailscale switched off on the phone is said as that, with a way to open it.
+- **The widget** on the home screen — four cells or two — starts **Record now** or **New meeting**
+  in a tap, and falls back to recording on the phone when the server does not answer.
+- **Display size**, under *Settings → Appearance* in the app, draws the pages at 100%, 115% (the
+  default) or 130%: text, icons and spacing together.
 - The microphone check, the microphone's handling and the level meter are the page's own and behave as they do in
   a browser. The page reloads the transcript when you come back to it, rather than having missed
   anything while it was hidden.
@@ -191,8 +192,9 @@ account.
 
 ## Summarize an existing recording (no live capture)
 
-Drag an audio file (`wav`/`mp3`/`m4a`/…) onto the **New meeting** screen. Voxinq Meeting creates the
-meeting, sends the file to your server and opens the meeting. The recognition and then the minutes
+Press **Audio file** on the first screen, or drop an audio file (`wav`/`mp3`/`m4a`/…) anywhere on
+the page. The meeting is dated when the file was recorded, not when it was uploaded. Voxinq creates the meeting,
+sends the file to your server and opens it. The recognition and then the minutes
 run there as [queued jobs](#the-queue), one after the other, so once the upload has finished you
 can close the tab; the meeting page shows where they have got to.
 
@@ -205,40 +207,37 @@ automatically there; the list's **Write them all** does a day of them at once (s
 
 ## Recurring series
 
-Assign a meeting to a **Series** (on the New meeting screen, or under *Purpose & agenda →
-Edit* on the meeting page). Meetings in the same series share context: when generating
-minutes, the **previous meeting's minutes are given to the LLM as reference**, so remarks
-like "continuing from last time" are interpreted correctly. *New with same settings* keeps
-the series. A series named this way disappears automatically when its last meeting is removed.
+*The **Series** extension.*
 
-**A series is its owner's.** Two people who both name a series 定例 have two series, each with
-its own background, members and history; neither sees the other's.
+Put a meeting in a **series** with the ✎ on its **Series** row — type a name, or pick one of yours.
+Meetings in the same series share context: when the minutes are written, **the previous meeting's
+minutes are given to the LLM as reference**, so "continuing from last time" is read correctly, and
+the series' background, members and glossary come along. **Next meeting in this series**, under
+"…" on a meeting, opens a new one with the series filled in. Leave the row empty to take a meeting
+out of its series; a series named this way disappears when its last meeting goes.
 
-To set one up before its first meeting — its shared background and regular members first —
-use **New series** on the Series page. It opens straight into the series' editor. A series made
-there stays when it has no meetings in it, and can be deleted while it has none; one with
-meetings filed under it, trashed ones included, cannot be.
+**A series is its owner's.** Two people who both name a series 定例 have two series, each with its
+own background, members and history; neither sees the other's.
 
-**In the list, a series is one row with its history under it:** its newest meeting, and
-*N earlier meetings in this series* to open the rest. **On a day picked in the calendar it is
-not folded** — every meeting on that day is its own row, because that is the question being
-asked. The **series chip** (the folder) on a card filters the list to that series instead — a
-count, the meetings, and *show all* to come back out. The calendar hides while a series is
-showing, since the series is already the answer to "which meetings".
+To set one up before its first meeting — its shared background and regular members first — use
+**New series** on the Series page. It opens straight into the series' editor. A series made there
+stays when it has no meetings in it, and can be deleted while it has none; one with meetings filed
+under it, trashed ones included, cannot be.
 
-**Series** is on the left rail, and on a phone in the bottom bar (from outside the private
-network, where there is no bottom bar, it is the folder in the header). The chip in a meeting's
-own rail, and on the Archived page, opens the **series page**: a
-timeline of every meeting with the overview section of its minutes, plus **per-series
-defaults** — a minutes format and a transcription glossary that override the global Settings
-for this series only.
+**In the sidebar** the seven series you met in most recently are listed, each opening to its
+latest three meetings; the series holding the page on screen opens by itself, and folds when you
+fold it. **All series →** is under them when there are more.
+
+**The series page** — from the sidebar, or the link on a meeting's Series row — is a timeline of
+every meeting with the overview of its minutes, plus **per-series defaults**: a minutes format and a
+transcription glossary that override the global Settings for this series only.
 
 ## Participants
 
-The rail beside a meeting holds who was there. It is worth filling in, because two things hang
-off it and neither is obvious:
+The **Participants** row holds who was there: those who spoke, and under them *Did not speak: …*
+for the rest. It is worth filling in, because two things hang off it and neither is obvious:
 
-- **The tick beside each name is "expected to speak", not "attended".** The number of ticked
+- **The tick beside each name in its editor is "speaks", not "attended".** The number of ticked
   names is what diarization is told to look for, and the speaker *count* is the thing it is
   worst at guessing on its own. Someone who sat through the meeting without saying anything
   should be listed and unticked — they stay in the record, and the diarizer stops looking for
@@ -251,16 +250,18 @@ Enrolled profiles appear as buttons — `+ 田中` — and **touching one adds i
 is typed into the box. Someone who has never been enrolled still counts toward the speaker
 count.
 
-Getting a tick wrong is recoverable — **Diarize** can be re-run, and the **Speakers** box above
-the transcript overrides the count for one run. Under-counting is the direction that hurts:
+Getting a tick wrong is recoverable — **Diarize** can be re-run, and **How many** in the Speaker
+separation panel overrides the count for one run. Under-counting is the direction that hurts:
 telling it to find two voices when three people spoke merges two of them.
 
 ## Speaker diarization
 
-On a meeting page → **Diarize**, in the toolbar above the transcript. Enter the participant
-count for better accuracy, run it (the button becomes **Stop** while it works), then rename
-the speakers in the editor that appears — it sits directly below the button, because it is what
-the button produced. Regenerate minutes to use the names.
+*The **Speaker separation** extension.*
+
+The people icon in the transcript's toolbar opens **Speaker separation**: **How many** voices to look
+for (the participants who speak, unless you say otherwise), then **Separate**. It runs in the queue;
+then **Name them** — or the ✎ on the meeting's **Speakers** row. Regenerate the minutes to use the
+names.
 
 It reads the saved recording, so **the button is there only while the recording is** — once the
 WAV has expired there is nothing left to separate, and speakers can only be set per line.
@@ -441,62 +442,43 @@ to check what was actually said before correcting a line, or to settle what a de
   time, because diarization maps speakers onto utterances by position — if the two could not
   be kept in step, the UI says to re-run **Diarize** before trusting speaker names.
 
-## Find & replace
+## Fixing a word misheard throughout
 
-**Find & replace** — a row below the speaker names, which opens where it is — fixes a term the
-recognizer got wrong the same way throughout: a product name heard as "ボクシンク" in forty
-places rather than Voxinq.
+The **A✓** in the transcript's toolbar fixes how something is written, everywhere at once — a
+product name heard as "ボクシンク" in forty places rather than Voxinq. There are two ways to find the
+lines:
 
-Type the term and its replacement, then **Preview**: it reports how many utterances match and
-shows the first few before/after. Nothing is written until you press replace.
+- **Find** and **Replace with** — type the term and what it should be. Matching ignores case
+  unless **Match case** is ticked, and the term is plain text, never a pattern.
+- **Suggest from the glossary** (the **Suggest corrections** extension) — the LLM looks for
+  glossary terms that were misheard, usually written as katakana, using the glossary under
+  *Settings → Transcription* and the meeting's series.
 
-- Matching ignores case by default (**Match case** turns that off), and the replacement is
-  written exactly as you typed it — searching `voxinq` and replacing with `Voxinq` fixes `VOXINQ`
-  too.
-- The term is plain text, never a pattern. `(JPY)` finds those characters, not a group.
-- Rewording is safe for diarization; only deleting an utterance changes positions.
-- A replacement that would **empty** an utterance is skipped rather than turned into a deletion
-  — deleting has to remove the matching boundary in the recording, so it stays a deliberate act
-  (the 🗑 on the row).
+Either way ends in one list: each line as it would read, what goes struck through and what comes in
+marked, all ticked to begin with. Untick what should stay and fix the rest at once. **Nothing is
+written until then.**
 
-The preview and the write are planned server-side from the stored transcript, so a tab left
-open while someone edited a line cannot write back a stale copy.
+- A replacement that would **empty** a line is skipped rather than turned into a deletion; deleting
+  stays a deliberate act (the 🗑 on the line).
+- Suggestions that reword a line, change its length substantially, or quote it inaccurately are
+  discarded before you see them, so the model cannot quietly rewrite what was said.
+- The glossary route is **the only way a glossary reaches kotoba-whisper**, which ignores it during
+  recognition. It uses the GPU, so it waits while minutes are being written.
 
-For a misheard **glossary** term specifically, **Suggest fixes** below is usually better: it
-finds the mistakes for you rather than needing to be told what they are.
-
-## Suggest fixes (glossary terms the recognizer missed)
-
-**Suggest fixes**, in the transcript toolbar, appears once the meeting has a transcript and you
-have a glossary (Settings → Transcription, plus any per-series terms). It asks the LLM to find
-places where a glossary term was misheard — usually written as katakana — and proposes a
-replacement for each line.
-
-- **Nothing is changed until you say so.** Each suggestion shows under its utterance with
-  **Apply** / **Dismiss**, and there is an **Apply all** for the whole set. Applying one is the
-  same edit as typing the correction yourself.
-- Only glossary terms are proposed. Suggestions that reword a line, change its length
-  substantially, or quote an utterance inaccurately are discarded before you see them, so the
-  model cannot quietly rewrite what was said.
-- This is **the only way a glossary reaches kotoba-whisper**, which ignores the glossary during
-  recognition. It also catches terms `large-v3-turbo` missed.
-- It uses the GPU, so it is refused while minutes are generating. Nothing is stored.
-
-> **The model matters here.** Measured on a small Japanese sample: `qwen3:8b` (the default)
-> found every planted term with no false positives, while `qwen2.5:7b-instruct` — the default
-> before it — found none at all and simply reported nothing to fix. That result is why the
-> default changed. If you get no suggestions on a transcript you know contains misheard terms,
-> try a larger model in Settings → LLM.
+> **The model matters here.** Measured on a small Japanese sample: `qwen3:8b` (the default) found
+> every planted term with no false positives, while `qwen2.5:7b-instruct` found none at all. If you
+> get no suggestions on a transcript you know contains misheard terms, try a larger model.
 
 ## Ask the minutes
 
-**Series page → Ask about these minutes.** Questions like “前回までのTODOを教えて” are answered
-from the minutes of every meeting in that series, so the answer names the meeting and date
-each item came from.
+*The **Ask about meetings** extension.*
 
-- A meeting that belongs to **no series** gets the same box on its own page — a one-off is
-  treated as a series of one. Meetings *inside* a series are asked about on the series page,
-  where the whole history is available.
+The round button at the bottom right of a series' page or a meeting's opens a small chat. On a
+series, questions like “前回までのTODOを教えて” are answered from the minutes of every meeting in it,
+so the answer names the meeting and date each item came from. Nothing is saved; the questions and
+answers stay while the window is open on that page.
+
+- A meeting is asked on its own page; a one-off is a series of one.
 - Answers are grounded in the minutes only: the model is told to say when something is not
   recorded rather than fill the gap. The footer states what it could see — how many meetings,
   how many older ones were left out for length, how many have no minutes yet.
@@ -504,7 +486,7 @@ each item came from.
 
 ### Asking one meeting's own words
 
-On a single meeting, the box offers **From the minutes** / **From the transcript**. The minutes
+On a single meeting, the chat offers **From the minutes** / **From the transcript**. The minutes
 are the reviewed version and the dense one; the transcript is what was actually said — a
 phrase, a name, an aside that never made the minutes.
 
@@ -514,21 +496,55 @@ phrase, a name, an aside that never made the minutes.
 - A meeting **too long to read at once** is condensed first — the same pass the minutes use, so
   the far half of a long meeting is answered from rather than dropped. The footer says when
   that happened.
-- A meeting that is **recorded but not written up yet** gets the box too, reading the
+- A meeting that is **recorded but not written up yet** can be asked too, reading the
   transcript. That is the state a day of back-to-back meetings leaves behind, and usually when
   the question is about what was said.
 
 ## Translation
 
-With `sttTranslate` on (Settings → Transcription), each **non-Japanese** utterance gets a
-Japanese translation under it, live during the meeting and on the saved transcript. Japanese
-speech is left alone, and **minutes are still generated from the original words** — the
-transcript stays the record of what was actually said. A **Show translations** toggle appears
-on a meeting once it has any.
+*The **Translation** extension.*
 
-Translation runs on the CPU, so it does not compete with transcription for the GPU. Turning
-it on downloads a ~1.2GB model (M2M100 1.2B, MIT licence) to the STT host on first use, which
-is why it is off by default.
+With **Japanese translation** on (*Settings → Transcription*), each **non-Japanese** line gets a Japanese
+translation under it, live during the meeting and on the saved transcript. Japanese speech is left
+alone, and **minutes are still written from the original words** — the transcript stays the record
+of what was actually said. **Show translations** appears on a meeting once it has any.
+
+Translation runs on the CPU, so it does not compete with transcription for the GPU. It downloads a
+~1.2 GB model (M2M100 1.2B, MIT licence) to the STT host on first use, which is why it is off by
+default.
+
+## How a line sounded
+
+*The **Voice cues** and **Emotion** extensions.*
+
+- **Voice cues** mark the lines said louder or quieter, higher or lower, faster or slower than the
+  speaker usually was — measured against that speaker, not against everyone, so a loud person
+  being loud is not news. A small mark after the line says which.
+- **Emotion** judges from the voice alone whether a line sounded joyful, angry or sad, and marks
+  the ones it is confident about (80% by default, *Settings → Speakers*). Over the transcript, a
+  strip shows the meeting's mood minute by minute; press it to play from there. It needs the NVIDIA
+  build and two models' terms accepted on Hugging Face ([configuration](configuration.md)).
+
+Both are how a line *sounded*, not what anybody felt, and neither reaches the minutes.
+
+## Meeting feedback
+
+*The **Meeting feedback** extension.*
+
+The **Feedback** tab beside the minutes writes feedback for the meeting's **facilitator** or for
+**one participant**, chosen by name — so the speakers need names first. It runs in the queue like
+the minutes, and gives:
+
+- a **score out of 100**: each criterion scored 1–5 and weighted by its importance;
+- **what went well** and **what would have helped**, each point linked to the lines it rests on;
+- the counted facts beside it: share of the talking, questions asked, the longest turn.
+
+**Feedback** at the foot of the sidebar opens the history: averages and trends **by person**, and
+averages **by series** with the criterion that has the most room to grow.
+
+What a good meeting looks like is yours to say: *Settings → Feedback* holds the criteria for each
+role, each one **Critical**, **Important** or **Normal** — counting three, two or one times. Feedback
+is stored with the meeting, encrypted like the minutes, and only its owner sees it.
 
 ## The list, and finding a meeting in it
 
@@ -537,8 +553,9 @@ a week ago**, **Over a month ago** — so "was that recent?" is answered without
 They are ordered by when the meeting happened rather than when its row was made, which is what
 puts a meeting booked last month and recorded yesterday under yesterday.
 
-**Archived** and **Trash** sit above the list, not below it. Reaching what you have put away
-should not mean scrolling past everything you have not.
+**Trash** sits above the list, not below it. Reaching what you have put away should not mean
+scrolling past everything you have not. On a phone the dates are short — "Oct 16, 14:58" — so a
+meeting's name has room.
 
 ### The calendar
 
@@ -555,35 +572,44 @@ is filled.
   filled in, so the meeting is booked rather than recorded now.
 - It hides during a search or a series filter. Both already answer "when" in their own terms.
 
-### Search and tags
+### Search
 
-- Search matches titles, transcripts, and minutes; results show a snippet and where it matched.
-- Tag meetings and filter by tag.
-- Filters combine: a tag and a series, a series and a day, a search within a tag.
-
-## Archive
-
-**Archive** hides a meeting from the list but keeps it in the DB — it still appears in search,
-and the **Archived** page (link above the list) shows all of them, grouped by series. Use it to
-declutter without deleting. Unarchive from the meeting page, the ⋯ menu on a list card, the
-Archived page, or a swipe (below).
+**Search meetings** at the top of the sidebar matches titles, transcripts and minutes; results show
+a snippet and where it matched. A search and a series combine.
 
 ## Swipe actions (phones)
 
-On a touch device, swipe a row in the meeting list:
-
-- **Swipe right → Archive** (on the Archived page it unarchives instead)
-- **Swipe left → Trash** (asks for confirmation first)
-
-A swipe acts on **one meeting**. It used to be able to take a whole series at once, because a
-series was drawn as a single collapsed row; now that each meeting has its own row there is no
-row that means "all of these", and a gesture that archived four meetings would be too easy to
-make by accident. Vertical scrolling is unaffected, and mouse/desktop behaviour is unchanged.
+On a touch device, **swipe a row in the meeting list left** to move it to Trash; it asks first. A
+swipe acts on one meeting, and vertical scrolling is unaffected. (Swiping right archived, until
+archiving was removed in 4.0: what it did is what Trash and the series do now.)
 
 ## Trash
 
 Delete moves a meeting to **Trash** (30-day restore). Permanent delete from Trash removes the
 transcript, minutes, and recording for good.
+
+## When the server cannot be reached
+
+The server is down, or the tailnet is. A meeting can still be recorded, and sent once it is back:
+
+- **The Android app** offers **Record on this phone**, and sends it as soon as the server answers.
+  A notice before a booked meeting says so when the server has been out of reach for half an hour.
+- **A browser that has opened Voxinq before over https** shows a page that can **record in this
+  browser** instead of an error, and the banner sends it next time.
+- **Otherwise**, record with the device's own recorder and drop the file onto Voxinq later.
+
+If the server answers but its database does not, pages say so, with the same way to record. Details
+are in [Troubleshooting](troubleshooting.md#the-server-cannot-be-reached--and-a-meeting-is-starting).
+
+## Settings that belong to this device
+
+Some settings are per device, kept in the browser rather than on your account, because a phone in a
+pocket and a laptop on the table want different answers. All are under *Settings → Appearance*:
+
+- **Theme** — light, dark, or the system's.
+- **Turn the screen off** while recording — after 30 seconds to 10 minutes, or never.
+- **Notifications** for booked meetings, on this device.
+- **Display size**, in the Android app only — 100%, 115% or 130%.
 
 ## Share / export
 
@@ -645,7 +671,7 @@ anybody else's row you see who it belongs to and what kind of work it is — nev
 
 ### If you administer this server
 
-**People** (in the rail, and in your account menu) is where accounts are made, disabled and made
+**People** (at the foot of the sidebar, and in your account menu) is where accounts are made, disabled and made
 administrators. It shows how many meetings each person has, which says the disk is filling up
 and nothing about what filled it.
 
@@ -664,8 +690,8 @@ and nothing about what filled it.
 ## Encryption
 
 Once an account has a password it has a key, and its transcripts and minutes are encrypted with
-it. Titles, dates and tags are not: they are what the list, the calendar and the search bar are
-made of. An account an administrator creates gets its key the first time its owner signs in, and
+it. Titles and dates are not: they are what the list, the calendar and the search bar are made
+of. An account an administrator creates gets its key the first time its owner signs in, and
 that is when its recovery code is shown.
 
 **Your recovery code is shown once.** It is the only way back into your meetings if you forget
@@ -715,7 +741,7 @@ without the key — but not nothing, and the reason search is possible at all.
 
 ## Backup & restore
 
-**Settings → Data** exports your meetings, transcripts, minutes, series, tags, voice profiles,
+**Settings → Data** exports your meetings, transcripts, minutes, series, voice profiles,
 your settings, and optionally the audio — as a single encrypted `.voxbak` file.
 
 **On a server with accounts it holds yours and nobody else's**, administrator included. That is
@@ -730,7 +756,7 @@ another machine or a drive, where this server's login no longer protects it. **T
 to recover the password** — nothing on the server can open the file either.
 
 Restoring is a **merge**. Meetings the instance does not already have are added; existing
-meetings, series, tags and voice profiles are left exactly as they are. So it is safe to run
+meetings, series and voice profiles are left exactly as they are. So it is safe to run
 against a live install, and running the same file twice does nothing the second time. Settings
 are only replaced if you tick the box.
 

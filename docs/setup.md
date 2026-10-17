@@ -245,7 +245,7 @@ want the feature they belong to.
 | `VOXINQ_KEY_SECRET` | With accounts | A second long random string. It wraps the keys that are open while somebody is using the app, so a stolen database or a backup on its own reads nothing. **Keep it out of the backup** |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
-| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v3.9.2`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v1.5.0` is the last 1.x release — pin it to stay on that line |
+| `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v4.0.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v3.9.2` is the last 3.x release and `v1.5.0` the last 1.x — pin one to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
@@ -637,7 +637,7 @@ Read it back with `docker compose exec -T db pg_restore -U voxinq -d voxinq --cl
 ### Moving or rebuilding
 
 State lives in three places, so a complete copy needs all three: **PostgreSQL** (meetings,
-transcripts, minutes, series, tags, voice profiles), **the recordings directory** (the WAVs
+transcripts, minutes, series, voice profiles), **the recordings directory** (the WAVs
 and the utterance boundaries diarization maps speakers onto), and **`settings.json`** (models,
 glossary, API keys).
 
@@ -728,7 +728,10 @@ release: the one GitHub marks *Latest*, the one the `latest` image tag resolves 
 long-lived maintenance branch, because a second pointer is a second thing to forget, and this
 branch has already been forgotten three times.
 
-**From `v3.8.2` those three agree again.** Through the 3.x pre-releases they did not, on purpose:
+**From `v4.0.0` those three name 4.0.** Through the 4.0 betas (`v4.0.0-beta.1` to `-beta.7`,
+published pre-releases) they stayed on `v3.9.2`, and so did the tap and the bucket.
+
+**From `v3.8.2` those three agreed again.** Through the 3.x pre-releases they did not, on purpose:
 *Latest* and `latest` stayed on `v2.3.2` while `release` followed the newest 3.x tag, so that a
 3.x app's own documentation links resolved against 3.x files. `v3.8.2` is the first full 3.x
 release, and it is what all three name.
@@ -753,7 +756,32 @@ following `latest` — see [Upgrading from 2.x](#upgrading-from-2x).
 The **1.x line ended at `v1.5.0`**, which is still published and still installable by pinning
 `VOXINQ_VERSION`. It required an NVIDIA GPU; 2.0 does not, which is the reason the major
 version changed. The **2.x line ended at `v2.3.2`**, likewise still published. Development
-happens on 3.x; the older lines take fixes only — hotfix one from a branch off its tag.
+happens on 4.x. The **3.x line ended at `v3.9.2`**; the older lines take fixes only — hotfix one
+from a branch off its tag.
+
+#### Upgrading from 3.x
+
+`v4.0.0` moves `latest` from 3.x to 4.0, so an install following `latest` takes it on its next pull.
+
+- **Back up first** all the same: Settings → Data → Export, or the database alone as in
+  [Moving or rebuilding](#moving-or-rebuilding). The upgrade runs four migrations, and **all of them
+  only add** — a voice and an emotion column on each line, a pinned date on a meeting, and a table
+  for feedback. So going back works: pin `VOXINQ_VERSION=v3.9.2` and pull.
+- **Nothing to change in `.env` or the compose file.**
+- **Extensions are decided once**, the first time 4.0 starts: what this instance shows signs of
+  using stays on, and so does speaker separation; what is new in 4.0 starts off. See
+  [`extensions.json`](configuration.md#extensionsjson), and switch the rest under
+  *Settings → Extensions*.
+- **Two things are gone from the screens.** *Archive* was removed: archived meetings are back in
+  the list, and Trash and series do what it did. *Tags* are no longer shown or used for search;
+  they stay in the database and in backups, so going back to 3.9.2 still has them.
+- The Android app updates itself from the server once you are on 4.0 (from beta 3 on); an older app
+  shows a link to the APK.
+
+| host runs | upgrade with |
+| --- | --- |
+| Docker | back up, then `docker compose pull && docker compose up -d` |
+| `voxinq` launcher | back up, then `brew upgrade` / `scoop update voxinq`, then `voxinq setup` |
 
 #### Upgrading from 2.x
 
