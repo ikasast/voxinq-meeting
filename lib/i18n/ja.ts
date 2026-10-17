@@ -71,6 +71,7 @@ export const ja: Record<string, string> = {
   "1 set of minutes": "議事録 1件",
   "{n} sets of minutes": "議事録 {n}件",
   "All {n} meetings →": "{n} 件すべて表示 →",
+  "All series →": "すべてのシリーズ →",
   Fold: "閉じる",
   Unfold: "開く",
   "No meetings yet.": "まだ会議がありません。",

@@ -30,43 +30,57 @@ export const ollamaProvider: ChatProvider = {
     // Clamp to sane steps, and cap at the same budget the caller used to decide whether this
     // transcript needed condensing first. Two numbers here means condensing for one size and
     // then asking the model to hold another.
-    const numCtx = Math.min(
-      ollamaContextBudget(cfg.ollamaNumCtx),
-      Math.max(8192, Math.ceil(estTokens / 2048) * 2048),
-    );
+    const ceiling = ollamaContextBudget(cfg.ollamaNumCtx);
+    let numCtx = Math.min(ceiling, Math.max(8192, Math.ceil(estTokens / 2048) * 2048));
 
     // Stream the response. Without streaming, Ollama sends no HTTP headers until the
     // FULL generation is done — and Node's fetch (undici) aborts requests whose headers
     // take more than 5 minutes (UND_ERR_HEADERS_TIMEOUT). Long meetings / "detailed"
     // runs regularly exceed that, so non-streaming caused hard generation failures.
+    const post = (ctx: number) =>
+      fetch(`${cfg.ollamaBaseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal,
+        body: JSON.stringify({
+          model: cfg.ollamaModel,
+          stream: true,
+          messages,
+          // Reasoning tokens are drawn from the same num_predict budget as the answer, so a
+          // thinking model can exhaust it before emitting anything. Callers that want a short
+          // structured reply pass think:false; omitted leaves the model's default alone.
+          ...(think === undefined ? {} : { think }),
+          // Minutes are a structured-extraction task, so keep it stable at low temperature.
+          // At the default (0.8), a 7B model on thin input tends to produce token garbage
+          // like "特 Nvidia" or to copy the instructions verbatim.
+          options: {
+            num_ctx: ctx,
+            num_predict: maxTokens,
+            temperature: 0.3,
+            top_p: 0.9,
+            repeat_penalty: 1.1,
+          },
+        }),
+      });
+    let res = await post(numCtx);
+    // The estimate above is characters over 1.8, and some prompts take more tokens than that:
+    // numbered lines with times and speaker names came out near 1.4 (a meeting's feedback asked
+    // for 15606 tokens of a 14336 window). Ollama says how many it needed, so ask once more with
+    // room for exactly that, while it is within the budget.
+    if (res.status === 400) {
+      const detail = await res.text().catch(() => "");
+      const needed = neededTokens(detail);
+      const retry = needed === null ? null : contextFor(needed + maxTokens + 256, ceiling);
+      if (retry === null || retry <= numCtx) {
+        throw new Error(`Ollama call failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
+      }
+      numCtx = retry;
+      res = await post(numCtx);
+    }
     if (cfg.usage) {
       cfg.usage.calls += 1;
       cfg.usage.numCtx = Math.max(cfg.usage.numCtx, numCtx);
     }
-    const res = await fetch(`${cfg.ollamaBaseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal,
-      body: JSON.stringify({
-        model: cfg.ollamaModel,
-        stream: true,
-        messages,
-        // Reasoning tokens are drawn from the same num_predict budget as the answer, so a
-        // thinking model can exhaust it before emitting anything. Callers that want a short
-        // structured reply pass think:false; omitted leaves the model's default alone.
-        ...(think === undefined ? {} : { think }),
-        // Minutes are a structured-extraction task, so keep it stable at low temperature.
-        // At the default (0.8), a 7B model on thin input tends to produce token garbage
-        // like "特 Nvidia" or to copy the instructions verbatim.
-        options: {
-          num_ctx: numCtx,
-          num_predict: maxTokens,
-          temperature: 0.3,
-          top_p: 0.9,
-          repeat_penalty: 1.1,
-        },
-      }),
-    });
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => "");
       throw new Error(`Ollama call failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
@@ -96,7 +110,8 @@ export const ollamaProvider: ChatProvider = {
           // The last line carries what the call cost: tokens in and out, and the time spent on each.
           if (chunk.done && cfg.usage) addOllamaUsage(cfg.usage, chunk);
         } catch (e) {
-          if (e instanceof Error && e.message.startsWith("Ollama エラー")) throw e;
+          // An error the server sends mid-stream is the answer; only unreadable lines are skipped.
+          if (e instanceof Error && e.message.startsWith("Ollama error")) throw e;
           // ignore malformed keep-alive lines
         }
       }
@@ -125,3 +140,17 @@ export async function unloadOllama(cfg: LlmConfig): Promise<void> {
     // ignore
   }
 }
+
+/** The tokens a request needed, from Ollama's "request (N tokens) exceeds the available context size". */
+export function neededTokens(detail: string): number | null {
+  const m = /request \((\d+) tokens\) exceeds the available context size/.exec(detail);
+  return m ? Number(m[1]) : null;
+}
+
+/** A context window that holds `tokens`, in steps of 2048, or null if the budget cannot. */
+export function contextFor(tokens: number, ceiling: number): number | null {
+  const ctx = Math.ceil(tokens / 2048) * 2048;
+  if (ctx <= ceiling) return ctx;
+  return tokens <= ceiling ? ceiling : null;
+}
+

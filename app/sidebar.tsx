@@ -92,13 +92,28 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
 
 const OPEN_SERIES_KEY = "voxinq.sidebar.series";
 
-function readOpenSeries(): string[] {
+/**
+ * How many series are listed, the most recently met first; the rest are on the Series page. A list
+ * that only grows pushes the days below it out of sight.
+ */
+const SIDEBAR_SERIES = 7;
+
+/**
+ * Which series were unfolded or folded by hand, on this device. A series without a choice is
+ * open only while it holds the page on screen. The choice has to be kept both ways: the list of
+ * unfolded ids this used to be could not say "folded", so the series holding the page could not
+ * be folded at all.
+ */
+function readSeriesChoice(): Record<string, boolean> {
   try {
-    const v = JSON.parse(localStorage.getItem(OPEN_SERIES_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
+    const v: unknown = JSON.parse(localStorage.getItem(OPEN_SERIES_KEY) ?? "{}");
+    // The old shape, a list of the unfolded ones.
+    if (Array.isArray(v)) return Object.fromEntries(v.filter((x): x is string => typeof x === "string").map((id) => [id, true]));
+    if (v && typeof v === "object") {
+      return Object.fromEntries(Object.entries(v).filter((e): e is [string, boolean] => typeof e[1] === "boolean"));
+    }
+  } catch {}
+  return {};
 }
 
 /** A series' latest meeting, as the row says it: today, yesterday, or the date. */
@@ -161,13 +176,13 @@ export function Sidebar({
   useEffect(() => setDrawer(false), [pathname]);
 
   const groups = useMemo(() => grouped(meetings, t), [meetings, t]);
-  // Which series are unfolded, remembered on this device. The one holding the meeting on screen
-  // is unfolded as well, so the place you are is always in sight.
-  const [openSeries, setOpenSeries] = useState<string[]>([]);
-  useEffect(() => setOpenSeries(readOpenSeries()), []);
-  const toggleSeries = (id: string) =>
-    setOpenSeries((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+  // Which series are unfolded, remembered on this device (readSeriesChoice). The one holding the
+  // meeting on screen opens by itself, so the place you are is in sight, until it is folded.
+  const [seriesChoice, setSeriesChoice] = useState<Record<string, boolean>>({});
+  useEffect(() => setSeriesChoice(readSeriesChoice()), []);
+  const toggleSeries = (id: string, open: boolean) =>
+    setSeriesChoice((prev) => {
+      const next = { ...prev, [id]: !open };
       try {
         localStorage.setItem(OPEN_SERIES_KEY, JSON.stringify(next));
       } catch {}
@@ -201,15 +216,15 @@ export function Sidebar({
     <div className="mt-3 border-b border-[var(--border)] pb-3">
       <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-muted)]">{t("Series")}</p>
       <ul>
-        {series.map((s) => {
-          const open = openSeries.includes(s.id) || activeSeries === s.id;
+        {series.slice(0, SIDEBAR_SERIES).map((s) => {
+          const open = seriesChoice[s.id] ?? activeSeries === s.id;
           const items = meetings.filter((m) => m.seriesId === s.id && !m.upcoming).slice(0, 3);
           return (
             <li key={s.id}>
               <div className="group flex items-center rounded-md hover:bg-[var(--hover-surface)]">
                 <button
                   type="button"
-                  onClick={() => toggleSeries(s.id)}
+                  onClick={() => toggleSeries(s.id, open)}
                   aria-expanded={open}
                   aria-label={`${open ? t("Fold") : t("Unfold")}: ${s.name}`}
                   className="flex h-7 w-6 shrink-0 items-center justify-center text-[var(--text-muted)] hover:text-[var(--foreground)]"
@@ -266,6 +281,14 @@ export function Sidebar({
           );
         })}
       </ul>
+      {series.length > SIDEBAR_SERIES ? (
+        <Link
+          href="/series"
+          className="mt-0.5 block rounded-md px-2 py-1 text-xs text-[var(--accent-sub)] hover:bg-[var(--hover-surface)]"
+        >
+          {t("All series →")}
+        </Link>
+      ) : null}
     </div>
   );
 
