@@ -21,9 +21,17 @@ describe("series in the sidebar", () => {
     expect(data).toContain("seriesId: seriesOn ? m.seriesId : null");
   });
 
-  it("open to three meetings and a link to the rest, and stay open where you are", () => {
+  it("open to three meetings and a link to the rest, and open where you are until folded", () => {
     expect(sidebar).toContain(".slice(0, 3)");
     expect(sidebar).toContain('t("All {n} meetings →", { n: s.count })');
-    expect(sidebar).toContain("openSeries.includes(s.id) || activeSeries === s.id");
+    // A choice made by hand wins both ways; without one, the series holding the page is open.
+    expect(sidebar).toContain("seriesChoice[s.id] ?? activeSeries === s.id");
+    expect(sidebar).toContain("[id]: !open");
+  });
+
+  it("list seven, with a way to the rest", () => {
+    expect(sidebar).toContain("const SIDEBAR_SERIES = 7;");
+    expect(sidebar).toContain("series.slice(0, SIDEBAR_SERIES)");
+    expect(sidebar).toContain('t("All series →")');
   });
 });
