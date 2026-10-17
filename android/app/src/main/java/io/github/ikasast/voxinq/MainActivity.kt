@@ -63,6 +63,9 @@ class MainActivity : ComponentActivity() {
 
         /** How long the widget's Record now waits for the server before recording on the phone. */
         private const val PROBE_MS = 4_000
+
+        /** Back from a file chooser or a share the app opened: not asked again within this. */
+        private const val RETURN_MINUTES = 10
         const val EXTRA_MEETING = "meetingId"
         const val EXTRA_AUTOSTART = "autostart"
         private const val BRIDGE = "VoxinqAndroid"
@@ -113,6 +116,12 @@ class MainActivity : ComponentActivity() {
     /** An update asked for while the app was not yet allowed to install one. */
     private var pendingUpdate: String? = null
 
+    private lateinit var lock: View
+    /** Android's prompt is up. Its PIN screen stops and starts the activity, which is not leaving. */
+    private var prompting = false
+    /** The app itself sent the person elsewhere — a file to attach, a share, a link. */
+    private var expectReturn = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -122,6 +131,8 @@ class MainActivity : ComponentActivity() {
         progress = findViewById(R.id.progress)
         setup = findViewById(R.id.setup)
         offline = findViewById(R.id.offline)
+        lock = findViewById(R.id.lock)
+        findViewById<Button>(R.id.lock_unlock).setOnClickListener { unlock() }
 
         // The page draws inside the bars, never under them: its own top and bottom bars hold the
         // recording controls.
@@ -157,6 +168,8 @@ class MainActivity : ComponentActivity() {
             override fun handleOnBackPressed() {
                 val w = web
                 when {
+                    // Locked, Back leaves rather than reaching the page underneath.
+                    lock.isVisible -> moveTaskToBack(true)
                     setup.isVisible && w != null -> setup.isVisible = false
                     w != null && w.canGoBack() -> w.goBack()
                     else -> {
@@ -180,6 +193,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        // Before anything is shown: whether it may be. Coming back from the prompt's own PIN
+        // screen is not coming back to the app.
+        if (!prompting) {
+            val back = expectReturn
+            expectReturn = false
+            if (AppLock.needsUnlock(this, atLeastMinutes = if (back) RETURN_MINUTES else 0)) showLock()
+        }
+        refreshRecents()
+        server?.let { fetchLockPolicy(it) }
         RecorderBus.setVisible(true)
         web?.onResume()
         // Anything an earlier run could not hand over — a recording the system killed, or one
@@ -206,7 +228,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Straight to the fingerprint, rather than a screen with a button that asks for it.
+        if (lock.isVisible && !prompting && AppLock.secure(this)) unlock()
+    }
+
     override fun onStop() {
+        if (!prompting) AppLock.left(this)
         ticker.removeCallbacksAndMessages(null)
         RecorderBus.setVisible(false)
         web?.onPause()
@@ -355,6 +384,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
             "stop" -> if (RecorderBus.state.recording) RecorderService.stop(this) else RecorderBus.post(message("stopped"))
+            // The settings page: what the lock is, and changes to it (AppLock).
+            "lock" -> RecorderBus.post(AppLock.stateMessage(this))
+            "lockSet" -> setLock(msg)
             // The page offers an update when the app is behind the server (Updater).
             "update" -> {
                 val version = msg.optString("version")
@@ -364,6 +396,7 @@ class MainActivity : ComponentActivity() {
                     // where that is answered; coming back to the app carries on (onStart).
                     pendingUpdate = version
                     RecorderBus.post(message("update", "state" to "permission"))
+                    expectReturn = true
                     try {
                         startActivity(
                             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")),
@@ -395,8 +428,123 @@ class MainActivity : ComponentActivity() {
         askAboutNotices()
         ReminderReceiver.checkNow(this)
         Reminders.arm(this)
+        fetchLockPolicy(origin)
         WindowCompat.getInsetsController(window, input).hide(WindowInsetsCompat.Type.ime())
         open(origin, null)
+    }
+
+    // ---- The app lock (AppLock) ----
+
+    private fun showLock() {
+        val secure = AppLock.secure(this)
+        findViewById<TextView>(R.id.lock_title).setText(if (secure) R.string.lock_title else R.string.lock_insecure_title)
+        findViewById<TextView>(R.id.lock_body).setText(if (secure) R.string.lock_body else R.string.lock_insecure_body)
+        findViewById<Button>(R.id.lock_unlock).setText(if (secure) R.string.lock_unlock else R.string.lock_set_up)
+        lock.isVisible = true
+        // Nor read out by a screen reader from underneath.
+        webContainer.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        WindowCompat.getInsetsController(window, lock).hide(WindowInsetsCompat.Type.ime())
+    }
+
+    private fun hideLock() {
+        lock.isVisible = false
+        webContainer.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+    }
+
+    private fun unlock() {
+        if (!AppLock.secure(this)) {
+            openSecuritySettings()
+            return
+        }
+        if (prompting) return
+        prompting = true
+        AppLock.prompt(this, getString(R.string.lock_prompt_unlock)) { ok ->
+            prompting = false
+            if (ok) {
+                AppLock.markUnlocked()
+                hideLock()
+            }
+        }
+    }
+
+    private fun openSecuritySettings() {
+        expectReturn = true
+        runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
+    }
+
+    /** With the lock on, the recent-apps screen shows the app's name rather than a meeting. */
+    private fun refreshRecents() {
+        if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!AppLock.active(this))
+    }
+
+    /** Whether the server requires the lock. Kept, so an unanswered server does not lift it. */
+    private fun fetchLockPolicy(origin: String) {
+        Thread {
+            val required = try {
+                val c = java.net.URL("$origin/api/app-lock").openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = PROBE_MS
+                c.readTimeout = PROBE_MS
+                c.instanceFollowRedirects = false
+                try {
+                    if (c.responseCode != 200) null
+                    else JSONObject(c.inputStream.bufferedReader().readText()).optBoolean("required", false)
+                } finally {
+                    c.disconnect()
+                }
+            } catch (_: Exception) {
+                null
+            } ?: return@Thread
+            runOnUiThread {
+                if (required == AppLock.required(this)) return@runOnUiThread
+                AppLock.setRequired(this, required)
+                refreshRecents()
+                RecorderBus.post(AppLock.stateMessage(this))
+            }
+        }.start()
+    }
+
+    /** From the settings page: on or off — both behind the prompt — or how long it lasts. */
+    private fun setLock(msg: JSONObject) {
+        if (msg.has("afterMinutes")) AppLock.setAfterMinutes(this, msg.optInt("afterMinutes", -1))
+        val reply = { RecorderBus.post(AppLock.stateMessage(this)) }
+        if (!msg.has("enabled")) return reply()
+        val on = msg.optBoolean("enabled")
+        when {
+            on == AppLock.enabled(this) || (!on && AppLock.required(this)) -> reply()
+            !AppLock.secure(this) -> {
+                if (on) openSecuritySettings()
+                reply()
+            }
+            else -> {
+                prompting = true
+                AppLock.prompt(this, getString(if (on) R.string.lock_prompt_on else R.string.lock_prompt_off)) { ok ->
+                    prompting = false
+                    if (ok) {
+                        AppLock.setEnabled(this, on)
+                        AppLock.markUnlocked()
+                        refreshRecents()
+                    }
+                    reply()
+                }
+            }
+        }
+    }
+
+    /**
+     * Once, after the first page the server serves: the lock is suggested, not switched on. Not
+     * on a phone without a screen lock, where there is nothing to lock it with — it is offered
+     * once there is.
+     */
+    private fun offerLock() {
+        if (AppLock.offered(this) || AppLock.active(this) || !AppLock.secure(this)) return
+        if (lock.isVisible || isFinishing) return
+        AppLock.markOffered(this)
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.lock_offer_title)
+            .setMessage(R.string.lock_offer_body)
+            .setPositiveButton(R.string.lock_offer_yes) { _, _ -> setLock(JSONObject().put("enabled", true)) }
+            .setNegativeButton(R.string.lock_offer_no, null)
+            .show()
     }
 
     /** What asking the server found: whether it can take a recording. */
@@ -450,7 +598,12 @@ class MainActivity : ComponentActivity() {
         val openTailscale = if (tailscaleOff) Tailscale.openIntent(this) else null
         findViewById<Button>(R.id.open_tailscale).apply {
             isVisible = openTailscale != null
-            setOnClickListener { openTailscale?.let { runCatching { startActivity(it) } } }
+            setOnClickListener {
+                openTailscale?.let {
+                    expectReturn = true
+                    runCatching { startActivity(it) }
+                }
+            }
         }
         // Below Open Tailscale, Record follows closely: the two are the screen's way forward.
         findViewById<Button>(R.id.record_offline).updateLayoutParams<android.view.ViewGroup.MarginLayoutParams> {
@@ -569,6 +722,7 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
                     val send = Intent(Intent.ACTION_SEND).setType("audio/wav").putExtra(Intent.EXTRA_STREAM, uri)
                         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    expectReturn = true
                     startActivity(Intent.createChooser(send, null))
                 }
             }.onFailure {
@@ -589,6 +743,7 @@ class MainActivity : ComponentActivity() {
             // Anything that is not the server — the repository, a link in the minutes — opens
             // outside the app, where it is not handed the bridge.
             try {
+                expectReturn = true
                 startActivity(Intent(Intent.ACTION_VIEW, request.url))
             } catch (_: ActivityNotFoundException) {
                 Toast.makeText(this@MainActivity, getString(R.string.open_failed, request.url.toString()), Toast.LENGTH_SHORT).show()
@@ -605,6 +760,7 @@ class MainActivity : ComponentActivity() {
             progress.isVisible = false
             // The server answered: whatever was recorded on the phone while it did not goes now.
             if (!loadFailed && !OfflineState.recording) ImportService.sendOffline(this@MainActivity)
+            if (!loadFailed) offerLock()
         }
 
         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -665,6 +821,7 @@ class MainActivity : ComponentActivity() {
             fileCallback?.onReceiveValue(null)
             fileCallback = callback
             return try {
+                expectReturn = true
                 chooser.launch(params.createIntent())
                 true
             } catch (_: ActivityNotFoundException) {

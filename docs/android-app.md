@@ -275,6 +275,32 @@ and sent later.
   phone is Tailscale switched off, the likeliest reason of all and the one the person holding the
   phone can fix. The screen and the notice say so, with **Open Tailscale** when its app is installed.
 
+## The lock
+
+A phone is the device most likely to be lost, and the app opens straight onto the minutes. The
+lock (`AppLock.kt`) puts Android's own prompt in front: fingerprint, face, or the phone's screen
+lock as the fallback. Decisions:
+
+- **Only what is shown is locked, not starting a recording.** The notification, the widget and a
+  watch start one without opening anything, and locking that would break recording from a watch
+  for no gain: a new recording reveals nothing already there. The lock screen is drawn *over* the
+  page, so a page started this way keeps running underneath.
+- **Offered once, not switched on.** After the first page the server serves, one dialog suggests
+  it; nothing locks until the person says yes. Not offered on a phone with no screen lock.
+- **An unlock lasts a while.** Leaving the app and coming back within the chosen time (every time,
+  1, 5, 15 or 60 minutes; 5 by default) does not ask. Counted on `elapsedRealtime`, with the boot
+  count beside it, so a restarted phone always asks; stored, so a process the system ended keeps
+  its time too. The prompt's own PIN screen and the app's own trips out — a file to attach, a share
+  — are not leaving.
+- **Turning it off is behind the prompt as well**, or anybody handed the unlocked phone could.
+- **Required by the server, kept by the app.** `/api/app-lock` answers whether an administrator
+  requires it, without a session — the app asks natively, before it has one. The server cannot see
+  whether an app obeys, and an older app does not know to; it protects lost phones, not against
+  the person holding a modified app.
+- The recent-apps thumbnail is turned off while it is on (Android 13 and later), or the page would
+  be visible there anyway. Platform `BiometricPrompt`, not `androidx.biometric`: minSdk 29 has what
+  it needs, and it adds no dependency.
+
 ## Not capturing what the phone plays
 
 The third convenience was to record what other apps are playing, as the page does on a PC with

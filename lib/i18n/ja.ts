@@ -107,6 +107,25 @@ export const ja: Record<string, string> = {
     "録音の保存先の空きが残り {gb} GB です（録音およそ {hours} 時間分）。古い録音を削除するか、ディスクを空けてください。",
   "Open storage": "ストレージを見る",
   "Display size": "表示の大きさ",
+  // The app lock (app/settings/app-lock-setting.tsx, app-lock-policy.tsx).
+  "Lock the app": "アプリをロック",
+  "Lock after": "ロックするまで",
+  "Every time": "毎回",
+  "1 hour": "1時間",
+  "Your administrator requires the lock.": "管理者がロックを必須にしています。",
+  "This phone has no screen lock. Set one up in the phone's settings to use this.":
+    "このスマホには画面ロックがありません。使うには、スマホの設定で画面ロックを設定してください。",
+  "Asks for your fingerprint, face or screen lock when the app is opened. Starting a recording from a notification, the widget or a watch still works while it is locked.":
+    "アプリを開くときに、指紋・顔または画面ロックで確認します。通知・ウィジェット・時計からの録音の開始は、ロック中も使えます。",
+  "How long after leaving the app it asks again when you come back. A restarted phone always asks.":
+    "アプリを離れてからこの時間が経つと、次に開くときに確認します。スマホを再起動した後は必ず確認します。",
+  "Android app": "Android アプリ",
+  "Require the app lock": "アプリのロックを必須にする",
+  "Every phone asks for its fingerprint, face or screen lock the next time the app is opened, and the lock cannot be turned off there. A phone with no screen lock shows nothing until it has one. Starting a recording is not stopped. How long an unlock lasts is still each person's choice.":
+    "各スマホは次にアプリを開いたとき、指紋・顔または画面ロックでの確認を求め、ロックをオフにできなくなります。画面ロックの無いスマホは、設定するまで中身を表示しません。録音の開始は止めません。ロックするまでの時間は各自が選べます。",
+  "The app keeps this rule; the server cannot check that it does. An app older than this version opens as before.":
+    "この決まりを守るのはアプリで、サーバーからは確かめられません。このバージョンより古いアプリは、これまでどおり開きます。",
+  "Only an administrator can require the app lock.": "アプリのロックを必須にできるのは管理者だけです。",
   "Standard (100%)": "標準（100%）",
   "Larger (115%)": "大きめ（115%）",
   "Large (130%)": "大（130%）",

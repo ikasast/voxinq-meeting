@@ -138,6 +138,69 @@ export function nativeState(timeoutMs = 1500): Promise<NativeState | null> {
   });
 }
 
+/** The app's lock (android/.../AppLock.kt), as the settings page shows it. */
+export type AppLockState = {
+  /** Locking at all: chosen on this phone, or required. */
+  enabled: boolean;
+  /** Chosen on this phone. */
+  chosen: boolean;
+  /** Required by this server's administrator. */
+  required: boolean;
+  /** How long an unlock lasts after leaving the app, in minutes. 0: every time. */
+  afterMinutes: number;
+  /** The phone has a screen lock — without one there is nothing to lock with. */
+  secure: boolean;
+};
+
+function asLockState(m: Message): AppLockState {
+  return {
+    enabled: m.enabled === true,
+    chosen: m.chosen === true,
+    required: m.required === true,
+    afterMinutes: typeof m.afterMinutes === "number" ? m.afterMinutes : 5,
+    secure: m.secure === true,
+  };
+}
+
+function askLock(message: Message, timeoutMs: number): Promise<AppLockState | null> {
+  if (!bridge()) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let off = () => {};
+    const timer = setTimeout(() => {
+      off();
+      resolve(null);
+    }, timeoutMs);
+    off = listen((m) => {
+      if (m.type !== "lock" || m.supported !== true) return;
+      clearTimeout(timer);
+      off();
+      resolve(asLockState(m));
+    });
+    send(message);
+  });
+}
+
+/** The app's lock. Null outside the app, or from an app too old to have one (it never answers). */
+export function appLockState(timeoutMs = 1500): Promise<AppLockState | null> {
+  return askLock({ type: "lock" }, timeoutMs);
+}
+
+/**
+ * Change the lock. Turning it on or off waits for Android's own prompt — the fingerprint, the
+ * face or the screen lock — so the answer can take as long as the person does; it comes back
+ * unchanged when they cancel.
+ */
+export function setAppLock(change: { enabled?: boolean; afterMinutes?: number }): Promise<AppLockState | null> {
+  return askLock({ type: "lockSet", ...change }, change.enabled === undefined ? 3000 : 120_000);
+}
+
+/** The lock changed from the app's side — the server started or stopped requiring it. */
+export function onAppLockChange(fn: (state: AppLockState) => void): () => void {
+  return listen((m) => {
+    if (m.type === "lock" && m.supported === true) fn(asLockState(m));
+  });
+}
+
 function subscribe(handlers: NativeHandlers): NativeHandle {
   const off = listen((m) => {
     switch (m.type) {

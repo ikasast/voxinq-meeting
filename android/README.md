@@ -93,6 +93,22 @@ and does what its button there would do; nothing runs from the widget itself.
 
 The app draws its pages at 115% by default: text, icons and spacing together. **Settings → Appearance → Display size**, shown only in the app, offers 100%, 115% and 130% for this phone. The page itself does it, laying itself out for a narrower screen through its viewport, so it needs no app update. The phone's own font size still applies on top.
 
+## The lock
+
+The app can be locked behind the phone's fingerprint, face or screen lock, so a lost phone does not
+open onto your minutes. It is **offered once**, after the first page the server serves, and is off
+until you say yes. **Settings → Appearance → Lock the app** turns it on or off — both behind the
+prompt — and **Lock after** sets how long an unlock lasts once you leave the app: every time, 1, 5
+(the default), 15 or 60 minutes. A restarted phone always asks.
+
+- **Starting a recording is not behind it.** The notification, the widget and a watch start one
+  without opening anything; the recording goes on under the lock screen.
+- The recent-apps screen shows the app's name rather than the page (Android 13 and later).
+- An administrator can **require** it for every phone (*Settings → Defaults for everyone →
+  Require the app lock*). The app reads that from `/api/app-lock` and keeps it: the switch can no
+  longer be turned off, and a phone with no screen lock shows nothing until it has one. It is a rule
+  the app keeps — the server cannot check it, and an app from before the lock opens as before.
+
 ## Against a development server
 
 Debug builds also accept `http://localhost`, so a server on the PC can be reached through adb:

@@ -25,6 +25,8 @@ export const MACHINE_KEYS = [
   "vramBudgetMb",
   // A VRAM figure for the local Ollama, not a model preference.
   "ollamaNumCtx",
+  // A rule for every phone. A rule each person could set for themselves would not be one.
+  "requireAppLock",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 /**

@@ -158,6 +158,11 @@ the recording to the app, which holds the microphone in a service of its own. So
   in a tap, and falls back to recording on the phone when the server does not answer.
 - **Display size**, under *Settings → Appearance* in the app, draws the pages at 100%, 115% (the
   default) or 130%: text, icons and spacing together.
+- **The lock**, offered once and off until you accept, asks for the phone's fingerprint, face or
+  screen lock when the app is opened — not again for 5 minutes after leaving it, or a time you
+  choose. Starting a recording from a notification, the widget or a watch is not behind it. An
+  administrator can require it for every phone under *Settings → Defaults for everyone*
+  ([details](../android/README.md#the-lock)).
 - The microphone check, the microphone's handling and the level meter are the page's own and behave as they do in
   a browser. The page reloads the transcript when you come back to it, rather than having missed
   anything while it was hidden.
@@ -610,6 +615,7 @@ pocket and a laptop on the table want different answers. All are under *Settings
 - **Turn the screen off** while recording — after 30 seconds to 10 minutes, or never.
 - **Notifications** for booked meetings, on this device.
 - **Display size**, in the Android app only — 100%, 115% or 130%.
+- **Lock the app** and how long an unlock lasts, in the Android app only.
 
 ## Share / export
 

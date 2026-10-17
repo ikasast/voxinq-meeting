@@ -104,6 +104,10 @@ export type AppSettings = {
   // limit, and asking for more than the card holds makes Ollama spill to the CPU instead of
   // failing — many times slower, with nothing to say why. See lib/llm/context.ts.
   ollamaNumCtx: number;
+  // Whether every phone's app must be locked behind its fingerprint, face or screen lock
+  // (android/.../AppLock.kt). The app reads it from /api/app-lock and keeps the rule itself;
+  // the server cannot check that it does.
+  requireAppLock: boolean;
 };
 
 function defaults(): AppSettings {
@@ -138,6 +142,7 @@ function defaults(): AppSettings {
     facilitatorCriteria: [],
     participantCriteria: [],
     ollamaNumCtx: 0,
+    requireAppLock: false,
   };
 }
 
@@ -239,6 +244,7 @@ export async function readMachineSettings(): Promise<AppSettings> {
       merged.uiLanguage = base.uiLanguage;
     }
     if (typeof merged.sttTranslate !== "boolean") merged.sttTranslate = base.sttTranslate;
+    if (typeof merged.requireAppLock !== "boolean") merged.requireAppLock = base.requireAppLock;
     // Nonsense is worse than the estimate it overrides: a budget of 12 MB is a queue that
     // never moves, and a negative one is a typo.
     if (
