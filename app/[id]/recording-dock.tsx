@@ -1079,20 +1079,21 @@ export function RecordingDock({
 
           <div className="flex w-32 items-center pr-1 max-[370px]:w-24">
             {active && clipping ? (
-              <span className="mr-1 text-[10px] font-medium text-[var(--warning)]">{t("Input too loud")}</span>
+              // Wraps within what is left beside End rather than squeezing End onto two lines.
+              <span className="mr-1 min-w-0 text-[10px] font-medium leading-tight text-[var(--warning)]">{t("Input too loud")}</span>
             ) : null}
             {/* What is pressed once, at the end: kept in one menu beside the button, out of
                 the way of the button itself. */}
             <DropMenu
               label={t("End the meeting")}
               trigger={
-                <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   {busy === "summary" ? t("Starting…") : t("End")}
                   <ChevronUpIcon className="h-3.5 w-3.5" />
                 </span>
               }
               width={248}
-              className="rounded-full px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] disabled:opacity-50"
+              className="shrink-0 rounded-full px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--hover-surface)] hover:text-[var(--foreground)] disabled:opacity-50"
             >
               {(close) => (
                 <>
