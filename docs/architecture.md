@@ -61,8 +61,8 @@ and a native install expects both already there.
 - **Android app** (`android/`) — the web app in a WebView, plus a native recorder in a foreground
   service that keeps going with the screen off or another app in front. It speaks the same STT
   protocol as the page, writes audio to a file before sending it so a dropped connection costs
-  nothing, sets a notice for each booked meeting, and takes recordings shared from other apps. See
-  [the Android app](android-app.md).
+  nothing, records on the phone alone when the server cannot be reached, sets a notice for each
+  booked meeting, and takes recordings shared from other apps. See [the Android app](android-app.md).
 - **Web app** (`app/`, `lib/`) — Next.js 16 (React 19), Prisma. Serves pages and APIs;
   generates minutes via the LLM. Auth is handled by `proxy.ts` (Next.js 16 "proxy").
 - **STT service** (`stt-service/server.py`) — FastAPI, with **two local recognition backends
@@ -85,7 +85,33 @@ and a native install expects both already there.
   for why both exist.
 - **LLM** — Ollama by default, or any OpenAI-compatible / Anthropic endpoint. Generates
   minutes, and answers questions asked against a series' minutes (`lib/llm/ask.ts`).
-- **PostgreSQL** — meetings, transcripts, minutes (versioned), tags.
+- **PostgreSQL** — meetings, transcripts, minutes (versioned), feedback, series, voiceprints.
+
+### Extensions
+
+What is on top of recording, transcription and minutes is an **extension** (`lib/extensions.ts`):
+speaker separation, series, booking ahead, feedback, asking, translation, voice cues, emotion and the
+rest. An extension is not code fetched from anywhere — everything ships with the app — but a part of
+it switched on or off for the whole instance, in `extensions.json`. Off hides its screens, refuses
+its API and leaves its work out of the queue; its data is kept, so switching it back on brings
+everything back. The page learns the state from the root layout and the server checks it on every
+route that belongs to one.
+
+### Recordings kept on the device
+
+A recording should not depend on the server being reachable at the moment it is made, so the
+devices keep their own copy until the server has it:
+
+- **The Android app** writes every frame to a file before sending it, and when the server cannot
+  be reached at all it records to `files/offline/` and sends the recording once the server answers,
+  as a meeting dated when it was recorded.
+- **A browser** keeps a copy of a recording in IndexedDB (`lib/local-recordings.ts`) while it
+  records, thrown away when the server got everything. The service worker (`public/sw.js`) caches
+  one file of its own, `offline.html`, and serves it when a page gets no answer — or a proxy's
+  502/503/504 — so a browser can record there too. Nothing else is cached: a caching worker on a
+  self-hosted app serves the last version's pages after an upgrade.
+- A banner on every page sends what the browser holds, and a recording sent twice is not doubled:
+  the meeting a send created is remembered with the copy.
 
 ## GPU time-sharing
 
@@ -210,7 +236,7 @@ split can be undone.
 | Meetings / transcripts / minutes | PostgreSQL | kept until deleted |
 | Recording (WAV) | `stt-service/recordings/` | auto-delete after 7 days (protect to keep) |
 | Trashed meetings | PostgreSQL (`deletedAt`) | purged after 30 days |
-| Archived meetings | PostgreSQL (`archivedAt`) | kept; hidden from list, shown in search |
+| Recordings not sent yet | the phone (`files/offline/`), the browser (IndexedDB) | until sent, or deleted on the device |
 | Series (name + per-series defaults) | PostgreSQL (`series`) | removed automatically with its last meeting |
 | Voice profiles (voiceprints) | PostgreSQL (`speaker_profiles`) | until deleted in Settings → Speakers |
 | Settings / API keys | `settings.json` (gitignored) | until changed |

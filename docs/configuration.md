@@ -28,7 +28,7 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 | `HF_TOKEN` | unset | Needed for diarization on an NVIDIA GPU, which uses pyannote — a gated model. Without a GPU, diarization uses ungated ONNX models and needs no token. Also needed if `WHISPER_MODEL` points at a gated Hugging Face repo, and for the Emotion extension: accept the terms of `imprt/kushinada-hubert-large` and `imprt/kushinada-hubert-large-jtes-er` with the same account (about 1.3 GB, downloaded on first use; the NVIDIA GPU build only, as it runs on torch). |
 | `DIA_BACKEND` | unset | Which diarization engine to use: `pyannote` (accurate, CUDA + `HF_TOKEN`) or `sherpa` (portable, no token). Unset picks from the hardware. Forcing one that cannot run is an error, not a fallback. |
 | `DIA_MIN_PIECE_S` | `0` | When diarization divides a line between two speakers, fold any piece shorter than this many seconds into its neighbour. `0` keeps every piece, deliberately: a short piece is usually a real answer — the "yes" to a question — and folding it away is the mistake the division exists to stop. Raise it only if short fragments turn out to be the diarizer's noise on your recordings. |
-| `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v3.9.2`. Unset follows the newest stable release, which is what `latest`, the `release` branch and GitHub's *Latest* badge all name. Prereleases never move `latest`, so a beta or rc has to be named here to be used. `v1.5.0` is the last of the 1.x line — pin it to stay there; it needs an NVIDIA GPU, which 2.0 does not. |
+| `VOXINQ_VERSION` | `latest` | Pin the image tag instead of following releases, e.g. `v4.0.0`. Unset follows the newest stable release, which is what `latest`, the `release` branch and GitHub's *Latest* badge all name. Prereleases never move `latest`, so a beta or rc has to be named here to be used. `v3.9.2` is the last of the 3.x line and `v1.5.0` of the 1.x line — pin one to stay there. Going back from 4.0 to 3.9.2 works: 4.0's migrations only add. |
 | `TZ` | unset (= UTC) | Timezone the **server** formats meeting dates in: the meeting list, the detail header, the print page and the DOCX/PDF exports. A container has no timezone unless given one, so leaving this unset shows those in UTC while the browser shows transcript timestamps in local time. Set it to yours, e.g. `Asia/Tokyo`. Native installs take the machine's own timezone. |
 | `WEB_PORT` / `STT_PORT` / `DB_PORT` / `OLLAMA_PORT` | `3000` / `8000` / `127.0.0.1:5432` / `127.0.0.1:11434` | Host ports. Only affect access from the host — containers always reach each other by service name. |
 | `OLLAMA_PROFILE` | unset | Set it to anything (`external` reads well) to **not** start the bundled Ollama, for a host already running one. The container is behind a compose profile, so a name that matches nothing leaves it out. Then point **Settings → LLM** at `http://host.docker.internal:11434`. |
@@ -224,8 +224,9 @@ the household are different acts.
   Japanese-only.
 - `sttGlossary` — terms/proper nouns to bias recognition (short). Skipped for kotoba-whisper:
   its distilled decoder cannot take a prompt and returns nothing when one is set. These terms
-  are also what **Suggest fixes** looks for after a meeting, which is how a glossary reaches
-  kotoba-whisper transcripts at all — see [Usage](usage.md#suggest-fixes-glossary-terms-the-recognizer-missed).
+  are also what **Suggest from the glossary** looks for after a meeting (the Suggest corrections
+  extension), which is how a glossary reaches kotoba-whisper transcripts at all — see
+  [Usage](usage.md#fixing-a-word-misheard-throughout).
 - `vramBudgetMb` — megabytes of video memory the [queue](usage.md#the-queue) may commit at
   once. `0` (the default) works it out: the card's total less 1 GB for the display, or 4 GB
   where there is no NVIDIA card and CPU contention serialises the work anyway. Raise it to let
@@ -239,12 +240,17 @@ the household are different acts.
   never reach the browser. Empty (the default) means recognition only happens here.
 - `sttDefaultProfileId` — which of them new work uses. Empty = this machine. A run can still
   choose any of them, or this machine, from *Re-transcribe*.
-- `sttTranslate` — `false` (default). Shows a Japanese translation under each non-Japanese
+- `sttTranslate` — `false` (default), shown as **Japanese translation**; needs the Translation
+  extension. Shows a Japanese translation under each non-Japanese
   utterance, live and on the transcript; minutes are still generated from the original words.
   Translation runs on the **CPU**, so it does not compete with transcription for the GPU.
   Enabling it downloads a ~1.2GB model (M2M100 1.2B, MIT licence) to the STT host on first
   use. Override the repo with `STT_TRANSLATE_MODEL` — any CTranslate2 conversion of M2M100;
   `jncraton/m2m100_418M-ct2-int8` is about half the size and twice as fast, and rougher.
+
+**Speakers**
+- `emotionThreshold` — how sure the Emotion extension has to be before a line is marked, `0.8`
+  (80%) by default. Lower marks more lines and more wrongly.
 
 **Minutes**
 - `summaryLanguage` — `ja` / `en` / `zh` (output language, regardless of what was spoken)
@@ -255,6 +261,15 @@ the household are different acts.
 - `defaultMinutesTemplateId` — which one new minutes use. Empty = the built-in format. Any of
   them can be chosen for a single run from *Regenerate*.
 - `llmBackground` — always-on business/research context (used to interpret terms, not copied into minutes)
+- `meetingTitleFormat` — what a meeting is called until somebody names it: `compact` (`20260711`,
+  the default), `compact-time`, `mdy`, `mdy-time`, `dmy`, `dmy-time`, `ja`, `ja-time`, or `blank`.
+  **Record now** uses the date even when it is `blank`.
+
+**Feedback** (the Meeting feedback extension)
+- `facilitatorCriteria`, `participantCriteria` — what a good meeting looks like for each role:
+  `{ id, name, description, weight }` each, at most a dozen, `weight` 3 / 2 / 1 shown as
+  **Critical / Important / Normal**. Empty (the default) means the built-in criteria, in the
+  minutes' language. Feedback already written keeps the criteria it was scored against.
 
 **Per-series overrides** (edited on a series page, not in `settings.json`)
 - A series can define its own **minutes format** and **transcription glossary**. The series
@@ -275,11 +290,11 @@ the household are different acts.
 - `openaiBaseUrl`, `openaiModel`, `openaiApiKey` — key optional for local servers
 
 **Appearance**
-- `restScreenSeconds` — seconds of no touch before the recording screen goes black while it
-  records: `0` (never, the default), `30`, `60`, `300` or `600`. A touch brings it back and it
-  rests again after the same wait. The screen lock, the microphone and the upload are all
-  unaffected; what it costs is the live transcript. See
-  [Usage](usage.md#record-a-meeting).
+- `uiLanguage` — `auto` (the browser's, the default), `en` or `ja`.
+- What else is under *Settings → Appearance* — the theme, when the screen rests while recording,
+  notifications, and the Android app's display size — is **per device**, kept in the browser and
+  not in this file: a phone in a pocket and a laptop on the table want different answers. See
+  [Usage](usage.md#settings-that-belong-to-this-device).
 
 **Search & speakers** (edit `settings.json` directly)
 - `voiceprintThreshold` — cosine similarity needed for voice-profile auto-naming, default `0.5`
@@ -299,13 +314,14 @@ Which extensions are on, for the whole instance — switched by an administrator
 
 It is written the first time the app starts without one, and never decided again:
 
-- **A new install** (no meetings yet) starts with every extension off. Recording, transcription
-  and minutes are the app; the rest is added.
+- **A new install** (no meetings yet) starts with **Speaker separation** on and every other
+  extension off. Recording, transcription and minutes are the app; the rest is added.
 - **An instance coming up from 3.x** keeps each extension it shows signs of using: separated or
   named speakers or voiceprints, a series, a booked meeting, a format of its own, translation,
   a provider other than Ollama or an endpoint of its own, and Funnel published or
   `APP_PASSWORD` set. Asking, writing minutes in bulk and suggesting corrections leave no sign,
-  so they stay on.
+  so they stay on, and so does Speaker separation. Voice cues, Emotion and Meeting feedback are
+  new in 4.0 and start off.
 
 Switching one off hides it and refuses its API; nothing it stored is deleted. An extension a
 later version adds starts off. Delete the file to have the starting set decided again.
@@ -315,7 +331,6 @@ later version adds starts off. Delete the file to have the starting set decided 
 - **Recordings (WAV):** auto-delete after `STT_RECORDING_RETENTION_DAYS` (default 7). Protect
   a recording to keep it. Minutes/transcripts in the DB are **not** affected.
 - **Trash:** deleted meetings are purged after 30 days.
-- **Archive:** archived meetings are hidden from the list but stay in the DB and appear in search.
 
 ---
 

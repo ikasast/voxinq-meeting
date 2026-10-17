@@ -165,11 +165,11 @@ server, so Docker needs no rebuild). What outside visitors get after logging in 
 password:
 
 - ✅ view meetings, minutes and transcripts; download minutes / transcript / meeting info.
-- ✅ set a meeting up: create or book one, and edit its title, purpose & agenda, tags,
+- ✅ set a meeting up: create or book one, and edit its title, purpose & agenda,
   participants and series — and a series' own defaults (shared background, regular members,
   minutes format, terms). None of it needs the GPU, the audio or the transcription service.
 - ❌ everything else that changes state — recording, minutes generation, editing the
-  transcript, diarization, delete, archive, settings — is **refused server-side** (HTTP 403),
+  transcript, diarization, delete, settings — is **refused server-side** (HTTP 403),
   not just hidden. So even the password holder on an untrusted machine cannot trigger those.
 
 > **With accounts**, the same boundary holds and the door changes: people sign in with their own

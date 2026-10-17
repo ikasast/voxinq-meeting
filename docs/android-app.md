@@ -248,6 +248,33 @@ all while a meeting is being recorded — the uplink belongs to the recording, w
 thing here that cannot be done again later. A file the sharing app granted no permission to read
 is refused too, rather than crashing on it.
 
+## When the server cannot be reached
+
+The server stopped, the tailnet down, the phone off it: the moment a meeting starts is the worst
+moment to find out, and until 4.0 the app could do nothing then. Now a meeting is recorded anyway
+and sent later.
+
+- **The offline screen records.** *Cannot reach the server* offers **Record on this phone**, into
+  `files/offline/rec-<time>/` — raw 16 kHz PCM (about 110 MB an hour) and a `meta.json` — through
+  the same audio processing as a live recording, in the same foreground service. **Record now** on
+  the widget and **Record** on a booked meeting's notice fall back to it by themselves when the server
+  does not answer within a few seconds, so neither has to be read first.
+- **It is sent when the server answers**, by the importer that takes shared files: a meeting dated
+  when the recording was made (`recordedAt`, and the start sent with the end), or the booked
+  meeting it was for. The phone's copy goes once the server has it; until then the offline screen
+  lists it with **Send now**, **Share as a file** (a WAV, through a FileProvider that exposes only
+  the cache) and **Delete**.
+- **"Cannot be reached" is broader than no answer.** A page that comes back 502/503/504 is tailscale
+  serve with the app behind it down, and goes to the same screen instead of the proxy's bare
+  "Bad Gateway". A 500 is asked about: when the server says its database is down, the screen says so.
+- **It is said before the meeting.** The quarter-hourly reminder check is the one thing that hears
+  from the server while nobody uses the app, so it notes when it stops getting answers. Out of reach
+  for half an hour, with a booked meeting less than three hours away, it says so once, naming the
+  meeting; the notice goes when the server answers again.
+- **Tailscale off is told apart.** A tailnet address (`*.ts.net`, 100.64.0.0/10) with no VPN up on the
+  phone is Tailscale switched off, the likeliest reason of all and the one the person holding the
+  phone can fix. The screen and the notice say so, with **Open Tailscale** when its app is installed.
+
 ## Not capturing what the phone plays
 
 The third convenience was to record what other apps are playing, as the page does on a PC with
@@ -309,3 +336,6 @@ if a use for live media capture turns up later.
 3. **The conveniences.** The notice at a booked meeting's time with a record action; sharing an
    audio file from another app to transcribe it. Capturing another app's playback was the third,
    and is **not being done** — see below.
+4. **A recording that survives the server.** Recording on the phone when the server cannot be
+   reached, sent once it answers; the notice before a meeting when it has been out of reach; the
+   widget in two sizes. Done in 4.0.
