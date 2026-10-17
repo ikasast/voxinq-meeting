@@ -707,6 +707,12 @@ dependencies, the database schema and a production build, in that order. Then re
 > services behind it. They built a git checkout in place, which is not how any of the install
 > routes above run, and each was one platform's own version of the same four commands.
 
+### A server with no way out
+
+Voxinq can run on a machine that cannot reach the internet once it is set up: prepare it online,
+use every model once, then close it. Updates are images you carry in. See
+[A closed server](closed-network.md).
+
 ### Branches & releases
 
 Two branches, with different jobs:
