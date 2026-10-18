@@ -11,6 +11,13 @@
 //
 // The same arithmetic is in the inline script in app/layout.tsx, which applies it before the
 // first paint and cannot import this. Change one, change the other.
+//
+// And the server says it too. Changing the tag after the page has loaded was not enough: the
+// framework puts its own viewport back on every navigation, and on the phone (Android 17's
+// WebView) the page stayed at 100% after going back to the top even with the tag put right
+// again at once. So the choice is also kept in a cookie (DISPLAY_COOKIE), and the root layout's
+// generateViewport renders the tag from it — every page then arrives with the right one, and
+// there is nothing for a navigation to undo.
 
 import { appVersionFrom } from "@/lib/app-version";
 
@@ -22,6 +29,9 @@ export type DisplaySize = (typeof DISPLAY_SIZES)[number];
 export const DEFAULT_DISPLAY_SIZE: DisplaySize = 115;
 
 export const DISPLAY_SIZE_KEY = "voxinq.displaySize";
+
+/** The layout the server renders the viewport from: "<width>_<scale>", e.g. "317_1.3". */
+export const DISPLAY_COOKIE = "voxinq_display";
 const CHANGED = "voxinq:display-size";
 
 /** The stored choice if it is one of the offered sizes, otherwise the default. */
@@ -34,6 +44,37 @@ export function displaySizeFrom(stored: string | null): DisplaySize {
 export function viewportFor(size: number, screenWidth: number): string {
   if (size === 100 || !(screenWidth > 0)) return "width=device-width, initial-scale=1";
   return `width=${Math.round((screenWidth * 100) / size)}, initial-scale=${size / 100}`;
+}
+
+/** The cookie's value for a size on a screen that wide; null where the default tag is right. */
+export function displayCookieFor(size: number, screenWidth: number): string | null {
+  if (size === 100 || !(screenWidth > 0)) return null;
+  return `${Math.round((screenWidth * 100) / size)}_${size / 100}`;
+}
+
+/**
+ * The viewport the server renders, from the cookie. Only what this file could have written: a
+ * width a phone has and one of the offered scales — the cookie arrives from the client.
+ */
+export function viewportFromCookie(value: string | undefined): { width: number; initialScale: number } | null {
+  const m = /^(\d{3,4})_(\d(?:\.\d{1,2})?)$/.exec(value ?? "");
+  if (!m) return null;
+  const width = Number(m[1]);
+  const initialScale = Number(m[2]);
+  const offered = DISPLAY_SIZES.some((s) => s !== 100 && s / 100 === initialScale);
+  if (!offered || width < 200 || width > 2000) return null;
+  return { width, initialScale };
+}
+
+function writeDisplayCookie(size: number): void {
+  const value = displayCookieFor(size, screen.width);
+  try {
+    document.cookie = value
+      ? `${DISPLAY_COOKIE}=${value}; path=/; max-age=31536000; samesite=lax`
+      : `${DISPLAY_COOKIE}=; path=/; max-age=0; samesite=lax`;
+  } catch {
+    // No cookies: the tag is still put right here, as before.
+  }
 }
 
 export function inAndroidApp(): boolean {
@@ -57,6 +98,9 @@ export function subscribeDisplaySize(fn: () => void): () => void {
 /** Lay the page out for the chosen size, now. */
 export function applyDisplaySize(size: number = readDisplaySize()): void {
   if (!inAndroidApp()) return;
+  // Every time, not only when it is chosen: the width is the screen's, and turning the phone
+  // changes it.
+  writeDisplayCookie(size);
   const meta = document.querySelector('meta[name="viewport"]');
   const content = viewportFor(size, screen.width);
   if (meta && meta.getAttribute("content") !== content) meta.setAttribute("content", content);
@@ -70,4 +114,11 @@ export function writeDisplaySize(size: DisplaySize): void {
   }
   applyDisplaySize(size);
   window.dispatchEvent(new Event(CHANGED));
+  // A WebView that did not take the new tag gets the page again, which arrives with the right one.
+  if (inAndroidApp()) {
+    window.setTimeout(() => {
+      const scale = window.visualViewport?.scale;
+      if (scale !== undefined && Math.abs(scale - size / 100) > 0.03) window.location.reload();
+    }, 400);
+  }
 }
