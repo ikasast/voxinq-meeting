@@ -114,11 +114,69 @@ export function writeDisplaySize(size: DisplaySize): void {
   }
   applyDisplaySize(size);
   window.dispatchEvent(new Event(CHANGED));
+  reportDisplaySize("chosen", size);
   // A WebView that did not take the new tag gets the page again, which arrives with the right one.
+  // Loaded afresh rather than reloaded: a reload may bring back the zoom the page had.
   if (inAndroidApp()) {
     window.setTimeout(() => {
+      reportDisplaySize("checked", size);
       const scale = window.visualViewport?.scale;
-      if (scale !== undefined && Math.abs(scale - size / 100) > 0.03) window.location.reload();
+      if (scale !== undefined && Math.abs(scale - size / 100) > 0.03) {
+        try {
+          sessionStorage.setItem(RELOADED, String(size));
+        } catch {
+          // Only the report after the load is lost.
+        }
+        window.location.replace(window.location.href);
+      }
     }, 400);
+  }
+}
+
+// ---- Temporary, for 4.1 betas: what the phone's WebView actually does with the size ----
+//
+// The emulator never showed the failure a real phone did, so the phone says what it sees: the
+// scale it is drawn at, the width it is laid out at, the tag and the cookie. Sizes and numbers
+// only; nothing about any meeting. Logged by the server (/api/diag/display). Remove before 4.1.0.
+
+const RELOADED = "voxinq.displaySizeReloaded";
+
+export function reportDisplaySize(event: string, size: number = readDisplaySize()): void {
+  if (!inAndroidApp()) return;
+  try {
+    const body = {
+      event,
+      size,
+      stored: localStorage.getItem(DISPLAY_SIZE_KEY),
+      screenWidth: screen.width,
+      innerWidth: window.innerWidth,
+      scale: window.visualViewport?.scale ?? null,
+      dpr: window.devicePixelRatio,
+      tags: [...document.querySelectorAll('meta[name="viewport"]')].map((m) => m.getAttribute("content")),
+      cookie: /(?:^|; )voxinq_display=([^;]*)/.exec(document.cookie)?.[1] ?? null,
+      path: location.pathname,
+      chrome: /Chrome\/([\d.]+)/.exec(navigator.userAgent)?.[1] ?? null,
+      app: /VoxinqAndroid\/(\S+)/.exec(navigator.userAgent)?.[1] ?? null,
+    };
+    void fetch("/api/diag/display", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // A report that cannot be made changes nothing.
+  }
+}
+
+/** On a page's first load: the report of a load that writeDisplaySize asked for, if it did. */
+export function reportAfterReload(): void {
+  try {
+    const size = sessionStorage.getItem(RELOADED);
+    if (size === null) return;
+    sessionStorage.removeItem(RELOADED);
+    reportDisplaySize("after-reload", Number(size));
+  } catch {
+    // Nothing to report.
   }
 }
