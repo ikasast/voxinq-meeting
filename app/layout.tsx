@@ -1,4 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { cookies, headers } from "next/headers";
+import { DISPLAY_COOKIE, viewportFromCookie } from "./display-size";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ConfirmProvider } from "./confirm-dialog";
@@ -55,9 +57,15 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = {
-  themeColor: "#0b1220",
-};
+// In the Android app, the display size the phone chose (app/display-size.ts), so every page
+// arrives with the tag it needs rather than having it changed after loading.
+export async function generateViewport(): Promise<Viewport> {
+  const base: Viewport = { themeColor: "#0b1220" };
+  const ua = (await headers()).get("user-agent") ?? "";
+  if (!ua.includes("VoxinqAndroid/")) return base;
+  const chosen = viewportFromCookie((await cookies()).get(DISPLAY_COOKIE)?.value);
+  return chosen ? { ...base, ...chosen } : base;
+}
 
 // The top bar, now only on screens too narrow for the rail. It keeps the full logo because
 // there is room for it here and it is the only place the app names itself on a phone.
@@ -133,10 +141,11 @@ export default async function RootLayout({
           }}
         />
         {/* In the Android app, the page's size (app/display-size.ts), before the first paint so it
-            is not laid out twice. The same arithmetic as viewportFor there. */}
+            is not laid out twice, and the cookie generateViewport renders the next page's tag
+            from. The same arithmetic as viewportFor and displayCookieFor there. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(navigator.userAgent.indexOf("VoxinqAndroid/")>=0){var s=Number(localStorage.getItem("voxinq.displaySize"));if([100,115,130].indexOf(s)<0)s=115;var m=document.querySelector('meta[name="viewport"]');if(m&&s!==100&&screen.width>0)m.setAttribute("content","width="+Math.round(screen.width*100/s)+", initial-scale="+s/100)}}catch(e){}`,
+            __html: `try{if(navigator.userAgent.indexOf("VoxinqAndroid/")>=0){var s=Number(localStorage.getItem("voxinq.displaySize"));if([100,115,130].indexOf(s)<0)s=115;var w=Math.round(screen.width*100/s),m=document.querySelector('meta[name="viewport"]');if(s!==100&&screen.width>0){document.cookie="voxinq_display="+w+"_"+s/100+"; path=/; max-age=31536000; samesite=lax";if(m)m.setAttribute("content","width="+w+", initial-scale="+s/100)}else{document.cookie="voxinq_display=; path=/; max-age=0; samesite=lax"}}}catch(e){}`,
           }}
         />
         <LocaleProvider locale={locale}>
