@@ -106,4 +106,15 @@ describe("the Ask chat", () => {
     expect(page).toContain("seriesId={seriesId && seriesOn ? seriesId : undefined}");
     expect(page).not.toContain("plain");
   });
+
+  it("streams the answer as it is written, and the whole of it at the end", () => {
+    const route = readFileSync(join(__dirname, "..", "app", "api", "ask", "route.ts"), "utf8");
+    expect(route).toContain('"Content-Type": "application/x-ndjson; charset=utf-8"');
+    expect(route).toContain("send({ text })");
+    expect(route).toContain("send({ done: true, ...result })");
+    const ollama = readFileSync(join(__dirname, "..", "lib", "llm", "ollama.ts"), "utf8");
+    expect(ollama).toContain("if (piece && onText) onText(piece);");
+    expect(ui).toContain("stream: true");
+    expect(ui).toContain("settle({ partial })");
+  });
 });

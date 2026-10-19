@@ -81,6 +81,10 @@ export interface ChatArgs {
   // a model like qwen3 can spend the whole budget thinking and return nothing at all.
   // Left undefined = the model's default.
   think?: boolean;
+  // The answer as it is written, piece by piece, for a screen that shows it while it comes
+  // (Ask). Only the streaming provider (ollama) calls it; the others return the whole answer and
+  // the caller shows it at the end. The returned string is the whole answer either way.
+  onText?: (delta: string) => void;
 }
 
 export interface ChatProvider {

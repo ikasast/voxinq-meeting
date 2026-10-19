@@ -66,6 +66,7 @@ export async function askMinutes(
   meetings: MeetingForAsk[],
   scopeLabel: string,
   signal?: AbortSignal,
+  onText?: (delta: string) => void,
 ): Promise<AskResult> {
   const cfg = await getLlmConfig();
   const provider = providerFor(cfg.provider);
@@ -121,7 +122,7 @@ export async function askMinutes(
   // No reasoning first: a question here is a lookup in the material, and a thinking model spent
   // most of a minute reasoning before a two-line answer (measured: 800 tokens against 90).
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText },
     cfg,
     signal,
   );
@@ -154,6 +155,7 @@ export async function askTranscript(
   question: string,
   meeting: MeetingTranscriptForAsk,
   signal?: AbortSignal,
+  onText?: (delta: string) => void,
 ): Promise<TranscriptAskResult> {
   const cfg = await getLlmConfig();
   const provider = providerFor(cfg.provider);
@@ -203,7 +205,7 @@ export async function askTranscript(
     .join("\n");
 
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText },
     cfg,
     signal,
   );
@@ -228,6 +230,7 @@ export async function askBoth(
   minutes: MeetingForAsk[],
   scopeLabel: string,
   signal?: AbortSignal,
+  onText?: (delta: string) => void,
 ): Promise<BothAskResult> {
   const cfg = await getLlmConfig();
   const provider = providerFor(cfg.provider);
@@ -281,7 +284,7 @@ export async function askBoth(
     .join("\n\n---\n\n");
 
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText },
     cfg,
     signal,
   );

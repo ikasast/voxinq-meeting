@@ -20,8 +20,11 @@ type Answer = {
 /** "both": the meeting's words and the minutes together, the default where both exist. */
 type Source = "both" | "minutes" | "transcript";
 
-/** One question and what came back, in the order they were asked. Nothing is stored. */
-type Turn = { question: string; source: Source; answer?: Answer; error?: string };
+/**
+ * One question and what came back, in the order they were asked. Nothing is stored. `partial` is
+ * the answer so far, while it is being written.
+ */
+type Turn = { question: string; source: Source; answer?: Answer; partial?: string; error?: string };
 
 // Asking about meetings, as a chat that floats at the bottom right (v4).
 //
@@ -94,14 +97,43 @@ export function AskMinutes({
     const settle = (done: Partial<Turn>) =>
       setTurns((all) => all.map((x) => (x === turn ? { ...x, ...done } : x)));
     try {
+      // As it is written: the first words once the material is read, not the whole answer at
+      // the end (NDJSON — pieces of text, then the whole answer with what it was based on).
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text, seriesId, meetingId, source }),
+        body: JSON.stringify({ question: text, seriesId, meetingId, source, stream: true }),
       });
-      const d = (await res.json().catch(() => null)) as (Answer & { error?: string }) | null;
-      if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
-      settle({ answer: d as Answer });
+      if (!res.ok || !res.body) {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(d?.error ?? `HTTP ${res.status}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let partial = "";
+      let finished = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const m = JSON.parse(line) as Partial<Answer> & { text?: string; done?: boolean; error?: string };
+          if (m.error) throw new Error(m.error);
+          if (typeof m.text === "string") {
+            partial += m.text;
+            settle({ partial });
+          }
+          if (m.done) {
+            settle({ answer: m as Answer, partial: undefined });
+            finished = true;
+          }
+        }
+      }
+      if (!finished) throw new Error(t("The answer stopped before it was finished."));
     } catch (e) {
       settle({ error: (e as Error).message });
     } finally {
@@ -243,6 +275,13 @@ export function AskMinutes({
                   </div>
                 ) : turn.error ? (
                   <p className="mr-4 text-xs text-[var(--error)]">{turn.error}</p>
+                ) : turn.partial ? (
+                  <div className="mr-4 rounded-2xl rounded-bl-sm bg-[var(--elevated)] px-3 py-2">
+                    <article className="prose prose-invert prose-sm minutes-prose max-w-none prose-headings:font-semibold">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.partial}</ReactMarkdown>
+                    </article>
+                    <span aria-hidden className="mt-1 inline-block size-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
+                  </div>
                 ) : (
                   <p className="text-xs text-[var(--text-muted)]">
                     <span aria-hidden className="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-[var(--accent)]" />
