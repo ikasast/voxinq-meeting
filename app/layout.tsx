@@ -12,7 +12,6 @@ import { currentUser } from "@/lib/auth/session";
 import { currentLocale } from "@/lib/i18n/server";
 import { hasKey } from "@/lib/crypto/key-cache";
 import { prisma } from "@/lib/prisma";
-import { AccountMenu } from "./account-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { LocaleProvider } from "./locale-provider";
 import { DueMeetingAlert } from "./due-meeting-alert";
@@ -163,16 +162,16 @@ export default async function RootLayout({
                 isAdmin={me?.isAdmin ?? false}
                 version={appVersion}
                 docsUrl={docsUrl}
-                account={
-                  meWithImage ? (
-                    <AccountMenu
-                      username={meWithImage.username}
-                      name={meWithImage.name}
-                      hasImage={meWithImage.hasImage}
-                      isAdmin={meWithImage.isAdmin}
-                      via={meWithImage.via}
-                    />
-                  ) : null
+                me={
+                  meWithImage
+                    ? {
+                        username: meWithImage.username,
+                        name: meWithImage.name,
+                        hasImage: meWithImage.hasImage,
+                        isAdmin: meWithImage.isAdmin,
+                        via: meWithImage.via,
+                      }
+                    : null
                 }
                 extras={
                   <>

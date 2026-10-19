@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { AccountMenu, type AccountMenuProps } from "./account-menu";
 import {
   CloseIcon,
   GearIcon,
@@ -139,7 +140,7 @@ export function Sidebar({
   isAdmin,
   version,
   docsUrl,
-  account,
+  me,
   extras,
 }: {
   meetings: SidebarMeeting[];
@@ -149,8 +150,12 @@ export function Sidebar({
   isAdmin: boolean;
   version: string;
   docsUrl: string;
-  /** The account menu, rendered by the layout (it is a server-fed component). */
-  account: ReactNode;
+  /**
+   * Whose session this is, for the account menu at the foot. The data rather than a rendered
+   * menu: a menu element handed down from the server layout arrives as a reference that cannot
+   * be cloned with the name switched on, so the open sidebar showed the picture alone.
+   */
+  me: AccountMenuProps | null;
   /** What else belongs at the foot on this device: install, the theme for a visitor. */
   extras: ReactNode;
 }) {
@@ -479,7 +484,7 @@ export function Sidebar({
         {footLinks(false)}
         <div className="mt-2 flex items-center gap-2 px-2">
           {/* Open, the name beside the picture; the folded rail below has room for the picture only. */}
-          {isValidElement<{ withName?: boolean }>(account) ? cloneElement(account, { withName: true }) : account}
+          {me ? <AccountMenu {...me} withName /> : null}
           <span className="ml-auto flex items-center gap-1">{extras}</span>
         </div>
         <p className="mt-1 px-2 text-[10px] text-[var(--text-muted)]">v{version}</p>
@@ -512,7 +517,7 @@ export function Sidebar({
       <div className="flex-1" />
       <div className={`${FOOT} flex w-full flex-col items-center gap-1 pb-1 pt-2`} style={FOOT_STYLE}>
         {footLinks(true)}
-        <div className="mt-1">{account}</div>
+        <div className="mt-1">{me ? <AccountMenu {...me} /> : null}</div>
       </div>
     </div>
   );
