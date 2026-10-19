@@ -10,7 +10,11 @@ import { getLlmBackground, getLlmConfig, getSummaryLanguage } from "../settings"
 import { CONTEXT_BUDGET, estTokens, ollamaContextBudget, providerFor } from "./provider";
 import { condenseTranscript } from "./index";
 
-const ANSWER_MAX_TOKENS = 2048;
+// An answer is a lookup, not a document. Without reasoning first, a model now and then runs on
+// repeating itself to whatever cap it is given (2048 tokens, a minute and a half, once in a
+// test); half of that is still more than any answer here needs.
+const ANSWER_MAX_TOKENS = 1024;
+const CONCISE = "回答は要点を絞って簡潔に書いてください。箇条書きにする場合も、関係する項目だけを挙げてください。";
 const LANG_NAME: Record<string, string> = { ja: "日本語", en: "英語", zh: "中国語" };
 
 export type MeetingForAsk = {
@@ -85,6 +89,7 @@ export async function askMinutes(
 
   const system = [
     `あなたは会議の記録を参照して質問に答えるアシスタントです。回答は${langName}で書いてください。`,
+    CONCISE,
     "回答は与えられた議事録の内容だけを根拠にしてください。書かれていないことは推測せず、「議事録には記載がありません」と述べてください。",
     // Without this the model answers from one meeting and silently drops the rest: asked for
     // "TODOs so far" across two meetings, it returned only the older one's list.
@@ -113,8 +118,10 @@ export async function askMinutes(
     .filter(Boolean)
     .join("\n");
 
+  // No reasoning first: a question here is a lookup in the material, and a thinking model spent
+  // most of a minute reasoning before a two-line answer (measured: 800 tokens against 90).
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false },
     cfg,
     signal,
   );
@@ -171,6 +178,7 @@ export async function askTranscript(
 
   const system = [
     `あなたは会議の発言ログを参照して質問に答えるアシスタントです。回答は${langName}で書いてください。`,
+    CONCISE,
     "回答は与えられた発言ログの内容だけを根拠にしてください。書かれていないことは推測せず、「記録には見当たりません」と述べてください。",
     "関係する発言があれば、その言い回しを短く引用してください。話者名が付いている場合は、誰の発言かも添えてください。",
     "発言ログに無い事業名・組織・人物・数値を新たに作り出さないこと。",
@@ -194,6 +202,88 @@ export async function askTranscript(
     .filter(Boolean)
     .join("\n");
 
-  const answer = await provider.chat({ system, user, maxTokens: ANSWER_MAX_TOKENS }, cfg, signal);
+  const answer = await provider.chat(
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false },
+    cfg,
+    signal,
+  );
   return { answer: answer.trim(), condensed };
+}
+
+export type BothAskResult = AskResult & { condensed: boolean };
+
+/**
+ * Answer from both: this meeting's own words, and the minutes — the series' when the meeting
+ * is in one, its own when it is not. The default where both exist.
+ *
+ * The transcript is what a question about this meeting most needs, so it comes first in the
+ * budget; the minutes take at most a third of it, newest first, and the oldest are left out
+ * when they do not fit. Laid out minutes, then transcript, then the question, so that a second
+ * question about the same meeting starts with the same text and the model can reuse its
+ * reading of it.
+ */
+export async function askBoth(
+  question: string,
+  meeting: MeetingTranscriptForAsk,
+  minutes: MeetingForAsk[],
+  scopeLabel: string,
+  signal?: AbortSignal,
+): Promise<BothAskResult> {
+  const cfg = await getLlmConfig();
+  const provider = providerFor(cfg.provider);
+  const language = await getSummaryLanguage();
+  const background = (await getLlmBackground()).trim();
+  const langName = LANG_NAME[language] ?? "日本語";
+
+  const budget =
+    cfg.provider === "ollama"
+      ? ollamaContextBudget(cfg.ollamaNumCtx)
+      : (CONTEXT_BUDGET[cfg.provider] ?? CONTEXT_BUDGET.ollama);
+  const avail = Math.max(2000, budget - ANSWER_MAX_TOKENS - estTokens(question) - 1600);
+
+  const { context: minutesContext, used, omitted } = buildAskContext(minutes, Math.floor(avail / 3));
+  const withoutMinutes = minutes.filter((m) => !m.minutes || !m.minutes.trim()).length;
+
+  let source = meeting.conversation.trim();
+  let condensed = false;
+  const transcriptRoom = Math.max(1500, avail - estTokens(minutesContext));
+  if (estTokens(source) > transcriptRoom) {
+    source = await condenseTranscript(provider, cfg, source, transcriptRoom, language, signal);
+    condensed = true;
+  }
+
+  const system = [
+    `あなたは会議の記録を参照して質問に答えるアシスタントです。回答は${langName}で書いてください。`,
+    CONCISE,
+    "回答は与えられた議事録と発言ログの内容だけを根拠にしてください。どちらにも書かれていないことは推測せず、「記録には見当たりません」と述べてください。",
+    "この会議について尋ねられた場合は発言ログを優先し、関係する発言があればその言い回しを短く引用してください。話者名が付いている場合は、誰の発言かも添えてください。",
+    "過去の回や経緯について尋ねられた場合は議事録を使い、どの回（日付と会議名）のことかを明記してください。",
+    "記録に無い事業名・組織・人物・数値を新たに作り出さないこと。",
+    background
+      ? `次は用語解釈のための業務背景です。回答の根拠にはせず、用語の理解にのみ使ってください:\n${background}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const user = [
+    minutesContext
+      ? `以下は「${scopeLabel}」の議事録です（新しい順、${used}件）。${
+          omitted > 0 ? `古い${omitted}件は長さの都合で省略されています。` : ""
+        }\n\n${minutesContext}`
+      : "",
+    `以下は「${meeting.title}」（${formatDate(meeting.startedAt)}）の発言ログです。${
+      condensed ? "長い会議のため、ログ全体から抽出した要点メモになっています。" : ""
+    }\n\n${source}`,
+    `上の議事録と発言ログだけを根拠に、次の質問に答えてください。\n\n質問: ${question}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+
+  const answer = await provider.chat(
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false },
+    cfg,
+    signal,
+  );
+  return { answer: answer.trim(), used, omitted, withoutMinutes, condensed };
 }

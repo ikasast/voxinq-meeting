@@ -23,15 +23,16 @@ export const ollamaProvider: ChatProvider = {
     // business-background reference and a full meeting transcript, the transcript (at the
     // end of the user message) gets truncated out of context, so the model summarizes the
     // system prompt (background + format example) instead of the actual meeting.
-    // Size num_ctx from the actual input so the whole transcript fits.
-    // Japanese is roughly ~1.8 chars/token; add the output budget and a margin.
+    // Size num_ctx from the actual input so the whole transcript fits: characters over this
+    // model's characters per token (learned below when an estimate falls short), plus the
+    // output budget and a margin.
     const promptChars = system.length + user.length + (prefill?.length ?? 0);
-    const estTokens = Math.ceil(promptChars / 1.8) + maxTokens + 512;
-    // Clamp to sane steps, and cap at the same budget the caller used to decide whether this
-    // transcript needed condensing first. Two numbers here means condensing for one size and
-    // then asking the model to hold another.
+    const estTokens = Math.ceil(promptChars / charsPerToken(cfg.ollamaModel)) + maxTokens + 512;
+    // Cap at the same budget the caller used to decide whether this transcript needed
+    // condensing first — two numbers here means condensing for one size and then asking the
+    // model to hold another — and round to a few coarse sizes (contextStep).
     const ceiling = ollamaContextBudget(cfg.ollamaNumCtx);
-    let numCtx = Math.min(ceiling, Math.max(8192, Math.ceil(estTokens / 2048) * 2048));
+    let numCtx = contextStep(estTokens, ceiling);
 
     // Stream the response. Without streaming, Ollama sends no HTTP headers until the
     // FULL generation is done — and Node's fetch (undici) aborts requests whose headers
@@ -70,6 +71,9 @@ export const ollamaProvider: ChatProvider = {
     if (res.status === 400) {
       const detail = await res.text().catch(() => "");
       const needed = neededTokens(detail);
+      // Remembered, so the next call to this model sizes itself right the first time: a 400
+      // costs a load of the model at the wrong size and another at the right one.
+      if (needed !== null) learnCharsPerToken(cfg.ollamaModel, promptChars, needed);
       const retry = needed === null ? null : contextFor(needed + maxTokens + 256, ceiling);
       if (retry === null || retry <= numCtx) {
         throw new Error(`Ollama call failed (HTTP ${res.status}): ${detail.slice(0, 300)}`);
@@ -145,6 +149,38 @@ export async function unloadOllama(cfg: LlmConfig): Promise<void> {
 export function neededTokens(detail: string): number | null {
   const m = /request \((\d+) tokens\) exceeds the available context size/.exec(detail);
   return m ? Number(m[1]) : null;
+}
+
+/**
+ * Characters per token, per model. Japanese came out near 1.8 for one model and nearer 1.45
+ * for another (Nemotron Nano 9B v2 Japanese: 19314 tokens for a prompt sized as 15900), so the
+ * start is the cautious end and each 400 that says how many tokens were needed corrects it.
+ */
+const DEFAULT_CHARS_PER_TOKEN = 1.5;
+const charsPerTokenByModel = new Map<string, number>();
+
+export function charsPerToken(model: string): number {
+  return charsPerTokenByModel.get(model) ?? DEFAULT_CHARS_PER_TOKEN;
+}
+
+export function learnCharsPerToken(model: string, chars: number, tokens: number): void {
+  if (!(chars > 0) || !(tokens > 0)) return;
+  // A little under what was measured: the next prompt is a different text.
+  const ratio = (chars / tokens) * 0.95;
+  charsPerTokenByModel.set(model, Math.min(ratio, charsPerToken(model)));
+}
+
+/**
+ * The context to ask for, in steps of 8192 up to the budget.
+ *
+ * Coarse on purpose. Ollama loads the model again whenever num_ctx changes, and a question,
+ * the next question and a set of minutes each sized to the nearest 2048 asked for a different
+ * window every time — a reload of a few seconds each, and the prompt it had just read thrown
+ * away with it. On one size, a second question about the same meeting finds the first one's
+ * reading still there (the prompt puts the material before the question for that reason).
+ */
+export function contextStep(tokens: number, ceiling: number): number {
+  return Math.min(ceiling, Math.max(8192, Math.ceil(tokens / 8192) * 8192));
 }
 
 /** A context window that holds `tokens`, in steps of 2048, or null if the budget cannot. */

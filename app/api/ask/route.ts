@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { extensionOff } from "@/app/api/extension-off";
 import { conversationText } from "@/lib/llm";
-import { askMinutes, askTranscript, type MeetingForAsk } from "@/lib/llm/ask";
+import { askBoth, askMinutes, askTranscript, type MeetingForAsk } from "@/lib/llm/ask";
 import { readNames } from "@/lib/speakers";
 import { minutesInFlight } from "@/lib/meetings/minutes-state";
 import { prisma } from "@/lib/prisma";
@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     question?: unknown;
     seriesId?: unknown;
     meetingId?: unknown;
-    // "transcript" reads one meeting's own words instead of its minutes.
+    // "transcript" reads one meeting's own words instead of its minutes; "both" reads the
+    // meeting's words and the minutes together, which is what the panel asks for by default.
     source?: unknown;
   }>(req);
   const question = typeof body?.question === "string" ? body.question.trim() : "";
@@ -49,6 +50,34 @@ export async function POST(req: NextRequest) {
       409,
       { vars: { title: inFlight.title } },
     );
+  }
+
+  // Both: the meeting's own words, and the minutes around it. Where either is missing the
+  // answer comes from the other, as if it had been asked for alone.
+  if (body?.source === "both" && meetingId) {
+    const meeting = await transcriptOf(meetingId);
+    if (!meeting) return apiError("meeting not found", 404);
+    const found = await minutesOf(seriesId, meetingId);
+    if (!found) return apiError(seriesId ? "series not found" : "meeting not found", 404);
+    const anyMinutes = found.meetings.some((m) => m.minutes && m.minutes.trim());
+    if (meeting.transcripts.length > 0 && anyMinutes) {
+      try {
+        const result = await askBoth(
+          question,
+          {
+            title: meeting.title,
+            startedAt: meeting.startedAt,
+            conversation: conversationText(meeting.transcripts, readNames(meeting.speakerLabels)),
+          },
+          found.meetings,
+          found.scopeLabel,
+        );
+        return NextResponse.json({ ...result, source: "both" });
+      } catch (e) {
+        return apiError("Failed to answer: {reason}", 502, { vars: { reason: (e as Error).message } });
+      }
+    }
+    if (meeting.transcripts.length > 0) body.source = "transcript";
   }
 
   // One meeting, read in full: what was actually said, for a question the minutes cannot
@@ -93,39 +122,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Newest first — the context builder drops the oldest meetings when they do not all fit.
-  const select = {
-    title: true,
-    startedAt: true,
-    summaries: { orderBy: { createdAt: "desc" as const }, take: 1, select: { summaryText: true } },
-  };
-  let scopeLabel: string;
-  let rows: { title: string; startedAt: Date; summaries: { summaryText: string }[] }[];
-
-  if (seriesId) {
-    const series = await prisma.series.findUnique({
-      where: { id: seriesId },
-      select: { name: true },
-    });
-    if (!series) return apiError("series not found", 404);
-    scopeLabel = series.name;
-    rows = await prisma.meeting.findMany({
-      where: { seriesId, deletedAt: null },
-      orderBy: { startedAt: "desc" },
-      select,
-    });
-  } else {
-    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId }, select });
-    if (!meeting) return apiError("meeting not found", 404);
-    scopeLabel = meeting.title;
-    rows = [meeting];
-  }
-
-  const meetings: MeetingForAsk[] = rows.map((m) => ({
-    title: m.title,
-    startedAt: m.startedAt,
-    minutes: m.summaries[0]?.summaryText ?? null,
-  }));
+  const found = await minutesOf(seriesId, meetingId);
+  if (!found) return apiError(seriesId ? "series not found" : "meeting not found", 404);
+  const { scopeLabel, meetings } = found;
 
   try {
     const result = await askMinutes(question, meetings, scopeLabel);
@@ -139,4 +138,60 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return apiError("Failed to answer: {reason}", 502, { vars: { reason: (e as Error).message } });
   }
+}
+
+/** One meeting with its transcript, for reading what was said. */
+function transcriptOf(meetingId: string) {
+  return prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: {
+      title: true,
+      startedAt: true,
+      speakerLabels: true,
+      transcripts: {
+        orderBy: { createdAt: "asc" },
+        select: { speakerType: true, text: true, createdAt: true },
+      },
+    },
+  });
+}
+
+/**
+ * The minutes to answer from: the series' when there is one, the meeting's own when not.
+ * Newest first — the context builder drops the oldest meetings when they do not all fit.
+ */
+async function minutesOf(
+  seriesId: string,
+  meetingId: string,
+): Promise<{ scopeLabel: string; meetings: MeetingForAsk[] } | null> {
+  const select = {
+    title: true,
+    startedAt: true,
+    summaries: { orderBy: { createdAt: "desc" as const }, take: 1, select: { summaryText: true } },
+  };
+  let scopeLabel: string;
+  let rows: { title: string; startedAt: Date; summaries: { summaryText: string }[] }[];
+  if (seriesId) {
+    const series = await prisma.series.findUnique({ where: { id: seriesId }, select: { name: true } });
+    if (!series) return null;
+    scopeLabel = series.name;
+    rows = await prisma.meeting.findMany({
+      where: { seriesId, deletedAt: null },
+      orderBy: { startedAt: "desc" },
+      select,
+    });
+  } else {
+    const meeting = await prisma.meeting.findUnique({ where: { id: meetingId }, select });
+    if (!meeting) return null;
+    scopeLabel = meeting.title;
+    rows = [meeting];
+  }
+  return {
+    scopeLabel,
+    meetings: rows.map((m) => ({
+      title: m.title,
+      startedAt: m.startedAt,
+      minutes: m.summaries[0]?.summaryText ?? null,
+    })),
+  };
 }
