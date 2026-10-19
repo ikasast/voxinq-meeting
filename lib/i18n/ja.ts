@@ -1561,6 +1561,13 @@ export const ja: Record<string, string> = {
     "「{scope}」で話された内容だけから答えます。回答は保存されません。",
   "From the minutes": "議事録から",
   "From the transcript": "文字起こしから",
+  "From both": "両方から",
+  "Answered from everything said in this meeting and the minutes of {scope} — nothing else. Answers are not saved.":
+    "この会議の発言すべてと「{scope}」の議事録だけをもとに答えます。回答は保存されません。",
+  "Based on everything said in this meeting, and the minutes of {n} meeting(s)":
+    "この会議の発言すべてと、{n} 回分の議事録をもとにしています",
+  "Based on notes taken from the whole of this meeting, and the minutes of {n} meeting(s)":
+    "この会議全体から取った要点メモと、{n} 回分の議事録をもとにしています",
   "Based on everything said in this meeting.": "この会議で話された内容すべてに基づいています。",
   "Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).":
     "長い会議のため、全体から抽出した要点メモに基づいています（会議全体をカバーしています）。",

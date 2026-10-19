@@ -67,8 +67,18 @@ describe("the Ask box", () => {
     expect(ui).toContain('t("From the transcript")');
   });
 
-  it("starts on the minutes when there are any, and on the transcript when there are not", () => {
-    expect(ui).toContain('useState<Source>(hasMinutes ? "minutes" : "transcript")');
+  it("starts on both where a meeting has both, on the minutes for a series, on the transcript otherwise", () => {
+    expect(ui).toContain('meetingId && hasTranscript && hasMinutes ? "both" : hasMinutes ? "minutes" : "transcript"');
+    expect(ui).toContain('(["both", "minutes", "transcript"] as const)');
+  });
+
+  it("asks without reasoning first, from both, with the material before the question", () => {
+    // A thinking model spent most of a minute reasoning before a two-line answer.
+    const ask = readFileSync(join(__dirname, "..", "lib", "llm", "ask.ts"), "utf8");
+    expect(ask.match(/think: false/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(ask).toContain("export async function askBoth(");
+    const route = readFileSync(join(__dirname, "..", "app", "api", "ask", "route.ts"), "utf8");
+    expect(route).toContain('body?.source === "both"');
   });
 
   it("appears for a meeting that is recorded but not written up yet", () => {
