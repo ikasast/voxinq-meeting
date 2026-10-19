@@ -6,7 +6,8 @@
 
 - **New meeting** and **Search meetings** at the top.
 - Your meetings below them: **Pinned**, **Upcoming** (booked and not recorded yet), the
-  **Series** you met in most recently, then the rest by day — **Today**, **Yesterday**, **This
+  **Series** you met in most recently (and any you pinned, above them, from the row's pin or the
+  series page), then the rest by day — **Today**, **Yesterday**, **This
   week**, **Earlier**. **All meetings** opens the full list.
 - Along the foot, on a tone of its own: **Series**, **Feedback**, **Queue**, **People** (for an
   administrator), **Help** and **Settings**, with your account and the version under them.

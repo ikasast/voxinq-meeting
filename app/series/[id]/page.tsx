@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { extensionEnabled } from "@/lib/extensions-store";
 import { AskMinutes } from "../../ask-minutes";
 import { SeriesSettings } from "./series-settings";
+import { PinSeriesButton } from "./pin-series-button";
 import { DeleteSeriesButton } from "./delete-series-button";
 import { CalendarPlusIcon, SeriesIcon } from "../../icons";
 import { PROPS_GRID, Prop } from "../../[id]/property";
@@ -36,6 +37,7 @@ export default async function SeriesPage({
     select: {
       id: true,
       name: true,
+      pinnedAt: true,
       summaryFormat: true,
       sttGlossary: true,
       description: true,
@@ -89,6 +91,7 @@ export default async function SeriesPage({
             <CalendarPlusIcon className="h-4 w-4" />
             {t("Next meeting")}
           </Link>
+          {!external ? <PinSeriesButton id={series.id} pinned={series.pinnedAt !== null} /> : null}
           {/* Only while nothing is filed under it, and only from inside: deleting is not setting up. */}
           {series._count.meetings === 0 && !external ? <DeleteSeriesButton id={series.id} name={series.name} /> : null}
         </div>
