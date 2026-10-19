@@ -91,8 +91,10 @@ describe("where the numbers come from", () => {
   });
 
   it("put the trash's room back on the trash's own schedule", () => {
-    expect(page).toContain('from "@/lib/trash"');
-    expect(read("app/api/trash/route.ts")).toContain('from "@/lib/trash"');
+    // The trash's period is a setting now (Settings → Data), read where it is used.
+    expect(page).toContain("await trashRetentionDays()");
+    expect(read("app/api/trash/route.ts")).toContain("purgeAfterDays: await trashRetentionDays()");
+    expect(read("lib/trash.ts")).toContain("(await trashRetentionDays()) * 86_400_000");
   });
 
   it("are reached from the account menu and from Settings → Data", () => {

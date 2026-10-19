@@ -4,6 +4,7 @@
 // Keys with no value fall back in order: environment variable -> hardcoded default.
 
 import { promises as fs } from "fs";
+import { RECORDING_RETENTION_CHOICES, TRASH_RETENTION_CHOICES } from "./retention-choices";
 import path from "path";
 import type { Prisma } from "@prisma/client";
 import { resolveScope } from "./db/owner";
@@ -108,6 +109,12 @@ export type AppSettings = {
   // (android/.../AppLock.kt). The app reads it from /api/app-lock and keeps the rule itself;
   // the server cannot check that it does.
   requireAppLock: boolean;
+  // How long an unprotected recording (the audio) is kept, in days: 0 keeps every one, and -1
+  // leaves it to the transcription service's STT_RECORDING_RETENTION_DAYS. The service runs the
+  // sweep; the app sends it this (lib/retention.ts). Transcripts and minutes are not affected.
+  recordingRetentionDays: number;
+  // How long a meeting stays in the trash before it is deleted for good, recording and all.
+  trashRetentionDays: number;
 };
 
 function defaults(): AppSettings {
@@ -143,6 +150,8 @@ function defaults(): AppSettings {
     participantCriteria: [],
     ollamaNumCtx: 0,
     requireAppLock: false,
+    recordingRetentionDays: -1,
+    trashRetentionDays: 30,
   };
 }
 
@@ -245,6 +254,12 @@ export async function readMachineSettings(): Promise<AppSettings> {
     }
     if (typeof merged.sttTranslate !== "boolean") merged.sttTranslate = base.sttTranslate;
     if (typeof merged.requireAppLock !== "boolean") merged.requireAppLock = base.requireAppLock;
+    if (!(RECORDING_RETENTION_CHOICES as readonly number[]).concat(-1).includes(merged.recordingRetentionDays)) {
+      merged.recordingRetentionDays = base.recordingRetentionDays;
+    }
+    if (!(TRASH_RETENTION_CHOICES as readonly number[]).includes(merged.trashRetentionDays)) {
+      merged.trashRetentionDays = base.trashRetentionDays;
+    }
     // Nonsense is worse than the estimate it overrides: a budget of 12 MB is a queue that
     // never moves, and a negative one is a typo.
     if (

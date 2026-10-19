@@ -1,4 +1,5 @@
 import { asSystem } from "./db/scope";
+import { pushRecordingRetention, trashRetentionDays } from "./retention";
 import { prisma } from "./prisma";
 import { sttInternalUrl } from "./stt/internal";
 
@@ -7,6 +8,7 @@ import { sttInternalUrl } from "./stt/internal";
 // Read by the trash itself (app/api/trash), by the storage page, which says when the room a
 // trashed recording takes will come back, and by the sweep below.
 
+/** The default, before anybody chooses under Settings → Data (trashRetentionDays). */
 export const TRASH_PURGE_DAYS = 30;
 
 /**
@@ -41,7 +43,7 @@ export async function deleteRecording(id: string): Promise<boolean> {
  * it for everybody.
  */
 export async function purgeExpiredTrash(now = new Date()): Promise<number> {
-  const cutoff = new Date(now.getTime() - TRASH_PURGE_DAYS * 86_400_000);
+  const cutoff = new Date(now.getTime() - (await trashRetentionDays()) * 86_400_000);
   const expired = await prisma.meeting.findMany({
     where: { deletedAt: { lt: cutoff } },
     select: { id: true },
@@ -68,12 +70,15 @@ let sweep: ReturnType<typeof setInterval> | null = null;
  */
 export function startTrashSweep(): void {
   if (sweep) return;
-  const run = () =>
+  const run = () => {
     void asSystem("the trash is emptied on one schedule for every account", () => purgeExpiredTrash())
       .then((n) => {
-        if (n > 0) console.log(`[trash] deleted ${n} meeting(s) kept in the trash for ${TRASH_PURGE_DAYS} days`);
+        if (n > 0) console.log(`[trash] deleted ${n} meeting(s) from the trash`);
       })
       .catch((e) => console.error("[trash] could not empty the trash", e));
+    // And the recordings' period, in case the service lost it with its volume.
+    void pushRecordingRetention().catch(() => {});
+  };
   sweep = setInterval(run, SWEEP_MS);
   setTimeout(run, 60_000);
 }
