@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- New meeting: a ring in the app's accent, quieter than the red beside it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <stroke android:width="1.5dp" android:color="@color/widget_new_ring" />
+    <solid android:color="@android:color/transparent" />
+</shape>

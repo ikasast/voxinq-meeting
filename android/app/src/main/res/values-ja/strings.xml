@@ -75,8 +75,6 @@
     <string name="widget_description">ワンタップで録音を始める、または会議を作成する</string>
     <string name="widget_record">すぐ録音</string>
     <string name="widget_new">会議を作成</string>
-    <string name="widget_record_short">すぐ録音</string>
-    <string name="widget_new_short">会議を作成</string>
     <string name="record_offline">● 録音だけする</string>
     <string name="record_offline_note">この端末に保存し、つながったら送って文字起こしします。</string>
     <string name="offline_recording_title">端末に録音中（オフライン）</string>
