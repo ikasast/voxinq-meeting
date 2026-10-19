@@ -20,7 +20,7 @@ export const ja: Record<string, string> = {
   // that in English. Japanese does not have capitals, so the exclamation of it goes instead
   // into being the shortest label on the rail.
   "Record now": "すぐ録音",
-  Queue: "順番待ち",
+  Queue: "キュー",
   People: "メンバー",
   Settings: "設定",
   Help: "ヘルプ",
@@ -315,7 +315,7 @@ export const ja: Record<string, string> = {
   "Under each non-Japanese line. Runs on the CPU; a 1.2 GB model is downloaded on first use.":
     "日本語以外の発言の下に表示。CPU で動き、初回に 1.2 GB のモデルをダウンロードします。",
   "Megabytes of video memory queued work may use at once. Empty: worked out from the card.":
-    "順番待ちの処理が同時に使える VRAM（MB）。空欄ならカードから自動で決めます。",
+    "キューの処理が同時に使える VRAM（MB）。空欄ならカードから自動で決めます。",
   "Auto": "自動",
   "Whatever language was spoken.": "話された言語に関係なく、この言語で書きます。",
   "Background": "背景",
@@ -475,7 +475,7 @@ export const ja: Record<string, string> = {
   "no recording": "録音なし",
   "Waiting for the GPU": "GPU の空き待ち",
   "+{n} waiting": "ほか {n} 件待ち",
-  "Open the queue": "順番待ちを開く",
+  "Open the queue": "キューを開く",
   "Goes under Upcoming": "予定に入ります",
   "Empty: record now": "空欄なら今すぐ録音",
   "End the meeting": "会議を終える",
@@ -572,7 +572,7 @@ export const ja: Record<string, string> = {
   "Saved endpoints": "保存済みエンドポイント",
   "Share transcript": "発言を共有",
   "Waiting for the GPU to be free…": "GPU が空くのを待っています…",
-  "Adding to the queue…": "順番待ちに追加しています…",
+  "Adding to the queue…": "キューに追加しています…",
   "Cannot reach the server — retrying": "サーバーに接続できません — 再試行中",
   "Reconnecting — the recording is kept on this device": "再接続中 — 録音はこの端末に残しています",
   "This device holds 1 recording the server does not have yet.": "サーバーにまだ届いていない録音が、この端末に1件あります。",
@@ -672,7 +672,7 @@ export const ja: Record<string, string> = {
 
   "This is a Japanese-only model — meetings in other languages will not transcribe.":
     "これは日本語専用モデルです — 他の言語の会議は文字起こしできません。",
-  "GPU budget for queued work": "順番待ちの処理に使う VRAM の上限",
+  "GPU budget for queued work": "キューの処理に使う VRAM の上限",
   "Translate non-Japanese speech into Japanese": "日本語以外の発言に日本語訳を付ける",
 
   "Minutes language": "議事録の言語",
@@ -790,7 +790,7 @@ export const ja: Record<string, string> = {
   "Ask a question of a meeting's minutes or transcript, or of a whole series.": "会議の議事録や発言、シリーズ全体に質問できます。",
   "The minutes model (LLM)": "議事録を書くモデル（LLM）",
   "Write minutes in bulk": "まとめて作成",
-  "Queue minutes for every listed meeting that has none, in one go.": "一覧に出ている、議事録のない会議の議事録をまとめて順番待ちに入れます。",
+  "Queue minutes for every listed meeting that has none, in one go.": "一覧に出ている、議事録のない会議の議事録をまとめてキューに入れます。",
   "Suggest corrections": "誤変換の候補",
   "Check the transcript against the glossary, the series name and the participants, and suggest fixes.": "用語集・シリーズ名・参加者名と照らして、誤変換の直し方を提案します。",
   "Translation": "翻訳",
@@ -870,7 +870,7 @@ export const ja: Record<string, string> = {
   "Written {when} by {model}": "{when} に {model} で作成",
   "Delete this feedback for {person}?": "{person} の振り返りを削除しますか？",
   "Feedback is written for a person, so the speakers need names first.": "振り返りは人ごとに作るため、先に話者分離で話者に名前を付けてください。",
-  "No feedback for this meeting yet. Pick a role and a person, and it is written in the queue like the minutes.": "この会議の振り返りはまだありません。役割と人を選ぶと、議事録と同じく順番待ちで作成します。",
+  "No feedback for this meeting yet. Pick a role and a person, and it is written in the queue like the minutes.": "この会議の振り返りはまだありません。役割と人を選ぶと、議事録と同じくキューで作成します。",
   "No feedback yet. Ask for it from a meeting's Feedback tab.": "振り返りはまだありません。会議ページの「振り返り」タブから作成できます。",
   "Every piece of feedback asked for, by person and by kind of meeting.": "これまでの振り返りを、人と会議体（シリーズ）ごとに見られます。",
   "Feedback for a meeting's facilitator or one participant, scored out of 100 against criteria you set, with its history.": "会議のファシリテーターや参加者1人の振り返りを、自分で決めた基準で100点満点で採点し、記録を残します。",
@@ -963,7 +963,7 @@ export const ja: Record<string, string> = {
   "Meetings ended without minutes have piled up, and you want them all done at once.":
     "議事録を作らずに終えた会議がたまったときに、一度で片付ける。",
   "A bar above the meeting list whenever a listed meeting has no minutes. They are written one after another; the queue shows how far it has got.":
-    "議事録のない会議が一覧にあると、一覧の上にバーが出ます。議事録は1件ずつ順に作られ、進み具合は順番待ちの画面で見られます。",
+    "議事録のない会議が一覧にあると、一覧の上にバーが出ます。議事録は1件ずつ順に作られ、進み具合はキューの画面で見られます。",
   "Product names or in-house terms come out wrong in the same way every time.":
     "製品名や社内用語が、毎回同じように聞き違えられる。",
   "A participant's name is written with the wrong characters.": "参加者の名前が、違う漢字で書き起こされる。",
@@ -1113,7 +1113,7 @@ export const ja: Record<string, string> = {
     "円形で表示されるため、中央の正方形からはみ出した部分は切り取られます。送信前にこの端末で {size}px に縮小され、元の画像がこの端末から出ることはありません。",
   "Display name": "表示名",
   "What other people see beside your work in the queue. Empty falls back to your username.":
-    "順番待ちなどで他の人に見える名前です。空ならユーザー名が使われます。",
+    "キューなどで他の人に見える名前です。空ならユーザー名が使われます。",
   "What you type to sign in from outside the tailnet. Nothing is ever sent to it.":
     "tailnet の外からログインするときに入力するアドレスです。ここに何かが送られることはありません。",
   "Set a password": "パスワードを設定",
@@ -1225,11 +1225,11 @@ export const ja: Record<string, string> = {
   "Work that needs the GPU, in the order it will get it.":
     "GPU が必要な処理を、実行される順に並べています。",
   "Nothing queued. Minutes, speaker separation and re-transcription wait here for the GPU when one is already using it.":
-    "順番待ちはありません。議事録・話者分離・文字起こしのやり直しは、GPU が他で使われているときここで待ちます。",
+    "キューは空です。議事録・話者分離・文字起こしのやり直しは、GPU が他で使われているときここで待ちます。",
   "Could not reorder the queue": "順番を入れ替えられませんでした",
   "Could not stop it": "止められませんでした",
   "Removed from the queue. The recognition pass already running finishes on the transcription service — there is no way to stop one — and its result is discarded.":
-    "順番待ちから外しました。既に走っている認識処理は文字起こしサービス側で最後まで実行され（止める手段がありません）、その結果は破棄されます。",
+    "キューから外しました。既に走っている認識処理は文字起こしサービス側で最後まで実行され（止める手段がありません）、その結果は破棄されます。",
   "{name} (you)": "{name}（自分）",
   Recording: "録音",
   "(untitled meeting)": "（無題の会議）",
@@ -1286,7 +1286,7 @@ export const ja: Record<string, string> = {
   "A GPU task is running": "GPU の処理が実行中です",
   "{task} — this will wait its turn in the queue.": "{task} — キューで順番を待ちます。",
   "{task} — anything started now waits its turn.": "{task} — 今から始める処理は順番を待ちます。",
-  "See the queue": "順番待ちを見る",
+  "See the queue": "キューを見る",
   "Recording in progress…": "録音中…",
   "Transcribing…": "文字起こし中…",
   "Diarizing…": "話者を分離中…",
@@ -1440,7 +1440,7 @@ export const ja: Record<string, string> = {
   "Three speakers, already separated — this is what diarization produces. Rename one and every line by that person changes with it.":
     "3人の話者が既に分かれています。これが話者分離の結果です。名前を変えると、その人の発言すべてに反映されます。",
   "Nothing is written yet — pressing this runs the real model on the text above. A meeting this short takes seconds; a real one takes longer and waits in the queue.":
-    "議事録はまだありません。押すと、上の発言に対して本物のモデルが走ります。これくらい短い会議なら数秒で、実際の会議はもっとかかり、順番待ちに入ります。",
+    "議事録はまだありません。押すと、上の発言に対して本物のモデルが走ります。これくらい短い会議なら数秒で、実際の会議はもっとかかり、キューに入ります。",
   "Share, or download": "共有、または書き出し",
   "Recording and separating speakers are not on this list because both need the audio, and a sample meeting has none.":
     "録音と話者分離がこの一覧に無いのは、どちらも音声そのものを必要とし、サンプル会議には音声が無いためです。",
@@ -1500,7 +1500,7 @@ export const ja: Record<string, string> = {
   "Keep at least one second of the recording.": "録音は1秒以上残してください。",
   "End the meeting before trimming its recording.": "録音をトリミングする前に会議を終了してください。",
   "Wait until the work queued for this meeting has finished, then trim.":
-    "この会議の順番待ちの処理が終わってからトリミングしてください。",
+    "この会議のキューの処理が終わってからトリミングしてください。",
   "This meeting has no recording to trim.": "この会議にはトリミングできる録音がありません。",
   "The recording could not be trimmed: {reason}": "録音をトリミングできませんでした: {reason}",
   "Meeting name and time": "会議名と日時",

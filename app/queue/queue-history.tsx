@@ -1,6 +1,6 @@
 import { readStored } from "@/lib/i18n/stored";
 import Link from "next/link";
-import { formatDateTimeIn, formatDurationIn, formatSpanIn } from "@/lib/i18n/format";
+import { formatDateTimeIn, formatDurationIn, formatShortDateTimeIn, formatSpanIn } from "@/lib/i18n/format";
 import type { Locale } from "@/lib/i18n";
 import { jobLabel } from "@/lib/queue/job-label";
 import { gpuShare, type JobMetrics, tokensPerSecond } from "@/lib/queue/metrics";
@@ -13,8 +13,12 @@ import type { recentJobsAcrossUsers } from "@/lib/queue/queue";
 // minutes instead of two is almost always a model that did not fit, and half of it ran on the
 // CPU; the share on the GPU is measured when the job ends, so it is here rather than guessed.
 //
-// Rendered on the server: nothing here is operated, and dates formatted once, in one place,
-// cannot come out differently in the browser.
+// One line a job — what it was, which meeting, when — and the rest behind it: the numbers were
+// all on the line at once, and a page of them read as a wall. <details>, so opening one needs no
+// script and a screen reader can open it too.
+//
+// Rendered on the server: dates formatted once, in one place, cannot come out differently in
+// the browser.
 
 type Row = Awaited<ReturnType<typeof recentJobsAcrossUsers>>[number];
 
@@ -33,33 +37,46 @@ export function QueueHistory({
   return (
     <ul className="border-t border-[var(--border)]">
       {rows.map((job) => (
-        <li key={job.id} className="border-b border-[var(--border)] px-2 py-2.5">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-            <StatusMark status={job.status} t={t} />
-            <span className="text-sm font-medium text-[var(--text-strong)]">
-              {jobLabel(t, job.kind)}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)]">
+        <li key={job.id} className="border-b border-[var(--border)]">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-2 py-2.5 hover:bg-[var(--hover-surface)] [&::-webkit-details-marker]:hidden">
+              <StatusMark status={job.status} t={t} />
+              <span className="w-28 shrink-0 truncate text-sm text-[var(--text-strong)] sm:w-44">{jobLabel(t, job.kind)}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-[var(--text-secondary)]">
+                {job.mine && job.meetingId
+                  ? job.title || t("(untitled meeting)")
+                  : job.owner
+                    ? job.owner.name || job.owner.username
+                    : "—"}
+              </span>
+              <span
+                className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]"
+                title={formatDateTimeIn(locale, job.finishedAt)}
+              >
+                {formatShortDateTimeIn(locale, job.finishedAt)}
+              </span>
+              <span aria-hidden className="shrink-0 text-xs text-[var(--text-muted)] transition-transform group-open:rotate-90">
+                ›
+              </span>
+            </summary>
+            <div className="pb-3 pr-2">
+              <Facts job={job} t={t} locale={locale} />
+              {job.status === "error" && job.detail ? (
+                <p className="mt-1 break-words pl-7 text-xs text-[var(--error)]">{readStored(t, job.detail)}</p>
+              ) : null}
               {job.mine && job.meetingId ? (
-                <Link href={`/${job.meetingId}`} className="hover:underline">
-                  {job.title || t("(untitled meeting)")}
-                </Link>
+                <p className="mt-1.5 pl-7 text-xs">
+                  <Link href={`/${job.meetingId}`} className="text-[var(--accent-sub)] hover:underline">
+                    {t("Open the meeting")}
+                  </Link>
+                </p>
               ) : job.owner ? (
-                <span title={t("Somebody else’s work. What it is about is not shown.")}>
-                  {job.owner.name || job.owner.username}
-                </span>
-              ) : (
-                "—"
-              )}
-            </span>
-            <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
-              {formatDateTimeIn(locale, job.finishedAt)}
-            </span>
-          </div>
-          <Facts job={job} t={t} locale={locale} />
-          {job.status === "error" && job.detail ? (
-            <p className="mt-1 break-words text-xs text-[var(--error)]">{readStored(t, job.detail)}</p>
-          ) : null}
+                <p className="mt-1 pl-7 text-xs text-[var(--text-muted)]">
+                  {t("Somebody else’s work. What it is about is not shown.")}
+                </p>
+              ) : null}
+            </div>
+          </details>
         </li>
       ))}
     </ul>
