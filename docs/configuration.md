@@ -65,7 +65,7 @@ A native install and the `voxinq` launcher read them from the environment as the
 | `STT_HOST` / `STT_PORT` | `0.0.0.0` / `8000` | Where the service listens. |
 | `STT_PRELOAD` | `1` | Load the model when the service starts, so the first meeting does not wait for it. `0` loads it when a meeting first needs it instead. |
 | `STT_IDLE_RELEASE_SECONDS` | `600` | Release the model from VRAM after this long with nothing to recognise. |
-| `STT_RECORDING_RETENTION_DAYS` | `7` | Delete recordings (the WAV) this many days old, except protected ones. `0` or less keeps them. |
+| `STT_RECORDING_RETENTION_DAYS` | `7` | Delete recordings (the WAV) this many days old, except protected ones. `0` or less keeps them. A period chosen under Settings → Data replaces it. |
 | `WHISPER_CPP_MODELS_DIR` | pywhispercpp's own | Where whisper.cpp keeps the models it downloads. The Docker images set `/data/huggingface/whisper.cpp`, on the same volume as the other models, so they survive a recreate. |
 | `STT_RECORDINGS_DIR` | `stt-service/recordings` | Where recordings and their `segments.json` live. The Docker image sets `/data/recordings`, on a volume. |
 | `STT_PARTIAL_MS` | `1200` | How often a provisional transcription of the line still being spoken is pushed to the recording screen. `0` turns partials off. |
@@ -329,9 +329,16 @@ later version adds starts off. Delete the file to have the starting set decided 
 
 ## Retention
 
-- **Recordings (WAV):** auto-delete after `STT_RECORDING_RETENTION_DAYS` (default 7). Protect
-  a recording to keep it. Minutes/transcripts in the DB are **not** affected.
-- **Trash:** deleted meetings are purged after 30 days.
+Both are set under **Settings → Data** by an administrator. Minutes and transcripts in the
+database are **not** affected by either.
+
+- **Recordings (WAV):** deleted after 7, 30, 90 or 365 days, or kept until deleted by hand.
+  Protect a recording to keep it whatever the period. Until somebody chooses, the transcription
+  service's own `STT_RECORDING_RETENTION_DAYS` (default 7) applies; once chosen, the app sends the
+  period to the service, which keeps it on its volume (`.retention.json` in the recordings folder).
+- **Trash:** deleted meetings are purged after 7, 30 (default) or 90 days, recording and all.
+- **By hand:** the storage screen protects, unprotects and deletes recordings, one or several at
+  a time.
 
 ---
 

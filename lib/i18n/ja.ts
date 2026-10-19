@@ -1689,6 +1689,17 @@ export const ja: Record<string, string> = {
   "Done. Run \"Diarize\" to distinguish speakers.": "完了しました。話者を分けるには「話者を分離」を実行してください。",
   Storage: "ストレージ",
   "How much room the recordings, transcripts and minutes take": "録音・文字起こし・議事録が使っている容量を見る",
+  // How long things are kept (app/settings/retention-fields.tsx).
+  Recordings: "録音",
+  "Keep until deleted by hand": "削除しない（手動で削除するまで残す）",
+  "Delete after 1 year": "1 年後に削除",
+  "Delete after {n} days": "{n} 日後に削除",
+  "The audio of a recording that is not protected. Transcripts and minutes are kept either way.":
+    "保護していない録音の音声です。発言と議事録は、どちらの設定でも残ります。",
+  "As the transcription service is set": "文字起こしサービスの設定に従う",
+  "As the transcription service is set ({period})": "文字起こしサービスの設定に従う（{period}）",
+  "A meeting in the trash is deleted for good after this, recording and all.":
+    "ゴミ箱の会議は、この期間が過ぎると録音ごと完全に削除されます。",
   "The room your meeting material takes in Voxinq.": "Voxinqに保存している会議資料の容量です。",
   "Audio recordings": "録音（音声）",
   Transcripts: "文字起こし",

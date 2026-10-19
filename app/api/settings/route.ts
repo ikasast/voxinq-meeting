@@ -15,6 +15,8 @@ import { currentUser } from "@/lib/auth/session";
 import { isMachineKey, isSplitKey } from "@/lib/settings-scope";
 import { normalizeProfiles } from "@/lib/stt/profiles";
 import { normalizeTemplates } from "@/lib/minutes-templates";
+import { pushRecordingRetention } from "@/lib/retention";
+import { RECORDING_RETENTION_CHOICES, TRASH_RETENTION_CHOICES } from "@/lib/retention-choices";
 
 export const runtime = "nodejs";
 
@@ -82,6 +84,19 @@ export async function PATCH(req: NextRequest) {
     (body.vramBudgetMb === 0 || body.vramBudgetMb >= 512)
   ) {
     patch.vramBudgetMb = Math.round(body.vramBudgetMb);
+  }
+  // Only the periods Settings → Data offers (lib/retention-choices.ts).
+  if (
+    typeof body.recordingRetentionDays === "number" &&
+    (RECORDING_RETENTION_CHOICES as readonly number[]).includes(body.recordingRetentionDays)
+  ) {
+    patch.recordingRetentionDays = body.recordingRetentionDays;
+  }
+  if (
+    typeof body.trashRetentionDays === "number" &&
+    (TRASH_RETENTION_CHOICES as readonly number[]).includes(body.trashRetentionDays)
+  ) {
+    patch.trashRetentionDays = body.trashRetentionDays;
   }
   // Below an even chance the marks are noise, and above 95% almost nothing is ever marked.
   if (
@@ -153,6 +168,7 @@ export async function PATCH(req: NextRequest) {
   // With no accounts at all this is the app it has always been: one settings file, no owner.
   if (!me) {
     const next = await writeSettings(patch);
+    if (patch.recordingRetentionDays !== undefined) await pushRecordingRetention(patch.recordingRetentionDays);
     return NextResponse.json(toPublic(withExtensions(next, extensions)));
   }
 
@@ -174,6 +190,7 @@ export async function PATCH(req: NextRequest) {
     if (me.isAdmin) machinePatch.sttProfiles = posted.filter((p) => sharedIds.has(p.id));
   }
   if (Object.keys(machinePatch).length > 0) await writeSettings(machinePatch);
+  if (machinePatch.recordingRetentionDays !== undefined) await pushRecordingRetention(machinePatch.recordingRetentionDays);
   const next =
     Object.keys(userPatch).length > 0
       ? await writeUserSettings(me.id, userPatch)

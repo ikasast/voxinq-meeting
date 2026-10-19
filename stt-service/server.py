@@ -126,6 +126,7 @@ STT_PARTIAL_MS = int(os.environ.get("STT_PARTIAL_MS", "1200"))
 
 # Retention days for recordings (WAV). Recordings not protected (.keep) are auto-deleted
 # after this many days. Set <= 0 to disable auto-deletion.
+# The environment's period, until Settings → Data says otherwise (retention_days below).
 RETENTION_DAYS = float(os.environ.get("STT_RECORDING_RETENTION_DAYS", "7"))
 # Whether to preload the Whisper model at service startup (removes the first-meeting wait).
 PRELOAD_ON_START = os.environ.get("STT_PRELOAD", "1").lower() not in ("0", "false", "")
@@ -740,8 +741,8 @@ def _recording_state(mid: str) -> dict:
     protected = p["keep"].exists()
     st = p["wav"].stat()
     expires = (
-        datetime.fromtimestamp(st.st_mtime + RETENTION_DAYS * 86400, tz=timezone.utc).isoformat()
-        if not protected and RETENTION_DAYS > 0
+        datetime.fromtimestamp(st.st_mtime + retention_days() * 86400, tz=timezone.utc).isoformat()
+        if not protected and retention_days() > 0
         else None
     )
     # Utterance boundaries within the WAV. The web app seeks with the offsets stored on each
@@ -772,11 +773,64 @@ def _recording_state(mid: str) -> dict:
 
 def _cleanup_recordings_once() -> None:
     """Delete unprotected recordings past the retention deadline, with everything beside them."""
-    gone, stray = sweep_recordings(RECORDINGS_DIR, RETENTION_DAYS, time.time())
+    days = retention_days()
+    gone, stray = sweep_recordings(RECORDINGS_DIR, days, time.time())
     for mid in gone:
-        print(f"[retention] deleted recording {mid} (older than {RETENTION_DAYS:g} days)")
+        print(f"[retention] deleted recording {mid} (older than {days:g} days)")
     if stray:
         print(f"[retention] removed {stray} file(s) left behind by recordings already deleted")
+
+
+# ---- The period, as set from the app ----
+#
+# Settings → Data sets how long a recording is kept, and the app sends it here: this is where
+# the sweep runs. Kept in the recordings folder, which is the volume, so a restarted service
+# keeps the period it was given; the sweep leaves the file alone, since it is no recording's.
+# Absent, the environment's period applies, as it always has.
+
+_RETENTION_FILE = RECORDINGS_DIR / ".retention.json"
+_retention_override: float | None = None
+
+
+def _load_retention() -> None:
+    global _retention_override
+    try:
+        days = json.loads(_RETENTION_FILE.read_text(encoding="utf-8")).get("days")
+        if isinstance(days, (int, float)) and 0 <= days <= 3650:
+            _retention_override = float(days)
+    except (OSError, ValueError, AttributeError):
+        _retention_override = None
+
+
+def retention_days() -> float:
+    return RETENTION_DAYS if _retention_override is None else _retention_override
+
+
+_load_retention()
+
+
+@app.get("/retention")
+async def retention_get() -> dict:
+    """How long an unprotected recording is kept, and whether the app or the environment set it."""
+    return {"days": retention_days(), "from": "app" if _retention_override is not None else "environment"}
+
+
+@app.put("/retention")
+async def retention_put(request: Request) -> dict:
+    """Set the period (days; 0 keeps every recording). A shorter one is swept at once."""
+    global _retention_override
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    days = body.get("days") if isinstance(body, dict) else None
+    if not isinstance(days, (int, float)) or isinstance(days, bool) or not 0 <= days <= 3650:
+        raise HTTPException(status_code=400, detail="days must be a number from 0 to 3650")
+    _retention_override = float(days)
+    RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+    _RETENTION_FILE.write_text(json.dumps({"days": _retention_override}), encoding="utf-8")
+    await asyncio.to_thread(_cleanup_recordings_once)
+    return {"days": retention_days(), "from": "app"}
 
 
 async def _cleanup_loop() -> None:
@@ -855,8 +909,8 @@ def _recording_sizes(ids: list) -> dict[str, dict]:
             "protected": protected,
             # As in _recording_state: when the sweep will take it, or None if it never will.
             "expiresAt": (
-                datetime.fromtimestamp(st.st_mtime + RETENTION_DAYS * 86400, tz=timezone.utc).isoformat()
-                if not protected and RETENTION_DAYS > 0
+                datetime.fromtimestamp(st.st_mtime + retention_days() * 86400, tz=timezone.utc).isoformat()
+                if not protected and retention_days() > 0
                 else None
             ),
         }

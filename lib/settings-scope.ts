@@ -27,6 +27,9 @@ export const MACHINE_KEYS = [
   "ollamaNumCtx",
   // A rule for every phone. A rule each person could set for themselves would not be one.
   "requireAppLock",
+  // How long the machine keeps what it holds: one disk, one answer.
+  "recordingRetentionDays",
+  "trashRetentionDays",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 /**

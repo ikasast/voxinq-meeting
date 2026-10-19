@@ -5,7 +5,7 @@ import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { barWidths, daysUntil, fateOf, formatMB, type Fate, type RecordingSize } from "@/lib/storage/usage";
 import { sttInternalUrl } from "@/lib/stt/internal";
-import { TRASH_PURGE_DAYS } from "@/lib/trash";
+import { trashRetentionDays } from "@/lib/retention";
 
 export const dynamic = "force-dynamic";
 
@@ -146,6 +146,7 @@ export default async function StoragePage() {
   const t = await serverT();
   const locale = await currentLocale();
   const now = new Date();
+  const trashDays = await trashRetentionDays();
 
   const meetings = await prisma.meeting.findMany({
     select: { id: true, title: true, startedAt: true, deletedAt: true },
@@ -181,7 +182,7 @@ export default async function StoragePage() {
       fate === "expiring" && r.expiresAt
         ? new Date(r.expiresAt)
         : fate === "trash" && m.deletedAt
-          ? new Date(m.deletedAt.getTime() + TRASH_PURGE_DAYS * 86_400_000)
+          ? new Date(m.deletedAt.getTime() + trashDays * 86_400_000)
           : null;
     if (goes && (!f.last || goes > f.last)) f.last = goes;
     audioBytes += r.audio;
@@ -203,7 +204,7 @@ export default async function StoragePage() {
     },
     {
       key: "trash",
-      label: t("In the trash — deleted {n} days after it was put there", { n: TRASH_PURGE_DAYS }),
+      label: t("In the trash — deleted {n} days after it was put there", { n: trashDays }),
       detail: recordingsLabel(fates.trash.n),
       bytes: fates.trash.bytes,
       color: FATE_COLOR.trash,

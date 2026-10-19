@@ -9,6 +9,7 @@ import { AppLockPolicy } from "./app-lock-policy";
 import { AppLockSetting } from "./app-lock-setting";
 import { OllamaModelField } from "./ollama-model-field";
 import { MachineNote } from "./machine-note";
+import { RetentionFields } from "./retention-fields";
 import {
   WHISPER_MODELS,
   isJapaneseOnlyModel,
@@ -66,6 +67,8 @@ type PublicSettings = {
   emotionThreshold: number;
   facilitatorCriteria: ReviewCriterion[];
   participantCriteria: ReviewCriterion[];
+  recordingRetentionDays: number;
+  trashRetentionDays: number;
 };
 
 const SUMMARY_LANGUAGES: { id: string; label: string }[] = [
@@ -773,6 +776,14 @@ export default function SettingsPage() {
                   {t("How much room the recordings, transcripts and minutes take")}
                 </Link>
               </Field>
+              <RetentionFields
+                recordingDays={settings.recordingRetentionDays}
+                trashDays={settings.trashRetentionDays}
+                isAdmin={settings.isAdmin}
+                inputClass={inputClass}
+                onRecording={(d) => update("recordingRetentionDays", d)}
+                onTrash={(d) => update("trashRetentionDays", d)}
+              />
               <DataBackup />
             </section>
           ) : null}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { TRASH_PURGE_DAYS as PURGE_AFTER_DAYS, purgeExpiredTrash } from "@/lib/trash";
+import { purgeExpiredTrash } from "@/lib/trash";
+import { trashRetentionDays } from "@/lib/retention";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    purgeAfterDays: PURGE_AFTER_DAYS,
+    purgeAfterDays: await trashRetentionDays(),
     meetings: meetings.map((m) => ({
       id: m.id,
       title: m.title,
