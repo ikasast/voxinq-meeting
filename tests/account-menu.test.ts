@@ -13,7 +13,9 @@ describe("the corner of the screen", () => {
     // Signing out used to be the only account-shaped thing the app had, so it was the only
     // thing there. Now that people have names and faces the corner says whose session this is,
     // and signing out is one item inside it.
-    expect(layout).toContain("<AccountMenu");
+    // The sidebar draws it from the account the layout passes down.
+    expect(read("app/sidebar.tsx")).toContain("<AccountMenu");
+    expect(layout).toContain("me={");
     expect(layout).not.toContain("LogoutButton");
   });
 

@@ -21,6 +21,14 @@ const PAD = 8;
 //
 // Positioned from the button's rect in a portal, the same as the per-meeting menu, so it is not
 // clipped by the header's bounds on a narrow screen.
+export type AccountMenuProps = {
+  username: string;
+  name: string | null;
+  hasImage: boolean;
+  isAdmin: boolean;
+  via: "session" | "tailnet";
+};
+
 export function AccountMenu({
   username,
   name,
@@ -28,14 +36,9 @@ export function AccountMenu({
   isAdmin,
   via,
   withName = false,
-}: {
+}: AccountMenuProps & {
   /** Beside the picture, whose session this is: in the open sidebar. Folded, the picture alone. */
   withName?: boolean;
-  username: string;
-  name: string | null;
-  hasImage: boolean;
-  isAdmin: boolean;
-  via: "session" | "tailnet";
 }) {
   const [open, setOpen] = useState(false);
   const t = useT();
@@ -107,8 +110,13 @@ export function AccountMenu({
         aria-haspopup="menu"
       >
         <Avatar username={username} name={name} hasImage={hasImage} size={32} />
+        {/* The display name, and under it the username — the one other people see in the queue
+            and the one that is unique. Without a display name, the username alone. */}
         {withName ? (
-          <span className="min-w-0 truncate text-sm text-[var(--text-strong)]">{name || username}</span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate text-sm text-[var(--text-strong)]">{name || username}</span>
+            {name ? <span className="truncate text-xs text-[var(--text-muted)]">{username}</span> : null}
+          </span>
         ) : null}
       </button>
 
