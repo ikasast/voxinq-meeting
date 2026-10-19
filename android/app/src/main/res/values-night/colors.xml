@@ -5,7 +5,4 @@
     <color name="text_secondary">#9CA3AF</color>
     <color name="accent">#06B6D4</color>
     <color name="accent_soft">#12303C</color>
-    <color name="widget_bg">#111A2B</color>
-    <color name="widget_button">#1C2638</color>
-    <color name="widget_text">#E5E7EB</color>
 </resources>
