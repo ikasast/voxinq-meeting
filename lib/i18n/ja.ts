@@ -1562,6 +1562,7 @@ export const ja: Record<string, string> = {
   "From the minutes": "議事録から",
   "From the transcript": "文字起こしから",
   "From both": "両方から",
+  "The answer stopped before it was finished.": "回答が途中で止まりました。",
   "Answered from everything said in this meeting and the minutes of {scope} — nothing else. Answers are not saved.":
     "この会議の発言すべてと「{scope}」の議事録だけをもとに答えます。回答は保存されません。",
   "Based on everything said in this meeting, and the minutes of {n} meeting(s)":

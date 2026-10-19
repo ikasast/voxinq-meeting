@@ -6,7 +6,7 @@ import { addOllamaUsage, type ChatArgs, type ChatProvider, type LlmConfig } from
 export const ollamaProvider: ChatProvider = {
   name: "ollama",
   async chat(
-    { system, user, maxTokens, prefill, think }: ChatArgs,
+    { system, user, maxTokens, prefill, think, onText }: ChatArgs,
     cfg: LlmConfig,
     signal?: AbortSignal,
   ): Promise<string> {
@@ -110,7 +110,9 @@ export const ollamaProvider: ChatProvider = {
             done?: boolean;
           } & Parameters<typeof addOllamaUsage>[1];
           if (chunk.error) throw new Error(`Ollama error: ${chunk.error.slice(0, 300)}`);
-          content += chunk.message?.content ?? "";
+          const piece = chunk.message?.content ?? "";
+          content += piece;
+          if (piece && onText) onText(piece);
           // The last line carries what the call cost: tokens in and out, and the time spent on each.
           if (chunk.done && cfg.usage) addOllamaUsage(cfg.usage, chunk);
         } catch (e) {
