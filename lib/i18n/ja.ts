@@ -1715,7 +1715,22 @@ export const ja: Record<string, string> = {
   "In the trash — deleted {n} days after it was put there": "ゴミ箱 · 入れてから{n}日で削除",
   "About {size} per hour of meeting.": "会議1時間あたり 約{size}",
   "Transcripts take about {size} per hour of meeting.": "文字起こしは会議1時間あたり 約{size}",
-  "Largest recordings": "大きい録音",
+  "Recordings, largest first": "録音（大きい順）",
+  "{n} left as they were: being recorded or worked on, or the transcription service did not answer.":
+    "{n} 件はそのままです（録音中・処理中、または文字起こしサービスが応答しませんでした）。",
+  "Choose {title}": "「{title}」を選ぶ",
+  Kept: "残す",
+  Protect: "保護する",
+  Unprotect: "保護を外す",
+  "Show all {n}": "すべて表示（{n} 件）",
+  "{n} chosen": "{n} 件を選択中",
+  "Delete recordings": "録音を削除",
+  "Delete this recording? The transcript and the minutes stay, but it can no longer be played, transcribed again or have its speakers separated again.":
+    "この録音を削除しますか？ 発言と議事録は残りますが、再生・文字起こしのやり直し・話者分離のやり直しはできなくなります。",
+  "Delete {n} recordings? The transcripts and the minutes stay, but they can no longer be played, transcribed again or have their speakers separated again.":
+    "{n} 件の録音を削除しますか？ 発言と議事録は残りますが、再生・文字起こしのやり直し・話者分離のやり直しはできなくなります。",
+  "Deleted within 1 day": "1 日以内に自動削除",
+  "Deleted in {n} days": "あと {n} 日で自動削除",
   Protected: "保護中",
   "In the trash": "ゴミ箱",
   "A recording that ran on after the meeting can be cut down to the meeting with Trim, under its player.":
