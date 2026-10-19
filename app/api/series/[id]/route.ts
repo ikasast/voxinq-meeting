@@ -54,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     sttGlossary?: unknown;
     description?: unknown;
     members?: unknown;
+    pinned?: unknown;
   }>(req);
 
   const data: {
@@ -61,7 +62,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     summaryFormat?: string | null;
     sttGlossary?: string | null;
     description?: string | null;
+    pinnedAt?: Date | null;
   } = {};
+
+  // Pinned to the top of the sidebar's series, as a meeting is to the top of its list.
+  if (body?.pinned !== undefined) {
+    if (typeof body.pinned !== "boolean") return apiError("invalid pinned", 400);
+    data.pinnedAt = body.pinned ? new Date() : null;
+  }
 
   if (body?.name !== undefined) {
     const name = typeof body.name === "string" ? body.name.trim() : "";

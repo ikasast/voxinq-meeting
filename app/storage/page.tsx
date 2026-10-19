@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
@@ -6,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { barWidths, daysUntil, fateOf, formatMB, type Fate, type RecordingSize } from "@/lib/storage/usage";
 import { sttInternalUrl } from "@/lib/stt/internal";
 import { trashRetentionDays } from "@/lib/retention";
+import { RecordingList, type RecordingRow } from "./recording-list";
 
 export const dynamic = "force-dynamic";
 
@@ -89,13 +89,23 @@ async function recordingSizes(ids: string[]): Promise<Record<string, RecordingSi
   }
 }
 
-const FATE_COLOR: Record<Fate, string> = {
-  protected: "var(--accent)",
-  kept: "var(--accent-sub)",
-  expiring: "var(--warning)",
-  trash: "var(--text-muted)",
+// One blue in four strengths, rather than four colours that had nothing to do with each other
+// (cyan, a brown that was the warning colour, and grey). The darkest is what stays; the palest
+// is what is on its way out. On the dark theme the order of strength holds, with the light end
+// as the strong one: light-dark() follows the page's color-scheme.
+const BLUE = {
+  strong: "light-dark(#1E3A8A, #BFDBFE)",
+  firm: "light-dark(#1D4ED8, #93C5FD)",
+  mid: "light-dark(#3B82F6, #3B82F6)",
+  pale: "light-dark(#BFDBFE, #1E3A8A)",
 };
-const TEXT_COLOR = { transcripts: "var(--accent)", minutes: "var(--success)", other: "var(--text-muted)" };
+const FATE_COLOR: Record<Fate, string> = {
+  protected: BLUE.strong,
+  kept: BLUE.firm,
+  expiring: BLUE.mid,
+  trash: BLUE.pale,
+};
+const TEXT_COLOR = { transcripts: BLUE.strong, minutes: BLUE.mid, other: BLUE.pale };
 
 type Part = { key: string; label: string; detail: string | null; bytes: number; color: string };
 
@@ -246,8 +256,25 @@ export default async function StoragePage() {
   const audioPerHour = audioSeconds > 0 ? (audioBytes * 3600) / audioSeconds : null;
   const textPerHour = text.timedMs > 0 ? (text.timedTranscriptBytes * 3_600_000) / text.timedMs : null;
 
-  const largest = recorded.sort((a, b) => b[1].audio - a[1].audio).slice(0, 8);
+  // Every recording, largest first: the list is where they are protected or deleted now, so it
+  // cannot stop at the top eight. The client shows the first ten and the rest on request.
+  const largest = recorded.sort((a, b) => b[1].audio - a[1].audio);
   const biggest = largest[0]?.[1].audio ?? 0;
+  const rows: RecordingRow[] = largest.map(([id, r]) => {
+    const m = byId.get(id)!;
+    const fate = fateOf(r, m.deletedAt !== null);
+    const length = r.seconds ? formatDurationIn(locale, r.seconds * 1000) : null;
+    return {
+      id,
+      title: m.title,
+      when: `${formatDateTimeIn(locale, m.startedAt)}${length ? ` · ${length}` : ""}`,
+      size: formatMB(r.audio),
+      bar: biggest > 0 ? Math.max((r.audio / biggest) * 100, 1) : 0,
+      color: FATE_COLOR[fate],
+      fate,
+      daysLeft: fate === "expiring" && r.expiresAt ? daysUntil(new Date(r.expiresAt), now) : null,
+    };
+  });
 
   return (
     <div data-paper className="mx-auto max-w-3xl space-y-6 pt-2 lg:pt-6">
@@ -291,48 +318,10 @@ export default async function StoragePage() {
         ) : null}
       </Panel>
 
-      {largest.length > 0 ? (
+      {rows.length > 0 ? (
         <section className="space-y-2 border-t border-[var(--border)] pt-5">
-          <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Largest recordings")}</h2>
-          <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
-            {largest.map(([id, r]) => {
-              const m = byId.get(id)!;
-              const fate = fateOf(r, m.deletedAt !== null);
-              const length = r.seconds ? formatDurationIn(locale, r.seconds * 1000) : null;
-              return (
-                <li key={id} className="space-y-1 py-2.5">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <Link
-                      href={`/${id}`}
-                      className="min-w-0 truncate text-sm font-medium text-[var(--text-strong)] hover:text-[var(--accent-sub)]"
-                    >
-                      {m.title}
-                    </Link>
-                    <span className="shrink-0 text-sm tabular-nums text-[var(--text-strong)]">{formatMB(r.audio)}</span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--elevated)]">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${biggest > 0 ? Math.max((r.audio / biggest) * 100, 1) : 0}%`, background: FATE_COLOR[fate] }}
-                    />
-                  </div>
-                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
-                    <span>
-                      {formatDateTimeIn(locale, m.startedAt)}
-                      {length ? ` · ${length}` : ""}
-                    </span>
-                    {fate === "protected" ? (
-                      <span className="rounded-full border border-[var(--border-strong)] px-1.5 text-[10px] text-[var(--accent-sub)]">
-                        {t("Protected")}
-                      </span>
-                    ) : fate === "trash" ? (
-                      <span className="rounded-full border border-[var(--border-strong)] px-1.5 text-[10px]">{t("In the trash")}</span>
-                    ) : null}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
+          <h2 className="text-sm font-semibold text-[var(--text-strong)]">{t("Recordings, largest first")}</h2>
+          <RecordingList rows={rows} />
           <p className="text-xs text-[var(--text-muted)]">
             {t("A recording that ran on after the meeting can be cut down to the meeting with Trim, under its player.")}
           </p>

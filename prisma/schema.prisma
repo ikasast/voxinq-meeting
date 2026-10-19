@@ -306,6 +306,8 @@ model Series {
   /// kept with no meetings in it — somebody set it up on purpose — where one that only existed
   /// because a meeting named it still goes when its last meeting does.
   standalone    Boolean  @default(false)
+  /// Pinned to the top of the sidebar's series, outside the seven most recent; null = not pinned.
+  pinnedAt      DateTime? @map("pinned_at")
   /// Whose series this is. On an instance with accounts every series has one, as a meeting does;
   /// without accounts nobody does, as before.
   ownerId       String?  @map("owner_id")

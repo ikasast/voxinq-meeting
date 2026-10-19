@@ -17,7 +17,8 @@ type Answer = {
   condensed?: boolean;
 };
 
-type Source = "minutes" | "transcript";
+/** "both": the meeting's words and the minutes together, the default where both exist. */
+type Source = "both" | "minutes" | "transcript";
 
 /** One question and what came back, in the order they were asked. Nothing is stored. */
 type Turn = { question: string; source: Source; answer?: Answer; error?: string };
@@ -51,9 +52,11 @@ export function AskMinutes({
    */
   hasTranscript?: boolean;
 }) {
-  // What to read. The minutes when there are any — they are the reviewed version, and the
-  // dense one — and the meeting's own words when there are not, or when asked for.
-  const [source, setSource] = useState<Source>(hasMinutes ? "minutes" : "transcript");
+  // What to read. Both on a meeting that has both — what was said and what was written up —
+  // the minutes alone on a series, and the meeting's own words when there are no minutes.
+  const [source, setSource] = useState<Source>(
+    meetingId && hasTranscript && hasMinutes ? "both" : hasMinutes ? "minutes" : "transcript",
+  );
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
@@ -106,7 +109,7 @@ export function AskMinutes({
     }
   };
 
-  const title = source === "transcript" ? t("Ask about this meeting") : t("Ask about these minutes");
+  const title = source === "minutes" ? t("Ask about these minutes") : t("Ask about this meeting");
 
   return (
     <>
@@ -122,13 +125,17 @@ export function AskMinutes({
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold text-[var(--text-strong)]">{title}</h2>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                  {source === "transcript"
-                    ? t("Answered from everything said in {scope} — nothing else. Answers are not saved.", {
-                        scope: meetingId && seriesId ? t("this meeting") : scopeLabel,
-                      })
-                    : t("Answered from the minutes of {scope} — nothing else. Answers are not saved.", {
+                  {source === "both"
+                    ? t("Answered from everything said in this meeting and the minutes of {scope} — nothing else. Answers are not saved.", {
                         scope: scopeLabel,
-                      })}
+                      })
+                    : source === "transcript"
+                      ? t("Answered from everything said in {scope} — nothing else. Answers are not saved.", {
+                          scope: meetingId && seriesId ? t("this meeting") : scopeLabel,
+                        })
+                      : t("Answered from the minutes of {scope} — nothing else. Answers are not saved.", {
+                          scope: scopeLabel,
+                        })}
                 </p>
               </div>
               <button
@@ -145,7 +152,7 @@ export function AskMinutes({
                 context, and a meeting with no minutes has nothing to choose between. */}
             {meetingId && hasTranscript && hasMinutes ? (
               <div className="mt-2 inline-flex overflow-hidden rounded-full border border-[var(--border-strong)] text-xs">
-                {(["minutes", "transcript"] as const).map((option) => (
+                {(["both", "minutes", "transcript"] as const).map((option) => (
                   <button
                     key={option}
                     type="button"
@@ -157,7 +164,11 @@ export function AskMinutes({
                         : "px-3 py-1 text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
                     }
                   >
-                    {option === "minutes" ? t("From the minutes") : t("From the transcript")}
+                    {option === "both"
+                      ? t("From both")
+                      : option === "minutes"
+                        ? t("From the minutes")
+                        : t("From the transcript")}
                   </button>
                 ))}
               </div>
@@ -197,6 +208,19 @@ export function AskMinutes({
                         turn.answer.condensed
                           ? t("Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).")
                           : t("Based on everything said in this meeting.")
+                      ) : turn.source === "both" ? (
+                        <>
+                          {t(
+                            turn.answer.condensed
+                              ? "Based on notes taken from the whole of this meeting, and the minutes of {n} meeting(s)"
+                              : "Based on everything said in this meeting, and the minutes of {n} meeting(s)",
+                            { n: turn.answer.used },
+                          )}
+                          {turn.answer.omitted > 0
+                            ? t(", {n} older left out for length", { n: turn.answer.omitted })
+                            : ""}
+                          {t(".")}
+                        </>
                       ) : (
                         <>
                           {t(

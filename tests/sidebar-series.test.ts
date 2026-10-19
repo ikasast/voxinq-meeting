@@ -17,7 +17,10 @@ describe("series in the sidebar", () => {
 
   it("list only while Series is on, the most recent first", () => {
     expect(data).toContain('if (!(await extensionEnabled("series"))) return [];');
-    expect(data).toContain(".sort((a, b) => b.lastAt.localeCompare(a.lastAt))");
+    expect(data).toContain(".sort((a, b) => b.meetings[0].startedAt.getTime() - a.meetings[0].startedAt.getTime())");
+    // Pinned ones first, in the order they were pinned, even with no meeting yet.
+    expect(data).toContain(".sort((a, b) => a.pinnedAt!.getTime() - b.pinnedAt!.getTime())");
+    expect(data).toContain("[...pinned, ...rest]");
     expect(data).toContain("seriesId: seriesOn ? m.seriesId : null");
   });
 
@@ -29,9 +32,15 @@ describe("series in the sidebar", () => {
     expect(sidebar).toContain("[id]: !open");
   });
 
-  it("list seven, with a way to the rest", () => {
+  it("list the pinned ones and seven more, with a way to the rest", () => {
     expect(sidebar).toContain("const SIDEBAR_SERIES = 7;");
-    expect(sidebar).toContain("series.slice(0, SIDEBAR_SERIES)");
+    expect(sidebar).toContain("...series.filter((s) => !s.pinned).slice(0, SIDEBAR_SERIES)");
     expect(sidebar).toContain('t("All series →")');
+  });
+
+  it("pin from their row and from the series page", () => {
+    expect(sidebar).toContain("body: JSON.stringify({ pinned: !s.pinned })");
+    expect(read("app/api/series/[id]/route.ts")).toContain("data.pinnedAt = body.pinned ? new Date() : null;");
+    expect(read("app/series/[id]/page.tsx")).toContain("<PinSeriesButton");
   });
 });

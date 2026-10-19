@@ -124,7 +124,8 @@ function readSeriesChoice(): Record<string, boolean> {
 }
 
 /** A series' latest meeting, as the row says it: today, yesterday, or the date. */
-function lastLabel(iso: string, t: (k: string) => string): string {
+function lastLabel(iso: string | null, t: (k: string) => string): string {
+  if (!iso) return "—";
   const d = new Date(iso);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -212,6 +213,15 @@ export function Sidebar({
     meetings.find((m) => m.id === activeId)?.seriesId ??
     (pathname.startsWith("/series/") ? pathname.split("/")[2] : null);
 
+  const toggleSeriesPin = async (s: SidebarSeries) => {
+    const res = await fetch(`/api/series/${s.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !s.pinned }),
+    }).catch(() => null);
+    if (res?.ok) router.refresh();
+  };
+
   const togglePin = async (m: SidebarMeeting) => {
     const res = await fetch(`/api/meetings/${m.id}`, {
       method: "PATCH",
@@ -227,12 +237,13 @@ export function Sidebar({
     <div className="mt-3 border-b border-[var(--border)] pb-3">
       <p className="px-2 pb-1 text-[11px] font-medium text-[var(--text-muted)]">{t("Series")}</p>
       <ul>
-        {series.slice(0, SIDEBAR_SERIES).map((s) => {
+        {/* The pinned ones always, and the seven most recent of the rest. */}
+        {[...series.filter((s) => s.pinned), ...series.filter((s) => !s.pinned).slice(0, SIDEBAR_SERIES)].map((s) => {
           const open = seriesChoice[s.id] ?? activeSeries === s.id;
           const items = meetings.filter((m) => m.seriesId === s.id && !m.upcoming).slice(0, 3);
           return (
             <li key={s.id}>
-              <div className="group flex items-center rounded-md hover:bg-[var(--hover-surface)]">
+              <div className="group relative flex items-center rounded-md hover:bg-[var(--hover-surface)]">
                 <button
                   type="button"
                   onClick={() => toggleSeries(s.id, open)}
@@ -247,7 +258,7 @@ export function Sidebar({
                 <Link
                   href={`/series/${s.id}`}
                   aria-current={pathname === `/series/${s.id}` ? "page" : undefined}
-                  className={`flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pr-2 text-sm ${
+                  className={`flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pr-8 text-sm ${
                     pathname === `/series/${s.id}` ? "text-[var(--text-strong)]" : "text-[var(--text-secondary)] group-hover:text-[var(--foreground)]"
                   }`}
                 >
@@ -257,6 +268,25 @@ export function Sidebar({
                     {lastLabel(s.lastAt, t)} · {s.count}
                   </span>
                 </Link>
+                {/* As on a meeting's row: standing straight while pinned, tilted on hover to pin. */}
+                {!external ? (
+                  <button
+                    type="button"
+                    onClick={() => void toggleSeriesPin(s)}
+                    title={s.pinned ? t("Unpin") : t("Pin")}
+                    aria-label={`${s.pinned ? t("Unpin") : t("Pin")}: ${s.name}`}
+                    aria-pressed={s.pinned}
+                    className={`absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded hover:bg-[var(--hover-surface)] ${
+                      s.pinned
+                        ? "text-[var(--accent)]"
+                        : "text-[var(--text-muted)] opacity-0 hover:text-[var(--foreground)] group-hover:opacity-100 focus-visible:opacity-100"
+                    }`}
+                  >
+                    {s.pinned ? <PinnedIcon className="h-3.5 w-3.5" /> : <PinIcon className="h-3.5 w-3.5" />}
+                  </button>
+                ) : s.pinned ? (
+                  <PinnedIcon aria-hidden className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--accent)]" />
+                ) : null}
               </div>
               {open ? (
                 <ul className="mb-1">
@@ -292,7 +322,7 @@ export function Sidebar({
           );
         })}
       </ul>
-      {series.length > SIDEBAR_SERIES ? (
+      {series.filter((s) => !s.pinned).length > SIDEBAR_SERIES ? (
         <Link
           href="/series"
           className="mt-0.5 block rounded-md px-2 py-1 text-xs text-[var(--accent-sub)] hover:bg-[var(--hover-surface)]"
