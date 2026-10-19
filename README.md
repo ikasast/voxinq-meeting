@@ -2,7 +2,7 @@
 
 # Voxinq Meeting
 
-**Record meetings on your phone. Transcribe them, tell the speakers apart and write the minutes on your own PC. By default nothing leaves it.**
+**Record meetings on the phone you already carry. Transcribe them, tell the speakers apart and write the minutes on your own PC. By default nothing leaves it.**
 
 [**日本語ガイド →**](README.ja.md)
 
@@ -29,6 +29,8 @@
 
 ## Why on your own machine
 
+- **No recorder to buy.** The phone you carry records, and a computer you already have does the
+  transcribing and the minutes. No extra device, and no contract per device.
 - **The audio, the transcripts and the minutes stay with you.** Sending recognition or minutes to an
   outside service is your choice, per run, and the destination is named on screen.
 - **No fixed cost, however many people use it** — nothing like a per-person subscription.
@@ -36,6 +38,24 @@
   meetings, local or remote, and swap them at any time.
 - **All of it is yours to take.** The whole instance exports to one file and imports on another
   machine; nothing ties you to a service.
+
+## How it is kept safe
+
+Four places, each closed on its own:
+
+- **The way in: nothing on the internet.** The phone and the PC meet inside Tailscale. By default
+  there is no route to the app from outside it.
+- **The way out: nothing sent.** By default nothing goes to an outside service, and once it is set
+  up the server can be one that cannot reach the internet at all
+  ([A closed server](docs/closed-network.md)).
+- **What is kept: encrypted per person.** With accounts, each person's transcripts and minutes are
+  encrypted under their own key — not readable by an administrator either.
+- **The devices: a lost phone does not open.** The Android app locks behind the phone's fingerprint,
+  face or screen lock, and an administrator can require that of every phone. Two-factor sign-in
+  and device approval on the Tailscale side are recommended alongside.
+
+More in [encryption](docs/usage.md#encryption), [remote access](docs/remote-access.md) and
+[hardening what is allowed in](docs/closed-network.md#hardening-what-is-allowed-in).
 
 ## Quick start
 
@@ -112,7 +132,8 @@ All of them, and the background services that keep it running, are in [Setup](do
 3. Open Voxinq and enter `https://<host>.<tailnet>.ts.net`.
 
 It records with the screen off, keeps recording when the server cannot be reached, rings at a booked
-meeting's time, and offers **Update** at the top when your server is newer. More in
+meeting's time, and offers **Update** at the top when your server is newer. It can also lock behind
+the phone's fingerprint, face or screen lock — offered once, the first time. More in
 [the app's README](android/README.md).
 </details>
 
