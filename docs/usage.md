@@ -403,7 +403,8 @@ A live recording holds the card too, and appears in the queue while it lasts —
 stops a five-gigabyte job starting underneath a meeting in progress.
 
 **History**, below the queue, is what already ran — for the question "why was that one slow".
-Each row gives the meeting's length, how long the work waited and took, and what it ran on:
+Each job is one line — what it was, the meeting, when it finished — and tapping it opens the
+meeting's length, how long the work waited and took, and what it ran on:
 
 - **Minutes:** the model; **how much of it Ollama held on the GPU**, measured when the job ended
   (shown as *GPU 84% / CPU 16%* when part of it ran on the CPU, which is almost always why a set
@@ -489,12 +490,19 @@ answers stay while the window is open on that page.
   recorded rather than fill the gap. The footer states what it could see — how many meetings,
   how many older ones were left out for length, how many have no minutes yet.
 - Answering uses the GPU, so it is refused while minutes are generating. Nothing is stored.
+- **The answer appears as it is written**, from the first words once the material is read.
+- The model answers without reasoning first, and briefly: a question here is a lookup in the
+  material, and a reasoning model spent most of a minute before a two-line answer. A follow-up
+  question about the same meeting reuses what the model already read, so it starts at once.
 
 ### Asking one meeting's own words
 
-On a single meeting, the chat offers **From the minutes** / **From the transcript**. The minutes
-are the reviewed version and the dense one; the transcript is what was actually said — a
-phrase, a name, an aside that never made the minutes.
+On a single meeting that has both, the chat offers **From both** (the default), **From the
+minutes** and **From the transcript**. The minutes are the reviewed version and the dense one;
+the transcript is what was actually said — a phrase, a name, an aside that never made the
+minutes. **From both** reads this meeting's words and the minutes around it (the series', when
+it is in one), with the transcript first in the budget and the oldest minutes left out when they
+do not fit.
 
 - It is **one meeting at a time**. An hour of Japanese is ten to thirteen thousand tokens
   against a local budget of about twenty-four thousand, so a whole series of transcripts does
@@ -745,6 +753,19 @@ falls back to matching titles.
 The index is not free: somebody with the database can see how many distinct two-character
 sequences a meeting holds and which meetings share them. Not the words, and not reversible
 without the key — but not nothing, and the reason search is possible at all.
+
+## Storage and how long things are kept
+
+**Storage** (*Settings → Data*, or the account menu) shows the room the recordings, transcripts
+and minutes take, and lists every recording, largest first. Each one can be **protected** from
+the automatic deletion, let go again, or **deleted** now — one from its row, or several at once
+after ticking them. Deleting takes the audio only: the transcript and the minutes stay, and what
+goes is playing it back and doing the recognition or the speakers again.
+
+Under *Settings → Data* an administrator chooses how long an unprotected recording is kept (7,
+30, 90 or 365 days, or until deleted by hand) and how long a meeting stays in the trash (7, 30 or
+90 days). Until somebody chooses, recordings follow the transcription service's own period
+([configuration](configuration.md#retention)).
 
 ## Backup & restore
 
