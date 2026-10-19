@@ -23,7 +23,14 @@ export type SidebarMeeting = {
 };
 
 /** A series in the sidebar: its name, how many meetings it has, and when the latest was. */
-export type SidebarSeries = { id: string; name: string; count: number; lastAt: string };
+export type SidebarSeries = {
+  id: string;
+  name: string;
+  count: number;
+  /** The latest meeting's start; null for a pinned series with none yet. */
+  lastAt: string | null;
+  pinned: boolean;
+};
 
 const SELECT = {
   id: true,
@@ -81,13 +88,25 @@ export async function sidebarSeries(): Promise<SidebarSeries[]> {
     select: {
       id: true,
       name: true,
+      pinnedAt: true,
       meetings: { where: { deletedAt: null }, orderBy: { startedAt: "desc" }, take: 1, select: { startedAt: true } },
       _count: { select: { meetings: { where: { deletedAt: null } } } },
     },
   });
-  return rows
-    .filter((s) => s.meetings.length > 0)
-    .map((s) => ({ id: s.id, name: s.name, count: s._count.meetings, lastAt: s.meetings[0].startedAt.toISOString() }))
-    .sort((a, b) => b.lastAt.localeCompare(a.lastAt))
+  // Pinned first, in the order they were pinned; then the rest by their latest meeting. A pinned
+  // series is listed even with no meeting yet — somebody put it there on purpose.
+  const pinned = rows
+    .filter((s) => s.pinnedAt)
+    .sort((a, b) => a.pinnedAt!.getTime() - b.pinnedAt!.getTime());
+  const rest = rows
+    .filter((s) => !s.pinnedAt && s.meetings.length > 0)
+    .sort((a, b) => b.meetings[0].startedAt.getTime() - a.meetings[0].startedAt.getTime())
     .slice(0, 30);
+  return [...pinned, ...rest].map((s) => ({
+    id: s.id,
+    name: s.name,
+    count: s._count.meetings,
+    lastAt: s.meetings[0]?.startedAt.toISOString() ?? null,
+    pinned: s.pinnedAt !== null,
+  }));
 }
