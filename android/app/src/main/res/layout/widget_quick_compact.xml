@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The two-cell widget: the same two buttons as the row, as a red disc and a ring, without words.
-     Each still names itself to a screen reader. -->
+<!-- The two-cell widget: the mark, then the same two buttons as the row, as a red disc and a
+     ring, without words. Each still names itself to a screen reader. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -10,10 +10,18 @@
     android:orientation="horizontal"
     android:padding="8dp">
 
+    <ImageView
+        android:layout_width="20dp"
+        android:layout_height="19dp"
+        android:layout_marginEnd="10dp"
+        android:importantForAccessibility="no"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_widget_mark" />
+
     <FrameLayout
         android:id="@+id/widget_record"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
         android:background="@drawable/widget_button"
         android:contentDescription="@string/widget_record">
 
@@ -27,9 +35,9 @@
 
     <FrameLayout
         android:id="@+id/widget_new"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="12dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginStart="10dp"
         android:background="@drawable/widget_button_new"
         android:contentDescription="@string/widget_new">
 
