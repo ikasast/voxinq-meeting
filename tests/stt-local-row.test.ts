@@ -25,17 +25,17 @@ describe("the settings page", () => {
     expect(page).toMatch(/localEditor=\{/);
   });
 
-  it("keeps the model picker inside that editor rather than loose on the page", () => {
-    const select = page.indexOf('id="whisperModel"');
+  it("shows the model inside that editor, and leaves changing it to Administration", () => {
+    // The model is the machine's: the row says which it is and where it is changed, inside the
+    // endpoint list rather than loose on the page.
+    const shown = page.indexOf('href="/admin?tab=machine"');
     const from = page.indexOf("localEditor={");
     const to = page.indexOf("setDraftProfiles(p);");
-    expect(select, "the local model picker is gone from the settings page").toBeGreaterThan(-1);
-    expect(from).toBeGreaterThan(-1);
-    expect(to).toBeGreaterThan(from);
-    expect(
-      select > from && select < to,
-      "the model picker is back outside the endpoint list, where it reads as belonging to nothing",
-    ).toBe(true);
+    expect(shown).toBeGreaterThan(-1);
+    expect(shown > from && shown < to).toBe(true);
+    expect(page).not.toContain('id="whisperModel"');
+    const machine = readFileSync(join(__dirname, "..", "app", "admin", "machine-settings.tsx"), "utf8");
+    expect(machine).toContain('id="whisperModel"');
   });
 });
 

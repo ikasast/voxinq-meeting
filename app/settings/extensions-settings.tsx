@@ -8,7 +8,7 @@ import { useBackGuard } from "@/app/use-back-guard";
 import { useExtensions } from "../extensions-provider";
 import { Switch } from "../switch";
 
-// Settings → Extensions: what is added on top of recording, transcription and minutes
+// Administration → Extensions: what is added on top of recording, transcription and minutes
 // (lib/extensions.ts). Switched for the whole instance, by an administrator; everybody else sees
 // what is on. Switching one off hides it and keeps its data.
 //

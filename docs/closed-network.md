@@ -68,7 +68,7 @@ The order matters: set the machine up **online**, use every model once, then clo
 
 1. Install as usual ([Setup](setup.md)), with `VOXINQ_VERSION` pinned — `v4.0.0`, say — in `.env`.
 2. Pull the minutes model (`docker compose exec ollama ollama pull qwen3:8b`), and switch on the
-   extensions you will use (*Settings → Extensions*).
+   extensions you will use (*Administration → Extensions*).
 3. **Run one meeting through everything you will use** — recognition, speaker separation, and
    translation or emotion if they are on. Each downloads its model the first time.
 4. Add `HF_HUB_OFFLINE: "1"` under the `stt` service's `environment:` in `docker-compose.yml`,
@@ -144,13 +144,13 @@ Closing the server leaves the ways in that are meant to be there. The work is on
     by itself, and `VOXINQ_KEY_SECRET` ([configuration](configuration.md#env)).
 - **The devices.** A lost phone or laptop is the remaining way in.
   - Require a screen lock.
-  - **Require the app lock** (*Settings → Defaults for everyone → Require the app lock*): every
+  - **Require the app lock** (*Administration → Security → Require the app lock*): every
     phone's app then asks for its fingerprint, face or screen lock when opened, and a phone with no
     screen lock shows nothing until it has one. Starting a recording is not behind it. The app keeps
     this rule; the server cannot check it ([the lock](../android/README.md#the-lock)).
   - Remove a lost device from the tailnet at once; that cuts it off from the server.
   - Sign the account out of every device (*Account → Sign out everywhere*). An administrator can
-    also disable the account under *People*, which ends its sessions at once.
+    also disable the account under *Administration → People*, which ends its sessions at once.
   - The Android app keeps recordings it has not sent in its own storage, which Android encrypts
     with the device.
 

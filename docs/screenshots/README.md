@@ -13,7 +13,7 @@ app is for, these say what it looks like.
 | `recording.png` | The recording screen on a PC: model state, live transcript, and the recording dock. | `shoot-screenshots.mjs` |
 | `minutes.png` | A meeting on a PC: its details, the minutes, and the transcript beside them. | `shoot-screenshots.mjs` |
 | `workflow.png` | The README hero before 4.0: the six-step pipeline drawn by hand. No longer shown; kept as the style reference the illustrations were drawn from. | by hand |
-| `../../public/extension-shots/<locale>/<id>.webp` | One per extension, cut out of the screen where it shows up, for the details dialog on Settings → Extensions. Served by the app, so they live in `public/`. | `shoot-extension-shots.mjs` |
+| `../../public/extension-shots/<locale>/<id>.webp` | One per extension, cut out of the screen where it shows up, for the details dialog on Administration → Extensions. Served by the app, so they live in `public/`. | `shoot-extension-shots.mjs` |
 | `social-preview.png` | 1280×640 card for GitHub → repo Settings → Social preview (upload manually; not referenced by the README). Cropped from [`../illustrations/hero.png`](../illustrations/README.md) — a card is seen at thumbnail size in a feed, where a drawing carries and an infographic does not. | by hand |
 
 There are two sets. `docs/screenshots/*.png` is English, for README.md; `ja/` is Japanese, for
@@ -69,7 +69,7 @@ LOCALE=ja node scripts/seed-demo.mjs
 BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-screenshots.mjs
 BASE_URL=http://127.0.0.1:3100 LOCALE=ja node scripts/shoot-hero.mjs
 
-# The pictures on Settings → Extensions, one set per language. They need DATABASE_URL too:
+# The pictures on Administration → Extensions, one set per language. They need DATABASE_URL too:
 # the corrections shot looks up the line it fixes. The answer, the fix and the Tailscale Funnel
 # state are answered in the browser, so no model is woken and no real host name is photographed.
 LOCALE=ja node scripts/seed-demo.mjs

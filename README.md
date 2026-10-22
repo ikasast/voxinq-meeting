@@ -140,7 +140,7 @@ the phone's fingerprint, face or screen lock — offered once, the first time. M
 ## Extensions
 
 Recording, transcription and minutes are the core. The rest are extensions an administrator switches
-on under **Settings → Extensions**:
+on under **Administration → Extensions**:
 
 - **Speaker separation** — who said each line; enrol a voice once and it is named in every meeting after
 - **Series** — recurring meetings share a background and members, and the last minutes carry into the next

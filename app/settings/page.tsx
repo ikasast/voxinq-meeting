@@ -4,23 +4,18 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TITLE_FORMATS } from "@/lib/meeting-title";
-import { HouseDefaults } from "./house-defaults";
-import { AppLockPolicy } from "./app-lock-policy";
 import { AppLockSetting } from "./app-lock-setting";
 import { OllamaModelField } from "./ollama-model-field";
-import { MachineNote } from "./machine-note";
-import { RetentionFields } from "./retention-fields";
+import { MACHINE_KEYS } from "@/lib/settings-scope";
 import {
   WHISPER_MODELS,
   isJapaneseOnlyModel,
   isKnownWhisperModel,
-  modelSizeGuide,
   whisperModel,
 } from "@/lib/stt/models";
 import { THEMES, readTheme, setTheme, watchSystemTheme, type Theme } from "@/lib/theme";
 import { DataBackup } from "./data-backup";
 import { ReminderNotifications } from "./reminder-notifications";
-import { ExtensionsSettings } from "./extensions-settings";
 import { useExtensions } from "../extensions-provider";
 import { RestScreenSetting } from "./rest-screen-setting";
 import { DisplaySizeSetting, useInAndroidApp } from "./display-size-setting";
@@ -99,11 +94,10 @@ const TABS = [
   { id: "data", label: "Data" },
   { id: "appearance", label: "Appearance" },
   { id: "review", label: "Feedback" },
-  { id: "extensions", label: "Extensions" },
-  // Only shown to an administrator; see the tab bar below. Last, because it is the one tab that
-  // is not about the reader.
-  { id: "defaults", label: "Defaults for everyone" },
 ] as const;
+// Extensions and the defaults everybody starts from moved to Administration (app/admin), with
+// the rest of what describes the machine rather than the reader. Old links still land there.
+const MOVED_TO_ADMIN: Record<string, string> = { extensions: "extensions", defaults: "defaults" };
 type TabId = (typeof TABS)[number]["id"];
 
 
@@ -211,8 +205,12 @@ export default function SettingsPage() {
         setDraftTemplates(data.minutesTemplates);
         // The tab in the address (?tab=data), from a reload or a link.
         const asked = new URLSearchParams(window.location.search).get("tab");
+        if (asked && MOVED_TO_ADMIN[asked]) {
+          window.location.replace(`/admin?tab=${MOVED_TO_ADMIN[asked]}`);
+          return;
+        }
         const known = TABS.find((x) => x.id === asked);
-        if (known && (known.id !== "defaults" || data.isAdmin)) setTab(known.id);
+        if (known) setTab(known.id);
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("Failed to load")));
   }, [t]);
@@ -245,6 +243,9 @@ export default function SettingsPage() {
         sttProfiles: draftProfiles,
         minutesTemplates: draftTemplates,
       };
+      // The machine's settings are changed under Administration. This form holds a copy loaded
+      // when it opened, and sending it back would put back whatever was there then.
+      for (const key of MACHINE_KEYS) delete body[key];
       if (anthropicApiKey.trim()) body.anthropicApiKey = anthropicApiKey.trim();
       if (openaiApiKey.trim()) body.openaiApiKey = openaiApiKey.trim();
       if (clearAnthropicApiKey) body.clearAnthropicApiKey = true;
@@ -320,7 +321,6 @@ export default function SettingsPage() {
 
   const tabs = TABS.filter(
     (tab_) =>
-      (tab_.id !== "defaults" || settings.isAdmin) &&
       (tab_.id !== "remote" || extensions.externalShare) &&
       (tab_.id !== "review" || extensions.review) &&
       (tab_.id !== "speakers" || extensions.speakers || extensions.emotion),
@@ -399,30 +399,21 @@ export default function SettingsPage() {
                   endpoints={extensions.externalAi}
                   localEditor={
                     <>
-                      <label htmlFor="whisperModel" className={labelClass}>
-                        {t("Model")}
-                      </label>
-                      <select
-                        id="whisperModel"
-                        value={settings.whisperModel}
-                        onChange={(e) => update("whisperModel", e.target.value)}
-                        disabled={!settings.isAdmin}
-                        className={inputClass}
-                      >
-                        {WHISPER_MODELS.map((m) => (
-                          <option key={m.value} value={m.value}>
-                            {settingLabel(t, m.label)}
-                          </option>
-                        ))}
-                        {isKnownWhisperModel(settings.whisperModel) ? null : (
-                          <option value={settings.whisperModel}>
-                            {t("{model} (custom)", { model: settings.whisperModel })}
-                          </option>
-                        )}
-                      </select>
-                      <MachineNote isAdmin={settings.isAdmin} />
+                      <p className={labelClass}>{t("Model")}</p>
+                      {/* The machine's, changed under Administration → This machine. */}
+                      <p className="text-sm text-[var(--text-strong)]">
+                        {isKnownWhisperModel(settings.whisperModel)
+                          ? settingLabel(t, WHISPER_MODELS.find((m) => m.value === settings.whisperModel)!.label)
+                          : settings.whisperModel}
+                      </p>
                       <p className="mt-1 text-xs text-[var(--text-muted)]">
-                        {t("Memory each needs: {guide}. Downloaded on first use.", { guide: modelSizeGuide() })}
+                        {settings.isAdmin ? (
+                          <Link href="/admin?tab=machine" className="text-[var(--accent-sub)] hover:underline">
+                            {t("Change it under Administration → This machine")}
+                          </Link>
+                        ) : (
+                          t("Set for the whole machine by an administrator.")
+                        )}
                       </p>
                       {whisperModel(settings.whisperModel)?.note ? (
                         <p className="mt-1 text-xs text-[var(--text-muted)]">
@@ -498,28 +489,6 @@ export default function SettingsPage() {
                 </Field>
               ) : null}
 
-              <Field
-                label={t("GPU budget for queued work")}
-                htmlFor="vramBudgetMb"
-                hint={
-                  <>
-                    <MachineNote isAdmin={settings.isAdmin} />
-                    <p>{t("Megabytes of video memory queued work may use at once. Empty: worked out from the card.")}</p>
-                  </>
-                }
-              >
-                <input
-                  id="vramBudgetMb"
-                  type="number"
-                  min={0}
-                  step={512}
-                  value={settings.vramBudgetMb || ""}
-                  onChange={(e) => update("vramBudgetMb", Math.max(0, Number(e.target.value) || 0))}
-                  disabled={!settings.isAdmin}
-                  placeholder={t("Auto")}
-                  className={`${inputClass} max-w-xs`}
-                />
-              </Field>
             </section>
           ) : null}
 
@@ -740,7 +709,6 @@ export default function SettingsPage() {
           {/* Remote access (Tailscale Funnel publish toggle) */}
           {tab === "remote" && extensions.externalShare ? <RemoteAccess /> : null}
 
-          {tab === "extensions" ? <ExtensionsSettings isAdmin={settings.isAdmin} /> : null}
 
           {/* Meeting feedback: what a good meeting looks like, for each of the two roles. */}
           {tab === "review" && extensions.review ? (
@@ -776,24 +744,17 @@ export default function SettingsPage() {
                   {t("How much room the recordings, transcripts and minutes take")}
                 </Link>
               </Field>
-              <RetentionFields
-                recordingDays={settings.recordingRetentionDays}
-                trashDays={settings.trashRetentionDays}
-                isAdmin={settings.isAdmin}
-                inputClass={inputClass}
-                onRecording={(d) => update("recordingRetentionDays", d)}
-                onTrash={(d) => update("trashRetentionDays", d)}
-              />
+              {settings.isAdmin ? (
+                <Field label={t("How long things are kept")}>
+                  <Link href="/admin?tab=machine" className="inline-flex pt-2 text-sm text-[var(--accent-sub)] hover:underline">
+                    {t("Set under Administration → This machine")}
+                  </Link>
+                </Field>
+              ) : null}
               <DataBackup />
             </section>
           ) : null}
 
-          {tab === "defaults" ? (
-            <>
-              <HouseDefaults />
-              <AppLockPolicy />
-            </>
-          ) : null}
 
           {tab === "appearance" ? (
             <section>

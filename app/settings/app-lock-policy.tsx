@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/app/locale-provider";
 import { Switch } from "@/app/switch";
 
-// Settings → Defaults for everyone: whether every phone's app must be locked (/api/app-lock).
+// Administration → Security: whether every phone's app must be locked (/api/app-lock).
 //
 // Not one of the defaults above it. Those are where people start and may leave; this is a rule
 // nobody leaves, so it is saved as it is flipped rather than with them. And it is kept by the

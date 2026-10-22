@@ -56,7 +56,7 @@ export const SERVER_MESSAGES = [
   "Only an administrator sets the defaults everybody starts from.",
   "Only an administrator switches extensions on or off.",
   "Only an administrator can require the app lock.",
-  "This feature is switched off. An administrator can switch it on under Settings, Extensions.",
+  "This feature is switched off. An administrator can switch it on under Administration, Extensions.",
 
   // Voice cues.
   "No line has a place in the recording to measure.",

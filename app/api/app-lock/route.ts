@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 //
 // Read by the Android app itself (AppLock.kt), before it has a session — the proxy lets this GET
 // through for that reason, and it says nothing but yes or no. Set by an administrator from
-// Settings → Defaults for everyone. It is a rule the app keeps: the server cannot see whether it
+// Administration → Security. It is a rule the app keeps: the server cannot see whether it
 // does, and an app too old to know about it opens as it always has.
 
 export async function GET() {
