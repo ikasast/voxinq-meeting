@@ -72,6 +72,7 @@ model User {
   unlock   KeyUnlock?
   resets   PasswordReset[]
   voices   SpeakerProfile[]
+  asked    AskTurn[]
 
   @@map("users")
 }
@@ -219,6 +220,7 @@ model Meeting {
   tags         Tag[]
   participants MeetingParticipant[]
   reviews      MeetingReview[]
+  asked        AskTurn[]
   series       Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
@@ -316,6 +318,7 @@ model Series {
 
   meetings Meeting[]
   members  SeriesMember[]
+  asked    AskTurn[]
 
   @@unique([ownerId, name])
   @@index([ownerId])
@@ -471,4 +474,32 @@ model MeetingReview {
   @@index([meetingId])
   @@index([person])
   @@map("meeting_reviews")
+}
+
+/// A question asked about a meeting or a series, and what came back (Ask). Kept so it can be
+/// read again: the panel opens on the history of where it was opened.
+///
+/// On a meeting's page, `meetingId` is set; on a series page, `seriesId` alone. The question and
+/// the answer are encrypted together in `body` (JSON {question, answer}), as the minutes are,
+/// because an answer quotes what was said.
+model AskTurn {
+  id        String   @id @default(cuid())
+  ownerId   String?  @map("owner_id")
+  meetingId String?  @map("meeting_id")
+  seriesId  String?  @map("series_id")
+  /// "both" | "minutes" | "transcript"
+  source    String
+  body      String
+  /// JSON: what the answer was based on — used, omitted, withoutMinutes, condensed, parts.
+  meta      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  owner   User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  series  Series?  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, createdAt])
+  @@index([seriesId, createdAt])
+  @@index([ownerId])
+  @@map("ask_turns")
 }

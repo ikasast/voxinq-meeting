@@ -482,14 +482,16 @@ written until then.**
 
 The round button at the bottom right of a series' page or a meeting's opens a small chat. On a
 series, questions like “前回までのTODOを教えて” are answered from the minutes of every meeting in it,
-so the answer names the meeting and date each item came from. Nothing is saved; the questions and
-answers stay while the window is open on that page.
+so the answer names the meeting and date each item came from. **The questions and answers are
+kept**, on the meeting (or the series) they were asked on, for you alone: the chat opens on them,
+filed by day, and **Clear the history** removes them. They are encrypted like the minutes, and go
+with the meeting when it is deleted.
 
 - A meeting is asked on its own page; a one-off is a series of one.
 - Answers are grounded in the minutes only: the model is told to say when something is not
   recorded rather than fill the gap. The footer states what it could see — how many meetings,
   how many older ones were left out for length, how many have no minutes yet.
-- Answering uses the GPU, so it is refused while minutes are generating. Nothing is stored.
+- Answering uses the GPU, so it is refused while minutes are generating.
 - **The answer appears as it is written**, from the first words once the material is read.
 - The model answers without reasoning first, and briefly: a question here is a lookup in the
   material, and a reasoning model spent most of a minute before a two-line answer. A follow-up

@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useConfirm } from "./confirm-dialog";
+import { useLocale } from "./locale-provider";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ChatIcon, CloseIcon, SendIcon } from "./icons";
 import { useT } from "./locale-provider";
 import { busyLabel } from "@/lib/queue/job-label";
 import { useGpuBusy } from "./use-gpu-busy";
+import type { KeptTurn } from "@/lib/ask-history";
 
 type Answer = {
   answer: string;
@@ -23,19 +26,39 @@ type Answer = {
 type Source = "both" | "minutes" | "transcript";
 
 /**
- * One question and what came back, in the order they were asked. Nothing is stored. `partial` is
- * the answer so far, while it is being written.
+ * One question and what came back, in the order they were asked. `partial` is the answer so far,
+ * while it is being written; `at` is when it was asked, for the day it is filed under.
  */
-type Turn = { id: number; question: string; source: Source; answer?: Answer; partial?: string; error?: string };
+type Turn = {
+  id: number;
+  question: string;
+  source: Source;
+  answer?: Answer;
+  partial?: string;
+  error?: string;
+  at: string;
+};
 
 let nextTurnId = 0;
+
+/** The day a turn is filed under: "10月20日", or with the year when it is not this one. */
+function dayLabel(locale: string, iso: string): string {
+  const d = new Date(iso);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(locale === "ja" ? "ja-JP" : "en-US", {
+    month: "long",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
+}
 
 // Asking about meetings, as a chat that floats at the bottom right (v4).
 //
 // It was a box under the minutes on a meeting and a card on a series: one more section to scroll
 // past, and gone from sight as soon as you scrolled to the part you had a question about. Now it
 // is a round button in the corner, on whatever is being read, and a small chat window above it.
-// The questions and answers stay in the window while it is open on this page; none are saved.
+// The questions and answers are kept (lib/ask-history.ts): the panel opens on the history of
+// the meeting or series it is on, filed by day, for the reader alone.
 //
 // What it reads: a series' minutes (a one-off meeting is a series of one), or one meeting's own
 // words, offered where both exist — a series of transcripts is several times any local model's
@@ -79,6 +102,44 @@ export function AskMinutes({
   const blocked = gpu.busy;
   const input = useRef<HTMLInputElement>(null);
   const end = useRef<HTMLDivElement>(null);
+  const confirm = useConfirm();
+  const locale = useLocale();
+  // Where the history is kept: the meeting it is asked on, or the series.
+  const place = meetingId ? `meetingId=${encodeURIComponent(meetingId)}` : `seriesId=${encodeURIComponent(seriesId ?? "")}`;
+  const [loaded, setLoaded] = useState(false);
+
+  // The history, once, the first time the panel opens.
+  useEffect(() => {
+    if (!open || loaded) return;
+    setLoaded(true);
+    void fetch(`/api/ask/history?${place}`, { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ turns: KeptTurn[] }>) : null))
+      .then((d) => {
+        if (!d?.turns.length) return;
+        const kept: Turn[] = d.turns.map((k) => ({
+          id: (nextTurnId += 1),
+          question: k.locked ? t("(locked — unlock your meetings to read it)") : k.question,
+          source: (k.source as Source) ?? "minutes",
+          at: k.createdAt,
+          answer: k.locked
+            ? { answer: "", used: 0, omitted: 0, withoutMinutes: 0 }
+            : ({ answer: k.answer, used: 0, omitted: 0, withoutMinutes: 0, ...k.meta } as Answer),
+        }));
+        setTurns((now) => [...kept, ...now]);
+      })
+      .catch(() => {});
+  }, [open, loaded, place, t]);
+
+  const clearHistory = async () => {
+    const ok = await confirm({
+      message: t("Clear the questions and answers kept here? This cannot be undone."),
+      confirmLabel: t("Clear the history"),
+      danger: true,
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/ask/history?${place}`, { method: "DELETE" }).catch(() => null);
+    if (res?.ok) setTurns([]);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -101,7 +162,7 @@ export function AskMinutes({
     // every later piece and the final answer then updated nothing, and the screen kept only the
     // first word ("はい") of a long answer.
     const id = (nextTurnId += 1);
-    const turn: Turn = { id, question: text, source };
+    const turn: Turn = { id, question: text, source, at: new Date().toISOString() };
     setTurns((all) => [...all, turn]);
     const settle = (done: Partial<Turn>) =>
       setTurns((all) => all.map((x) => (x.id === id ? { ...x, ...done } : x)));
@@ -167,14 +228,14 @@ export function AskMinutes({
                 <h2 className="text-sm font-semibold text-[var(--text-strong)]">{title}</h2>
                 <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                   {source === "both"
-                    ? t("Answered from everything said in this meeting and the minutes of {scope} — nothing else. Answers are not saved.", {
+                    ? t("Answered from everything said in this meeting and the minutes of {scope} — nothing else. Kept here, for you only.", {
                         scope: scopeLabel,
                       })
                     : source === "transcript"
-                      ? t("Answered from everything said in {scope} — nothing else. Answers are not saved.", {
+                      ? t("Answered from everything said in {scope} — nothing else. Kept here, for you only.", {
                           scope: meetingId && seriesId ? t("this meeting") : scopeLabel,
                         })
-                      : t("Answered from the minutes of {scope} — nothing else. Answers are not saved.", {
+                      : t("Answered from the minutes of {scope} — nothing else. Kept here, for you only.", {
                           scope: scopeLabel,
                         })}
                 </p>
@@ -234,7 +295,10 @@ export function AskMinutes({
               </div>
             ) : null}
             {turns.map((turn, i) => (
-              <div key={i} className="space-y-2">
+              <div key={turn.id} className="space-y-2">
+                {i === 0 || turn.at.slice(0, 10) !== turns[i - 1].at.slice(0, 10) ? (
+                  <p className="pt-1 text-center text-[11px] text-[var(--text-muted)]">{dayLabel(locale, turn.at)}</p>
+                ) : null}
                 <p className="ml-8 rounded-2xl rounded-br-sm bg-[var(--btn-primary-bg)] px-3 py-2 text-sm text-[var(--foreground)]">
                   {turn.question}
                 </p>
@@ -308,6 +372,17 @@ export function AskMinutes({
                 )}
               </div>
             ))}
+            {turns.length > 0 && !asking ? (
+              <p className="text-center">
+                <button
+                  type="button"
+                  onClick={() => void clearHistory()}
+                  className="text-[11px] text-[var(--text-muted)] hover:text-[var(--error)] hover:underline"
+                >
+                  {t("Clear the history")}
+                </button>
+              </p>
+            ) : null}
             <div ref={end} />
           </div>
 
