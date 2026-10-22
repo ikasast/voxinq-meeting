@@ -6,7 +6,7 @@ import { addOllamaUsage, type ChatArgs, type ChatProvider, type LlmConfig } from
 export const ollamaProvider: ChatProvider = {
   name: "ollama",
   async chat(
-    { system, user, maxTokens, prefill, think, onText }: ChatArgs,
+    { system, user, maxTokens, prefill, think, onText, keepAlive }: ChatArgs,
     cfg: LlmConfig,
     signal?: AbortSignal,
   ): Promise<string> {
@@ -51,6 +51,7 @@ export const ollamaProvider: ChatProvider = {
           // thinking model can exhaust it before emitting anything. Callers that want a short
           // structured reply pass think:false; omitted leaves the model's default alone.
           ...(think === undefined ? {} : { think }),
+          ...(keepAlive ? { keep_alive: keepAlive } : {}),
           // Minutes are a structured-extraction task, so keep it stable at low temperature.
           // At the default (0.8), a 7B model on thin input tends to produce token garbage
           // like "特 Nvidia" or to copy the instructions verbatim.

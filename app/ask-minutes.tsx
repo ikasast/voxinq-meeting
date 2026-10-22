@@ -15,6 +15,8 @@ type Answer = {
   withoutMinutes: number;
   // Set when the meeting was too long to read in one pass and was condensed first.
   condensed?: boolean;
+  // Set when only the stretches the question is about were read (lib/llm/excerpt.ts).
+  parts?: number;
 };
 
 /** "both": the meeting's words and the minutes together, the default where both exist. */
@@ -24,7 +26,9 @@ type Source = "both" | "minutes" | "transcript";
  * One question and what came back, in the order they were asked. Nothing is stored. `partial` is
  * the answer so far, while it is being written.
  */
-type Turn = { question: string; source: Source; answer?: Answer; partial?: string; error?: string };
+type Turn = { id: number; question: string; source: Source; answer?: Answer; partial?: string; error?: string };
+
+let nextTurnId = 0;
 
 // Asking about meetings, as a chat that floats at the bottom right (v4).
 //
@@ -92,10 +96,15 @@ export function AskMinutes({
     if (!text || asking) return;
     setAsking(true);
     setQuestion("");
-    const turn: Turn = { question: text, source };
+    // Found again by its id, not by identity: each update replaces the turn with a copy, so
+    // after the first piece of a streamed answer the original object is no longer in the list —
+    // every later piece and the final answer then updated nothing, and the screen kept only the
+    // first word ("はい") of a long answer.
+    const id = (nextTurnId += 1);
+    const turn: Turn = { id, question: text, source };
     setTurns((all) => [...all, turn]);
     const settle = (done: Partial<Turn>) =>
-      setTurns((all) => all.map((x) => (x === turn ? { ...x, ...done } : x)));
+      setTurns((all) => all.map((x) => (x.id === id ? { ...x, ...done } : x)));
     try {
       // As it is written: the first words once the material is read, not the whole answer at
       // the end (NDJSON — pieces of text, then the whole answer with what it was based on).
@@ -236,7 +245,16 @@ export function AskMinutes({
                     </article>
                     {/* Say what the answer could actually see, so a gap is visible rather than implied. */}
                     <p className="mt-2 border-t border-[var(--border)] pt-1.5 text-[11px] text-[var(--text-muted)]">
-                      {turn.source === "transcript" ? (
+                      {turn.answer.parts ? (
+                        turn.source === "both" ? (
+                          t("Based on {n} part(s) of this meeting that the question is about, and the minutes of {m} meeting(s).", {
+                            n: turn.answer.parts,
+                            m: turn.answer.used,
+                          })
+                        ) : (
+                          t("Based on {n} part(s) of this meeting that the question is about.", { n: turn.answer.parts })
+                        )
+                      ) : turn.source === "transcript" ? (
                         turn.answer.condensed
                           ? t("Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).")
                           : t("Based on everything said in this meeting.")

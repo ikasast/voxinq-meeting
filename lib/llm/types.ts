@@ -85,6 +85,9 @@ export interface ChatArgs {
   // (Ask). Only the streaming provider (ollama) calls it; the others return the whole answer and
   // the caller shows it at the end. The returned string is the whole answer either way.
   onText?: (delta: string) => void;
+  // How long Ollama keeps the model loaded after this call (its `keep_alive`, e.g. "15m").
+  // Omitted: Ollama's default of five minutes. Voxinq still unloads it before a recording.
+  keepAlive?: string;
 }
 
 export interface ChatProvider {
