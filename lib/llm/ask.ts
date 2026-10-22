@@ -9,11 +9,16 @@
 import { getLlmBackground, getLlmConfig, getSummaryLanguage } from "../settings";
 import { CONTEXT_BUDGET, estTokens, ollamaContextBudget, providerFor } from "./provider";
 import { condenseTranscript } from "./index";
+import { excerptFor } from "./excerpt";
 
 // An answer is a lookup, not a document. Without reasoning first, a model now and then runs on
 // repeating itself to whatever cap it is given (2048 tokens, a minute and a half, once in a
 // test); half of that is still more than any answer here needs.
 const ANSWER_MAX_TOKENS = 1024;
+// Kept loaded for a while after an answer: a follow-up question then finds the model, and the
+// material it just read, still there instead of loading both again. Voxinq unloads the model
+// before a recording whatever this says.
+const ASK_KEEP_ALIVE = "15m";
 const CONCISE = "回答は要点を絞って簡潔に書いてください。箇条書きにする場合も、関係する項目だけを挙げてください。";
 const LANG_NAME: Record<string, string> = { ja: "日本語", en: "英語", zh: "中国語" };
 
@@ -122,7 +127,7 @@ export async function askMinutes(
   // No reasoning first: a question here is a lookup in the material, and a thinking model spent
   // most of a minute reasoning before a two-line answer (measured: 800 tokens against 90).
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText, keepAlive: ASK_KEEP_ALIVE },
     cfg,
     signal,
   );
@@ -136,7 +141,8 @@ export type MeetingTranscriptForAsk = {
   conversation: string;
 };
 
-export type TranscriptAskResult = { answer: string; condensed: boolean };
+/** `parts`: read as an excerpt of that many stretches of the meeting (lib/llm/excerpt.ts). */
+export type TranscriptAskResult = { answer: string; condensed: boolean; parts?: number };
 
 /**
  * Answer `question` from one meeting's transcript, rather than from its minutes.
@@ -173,7 +179,12 @@ export async function askTranscript(
 
   let source = meeting.conversation.trim();
   let condensed = false;
-  if (estTokens(source) > avail) {
+  // The stretches the question is about, when the meeting is long and the question is about a
+  // part of it; otherwise the whole, condensed first if it does not fit.
+  const excerpt = excerptFor(question, source);
+  if (excerpt) {
+    source = excerpt.text;
+  } else if (estTokens(source) > avail) {
     source = await condenseTranscript(provider, cfg, source, avail, language, signal);
     condensed = true;
   }
@@ -195,7 +206,9 @@ export async function askTranscript(
     `以下は「${meeting.title}」（${formatDate(meeting.startedAt)}）の発言ログです。`,
     condensed
       ? "（長い会議のため、ログ全体から抽出した要点メモになっています。会議の全体をカバーしています。）"
-      : "",
+      : excerpt
+        ? "（質問に関係しそうな部分だけを抜き出したものです。「……」は省略した箇所です。ここに無いことは、記録に無いとは限らないと述べてください。）"
+        : "",
     "",
     source,
     "",
@@ -205,14 +218,14 @@ export async function askTranscript(
     .join("\n");
 
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText, keepAlive: ASK_KEEP_ALIVE },
     cfg,
     signal,
   );
-  return { answer: answer.trim(), condensed };
+  return { answer: answer.trim(), condensed, ...(excerpt ? { parts: excerpt.parts } : {}) };
 }
 
-export type BothAskResult = AskResult & { condensed: boolean };
+export type BothAskResult = AskResult & { condensed: boolean; parts?: number };
 
 /**
  * Answer from both: this meeting's own words, and the minutes — the series' when the meeting
@@ -250,7 +263,10 @@ export async function askBoth(
   let source = meeting.conversation.trim();
   let condensed = false;
   const transcriptRoom = Math.max(1500, avail - estTokens(minutesContext));
-  if (estTokens(source) > transcriptRoom) {
+  const excerpt = excerptFor(question, source);
+  if (excerpt) {
+    source = excerpt.text;
+  } else if (estTokens(source) > transcriptRoom) {
     source = await condenseTranscript(provider, cfg, source, transcriptRoom, language, signal);
     condensed = true;
   }
@@ -276,7 +292,11 @@ export async function askBoth(
         }\n\n${minutesContext}`
       : "",
     `以下は「${meeting.title}」（${formatDate(meeting.startedAt)}）の発言ログです。${
-      condensed ? "長い会議のため、ログ全体から抽出した要点メモになっています。" : ""
+      condensed
+        ? "長い会議のため、ログ全体から抽出した要点メモになっています。"
+        : excerpt
+          ? "質問に関係しそうな部分だけを抜き出したものです（「……」は省略箇所）。ここに無いことは、記録に無いとは限らないと述べてください。"
+          : ""
     }\n\n${source}`,
     `上の議事録と発言ログだけを根拠に、次の質問に答えてください。\n\n質問: ${question}`,
   ]
@@ -284,9 +304,9 @@ export async function askBoth(
     .join("\n\n---\n\n");
 
   const answer = await provider.chat(
-    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText },
+    { system, user, maxTokens: ANSWER_MAX_TOKENS, think: false, onText, keepAlive: ASK_KEEP_ALIVE },
     cfg,
     signal,
   );
-  return { answer: answer.trim(), used, omitted, withoutMinutes, condensed };
+  return { answer: answer.trim(), used, omitted, withoutMinutes, condensed, ...(excerpt ? { parts: excerpt.parts } : {}) };
 }

@@ -15,6 +15,8 @@ type Answer = {
   withoutMinutes: number;
   // Set when the meeting was too long to read in one pass and was condensed first.
   condensed?: boolean;
+  // Set when only the stretches the question is about were read (lib/llm/excerpt.ts).
+  parts?: number;
 };
 
 /** "both": the meeting's words and the minutes together, the default where both exist. */
@@ -236,7 +238,16 @@ export function AskMinutes({
                     </article>
                     {/* Say what the answer could actually see, so a gap is visible rather than implied. */}
                     <p className="mt-2 border-t border-[var(--border)] pt-1.5 text-[11px] text-[var(--text-muted)]">
-                      {turn.source === "transcript" ? (
+                      {turn.answer.parts ? (
+                        turn.source === "both" ? (
+                          t("Based on {n} part(s) of this meeting that the question is about, and the minutes of {m} meeting(s).", {
+                            n: turn.answer.parts,
+                            m: turn.answer.used,
+                          })
+                        ) : (
+                          t("Based on {n} part(s) of this meeting that the question is about.", { n: turn.answer.parts })
+                        )
+                      ) : turn.source === "transcript" ? (
                         turn.answer.condensed
                           ? t("Based on the whole of this meeting, read as notes taken from it (it was too long to read at once).")
                           : t("Based on everything said in this meeting.")
