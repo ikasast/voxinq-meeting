@@ -8,6 +8,8 @@ import { minutesInFlight } from "@/lib/meetings/minutes-state";
 import { prisma } from "@/lib/prisma";
 import { translate } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/server";
+import { currentUser } from "@/lib/auth/session";
+import { keepTurn } from "@/lib/ask-history";
 
 export const runtime = "nodejs";
 // Reading a whole meeting's transcript is a bigger prompt than a set of minutes, and a long
@@ -41,6 +43,10 @@ export async function POST(req: NextRequest) {
   const stream = body?.stream === true;
   const seriesId = typeof body?.seriesId === "string" ? body.seriesId : "";
   const meetingId = typeof body?.meetingId === "string" ? body.meetingId : "";
+  // Kept to be read again (lib/ask-history.ts): on the meeting it was asked on, or on the series.
+  const me = await currentUser();
+  const where = meetingId ? { meetingId } : { seriesId };
+  const asked = (source: string) => ({ ownerId: me?.id ?? null, ...where, source, question });
   if (!seriesId && !meetingId) return apiError("seriesId or meetingId is required", 400);
   if (seriesId) {
     const off = await extensionOff("series");
@@ -67,7 +73,7 @@ export async function POST(req: NextRequest) {
     const anyMinutes = found.meetings.some((m) => m.minutes && m.minutes.trim());
     if (meeting.transcripts.length > 0 && anyMinutes) {
       const conversation = conversationText(meeting.transcripts, readNames(meeting.speakerLabels));
-      return answer(stream, async (onText) => ({
+      return answer(stream, asked("both"), async (onText) => ({
         ...(await askBoth(
           question,
           { title: meeting.title, startedAt: meeting.startedAt, conversation },
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
       return apiError("This meeting has no transcript to read.", 400);
     }
     const conversation = conversationText(meeting.transcripts, readNames(meeting.speakerLabels));
-    return answer(stream, async (onText) => {
+    return answer(stream, asked("transcript"), async (onText) => {
       const { answer: text, condensed, parts } = await askTranscript(
         question,
         { title: meeting.title, startedAt: meeting.startedAt, conversation },
@@ -123,7 +129,7 @@ export async function POST(req: NextRequest) {
   if (!meetings.some((m) => m.minutes && m.minutes.trim())) {
     return apiError("No minutes to answer from yet. Generate minutes for at least one meeting first.", 400);
   }
-  return answer(stream, async (onText) => askMinutes(question, meetings, scopeLabel, undefined, onText));
+  return answer(stream, asked("minutes"), async (onText) => askMinutes(question, meetings, scopeLabel, undefined, onText));
 }
 
 /**
@@ -136,11 +142,14 @@ export async function POST(req: NextRequest) {
  */
 async function answer(
   stream: boolean,
+  turn: Parameters<typeof keepTurn>[0],
   run: (onText?: (delta: string) => void) => Promise<Record<string, unknown>>,
 ): Promise<Response> {
+  // The answer, kept beside the question it answered; its id and time go back with it.
+  const keep = async (result: Record<string, unknown>) => ({ ...result, ...(await keepTurn(turn, result)) });
   if (!stream) {
     try {
-      return NextResponse.json(await run());
+      return NextResponse.json(await keep(await run()));
     } catch (e) {
       return apiError("Failed to answer: {reason}", 502, { vars: { reason: (e as Error).message } });
     }
@@ -151,7 +160,7 @@ async function answer(
     async start(controller) {
       const send = (line: Record<string, unknown>) => controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`));
       try {
-        const result = await run((text) => send({ text }));
+        const result = await keep(await run((text) => send({ text })));
         send({ done: true, ...result });
       } catch (e) {
         send({ error: translate(locale, "Failed to answer: {reason}", { reason: (e as Error).message }) });

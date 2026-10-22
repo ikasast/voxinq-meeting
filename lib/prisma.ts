@@ -42,6 +42,8 @@ const ENCRYPTED: Record<string, { field: string; purpose: string }> = {
   meetingSummary: { field: "summaryText", purpose: "minutes" },
   // Feedback quotes what was said, so it is kept like the minutes.
   meetingReview: { field: "result", purpose: "review" },
+  // So does an answer to a question about a meeting; the question goes with it.
+  askTurn: { field: "body", purpose: "ask" },
 };
 
 /** Rows that are not meeting content. Shared, or scoped by being about a person already. */
@@ -57,7 +59,7 @@ const UNOWNED = new Set(["user", "session", "passwordReset"]);
  * a name as ordinary as 定例 made two people's projects one: each could read and overwrite the
  * other's background, and the other's regular members were copied into their meetings.
  */
-const OWNED = new Set(["meeting", "speakerProfile", "job", "series"]);
+const OWNED = new Set(["meeting", "speakerProfile", "job", "series", "askTurn"]);
 
 /** Belongs to a person through the meeting it hangs off. */
 const VIA_MEETING = new Set([

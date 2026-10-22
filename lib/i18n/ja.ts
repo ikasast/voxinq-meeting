@@ -1275,8 +1275,8 @@ export const ja: Record<string, string> = {
 
   // ---- Asking about the minutes ----
   "Ask about these minutes": "この議事録について質問する",
-  "Answered from the minutes of {scope} — nothing else. Answers are not saved.":
-    "「{scope}」の議事録だけを根拠に答えます。それ以外は参照しません。回答は保存されません。",
+  "Answered from the minutes of {scope} — nothing else. Kept here, for you only.":
+    "「{scope}」の議事録だけを根拠に答えます。それ以外は参照しません。質問と回答はここに残ります（自分にだけ見えます）。",
   Ask: "質問する",
   "Thinking…": "考え中…",
   "What were the TODOs from last time?": "前回までのTODOを教えて",
@@ -1557,17 +1557,20 @@ export const ja: Record<string, string> = {
   "Undo split": "分割を元に戻す",
   "No minutes": "議事録なし",
   "Ask about this meeting": "この会議について質問",
-  "Answered from everything said in {scope} — nothing else. Answers are not saved.":
-    "「{scope}」で話された内容だけから答えます。回答は保存されません。",
+  "Answered from everything said in {scope} — nothing else. Kept here, for you only.":
+    "「{scope}」で話された内容だけから答えます。質問と回答はここに残ります（自分にだけ見えます）。",
   "From the minutes": "議事録から",
   "From the transcript": "文字起こしから",
   "From both": "両方から",
+  "(locked — unlock your meetings to read it)": "（ロック中のため読めません。会議のロックを解除すると読めます）",
+  "Clear the questions and answers kept here? This cannot be undone.": "ここに残っている質問と回答を消しますか？元に戻せません。",
+  "Clear the history": "履歴を消す",
   "Based on {n} part(s) of this meeting that the question is about, and the minutes of {m} meeting(s).":
     "この会議のうち質問に関係する {n} か所と、{m} 回分の議事録をもとにしています。",
   "Based on {n} part(s) of this meeting that the question is about.": "この会議のうち質問に関係する {n} か所をもとにしています。",
   "The answer stopped before it was finished.": "回答が途中で止まりました。",
-  "Answered from everything said in this meeting and the minutes of {scope} — nothing else. Answers are not saved.":
-    "この会議の発言すべてと「{scope}」の議事録だけをもとに答えます。回答は保存されません。",
+  "Answered from everything said in this meeting and the minutes of {scope} — nothing else. Kept here, for you only.":
+    "この会議の発言すべてと「{scope}」の議事録だけをもとに答えます。質問と回答はここに残ります（自分にだけ見えます）。",
   "Based on everything said in this meeting, and the minutes of {n} meeting(s)":
     "この会議の発言すべてと、{n} 回分の議事録をもとにしています",
   "Based on notes taken from the whole of this meeting, and the minutes of {n} meeting(s)":
