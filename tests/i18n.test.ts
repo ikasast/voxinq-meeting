@@ -161,7 +161,7 @@ describe("the screens somebody meets before they are signed in", () => {
     "app/account/page.tsx",
     "app/account/account-form.tsx",
     "app/account/profile-form.tsx",
-    "app/admin/page.tsx",
+    "app/admin/admin-screen.tsx",
   ];
 
   it.each(wired)("%s asks for a translator", (file) => {

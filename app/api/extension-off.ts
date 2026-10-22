@@ -8,5 +8,5 @@ import { extensionEnabled } from "@/lib/extensions-store";
  */
 export async function extensionOff(id: ExtensionId) {
   if (await extensionEnabled(id)) return null;
-  return apiError("This feature is switched off. An administrator can switch it on under Settings, Extensions.", 404);
+  return apiError("This feature is switched off. An administrator can switch it on under Administration, Extensions.", 404);
 }

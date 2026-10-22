@@ -212,6 +212,13 @@ export const PeopleIcon = (p: SVGProps<SVGSVGElement>) => (
   </Base>
 );
 
+/** A shield: Administration, what describes the server and everybody on it. */
+export const ShieldIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Base {...p}>
+    <path d="M12 3 5 6v5c0 4.4 3 8.3 7 10 4-1.7 7-5.6 7-10V6z" />
+  </Base>
+);
+
 /** Stacked disks: what is kept on this machine. */
 export const StorageIcon = (p: SVGProps<SVGSVGElement>) => (
   <Base {...p}>

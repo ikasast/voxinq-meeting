@@ -985,8 +985,8 @@ export const ja: Record<string, string> = {
   "Settings, Remote access. Visitors from outside sign in with the password and can only read and download; recording and editing stay on the tailnet.":
     "設定の「外部公開」で切り替えます。外からの閲覧はパスワードでログインし、読むこととダウンロードだけができます。録音と編集は tailnet の中だけです。",
   "Only an administrator switches extensions on or off.": "拡張機能を切り替えられるのは管理者だけです。",
-  "This feature is switched off. An administrator can switch it on under Settings, Extensions.":
-    "この機能は無効になっています。管理者が「設定 → 拡張機能」で有効にできます。",
+  "This feature is switched off. An administrator can switch it on under Administration, Extensions.":
+    "この機能は無効になっています。管理者が「管理 → 拡張機能」で有効にできます。",
   "No line has a place in the recording to measure.": "録音の中の位置が分かる発言が無いため、測れません。",
   "Cannot reach the transcription service.": "文字起こしサービスに接続できません。",
   "The recording is no longer kept, so how each line was said cannot be measured.":
@@ -1727,6 +1727,26 @@ export const ja: Record<string, string> = {
   "In the trash — deleted {n} days after it was put there": "ゴミ箱 · 入れてから{n}日で削除",
   "About {size} per hour of meeting.": "会議1時間あたり 約{size}",
   "Transcripts take about {size} per hour of meeting.": "文字起こしは会議1時間あたり 約{size}",
+  // Administration (app/admin).
+  Administration: "管理",
+  "This machine": "このマシン",
+  Security: "セキュリティ",
+  "What describes this server and everybody on it. Your own preferences are under Settings.":
+    "このサーバーと全員に関わる設定です。自分だけの設定は「設定」にあります。",
+  "There are no accounts yet: whoever reaches this server uses it as one.":
+    "まだアカウントはありません。このサーバーに届く人は、全員が 1 つの利用者として使っています。",
+  "it becomes the administrator, and everything recorded so far becomes its.":
+    "そのアカウントが管理者になり、これまでの記録はすべてそのアカウントのものになります。",
+  "New accounts": "新しいアカウント",
+  "Open: somebody new on the tailnet becomes an account the first time they arrive.":
+    "誰でも：tailnet の新しい人は、初めてアクセスしたときにアカウントになります。",
+  "Closed: only an administrator makes accounts.": "管理者だけ：アカウントは管理者が作ります。",
+  "Set with VOXINQ_SIGNUP in .env.": ".env の VOXINQ_SIGNUP で変更します。",
+  "Recognition model": "文字起こしのモデル",
+  "Change it under Administration → This machine": "管理 → このマシン で変更できます",
+  "Set for the whole machine by an administrator.": "マシン全体の設定で、管理者が変更します。",
+  "How long things are kept": "保存期限",
+  "Set under Administration → This machine": "管理 → このマシン で設定します",
   "Recordings, largest first": "録音（大きい順）",
   "{n} left as they were: being recorded or worked on, or the transcription service did not answer.":
     "{n} 件はそのままです（録音中・処理中、または文字起こしサービスが応答しませんでした）。",

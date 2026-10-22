@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "./avatar";
-import { GearIcon, PeopleIcon, PersonIcon, SignOutIcon, StorageIcon } from "./icons";
+import { GearIcon, PersonIcon, ShieldIcon, SignOutIcon, StorageIcon } from "./icons";
 import { useT } from "./locale-provider";
 import { useBackGuard, useLinksAfterClosing } from "./use-back-guard";
 
@@ -166,8 +166,8 @@ export function AccountMenu({
                     actually have with them. */}
                 {isAdmin ? (
                   <Link href="/admin" className={item} role="menuitem" onClick={() => setOpen(false)}>
-                    <PeopleIcon className="h-4 w-4" />
-                    {t("People")}
+                    <ShieldIcon className="h-4 w-4" />
+                    {t("Administration")}
                   </Link>
                 ) : null}
                 <button

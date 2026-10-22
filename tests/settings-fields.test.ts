@@ -191,16 +191,28 @@ describe("the defaults everybody starts from", () => {
   const defaultsRoute = readFileSync(join(root, "app/api/settings/defaults/route.ts"), "utf8");
   const pageSrc2 = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
 
+  const admin = readFileSync(join(root, "app/admin/admin-screen.tsx"), "utf8");
+  const adminPage = readFileSync(join(root, "app/admin/page.tsx"), "utf8");
+
   it("is a separate place, not a mode on the ordinary screen", () => {
     // Setting Japanese for yourself and setting it for the household are different acts, and
     // doing the second by accident is the kind of mistake nobody notices until other people ask
-    // why their minutes changed language.
-    expect(pageSrc2).toContain('{ id: "defaults", label: "Defaults for everyone" }');
+    // why their minutes changed language. It is under Administration now, with the rest of what
+    // is not the reader's own.
+    expect(admin).toContain('{tab === "defaults" ? <HouseDefaults /> : null}');
+    expect(pageSrc2).not.toContain("<HouseDefaults");
+    // An old link to the Settings tab still lands there.
+    expect(pageSrc2).toContain('defaults: "defaults"');
   });
 
   it("is offered only to somebody who can change them for everybody", () => {
-    // The tab list binds `tab_`, not `t`: `t` is the translator on this screen now.
-    expect(pageSrc2).toContain('tab_.id !== "defaults" || settings.isAdmin');
+    expect(adminPage).toContain("if (external || (me && !me.isAdmin)) redirect(\"/\");");
+  });
+
+  it("never has the machine's keys sent back by the ordinary screen", () => {
+    // Administration changes them; the settings form's copy, loaded when it opened, would put
+    // back whatever was there then.
+    expect(pageSrc2).toContain("for (const key of MACHINE_KEYS) delete body[key];");
   });
 
   it("refuses everybody else, and ignores hardware", () => {

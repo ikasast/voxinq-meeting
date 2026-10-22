@@ -114,7 +114,8 @@ export function PeopleList({ meId, title, intro }: { meId: string; title: string
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{title}</h1>
+          {/* No title inside the administration screen, whose tab already names it. */}
+          {title ? <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">{title}</h1> : null}
           <p className="mt-1 text-sm text-[var(--text-muted)]">{intro}</p>
         </div>
         {!adding ? (

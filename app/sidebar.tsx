@@ -10,7 +10,7 @@ import {
   HelpIcon,
   MenuIcon,
   PanelLeftIcon,
-  PeopleIcon,
+  ShieldIcon,
   PinIcon,
   PinnedIcon,
   PlusCircleIcon,
@@ -440,8 +440,8 @@ export function Sidebar({
         </FootLink>
       ) : null}
       {!external && isAdmin ? (
-        <FootLink rail={rail} href="/admin" label={t("People")} active={pathname.startsWith("/admin")}>
-          <PeopleIcon />
+        <FootLink rail={rail} href="/admin" label={t("Administration")} active={pathname.startsWith("/admin")}>
+          <ShieldIcon />
         </FootLink>
       ) : null}
       <FootLink rail={rail} href={docsUrl} label={t("Help")} active={false} external>

@@ -159,7 +159,8 @@ export default async function RootLayout({
                 meetings={locked ? [] : await sidebarMeetings()}
                 series={locked ? [] : await sidebarSeries()}
                 external={external}
-                isAdmin={me?.isAdmin ?? false}
+                // With no accounts yet, whoever is inside administers, as the settings API has it.
+                isAdmin={me ? me.isAdmin : true}
                 version={appVersion}
                 docsUrl={docsUrl}
                 me={
