@@ -10,7 +10,8 @@
     <color name="accent_soft">#E6F6FA</color>
     <color name="ic_launcher_background">#0B1220</color>
     <!-- The widget: the app icon's navy, the record red and the accent, in either theme. -->
-    <color name="widget_bg">#0B1220</color>
+    <!-- 72% of the navy, so the wallpaper shows through a little (the mockup's b). -->
+    <color name="widget_bg">#B80B1220</color>
     <color name="widget_record">#EF4444</color>
     <color name="widget_new_ring">#06B6D4</color>
     <color name="widget_new_icon">#67E8F9</color>
