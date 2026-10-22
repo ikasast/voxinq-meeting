@@ -9,7 +9,7 @@
   **Series** you met in most recently (and any you pinned, above them, from the row's pin or the
   series page), then the rest by day — **Today**, **Yesterday**, **This
   week**, **Earlier**. **All meetings** opens the full list.
-- Along the foot, on a tone of its own: **Series**, **Feedback**, **Queue**, **People** (for an
+- Along the foot, on a tone of its own: **Series**, **Feedback**, **Queue**, **Administration** (for an
   administrator), **Help** and **Settings**, with your account and the version under them.
 
 The ▯ beside the logo folds it to a strip of icons, and ✕ hides it.
@@ -30,7 +30,7 @@ What can be done to the meeting as a whole is along the top beside its title: do
 
 **Extensions.** Recording, transcription and minutes are always there. Much of the rest — speaker
 separation, series, booking ahead, feedback, asking, translation and more — is an extension, and an
-administrator switches each on under **Settings → Extensions**. Off hides its screens and keeps its
+administrator switches each on under **Administration → Extensions**. Off hides its screens and keeps its
 data. Sections below say when a feature is one.
 ## Booking a meeting before it happens
 
@@ -162,7 +162,7 @@ the recording to the app, which holds the microphone in a service of its own. So
 - **The lock**, offered once and off until you accept, asks for the phone's fingerprint, face or
   screen lock when the app is opened — not again for 5 minutes after leaving it, or a time you
   choose. Starting a recording from a notification, the widget or a watch is not behind it. An
-  administrator can require it for every phone under *Settings → Defaults for everyone*
+  administrator can require it for every phone under *Administration → Security*
   ([details](../android/README.md#the-lock)).
 - The microphone check, the microphone's handling and the level meter are the page's own and behave as they do in
   a browser. The page reloads the transcript when you come back to it, rather than having missed
@@ -686,7 +686,7 @@ anybody else's row you see who it belongs to and what kind of work it is — nev
 
 ### If you administer this server
 
-**People** (at the foot of the sidebar, and in your account menu) is where accounts are made, disabled and made
+**Administration → People** (at the foot of the sidebar, and in your account menu) is where accounts are made, disabled and made
 administrators. It shows how many meetings each person has, which says the disk is filling up
 and nothing about what filled it.
 
@@ -762,7 +762,7 @@ the automatic deletion, let go again, or **deleted** now — one from its row, o
 after ticking them. Deleting takes the audio only: the transcript and the minutes stay, and what
 goes is playing it back and doing the recognition or the speakers again.
 
-Under *Settings → Data* an administrator chooses how long an unprotected recording is kept (7,
+Under *Administration → This machine* an administrator chooses how long an unprotected recording is kept (7,
 30, 90 or 365 days, or until deleted by hand) and how long a meeting stays in the trash (7, 30 or
 90 days). Until somebody chooses, recordings follow the transcription service's own period
 ([configuration](configuration.md#retention)).

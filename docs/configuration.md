@@ -65,7 +65,7 @@ A native install and the `voxinq` launcher read them from the environment as the
 | `STT_HOST` / `STT_PORT` | `0.0.0.0` / `8000` | Where the service listens. |
 | `STT_PRELOAD` | `1` | Load the model when the service starts, so the first meeting does not wait for it. `0` loads it when a meeting first needs it instead. |
 | `STT_IDLE_RELEASE_SECONDS` | `600` | Release the model from VRAM after this long with nothing to recognise. |
-| `STT_RECORDING_RETENTION_DAYS` | `7` | Delete recordings (the WAV) this many days old, except protected ones. `0` or less keeps them. A period chosen under Settings → Data replaces it. |
+| `STT_RECORDING_RETENTION_DAYS` | `7` | Delete recordings (the WAV) this many days old, except protected ones. `0` or less keeps them. A period chosen under Administration → This machine replaces it. |
 | `WHISPER_CPP_MODELS_DIR` | pywhispercpp's own | Where whisper.cpp keeps the models it downloads. The Docker images set `/data/huggingface/whisper.cpp`, on the same volume as the other models, so they survive a recreate. |
 | `STT_RECORDINGS_DIR` | `stt-service/recordings` | Where recordings and their `segments.json` live. The Docker image sets `/data/recordings`, on a volume. |
 | `STT_PARTIAL_MS` | `1200` | How often a provisional transcription of the line still being spoken is pushed to the recording screen. `0` turns partials off. |
@@ -311,7 +311,7 @@ See **[LLM providers](llm-providers.md)** for provider details.
 ## `extensions.json`
 
 Which extensions are on, for the whole instance — switched by an administrator under
-*Settings → Extensions*. It sits beside `settings.json` (in Docker, the same `settings` volume).
+*Administration → Extensions*. It sits beside `settings.json` (in Docker, the same `settings` volume).
 
 It is written the first time the app starts without one, and never decided again:
 
@@ -329,7 +329,7 @@ later version adds starts off. Delete the file to have the starting set decided 
 
 ## Retention
 
-Both are set under **Settings → Data** by an administrator. Minutes and transcripts in the
+Both are set under **Administration → This machine** by an administrator. Minutes and transcripts in the
 database are **not** affected by either.
 
 - **Recordings (WAV):** deleted after 7, 30, 90 or 365 days, or kept until deleted by hand.

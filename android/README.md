@@ -106,7 +106,7 @@ prompt — and **Lock after** sets how long an unlock lasts once you leave the a
 - **Starting a recording is not behind it.** The notification, the widget and a watch start one
   without opening anything; the recording goes on under the lock screen.
 - The recent-apps screen shows the app's name rather than the page (Android 13 and later).
-- An administrator can **require** it for every phone (*Settings → Defaults for everyone →
+- An administrator can **require** it for every phone (*Administration → Security →
   Require the app lock*). The app reads that from `/api/app-lock` and keeps it: the switch can no
   longer be turned off, and a phone with no screen lock shows nothing until it has one. It is a rule
   the app keeps — the server cannot check it, and an app from before the lock opens as before.

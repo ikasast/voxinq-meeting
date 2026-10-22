@@ -777,7 +777,7 @@ from a branch off its tag.
 - **Extensions are decided once**, the first time 4.0 starts: what this instance shows signs of
   using stays on, and so does speaker separation; what is new in 4.0 starts off. See
   [`extensions.json`](configuration.md#extensionsjson), and switch the rest under
-  *Settings → Extensions*.
+  *Administration → Extensions*.
 - **Two things are gone from the screens.** *Archive* was removed: archived meetings are back in
   the list, and Trash and series do what it did. *Tags* are no longer shown or used for search;
   they stay in the database and in backups, so going back to 3.9.2 still has them.
