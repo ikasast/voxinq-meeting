@@ -158,6 +158,13 @@ export async function PATCH(req: NextRequest) {
   // Where the patch goes depends on what is in it. Hardware belongs to the machine and only an
   // administrator may set it; everything else is this person's own preference.
   const me = await currentUser();
+  // The screen posts everything it holds, machine keys included, so a non-administrator's save
+  // always carries the Whisper model and the rest. Only a value that differs from the machine's
+  // is an attempt to change it; one that matches is dropped here rather than refused below.
+  const stored = await readMachineSettings();
+  for (const key of Object.keys(patch).filter(isMachineKey)) {
+    if (patch[key] === stored[key]) delete patch[key];
+  }
   const machineBits = Object.keys(patch).filter(isMachineKey);
   if (machineBits.length > 0 && me && !me.isAdmin) {
     return apiError("Only an administrator can change {keys} — they describe the machine, not you.", 403, {
