@@ -104,13 +104,13 @@ export async function POST(req: NextRequest) {
     }
     const conversation = conversationText(meeting.transcripts, readNames(meeting.speakerLabels));
     return answer(stream, async (onText) => {
-      const { answer: text, condensed } = await askTranscript(
+      const { answer: text, condensed, parts } = await askTranscript(
         question,
         { title: meeting.title, startedAt: meeting.startedAt, conversation },
         undefined,
         onText,
       );
-      return { answer: text, condensed, source: "transcript", used: 1, omitted: 0, withoutMinutes: 0 };
+      return { answer: text, condensed, parts, source: "transcript", used: 1, omitted: 0, withoutMinutes: 0 };
     });
   }
 
