@@ -117,4 +117,11 @@ describe("the Ask chat", () => {
     expect(ui).toContain("stream: true");
     expect(ui).toContain("settle({ partial })");
   });
+
+  it("keeps every piece of a streamed answer, not only the first", () => {
+    // Each update replaces the turn with a copy; finding it by identity matched only the first
+    // time, so the panel showed the first word of a long answer and nothing after.
+    expect(ui).toContain("x.id === id ? { ...x, ...done } : x");
+    expect(ui).not.toContain("x === turn");
+  });
 });
