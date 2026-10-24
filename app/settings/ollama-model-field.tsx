@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { TrashIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 import { findInstalled, loadedMb, sameModel, type InstalledModel } from "@/lib/llm/ollama-models";
+import { OllamaLibrarySearch } from "./ollama-library-search";
 
 // The Ollama model field, with what the Ollama at that address actually has.
 //
@@ -14,6 +15,8 @@ import { findInstalled, loadedMb, sameModel, type InstalledModel } from "@/lib/l
 // again.
 
 type Installed = InstalledModel;
+/** How a model sat on the card the last time it ran here (lib/llm/model-runs.ts). */
+type Run = { name: string; loadedMb: number; gpuMb: number; at: string };
 type Pull = {
   status: string;
   completed: number;
@@ -65,6 +68,7 @@ export function OllamaModelField({
   const [installed, setInstalled] = useState<Installed[]>([]);
   const [reachable, setReachable] = useState<boolean | null>(null);
   const [budgetMb, setBudgetMb] = useState<number | null>(null);
+  const [runs, setRuns] = useState<Run[]>([]);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Administrators only: which installed models somebody's minutes depend on, the one waiting
@@ -85,11 +89,13 @@ export function OllamaModelField({
         models: Installed[];
         budgetMb: number | null;
         inUse?: string[];
+        runs?: Run[];
       };
       setReachable(d.reachable);
       setInstalled(d.models);
       setBudgetMb(d.budgetMb);
       setInUse(d.inUse ?? []);
+      setRuns(d.runs ?? []);
     } catch {
       setReachable(false);
     }
@@ -107,8 +113,7 @@ export function OllamaModelField({
   const [tracked, setTracked] = useState<{ target: string; state: Pull | null } | null>(null);
   const pull = tracked?.target === target ? tracked.state : null;
 
-  const fetchStatus = useCallback(async (): Promise<Pull | null> => {
-    const name = model.trim();
+  const fetchStatus = useCallback(async (name: string = model.trim()): Promise<Pull | null> => {
     if (!name) return null;
     const res = await fetch("/api/ollama/pull/status", {
       method: "POST",
@@ -146,18 +151,20 @@ export function OllamaModelField({
     return () => clearTimeout(id);
   }, [pull, fetchStatus, target, refresh]);
 
-  const download = async () => {
+  // By name, because the search below picks a model and downloads it in one go — before this
+  // render has caught up with the field holding it.
+  const download = async (name: string = model.trim()) => {
     setStarting(true);
     setError(null);
     try {
       const res = await fetch("/api/ollama/pull", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: model.trim(), baseUrl }),
+        body: JSON.stringify({ model: name, baseUrl }),
       });
       const d = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
-      setTracked({ target, state: await fetchStatus() });
+      setTracked({ target: `${baseUrl}|${name}`, state: await fetchStatus(name) });
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -192,7 +199,11 @@ export function OllamaModelField({
   // file size, because a warning that compares a number it does not print reads as a mistake:
   // "6.1 GB is larger than 7.0 GB" is what the first version of this said.
   const need = hit ? loadedMb(hit.sizeMb) : 0;
-  const tooBig = hit && budgetMb !== null && need > budgetMb;
+  // Once it has run here, what Ollama did with it settles the question the estimate guesses at.
+  // Only the share is used: for some models Ollama's own total is far below what the card holds.
+  const run = hit && budgetMb !== null ? (runs.find((r) => sameModel(r.name, hit.name)) ?? null) : null;
+  const share = run && run.loadedMb > 0 ? Math.round((Math.min(run.gpuMb, run.loadedMb) / run.loadedMb) * 100) : null;
+  const tooBig = hit && budgetMb !== null && share === null && need > budgetMb;
 
   return (
     <div>
@@ -251,12 +262,23 @@ export function OllamaModelField({
                   })
                 : t("Installed · {size}", { size: gb(hit.sizeMb, "mb") })}
             </p>
-            {tooBig ? (
+            {share !== null ? (
+              share >= 99 ? (
+                <p className="text-[var(--text-muted)]">{t("When it last ran here, all of it was on the GPU.")}</p>
+              ) : (
+                <p className="text-[var(--warning)]">
+                  {t("When it last ran here, {n}% of it was on the GPU and the rest ran on the CPU, which is slower.", {
+                    n: share,
+                  })}
+                </p>
+              )
+            ) : tooBig ? (
               <p className="text-[var(--warning)]">
                 {t(
                   "Loaded, it needs about {need}, more than this machine's GPU budget of {budget}. Part of it will run on the CPU, which is much slower.",
                   { need: gb(need, "mb"), budget: gb(budgetMb!, "mb") },
-                )}
+                )}{" "}
+                {t("This is an estimate from the file; once it has written minutes here, what the card actually held is shown instead.")}
               </p>
             ) : null}
           </>
@@ -286,6 +308,21 @@ export function OllamaModelField({
         ) : null}
         {error ? <p className="text-[var(--error)]">{error}</p> : null}
       </div>
+
+      {isAdmin ? (
+        <OllamaLibrarySearch
+          installed={installed}
+          runs={runs}
+          budgetMb={budgetMb}
+          current={model}
+          onPick={onChange}
+          onDownload={(name) => {
+            onChange(name);
+            void download(name);
+          }}
+          downloading={starting || (pull !== null && !pull.done)}
+        />
+      ) : null}
 
       {/* Which model to start from, by how much memory the card has: the question somebody faced
           with an empty field actually has. Picking one fills the field, and an administrator gets

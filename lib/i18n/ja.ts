@@ -1620,6 +1620,37 @@ export const ja: Record<string, string> = {
   "Not installed on this Ollama.": "この Ollama にはインストールされていません。",
   "An administrator can download it from this screen.": "管理者がこの画面からダウンロードできます。",
   "The download failed: {reason}": "ダウンロードに失敗しました: {reason}",
+  "When it last ran here, all of it was on the GPU.": "前回このマシンで動いたときは、すべて GPU に載りました。",
+  "When it last ran here, {n}% of it was on the GPU and the rest ran on the CPU, which is slower.":
+    "前回このマシンで動いたときは {n}% が GPU に載り、残りは CPU で動いたため遅くなっています。",
+  "This is an estimate from the file; once it has written minutes here, what the card actually held is shown instead.":
+    "これはファイルの大きさからの見積もりです。このマシンで一度議事録を作ると、実際に GPU に載った量が表示されます。",
+  // Finding a model on ollama.com, below the field.
+  "Find a model on ollama.com": "ollama.com でモデルを探す",
+  "Searching…": "検索中…",
+  Search: "検索",
+  Installed: "インストール済み",
+  "Searches ollama.com for part of a name, when you press Search. Only Ollama's own models are listed; any other name can still be typed above.":
+    "名前の一部で ollama.com を検索します（検索を押したときだけ）。Ollama 公式のモデルだけを表示します。それ以外の名前も上の欄に直接入力できます。",
+  "Cannot reach ollama.com. A server kept off the internet cannot search or download models; the ones already installed can still be chosen above.":
+    "ollama.com に接続できません。インターネットにつながないサーバーでは、モデルの検索もダウンロードもできません。インストール済みのモデルは上の欄から選べます。",
+  "ollama.com answered, but not in a form this screen can read — its pages may have changed. Type the model's name above instead.":
+    "ollama.com から応答はありましたが、この画面で読み取れる形ではありませんでした（ページの作りが変わった可能性があります）。上の欄にモデル名を直接入力してください。",
+  "No model matches “{q}”.": "「{q}」に合うモデルは見つかりませんでした。",
+  "Reading the sizes of {model}…": "{model} のサイズを読み込み中…",
+  "Sizes of {model}, against this machine's GPU budget of {budget}": "{model} のサイズ — このマシンの GPU 予算 {budget} に対して",
+  "Sizes of {model}": "{model} のサイズ",
+  "Fits on the GPU (measured)": "GPU に収まる（実測）",
+  "{n}% on the GPU (measured)": "GPU に {n}%（実測）",
+  "Should fit on the GPU": "GPU に収まる見込み",
+  "Only just": "ぎりぎり",
+  "Partly on the CPU — slow": "一部 CPU・遅い",
+  "Too big": "大きすぎる",
+  "Other quantisations ({n})": "量子化の違うもの（{n} 件）",
+  "Sizes are the download. Whether it fits is an estimate until the model has run here once; after that, it is what the card held.":
+    "サイズはダウンロード容量です。GPU に収まるかは、このマシンで一度動かすまでは見積もりで、動かした後は実際に GPU に載った量で判定します。",
+  "Installed — it is in the field above, ready to save.": "インストール済みです。上の欄に入ったので、保存すれば使われます。",
+  "Download ({size})": "ダウンロード（{size}）",
   // The queue's history.
   History: "履歴",
   "Finished work on this machine, newest first (up to {n}).": "このマシンで終わった処理（新しい順、最大 {n} 件）",

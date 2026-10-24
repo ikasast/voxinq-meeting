@@ -41,6 +41,7 @@ What needs the internet, and when:
 | The Docker images (`ghcr.io`) | installing, and each update | pin `VOXINQ_VERSION`; fetch them on another machine and carry them in ([below](#updating-a-closed-server)) |
 | The recognition, speaker and translation models (Hugging Face) | the first time each is used | use each once while setting up; they stay in the `hfcache` volume |
 | The minutes model (Ollama) | when it is pulled | pull it while setting up; it stays in the `ollama` volume |
+| Searching for a model (*Settings → LLM*) | when an administrator presses Search | not available; the screen says so, and installed models can still be chosen |
 | The Android app's update | when the app updates | the **phone** fetches it from GitHub, not the server; or install the APK by hand |
 
 Once the models are in place, set **`HF_HUB_OFFLINE=1`** for the `stt` service. Without it the
