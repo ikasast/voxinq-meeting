@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readJson } from "@/lib/api";
 import { currentUser } from "@/lib/auth/session";
+import { lastRuns } from "@/lib/llm/model-runs";
 import { modelsInUse } from "@/lib/llm/models-in-use";
 import { listModels, ollamaBase } from "@/lib/llm/ollama-models";
 import { budgetMb, isLocalUrl } from "@/lib/queue/capacity";
@@ -35,5 +36,7 @@ export async function POST(req: Request) {
     // and a size warning would be about somebody else's hardware.
     local,
     budgetMb: local ? await budgetMb() : null,
+    // How each model sat on the card when it last ran, which beats the estimate from its file.
+    runs: local && models ? await lastRuns(base) : [],
   });
 }
