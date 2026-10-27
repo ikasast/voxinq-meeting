@@ -12,6 +12,8 @@ import { DropMenu, MENU_ITEM, MenuRule } from "../drop-menu";
 import { ChevronUpIcon, MoonIcon } from "../icons";
 import { PreflightCheck } from "./recording/preflight-check";
 import { type EndChoice, EndDialog } from "./recording/end-dialog";
+import { IdlePrompt, ShareHint, ShareStatus } from "./recording/share-status";
+import { IDLE_MS } from "@/app/recorder";
 import { PROPS_WIDE, Prop } from "./property";
 import { useT } from "@/app/locale-provider";
 import { useExtensions } from "@/app/extensions-provider";
@@ -162,6 +164,7 @@ export function RecordingDock({
   const [resting, setResting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [resharing, setResharing] = useState(false);
   const [busy, setBusy] = useState<"none" | "summary">("none");
 
 
@@ -364,6 +367,23 @@ export function RecordingDock({
     setToast(message);
     window.setTimeout(() => setToast((shown) => (shown === message ? null : shown)), TOAST_MS);
   }, []);
+
+  // The share dialog again, the recording going on meanwhile (lib/stt/client.ts).
+  const reshare = useCallback(async () => {
+    setResharing(true);
+    try {
+      const r = await recorder.reshare();
+      const say = (message: string) => {
+        setToast(message);
+        window.setTimeout(() => setToast((shown) => (shown === message ? null : shown)), TOAST_MS);
+      };
+      if (r === "ok") say(t("PC audio is recorded from the new share."));
+      else if (r === "no-audio")
+        say(t("That share had no audio. Share again, and tick “Share system audio” or keep the tab's audio on."));
+    } finally {
+      setResharing(false);
+    }
+  }, [recorder, t]);
 
   // The transcript as the server has it. In the app, lines are saved by the app's recorder
   // while this page is hidden, and reading them back is simpler than replaying each one.
@@ -910,6 +930,26 @@ export function RecordingDock({
         </p>
       ) : null}
 
+      {/* PC audio while it records: arriving, or not — and sharing again without stopping. */}
+      {mine && active && recorder.shared ? (
+        <div className={PROPS_WIDE}>
+          <ShareStatus
+            shared={recorder.shared}
+            silent={recorder.pcSilent}
+            levels={recorder.sources}
+            onReshare={() => void reshare()}
+            busy={resharing}
+          />
+        </div>
+      ) : null}
+
+      {/* Just before the share dialog opens, which choice in it brings the audio. */}
+      {!external && !ended && !active && displaySupported && source !== "mic" ? (
+        <div className={PROPS_WIDE}>
+          <ShareHint />
+        </div>
+      ) : null}
+
       {lastError ? (
         <p className={`${PROPS_WIDE} flex items-start gap-2 text-sm text-[var(--error)]`}>
           <span className="min-w-0 flex-1 break-words">{lastError}</span>
@@ -947,9 +987,6 @@ export function RecordingDock({
         </summary>
         <ul className="mt-1.5 list-disc space-y-1 pl-5 marker:text-[var(--text-muted)]">
           <li>{t("Pick the recording source from the menu above (mic / PC audio / both).")}</li>
-          {displaySupported ? (
-            <li>{t("For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.")}</li>
-          ) : null}
           {displaySupported ? (
             <li>
               <strong>{t("Headphones are recommended for “both”")}</strong>
@@ -1150,6 +1187,19 @@ export function RecordingDock({
             </DropMenu>
           </div>
         </div>
+      ) : null}
+
+      {mine && active && recorder.idle && !endDialog ? (
+        <IdlePrompt
+          minutes={Math.round(IDLE_MS / 60_000)}
+          onContinue={recorder.dismissIdle}
+          onEnd={() => {
+            recorder.dismissIdle();
+            // Minutes need something to be written from; with nothing yet, ending is all there is.
+            if (transcripts.length === 0 && !awaitingTranscript) void endOnly();
+            else setEndDialog("minutes");
+          }}
+        />
       ) : null}
 
       {toast ? (
