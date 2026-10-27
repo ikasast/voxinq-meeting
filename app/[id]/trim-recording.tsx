@@ -23,18 +23,28 @@ export function TrimRecording({
   durationSec,
   linePositions,
   audioRef,
+  open: openProp,
+  onOpenChange,
+  initialEnd,
 }: {
   meetingId: string;
   durationSec: number;
   /** Where each line starts in the recording, in seconds. */
   linePositions: number[];
   audioRef: RefObject<HTMLAudioElement | null>;
+  /** Opened from elsewhere — the transcript's menu, the notice about a long tail. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Where the end handle starts, in seconds: the last line, for a recording left running. */
+  initialEnd?: number;
 }) {
   const t = useT();
   const confirm = useConfirm();
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean) => (onOpenChange ? onOpenChange(next) : setOwnOpen(next));
   const [start, setStart] = useState(0);
-  const [chosenEnd, setEnd] = useState(durationSec);
+  const [chosenEnd, setEnd] = useState(initialEnd && initialEnd < durationSec ? initialEnd : durationSec);
   const [playhead, setPlayhead] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

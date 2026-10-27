@@ -62,6 +62,7 @@ export function TranscriptRow({
   showTranslation,
   readOnly,
   emotionClear,
+  select,
 }: {
   showTranslation: boolean;
   /** How sure a line has to sound to be marked (lib/emotion.ts). */
@@ -79,11 +80,16 @@ export function TranscriptRow({
   onDelete: () => void;
   onEdit: (text: string) => Promise<boolean>;
   readOnly: boolean;
+  /**
+   * Choosing lines to delete together (transcript-list.tsx). The whole line is the target, and
+   * its own tools are put away meanwhile: a click is a choice, not an edit or a jump.
+   */
+  select?: { on: boolean; toggle: (range: boolean) => void };
 }) {
   const t = useT();
   // Who said it is changed here only with Speaker separation on.
   const { speakers: speakersOn, voiceCues: voiceOn, emotion: emotionOn } = useExtensions();
-  const canReassign = showSpeaker && !readOnly && speakersOn;
+  const canReassign = showSpeaker && !readOnly && !select && speakersOn;
   // Correcting a misheard word in place. Recognition gets names and jargon wrong often
   // enough that retyping one line beats re-transcribing the whole meeting.
   const [editing, setEditing] = useState(false);
@@ -112,10 +118,28 @@ export function TranscriptRow({
     <li
       id={`line-${item.id}`}
       tabIndex={-1}
+      onClick={select ? (e) => select.toggle(e.shiftKey) : undefined}
       className={`group relative grid gap-x-3 rounded-md px-1.5 py-1.5 text-sm outline-none transition-shadow hover:bg-[color-mix(in_srgb,var(--hover-surface)_45%,transparent)] focus-within:bg-[color-mix(in_srgb,var(--hover-surface)_45%,transparent)] ${
-        showSpeaker ? "grid-cols-[5rem_minmax(0,1fr)]" : "grid-cols-[2.75rem_minmax(0,1fr)]"
-      } ${showSpeaker && !sameSpeaker ? "mt-2 first:mt-0" : ""}`}
+        select
+          ? showSpeaker
+            ? "cursor-pointer select-none grid-cols-[1.25rem_5rem_minmax(0,1fr)]"
+            : "cursor-pointer select-none grid-cols-[1.25rem_2.75rem_minmax(0,1fr)]"
+          : showSpeaker
+            ? "grid-cols-[5rem_minmax(0,1fr)]"
+            : "grid-cols-[2.75rem_minmax(0,1fr)]"
+      } ${select?.on ? "!bg-[color-mix(in_srgb,var(--error)_10%,transparent)]" : ""} ${showSpeaker && !sameSpeaker ? "mt-2 first:mt-0" : ""}`}
     >
+      {select ? (
+        <input
+          type="checkbox"
+          checked={select.on}
+          // The line's click does the work, Shift included; the box only shows it.
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => select.toggle((e.nativeEvent as MouseEvent).shiftKey === true)}
+          aria-label={t("Choose this line")}
+          className="mt-1 h-3.5 w-3.5 accent-[var(--error)]"
+        />
+      ) : null}
       <div className="min-w-0 pt-0.5">
         {showSpeaker && !sameSpeaker ? (
           <SpeakerName
@@ -125,7 +149,7 @@ export function TranscriptRow({
             onPick={canReassign ? onReassign : undefined}
           />
         ) : null}
-        {canSeek ? (
+        {canSeek && !select ? (
           <button
             type="button"
             onClick={onSeek}
@@ -206,7 +230,7 @@ export function TranscriptRow({
       {/* Fix or drop a misheard line so the minutes are built from the right words, or — where
           the name is left out — give it to someone else. Out of the way until the line is
           pointed at or tapped, then floating over its corner rather than taking a column. */}
-      {!readOnly && !editing ? (
+      {!readOnly && !editing && !select ? (
         <div className="absolute right-1 top-1 hidden items-center rounded-md border border-[var(--border)] bg-[var(--elevated)] shadow-sm group-hover:flex group-focus-within:flex">
           {canReassign && sameSpeaker ? (
             <SpeakerMenu

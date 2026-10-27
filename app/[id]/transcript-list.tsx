@@ -26,9 +26,11 @@ import {
   LockOpenIcon,
   PeopleIcon,
   RefreshIcon,
+  ScissorsIcon,
   SearchIcon,
   ShareIcon,
   SpellCheckIcon,
+  TrashIcon,
   VolumeUpIcon,
 } from "../icons";
 import { busyLabel } from "@/lib/queue/job-label";
@@ -65,6 +67,9 @@ type RecordingInfo = {
   segments?: { start: number; end: number }[]; // utterance boundaries, for rows with no stored offset
   durationSec?: number | null; // length of the recording, for the trim bar's scale
 };
+
+/** A recording this much longer than its last line gets a word about trimming it. */
+const TAIL_NOTICE_SEC = 10 * 60;
 
 function remainingDays(expiresAt: string): number {
   return Math.max(0, Math.ceil((Date.parse(expiresAt) - Date.now()) / 86400000));
@@ -258,6 +263,77 @@ export function TranscriptList({
 
   // Where every line starts in the recording, for the trim bar's ticks.
   const linePositions = useMemo(() => transcripts.map((_, i) => wavPosition(i)), [transcripts, wavPosition]);
+
+  // Trimming, opened from the transcript's menu or the notice about a long tail as well as its
+  // own button, and from the notice with the end handle already at the last line.
+  const [trimOpen, setTrimOpen] = useState(false);
+  const [trimEnd, setTrimEnd] = useState<number | undefined>(undefined);
+
+  // How long the recording ran on after the last line: a meeting nobody ended. Said once a
+  // meeting, unless it is trimmed; after that it is only the trim's to bring up.
+  const tailSec = useMemo(() => {
+    const total = recInfo?.durationSec;
+    if (!total || transcripts.length === 0) return 0;
+    // Where the last line ends, if the recording kept its boundary; where it starts otherwise.
+    const n = transcripts.length;
+    const seg = recInfo?.segments?.length === n ? recInfo.segments[n - 1] : undefined;
+    const lastEnd = seg ? seg.end : wavPosition(n - 1);
+    return Math.max(0, total - lastEnd);
+  }, [recInfo, transcripts, wavPosition]);
+  const [tailDismissed, setTailDismissed] = useState(() => {
+    try {
+      return typeof window !== "undefined" && localStorage.getItem(`voxinq.tail.${meetingId}`) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissTail = () => {
+    setTailDismissed(true);
+    try {
+      localStorage.setItem(`voxinq.tail.${meetingId}`, "1");
+    } catch {
+      // Shown again next time; nothing worse.
+    }
+  };
+
+  // Choosing lines to delete together — for the hour after a meeting nobody ended, transcribed
+  // as noise. Shift extends from the last line chosen, as a file list does.
+  const [selecting, setSelecting] = useState(false);
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set());
+  const anchor = useRef<number | null>(null);
+  const [deletingMany, setDeletingMany] = useState(false);
+  const toggleLine = useCallback(
+    (index: number, range: boolean) => {
+      const from = anchor.current;
+      setChosen((prev) => {
+        const next = new Set(prev);
+        const id = transcripts[index]?.id;
+        if (!id) return prev;
+        if (range && from !== null) {
+          const on = prev.has(transcripts[from]?.id ?? "");
+          const [a, b] = from < index ? [from, index] : [index, from];
+          for (let i = a; i <= b; i++) {
+            if (on) next.add(transcripts[i].id);
+            else next.delete(transcripts[i].id);
+          }
+        } else if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      anchor.current = index;
+    },
+    [transcripts],
+  );
+  const chooseToEnd = () => {
+    const from = transcripts.findIndex((l) => chosen.has(l.id));
+    const start = from >= 0 ? from : (anchor.current ?? 0);
+    setChosen(new Set(transcripts.slice(start).map((l) => l.id)));
+  };
+  const leaveSelecting = useCallback(() => {
+    setSelecting(false);
+    setChosen(new Set());
+    anchor.current = null;
+  }, []);
 
   // How sure a line has to sound to be marked (Settings → Speakers), for the lines and the strip.
   const [emotionClear, setEmotionClear] = useState(CLEAR);
@@ -489,6 +565,47 @@ export function TranscriptList({
     },
     [confirm, transcripts, t],
   );
+
+  // The chosen lines, at once. The recording stays; cutting it too is the trim.
+  const deleteChosen = useCallback(async () => {
+    const ids = transcripts.filter((l) => chosen.has(l.id)).map((l) => l.id);
+    if (ids.length === 0) return;
+    const ok = await confirm({
+      title: t("Delete {n} lines?", { n: ids.length }),
+      message: t(
+        "They are removed from the transcript and will no longer be used when generating minutes. The recording itself is kept; to cut the audio too, trim the recording instead.",
+      ),
+      confirmLabel: t("Delete {n} lines", { n: ids.length }),
+      danger: true,
+    });
+    if (!ok) return;
+    setDeletingMany(true);
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/delete-lines`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const d = (await res.json().catch(() => null)) as { synced?: boolean; error?: string } | null;
+      if (!res.ok) {
+        setError(t("Failed to delete ({reason})", { reason: d?.error ? readStored(t, d.error) : `HTTP ${res.status}` }));
+        return;
+      }
+      const gone = new Set(ids);
+      setTranscripts((list) => list.filter((l) => !gone.has(l.id)));
+      leaveSelecting();
+      // As for one line: the recording's utterance list drives speaker separation by position.
+      setDiarWarn(
+        d?.synced
+          ? null
+          : "The recording's utterance list could not be updated to match. Re-run Diarize before trusting speaker names.",
+      );
+    } catch {
+      setError(t("Failed to delete ({reason})", { reason: t("connection error") }));
+    } finally {
+      setDeletingMany(false);
+    }
+  }, [chosen, confirm, leaveSelecting, meetingId, t, transcripts]);
 
   // Name a speaker. The whole map is sent, so the names never drift from what is shown.
   const nameSpeaker = useCallback(
@@ -1040,6 +1157,41 @@ export function TranscriptList({
           <DropMenu label={t("More")} trigger={<DotsIcon className="h-4 w-4" />} className={HEAD_BUTTON} width={224}>
             {(close) => (
               <>
+                {/* Tidying up after a meeting that ran on: lines alone, or the audio with them. */}
+                {!readOnly && !live ? (
+                  <>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={MENU_ITEM}
+                      disabled={busy}
+                      onClick={() => {
+                        close();
+                        setSelecting(true);
+                      }}
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                      {t("Choose lines to delete")}
+                    </button>
+                    {recInfo?.exists && recInfo.durationSec ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={MENU_ITEM}
+                        disabled={busy}
+                        onClick={() => {
+                          close();
+                          setTrimEnd(undefined);
+                          setTrimOpen(true);
+                        }}
+                      >
+                        <ScissorsIcon className="h-3.5 w-3.5" />
+                        {t("Trim the recording…")}
+                      </button>
+                    ) : null}
+                    <MenuRule />
+                  </>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -1476,10 +1628,15 @@ export function TranscriptList({
             {/* Not while it is still being recorded: the end of the recording is not known yet. */}
             {!readOnly && !live && recInfo.durationSec ? (
               <TrimRecording
+                // A fresh one when opened from the notice, so its end handle starts at the last line.
+                key={trimEnd ?? "whole"}
                 meetingId={meetingId}
                 durationSec={recInfo.durationSec}
                 linePositions={linePositions}
                 audioRef={audioRef}
+                open={trimOpen}
+                onOpenChange={setTrimOpen}
+                initialEnd={trimEnd}
               />
             ) : null}
           </div>
@@ -1500,6 +1657,29 @@ export function TranscriptList({
             if (el && !el.paused) seekTo(wavPosition(i));
           }}
         />
+      ) : null}
+
+      {/* A recording that ran on long after its last line: the meeting nobody ended. */}
+      {!readOnly && !live && !trimOpen && !tailDismissed && recInfo?.exists && tailSec >= TAIL_NOTICE_SEC ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--warning)_30%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--paper))] px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1">
+            {t("The recording went on for {d} after the last line.", { d: formatOffset(tailSec) })}
+          </span>
+          <button
+            type="button"
+            className="btn-outline !px-2.5 !py-1 !text-xs"
+            onClick={() => {
+              // A minute past the last line, so its last words are not cut off.
+              setTrimEnd(Math.round(Math.max(1, (recInfo.durationSec ?? 0) - tailSec + 60)));
+              setTrimOpen(true);
+            }}
+          >
+            {t("Trim it to there")}
+          </button>
+          <button type="button" className="text-xs text-[var(--text-muted)] hover:underline" onClick={dismissTail}>
+            {t("Dismiss")}
+          </button>
+        </div>
       ) : null}
 
       {transcripts.length === 0 ? (
@@ -1530,10 +1710,37 @@ export function TranscriptList({
               onEdit={(text) => editTranscript(line.id, text)}
               showTranslation={showTranslation && extensions.translation}
               readOnly={readOnly}
+              select={selecting ? { on: chosen.has(line.id), toggle: (range) => toggleLine(i, range) } : undefined}
             />
           ))}
         </ul>
       )}
+
+      {/* While choosing: how many, and what to do with them. Stuck to the bottom of the view,
+          because the lines worth choosing are usually the last few hundred. */}
+      {selecting ? (
+        <div className="sticky bottom-24 z-20 mt-3 flex flex-wrap items-center gap-2 rounded-md border border-[color-mix(in_srgb,var(--error)_35%,transparent)] bg-[var(--elevated)] px-3 py-2 text-sm shadow-lg">
+          <span className="min-w-0 flex-1">
+            {chosen.size > 0
+              ? t("{n} lines chosen", { n: chosen.size })
+              : t("Click lines to choose them; Shift-click to choose a run.")}
+          </span>
+          <button type="button" className="btn-outline !px-2.5 !py-1 !text-xs" onClick={chooseToEnd}>
+            {t("Choose to the end")}
+          </button>
+          <button type="button" className="btn-outline !px-2.5 !py-1 !text-xs" onClick={leaveSelecting} disabled={deletingMany}>
+            {t("Cancel")}
+          </button>
+          <button
+            type="button"
+            className="btn-danger !px-2.5 !py-1 !text-xs"
+            disabled={chosen.size === 0 || deletingMany}
+            onClick={() => void deleteChosen()}
+          >
+            {deletingMany ? t("Deleting…") : t("Delete {n} lines", { n: chosen.size })}
+          </button>
+        </div>
+      ) : null}
       {/* After the last line: what is being heard right now, while this tab records. */}
       {live ? <Hearing meetingId={meetingId} /> : null}
     </div>

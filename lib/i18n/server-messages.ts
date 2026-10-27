@@ -167,4 +167,9 @@ export const SERVER_MESSAGES = [
   "Wait until the work queued for this meeting has finished, then trim.",
   "This meeting has no recording to trim.",
   "The recording could not be trimmed: {reason}",
+  // Deleting many lines at once.
+  "Choose the lines to delete.",
+  "Too many lines in one request.",
+  "Those lines are not in this meeting.",
+  "Wait until the work queued for this meeting has finished, then delete.",
 ] as const;

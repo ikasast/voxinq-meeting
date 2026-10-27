@@ -1531,6 +1531,23 @@ export const ja: Record<string, string> = {
     "この会議のキューの処理が終わってからトリミングしてください。",
   "This meeting has no recording to trim.": "この会議にはトリミングできる録音がありません。",
   "The recording could not be trimmed: {reason}": "録音をトリミングできませんでした: {reason}",
+  "The recording went on for {d} after the last line.": "最後の発言のあと、録音が {d} 続いていました。",
+  "Trim it to there": "そこまでにトリミング",
+  // Choosing lines to delete together (transcript-list.tsx).
+  "Choose lines to delete": "行を選んで削除",
+  "Choose this line": "この行を選ぶ",
+  "{n} lines chosen": "{n} 行を選択中",
+  "Click lines to choose them; Shift-click to choose a run.": "行を押して選びます。Shift を押しながらで範囲を選べます。",
+  "Choose to the end": "ここから最後まで選ぶ",
+  "Delete {n} lines": "{n} 行を削除",
+  "Delete {n} lines?": "{n} 行を削除しますか？",
+  "They are removed from the transcript and will no longer be used when generating minutes. The recording itself is kept; to cut the audio too, trim the recording instead.":
+    "文字起こしから削除され、議事録の作成にも使われなくなります。録音は残ります。音声も消すには、録音をトリミングしてください。",
+  "Choose the lines to delete.": "削除する行を選んでください。",
+  "Too many lines in one request.": "一度に削除できる行数を超えています。",
+  "Those lines are not in this meeting.": "その行はこの会議にありません。",
+  "Wait until the work queued for this meeting has finished, then delete.":
+    "この会議のキューの処理が終わってから削除してください。",
   "Meeting name and time": "会議名と日時",
   "Purpose and agenda": "会議の目的・内容",
   "Series background": "シリーズの背景",
