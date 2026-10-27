@@ -1102,7 +1102,9 @@ async def recording_segment_delete(meeting_id: str, request: Request) -> dict:
     every later speaker by one. Only applies when the counts still agree — a recording that
     has already drifted is left untouched and reported back as unsynced.
 
-    body: {"index": int, "expectedCount": int}
+    body: {"index": int, "expectedCount": int}, or {"indices": [int, ...], "expectedCount": int}
+    to drop several at once — the lines deleted together from the transcript, all counted
+    against the list as it was before any of them went.
     """
     mid = _safe_meeting_id(meeting_id)
     if not mid:
@@ -1111,27 +1113,35 @@ async def recording_segment_delete(meeting_id: str, request: Request) -> dict:
         body = await request.json()
     except Exception:  # noqa: BLE001
         body = {}
-    index = body.get("index") if isinstance(body, dict) else None
-    expected = body.get("expectedCount") if isinstance(body, dict) else None
-    if not isinstance(index, int) or not isinstance(expected, int):
-        raise HTTPException(status_code=400, detail="index and expectedCount are required")
+    if not isinstance(body, dict):
+        body = {}
+    expected = body.get("expectedCount")
+    raw = body.get("indices") if "indices" in body else [body.get("index")]
+    if (
+        not isinstance(expected, int)
+        or not isinstance(raw, list)
+        or not raw
+        or not all(isinstance(i, int) and not isinstance(i, bool) for i in raw)
+    ):
+        raise HTTPException(status_code=400, detail="index (or indices) and expectedCount are required")
+    drop = set(raw)
 
     p = _rec_paths(mid)
     try:
         segments = json.loads(p["seg"].read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001  no boundaries saved (or unreadable) — nothing to sync
         return {"synced": False, "reason": "no segments"}
-    if not isinstance(segments, list) or len(segments) != expected or not 0 <= index < len(segments):
+    if not isinstance(segments, list) or len(segments) != expected or not all(0 <= i < len(segments) for i in drop):
         return {"synced": False, "reason": "count mismatch", "count": len(segments) if isinstance(segments, list) else 0}
 
-    del segments[index]
+    segments = [s for i, s in enumerate(segments) if i not in drop]
     p["seg"].write_text(json.dumps(segments, ensure_ascii=False), encoding="utf-8")
 
     # Speaker assignments are the same per-utterance list, so keep them in step.
     try:
         speakers = json.loads(p["spk"].read_text(encoding="utf-8"))
         if isinstance(speakers, list) and len(speakers) == expected:
-            del speakers[index]
+            speakers = [s for i, s in enumerate(speakers) if i not in drop]
             p["spk"].write_text(json.dumps(speakers, ensure_ascii=False), encoding="utf-8")
     except Exception:  # noqa: BLE001  no cached diarization — nothing to keep in step
         pass

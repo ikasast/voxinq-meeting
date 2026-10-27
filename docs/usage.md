@@ -448,6 +448,15 @@ to check what was actually said before correcting a line, or to settle what a de
   audio itself is kept. The recording's matching utterance boundary is removed at the same
   time, because diarization maps speakers onto utterances by position — if the two could not
   be kept in step, the UI says to re-run **Diarize** before trusting speaker names.
+- **Delete many lines at once** with **Choose lines to delete** in the transcript's **…** menu.
+  Click lines to choose them, or Shift-click to choose a run; **Choose to the end** takes
+  everything from the first chosen line. The bar at the bottom deletes them in one go. This is
+  for the hour after a meeting nobody ended: the recording stays, and the recording's utterance
+  list loses the same lines, so speaker separation stays in step.
+- **Trim the recording…**, in the same menu (and the scissors on the recording row), keeps only
+  the part of the audio you choose and deletes the lines outside it. When a recording ran on for
+  more than ten minutes after its last line, the transcript says so once, with **Trim it to
+  there**, which opens the trim with its end a minute after the last line.
 
 ## Fixing a word misheard throughout
 
