@@ -137,7 +137,6 @@ export const SERVER_MESSAGES = [
 
   // The recording, as the browser starts it.
   "This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.",
-  "No audio was shared. In the share dialog, turn on “Share tab audio” or the system audio.",
   "Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.",
 
   // The sample meeting somebody learns on.

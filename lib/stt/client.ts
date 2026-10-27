@@ -42,10 +42,89 @@ export type SttHandlers = {
   onClipping?: (ratio: number) => void;
   /** At the end: the server did not get all of it, and the copy in this browser was kept. */
   onKept?: () => void;
+  /** Whether PC audio is coming in, for a recording that asked for it (see SharedAudio). */
+  onShared?: (state: SharedAudio) => void;
+  /** Each source's level on its own (RMS 0..1, ~every 100ms); null for a source not recorded. */
+  onSourceLevels?: (levels: SourceLevels) => void;
 };
+
+export type SourceLevels = { mic: number | null; display: number | null };
+
+/**
+ * PC audio, for a recording that asked for it.
+ *
+ * "missing": the share dialog was answered without its audio — "Share system audio" left
+ * unticked is the usual way. The recording goes on with the microphone, or with nothing, rather
+ * than failing: an hour later is too late to find out, and a meeting is still under way.
+ * "ended": the sharing was stopped from the browser's own bar. Either way `reshare` puts it right
+ * without stopping the recording.
+ */
+export type SharedAudio = "ok" | "missing" | "ended";
+
+/** How the last share was made, so the next dialog opens on the same kind of thing. */
+export type SharedSurface = "browser" | "window" | "monitor";
+
+const SURFACE_KEY = "voxinq.displaySurface";
+
+export function lastSharedSurface(): SharedSurface | null {
+  try {
+    const v = localStorage.getItem(SURFACE_KEY);
+    return v === "browser" || v === "window" || v === "monitor" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberSurface(stream: MediaStream) {
+  const settings = stream.getVideoTracks()[0]?.getSettings() as { displaySurface?: string } | undefined;
+  const v = settings?.displaySurface;
+  if (v !== "browser" && v !== "window" && v !== "monitor") return;
+  try {
+    localStorage.setItem(SURFACE_KEY, v);
+  } catch {
+    // Not kept: the next dialog opens where the browser chooses.
+  }
+}
+
+/**
+ * The share dialog, asked for the most audio it will offer.
+ *
+ * Whether its audio box starts ticked is the browser's to decide, not the page's: Chrome ticks
+ * it for a tab and leaves "Share system audio" for the whole screen to be ticked by hand. What
+ * the page can do is ask for system audio to be offered for a screen and a window at all, open
+ * the dialog on the kind of thing shared last time, keep this tab out of the list (sharing the
+ * recording page records nothing), and let the person switch tabs while sharing.
+ */
+function shareScreen(): Promise<MediaStream> {
+  const surface = lastSharedSurface();
+  const options = {
+    video: surface ? { displaySurface: surface } : true,
+    audio: true,
+    systemAudio: "include",
+    windowAudio: "system",
+    surfaceSwitching: "include",
+    selfBrowserSurface: "exclude",
+  } as DisplayMediaStreamOptions;
+  return navigator.mediaDevices.getDisplayMedia(options);
+}
+
+/** The level an analyser hears now, RMS 0..1. */
+const levelBuffer = new Float32Array(2048);
+function rmsOf(a: AnalyserNode): number {
+  a.getFloatTimeDomainData(levelBuffer);
+  let sum = 0;
+  for (let i = 0; i < levelBuffer.length; i += 4) sum += levelBuffer[i] * levelBuffer[i];
+  return Math.sqrt(sum / (levelBuffer.length / 4));
+}
 
 export type SttHandle = {
   stop: () => Promise<void>;
+  /**
+   * Ask for the screen again and record its audio from now on, without stopping. For PC audio
+   * that was never shared, was stopped, or turned out to be the wrong window. Only for a
+   * recording that included PC audio; called from a click, which the dialog requires.
+   */
+  reshare?: () => Promise<"ok" | "no-audio" | "cancelled">;
 };
 
 // Where the browser reaches the STT service. NEXT_PUBLIC_* is inlined at build time, which
@@ -124,36 +203,35 @@ export async function startMic(
   const log = (...args: unknown[]) => console.log("[stt]", ...args);
 
   const source = opts?.source ?? "mic";
-  const streams: MediaStream[] = [];
+  const wantsDisplay = source === "display" || source === "both";
+  let display: MediaStream | null = null;
+  let mic: MediaStream | null = null;
+  const stopAll = (s: MediaStream | null) => s?.getTracks().forEach((t) => t.stop());
   try {
     // Acquire screen share (getDisplayMedia) first, to use the user gesture right after the click.
-    if (source === "display" || source === "both") {
+    if (wantsDisplay) {
       if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== "function") {
         // English, as a key: the page shows it through the table (lib/i18n/stored.ts).
         throw new Error("This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.");
       }
-      const disp = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      if (disp.getAudioTracks().length === 0) {
-        disp.getTracks().forEach((t) => t.stop());
-        throw new Error(
-          "No audio was shared. In the share dialog, turn on “Share tab audio” or the system audio.",
-        );
-      }
-      streams.push(disp);
+      // Cancelling the dialog is still a refusal to record: it throws, as it always did.
+      const disp = await shareScreen();
+      rememberSurface(disp);
+      if (disp.getAudioTracks().length === 0) stopAll(disp);
+      else display = disp;
     }
     if (source === "mic" || source === "both") {
       // The check's microphone, if it is still open. Falling back to acquiring is not a failure
       // — it is what happens when nobody ran the check, which is most of the time.
-      streams.push(
-        streamIsLive(opts?.micStream)
-          ? (opts!.micStream as MediaStream)
-          : await navigator.mediaDevices.getUserMedia({
-              audio: micConstraints(source),
-            }),
-      );
+      mic = streamIsLive(opts?.micStream)
+        ? (opts!.micStream as MediaStream)
+        : await navigator.mediaDevices.getUserMedia({
+            audio: micConstraints(source),
+          });
     }
   } catch (e) {
-    streams.forEach((s) => s.getTracks().forEach((t) => t.stop()));
+    stopAll(display);
+    stopAll(mic);
     throw e;
   }
 
@@ -165,7 +243,8 @@ export async function startMic(
   try {
     await ctx.audioWorklet.addModule("/worklets/pcm-worklet.js");
   } catch (e) {
-    streams.forEach((s) => s.getTracks().forEach((t) => t.stop()));
+    stopAll(display);
+    stopAll(mic);
     await ctx.close().catch(() => {});
     throw new Error(`Could not load the audio worklet: ${(e as Error).message}`);
   }
@@ -190,20 +269,48 @@ export async function startMic(
   limiter.release.value = 0.15;
   limiter.connect(node);
 
+  // A source of silence, always connected: with PC audio not shared and no microphone, the worklet
+  // would otherwise have no input and send nothing, and the recording's clock would stop with it —
+  // so what is said after the screen is shared again would land at the wrong minute.
+  const silence = ctx.createConstantSource();
+  silence.offset.value = 0;
+  silence.connect(limiter);
+  silence.start();
+
+  // Each source through a gain into the limiter, with an analyser beside it for its own level:
+  // the mixed meter cannot say that the microphone is working and the PC audio is not.
+  type Chain = { stream: MediaStream; src: MediaStreamAudioSourceNode; analyser: AnalyserNode };
+  // Two sources summing need room; one on its own does not have to be quieter than it was.
+  const share = source === "both" ? 0.7 : 1;
+  const chain = (stream: MediaStream, level: number): Chain => {
+    const src = ctx.createMediaStreamSource(stream);
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    src.connect(gain);
+    gain.connect(limiter);
+    src.connect(analyser);
+    return { stream, src, analyser };
+  };
   // The microphone is made louder here rather than in the constraints, because a constraint
   // cannot ask for "louder" — only for the browser's automatic gain, which on a phone is tuned
   // for a handset held to the ear and works against far-field capture rather than for it. Only
   // the microphone, and only a room's (micGain): PC audio arrives at full level already.
-  const micStream = source === "mic" || source === "both" ? streams[streams.length - 1] : null;
-  const srcNodes = streams.map((s) => ctx.createMediaStreamSource(s));
-  srcNodes.forEach((sn, i) => {
-    const s = streams[i];
-    const gain = ctx.createGain();
-    // Two sources summing need room; one on its own does not have to be quieter than it was.
-    gain.gain.value = (streams.length > 1 ? 0.7 : 1) * (s === micStream ? micGain(source) : 1);
-    sn.connect(gain);
-    gain.connect(limiter);
-  });
+  const micChain = mic ? chain(mic, share * micGain(source)) : null;
+  let displayChain: Chain | null = null;
+  let stopped = false;
+  const watchEnded = (c: Chain) => {
+    c.stream.getAudioTracks()[0]?.addEventListener("ended", () => {
+      // Only the share in use: one replaced by `reshare` ends too, on purpose.
+      if (!stopped && displayChain === c) handlers.onShared?.("ended");
+    });
+  };
+  if (display) {
+    displayChain = chain(display, share);
+    watchEnded(displayChain);
+  }
+  if (wantsDisplay) handlers.onShared?.(display ? "ok" : "missing");
   // Do not connect to destination, to avoid echo.
 
   // Passing meetingId lets the STT service save the meeting audio for later diarization.
@@ -223,7 +330,6 @@ export async function startMic(
 
   let ws: WebSocket | null = null;
   let opened = false; // whether the server returned "open" (model ready)
-  let stopped = false;
   let fatal = false; // explicit server error (e.g. model load failure). do not reconnect
   let retries = 0;
   const retryDelay = reconnectDelay;
@@ -419,6 +525,12 @@ export async function startMic(
         lostAudio = true;
       }
     }
+    if (handlers.onSourceLevels) {
+      handlers.onSourceLevels({
+        mic: micChain ? rmsOf(micChain.analyser) : null,
+        display: wantsDisplay ? (displayChain ? rmsOf(displayChain.analyser) : 0) : null,
+      });
+    }
     if (handlers.onLevel) {
       const arr = new Int16Array(buf);
       let sum = 0;
@@ -433,6 +545,35 @@ export async function startMic(
   };
 
   return {
+    reshare: wantsDisplay
+      ? async () => {
+          if (stopped) return "cancelled";
+          let disp: MediaStream;
+          try {
+            disp = await shareScreen();
+          } catch {
+            return "cancelled";
+          }
+          if (stopped) {
+            stopAll(disp);
+            return "cancelled";
+          }
+          rememberSurface(disp);
+          if (disp.getAudioTracks().length === 0) {
+            stopAll(disp);
+            return "no-audio";
+          }
+          const old = displayChain;
+          displayChain = chain(disp, share);
+          watchEnded(displayChain);
+          if (old) {
+            try { old.src.disconnect(); } catch {}
+            stopAll(old.stream);
+          }
+          handlers.onShared?.("ok");
+          return "ok";
+        }
+      : undefined,
     stop: async () => {
       stopped = true;
       if (retryTimer) clearTimeout(retryTimer);
@@ -471,8 +612,12 @@ export async function startMic(
       }
       // Stop audio capture immediately (do not send while waiting after end).
       try { node.disconnect(); } catch {}
-      try { srcNodes.forEach((sn) => sn.disconnect()); } catch {}
-      try { streams.forEach((s) => s.getTracks().forEach((t) => t.stop())); } catch {}
+      try { silence.stop(); } catch {}
+      for (const c of [micChain, displayChain]) {
+        if (!c) continue;
+        try { c.src.disconnect(); } catch {}
+        try { stopAll(c.stream); } catch {}
+      }
       try { await ctx.close(); } catch {}
       await Promise.race([serverDone, new Promise((r) => setTimeout(r, 10000))]);
       try { sock?.close(); } catch {}

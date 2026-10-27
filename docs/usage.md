@@ -138,6 +138,22 @@ the top offers to send it as a meeting of its own, named "… (copy from this de
 Tips:
 - Choose the source — **Microphone**, **PC audio** or both — in the **Recording** row; you can
   switch mid-recording. For both, use headphones, or the mic picks up the PC's audio twice.
+- **PC audio comes from the browser's share dialog**, and whether its audio is on is the
+  browser's choice. In Chrome, a **tab** shares its audio from the start, while the **entire
+  screen** needs **Share system audio** ticked by hand. So for a meeting in the browser (Meet,
+  Teams on the web) share its tab, and for a meeting app (Zoom, Teams) share the entire screen
+  with the box ticked. The page says so just before the dialog, and the dialog opens on whatever
+  you shared last time.
+- **If the audio did not come**, the recording still starts: with the microphone, or with
+  nothing yet. A notice says PC audio is not in the recording, and **Share again** opens the
+  dialog without stopping. The same happens if the sharing is stopped from the browser's bar,
+  or if PC audio has been silent for a minute, which usually means the wrong window or tab.
+  While it records, the row shows the microphone and PC audio levels apart, and **Change what is
+  shared** switches to another window or tab at any time.
+- **If nobody has spoken for 20 minutes**, the page asks whether the meeting is over, with
+  **End the meeting…** and **Still going**. When the page is in the background, the question also
+  comes as a notification, if notifications are allowed. Elsewhere in the app, the recording bar
+  says **Nobody speaking**.
 - On a phone in a browser, keep the screen on: some phones stop the microphone when it sleeps,
   which is why the page keeps it awake while recording. The Android app does not have this limit.
 

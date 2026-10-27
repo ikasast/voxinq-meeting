@@ -2,7 +2,7 @@
 
 import { readStored } from "@/lib/i18n/stored";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { type LinkStatus, type SttHandle, startMic } from "@/lib/stt/client";
+import { type LinkStatus, type SharedAudio, type SourceLevels, type SttHandle, startMic } from "@/lib/stt/client";
 import {
   type NativeHandle,
   type NativeSaved,
@@ -12,8 +12,26 @@ import {
   nativeState,
   startNative,
 } from "@/lib/stt/native";
+import { showNotification } from "./device-notifications";
 import { useT } from "./locale-provider";
 import { isRecording } from "./recording-status";
+
+/**
+ * PC audio this quiet for this long is worth a word: the wrong window was shared, or one with
+ * nothing playing. Digital silence, not a quiet room — PC audio is exactly zero when nothing
+ * plays, and an online meeting is rarely a whole minute without a sound.
+ */
+const PC_SILENT_RMS = 0.0005;
+const PC_SILENT_MS = 60_000;
+
+/**
+ * No voice for this long while recording: the meeting has probably ended and the recording has
+ * not. Asked once, and again after as long if the answer was to carry on.
+ */
+export const IDLE_MS = 20 * 60_000;
+/** A voice: this loud for this many ~100 ms readings in a row. A door or a cough is shorter. */
+const VOICE_RMS = 0.02;
+const VOICE_READINGS = 8;
 
 // The recording, for the whole app (v4).
 //
@@ -77,6 +95,18 @@ type Recorder = {
   /** Input level, RMS 0..1, about ten times a second. */
   level: number;
   clipping: boolean;
+  /** Each source's own level, for a browser recording; null otherwise. */
+  sources: SourceLevels | null;
+  /** PC audio, for a browser recording that asked for it; null otherwise. */
+  shared: SharedAudio | null;
+  /** PC audio has been shared but silent for a minute. */
+  pcSilent: boolean;
+  /** Share the screen again, keeping the recording going. "unavailable" when it cannot be. */
+  reshare: () => Promise<"ok" | "no-audio" | "cancelled" | "unavailable">;
+  /** Nobody has spoken for IDLE_MS: has the meeting ended without the recording? */
+  idle: boolean;
+  /** "Still going": ask again after another IDLE_MS. */
+  dismissIdle: () => void;
   /** What is being heard and is not a line yet. */
   partial: string;
   /** The last thing that went wrong, until it is dismissed or the next recording starts. */
@@ -96,10 +126,10 @@ type Recorder = {
 // second, and the transcript of an hour-long meeting has no business re-rendering with it.
 type RecorderApi = Pick<
   Recorder,
-  "current" | "nativeAvailable" | "start" | "stop" | "subscribe" | "setQuiet" | "dismissError"
+  "current" | "nativeAvailable" | "start" | "stop" | "subscribe" | "setQuiet" | "dismissError" | "reshare" | "dismissIdle"
 >;
-type RecorderState = Pick<Recorder, "session" | "status" | "partial" | "error">;
-type RecorderLevel = Pick<Recorder, "level" | "clipping">;
+type RecorderState = Pick<Recorder, "session" | "status" | "partial" | "error" | "shared" | "pcSilent" | "idle">;
+type RecorderLevel = Pick<Recorder, "level" | "clipping" | "sources">;
 
 const ApiContext = createContext<RecorderApi | null>(null);
 const StateContext = createContext<RecorderState | null>(null);
@@ -142,6 +172,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const [partial, setPartial] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [nativeAvailable, setNativeAvailable] = useState(false);
+  const [sources, setSources] = useState<SourceLevels | null>(null);
+  const [shared, setShared] = useState<SharedAudio | null>(null);
+  const [pcSilent, setPcSilent] = useState(false);
+  const [idle, setIdle] = useState(false);
+  // When PC audio was last heard, and when a voice was: read ten times a second, so refs.
+  const pcHeardAt = useRef(0);
+  const voiceAt = useRef(0);
+  const voiceRun = useRef(0);
 
   const handle = useRef<SttHandle | null>(null);
   // A start still opening the microphone and the connection. Stop can be pressed in that time —
@@ -170,6 +208,10 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     seqToId.current = new Map();
     setSession(s);
     setError(null);
+    const now = Date.now();
+    pcHeardAt.current = now;
+    voiceAt.current = now;
+    voiceRun.current = 0;
   }, []);
   const finish = useCallback(() => {
     sessionRef.current = null;
@@ -180,6 +222,10 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     setPartial("");
     setLevel(0);
     setClipping(false);
+    setSources(null);
+    setShared(null);
+    setPcSilent(false);
+    setIdle(false);
   }, []);
 
   const report = useCallback(
@@ -226,6 +272,19 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
 
   const level10 = useCallback((rms: number) => {
     if (!quiet.current) setLevel(rms);
+    // A voice, held for most of a second, is the meeting still going.
+    voiceRun.current = rms >= VOICE_RMS ? voiceRun.current + 1 : 0;
+    if (voiceRun.current >= VOICE_READINGS) {
+      voiceAt.current = Date.now();
+      setIdle(false);
+    }
+  }, []);
+  const sourceLevels = useCallback((l: SourceLevels) => {
+    if (!quiet.current) setSources(l);
+    if (l.display !== null && l.display > PC_SILENT_RMS) {
+      pcHeardAt.current = Date.now();
+      setPcSilent(false);
+    }
   }, []);
   const clipped = useCallback(() => {
     setClipping(true);
@@ -257,8 +316,16 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       onLevel: level10,
       onClipping: clipped,
       onKept: () => emit({ kind: "kept", meetingId }),
+      onShared: (s: SharedAudio) => {
+        setShared(s);
+        if (s === "ok") {
+          pcHeardAt.current = Date.now();
+          setPcSilent(false);
+        }
+      },
+      onSourceLevels: sourceLevels,
     }),
-    [keepLine, emit, report, level10, clipped, t],
+    [keepLine, emit, report, level10, clipped, sourceLevels, t],
   );
 
   // What the app's recorder reports. It saves each line itself, so a line arrives already saved.
@@ -382,8 +449,47 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     finish();
   }, [finish]);
 
+  const reshare = useCallback(async () => {
+    const h = handle.current;
+    if (!h?.reshare) return "unavailable" as const;
+    return h.reshare();
+  }, []);
+
+  const dismissIdle = useCallback(() => {
+    voiceAt.current = Date.now();
+    setIdle(false);
+  }, []);
+
   const recording = isRecording(status);
   const native = session?.native ?? false;
+
+  // Looked at every so often rather than on every reading: a minute's silence, or twenty, does
+  // not need deciding ten times a second. In the app too, where the levels come from its
+  // recorder — the question about a meeting that has ended is the same.
+  useEffect(() => {
+    if (!recording) return;
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      if (shared === "ok" && now - pcHeardAt.current >= PC_SILENT_MS) setPcSilent(true);
+      if (!idle && now - voiceAt.current >= IDLE_MS) {
+        setIdle(true);
+        const s = sessionRef.current;
+        // For somebody in another window, which is where a meeting that has ended leaves them.
+        if (s && document.visibilityState !== "visible") {
+          void showNotification(
+            t("Is the meeting over?"),
+            t("Nobody has spoken for {n} minutes, and “{title}” is still recording.", {
+              n: Math.round(IDLE_MS / 60_000),
+              title: s.title || t("Meeting"),
+            }),
+            `/${s.meetingId}`,
+            `idle-${s.meetingId}`,
+          );
+        }
+      }
+    }, 15_000);
+    return () => window.clearInterval(id);
+  }, [recording, shared, idle, t]);
 
   // Closing the tab stops a browser recording, so the tab asks first. Not in the app, where the
   // recording carries on without the page and the question would guard nothing.
@@ -451,11 +557,14 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const current = useCallback(() => sessionRef.current, []);
 
   const api = useMemo<RecorderApi>(
-    () => ({ current, nativeAvailable, start, stop, subscribe, setQuiet, dismissError }),
-    [current, nativeAvailable, start, stop, subscribe, setQuiet, dismissError],
+    () => ({ current, nativeAvailable, start, stop, subscribe, setQuiet, dismissError, reshare, dismissIdle }),
+    [current, nativeAvailable, start, stop, subscribe, setQuiet, dismissError, reshare, dismissIdle],
   );
-  const state = useMemo<RecorderState>(() => ({ session, status, partial, error }), [session, status, partial, error]);
-  const meter = useMemo<RecorderLevel>(() => ({ level, clipping }), [level, clipping]);
+  const state = useMemo<RecorderState>(
+    () => ({ session, status, partial, error, shared, pcSilent, idle }),
+    [session, status, partial, error, shared, pcSilent, idle],
+  );
+  const meter = useMemo<RecorderLevel>(() => ({ level, clipping, sources }), [level, clipping, sources]);
   return (
     <ApiContext.Provider value={api}>
       <StateContext.Provider value={state}>

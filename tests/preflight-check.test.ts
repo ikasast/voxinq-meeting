@@ -25,7 +25,11 @@ describe("what the microphone is asked for", () => {
     // PC audio arrives at full level. Four times either would only press them into the limiter.
     expect(micGain("mic")).toBe(ROOM_GAIN);
     expect(micGain("both")).toBe(1);
-    expect(read("lib/stt/client.ts")).toContain("(s === micStream ? micGain(source) : 1)");
+    const client = read("lib/stt/client.ts");
+    expect(client).toContain("chain(mic, share * micGain(source))");
+    // PC audio, shared at the start or again later, without it.
+    expect(client).toContain("chain(display, share)");
+    expect(client).toContain("chain(disp, share)");
   });
 
   it("is no longer a setting", () => {
@@ -136,7 +140,9 @@ describe("hearing a room, not a handset", () => {
   it("puts the gain before the limiter that was already there", () => {
     // So a loud moment is rounded off rather than squared off. Clipping is the one distortion
     // recognition cannot see past, and four times a close voice would clip.
-    expect(client.indexOf("gain.connect(limiter)")).toBeGreaterThan(client.indexOf("micGain(source)"));
+    // Each source passes through its own gain, and the gain into the limiter.
+    expect(client).toContain("gain.gain.value = level;");
+    expect(client.indexOf("gain.connect(limiter)")).toBeGreaterThan(client.indexOf("src.connect(gain)"));
   });
 
   it("checks the microphone through the same gain the recording uses", () => {

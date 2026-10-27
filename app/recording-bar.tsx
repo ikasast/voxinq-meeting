@@ -66,6 +66,15 @@ export function RecordingBar() {
       {elapsed !== null ? (
         <span className="shrink-0 tabular-nums text-[var(--text-secondary)]">{runningTime(elapsed)}</span>
       ) : null}
+      {/* What the meeting's page would say, said here in a word, with the way to it. */}
+      {r.idle || r.shared === "missing" || r.shared === "ended" ? (
+        <Link
+          href={`/${s.meetingId}`}
+          className="shrink-0 rounded-full border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] px-2 py-0.5 text-xs text-[var(--warning)] hover:underline"
+        >
+          {r.idle ? t("Nobody speaking") : t("No PC audio")}
+        </Link>
+      ) : null}
       {listening ? (
         // The meter is the proof that sound is still arriving.
         <span

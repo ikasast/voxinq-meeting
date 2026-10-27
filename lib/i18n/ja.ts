@@ -180,8 +180,38 @@ export const ja: Record<string, string> = {
   "Before you start": "始める前に",
   "Pick the recording source from the menu above (mic / PC audio / both).":
     "上のメニューから録音ソースを選んでください（マイク / PC音声 / 両方）。",
-  "For PC audio / both, enable “Share tab audio” (or system audio) in the share dialog.":
-    "PC音声・両方の場合は、共有ダイアログで「タブの音声を共有」（またはシステム音声）を有効にしてください。",
+  // PC audio: before the share dialog, while recording, and sharing again (recording/share-status.tsx).
+  "a tab": "タブ",
+  "a window": "ウィンドウ",
+  "the entire screen": "画面全体",
+  "Next, the browser asks what to share": "次の画面で、共有するものを選びます",
+  "A meeting in the browser (Meet, Teams on the web): choose its tab — the tab's audio is on from the start. A meeting app (Zoom, Teams): choose the entire screen and tick “Share system audio”.":
+    "ブラウザの会議（Meet、Teams のウェブ版）なら、その「タブ」を選んでください。タブの音声は最初からオンです。会議アプリ（Zoom、Teams）なら「画面全体」を選び、「システムの音声も共有する」にチェックを入れてください。",
+  "Last time you shared {what}; the dialog opens there.": "前回は「{what}」を共有しました。今回もそこから開きます。",
+  "PC audio is not being shared, so it is not in the recording. Recording carries on.":
+    "PC の音声が共有されていないため、録音に入っていません。録音は続いています。",
+  "Sharing was stopped, so PC audio is no longer in the recording. Recording carries on.":
+    "共有が停止されたため、PC の音声が録音に入らなくなりました。録音は続いています。",
+  "No PC audio for a minute. If that is not just a quiet moment, the wrong window or tab may be shared.":
+    "PC の音声が 1 分間届いていません。たまたま静かなだけでなければ、共有するウィンドウやタブが違うかもしれません。",
+  "Opening…": "開いています…",
+  "Share again": "共有し直す",
+  "Change what is shared": "共有を変更",
+  "PC audio: shared": "PC音声: 共有中",
+  Mic: "マイク",
+  PC: "PC",
+  "PC audio is recorded from the new share.": "新しく共有したものの音声を録音しています。",
+  "That share had no audio. Share again, and tick “Share system audio” or keep the tab's audio on.":
+    "その共有には音声がありませんでした。もう一度共有し、「システムの音声も共有する」にチェックを入れるか、タブの音声をオンのままにしてください。",
+  // A recording that nobody has spoken into for a long while.
+  "Is the meeting over?": "会議は終わりましたか？",
+  "Nobody has spoken for {n} minutes, and “{title}” is still recording.": "{n} 分間発言がありませんが、「{title}」はまだ録音中です。",
+  "Nobody has spoken for {n} minutes. A recording left running keeps everything after the meeting too.":
+    "{n} 分間発言がありません。録音を続けたままだと、会議の後の音声もすべて残ります。",
+  "Still going": "まだ続ける",
+  "End the meeting…": "会議を終了…",
+  "Nobody speaking": "発言なし",
+  "No PC audio": "PC音声なし",
   "Headphones are recommended for “both”": "「両方」ではヘッドホンを推奨します",
   ". With speakers, the mic picks up PC audio and it may be recorded twice.":
     "。スピーカーだと PC音声をマイクが拾い、二重に録音されることがあります。",
@@ -449,8 +479,6 @@ export const ja: Record<string, string> = {
     "その文字起こし先はもう保存されていません。設定 → 文字起こしを確認してください。",
   "This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.":
     "この端末・ブラウザは PC 音声を取り込めません。PC の Chrome か Edge を使ってください。",
-  "No audio was shared. In the share dialog, turn on “Share tab audio” or the system audio.":
-    "音声が共有されていません。共有ダイアログで「タブの音声を共有」またはシステム音声をオンにしてください。",
   "Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.":
     "文字起こしサービスとの接続が切れました（コード {code}{reason}）。{n} 回再接続を試みました。",
   "Next meeting": "次の会議",
