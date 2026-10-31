@@ -67,8 +67,54 @@ shrink both until each is mediocre, the app moves the GPU between them: **Whispe
 meeting, the LLM after it ends**. Ollama is told to unload (`keep_alive: 0`) when a meeting
 starts.
 
+That is still the default, and no longer the whole story: see
+[writing during a recording](#writing-during-a-recording-after-all).
+
 Translation is the exception — it runs on the **CPU** (M2M100 1.2B via CTranslate2)
 precisely so it can happen *during* a meeting without competing for VRAM.
+
+### Writing during a recording, after all
+
+The rule above was written when Whisper took up to 3 GB. `large-v3-turbo` at `int8_float16` holds
+about 1.2 GB, and a question period at the end of a talk is one thing minutes can never reach,
+since they start when it ends. So it was measured: Whisper recognising clips back to back, which
+is harder than any meeting, while Ollama read about 6,000 tokens and wrote a summary and questions.
+Host: RTX 4060 Laptop, 8 GB.
+
+| Model, context | Total | Writing | Whisper's RTF meanwhile | VRAM peak |
+| --- | --- | --- | --- | --- |
+| Whisper alone | | | 0.085 | 1.8 GB |
+| `gemma4:e4b`, 8K | **37 s** | 32 tok/s | 0.112 | 6.8 GB |
+| `gemma4:e4b`, 16K | 52 s | 19 tok/s | 0.209 | 7.0 GB |
+| Nemotron Nano 9B, 8K | 70 s | 10 tok/s | 0.340 | 7.4 GB |
+
+Recognition stayed well under real time in every row, so this is one exception rather than a new
+rule, and it is shaped by what made it safe:
+
+- **It is off unless asked for**, per meeting. A regular meeting does not pay for it.
+- **It has its own model setting.** The minutes model is chosen for quality and has minutes to
+  spare; this one is chosen to fit, and the difference between 37 and 70 seconds is the table above.
+- **Each run reads only what is new**, with the summary so far standing in for the rest, under an
+  8K ceiling. That is what keeps an hour's talk in the first row rather than the third.
+- **Recognition is asked first.** The service reports how long its latest segment took against its
+  length, and a run is skipped when that reaches 0.8. A run already going is left to finish: it
+  lasts under a minute, and recognition kept up throughout the table above.
+- **It is priced at a flat 5 GB, not by its file.** Pricing by the file makes `gemma4:e4b` look like
+  7.4 GB, which would keep it from ever starting beside a recording, the only time it is for. A
+  model too big for what is left waits, and the panel says so.
+
+**It runs on the server, not in the page.** A page would have been simpler, and would have stopped
+with a phone's screen: the recording carries on in a foreground service, but nothing in a web view
+runs. The dispatcher needs only the lines, which arrive regardless, and the owner's key, which a
+recording's hold keeps open. The times it schedules from are in the clear for that reason.
+
+**Whether a question was answered is the model's judgment, so it is treated as one.** It must name
+the line, a line that does not exist is ignored, and the question is struck through, not removed.
+One press keeps it and stops it being judged again.
+
+The model that wrote the questions stays loaded between runs, because loading takes most of a
+run's time, and is unloaded when the recording ends, because speaker separation does not fit
+beside it.
 
 ## Arbitration is a measurement, not a count
 

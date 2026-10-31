@@ -27,6 +27,8 @@ import { TranscriptList } from "./transcript-list";
 import { MeetingBody } from "./meeting-body";
 import { ReviewPanel } from "./review-panel";
 import { RecordingDock } from "./recording-dock";
+import { PrepPanel } from "./prep-panel";
+import { readPrep } from "@/lib/prep/prep";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +63,11 @@ export default async function MeetingPage({
     },
   });
   if (!meeting) notFound();
+  const prep = await prisma.meetingPrep.findFirst({ where: { meetingId: meeting.id } });
+  const prepJob = await prisma.job.findFirst({
+    where: { kind: "prep", meetingId: meeting.id, status: { in: ["queued", "running"] } },
+    select: { status: true },
+  });
 
   // Whether minutes are on the way is the queue's to answer, not the meeting's: the two used to
   // be written down separately and drifted. See lib/meetings/minutes-state.ts.
@@ -236,6 +243,19 @@ export default async function MeetingPage({
           }
         />
       </div>
+      {/* From inside only: it is written for whoever is going to ask. */}
+      {!external ? (
+        <PrepPanel
+          meetingId={meeting.id}
+          ended={!recordHere}
+          initial={{
+            enabled: meeting.prepEnabled,
+            prep: readPrep(prep?.body),
+            job: prepJob ? (prepJob.status as "queued" | "running") : null,
+            waiting: false,
+          }}
+        />
+      ) : null}
           </>
         }
         lineCount={meeting.transcripts.length}

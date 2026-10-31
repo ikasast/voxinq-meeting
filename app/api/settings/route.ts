@@ -54,6 +54,7 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "llmProvider",
   "ollamaBaseUrl",
   "ollamaModel",
+  "ollamaPrepModel",
   "anthropicModel",
   "openaiBaseUrl",
   "openaiModel",

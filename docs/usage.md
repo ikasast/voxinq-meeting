@@ -212,6 +212,35 @@ leaves out voice communication, which is what phone calls and apps like Zoom, Te
 play as. On iOS, capturing another app's audio at all would need ReplayKit and a paid developer
 account.
 
+### Getting ready for the questions after a talk
+
+Minutes start when the recording ends, which is too late for the questions at the end of a talk.
+**Questions for afterwards**, on the meeting's page, keeps a short summary and a list of questions
+up to date while the recording runs.
+
+- **Switch it on** with **Prepare during the recording**, before you start or at any point during
+  the recording. It stays off otherwise, so a regular meeting does not use the GPU for it.
+- **It updates every 5 minutes** while there is something new, and **Update now** does it at once.
+  It runs on the server, so it carries on with a phone's screen off. Open the page when you want it.
+- **An answered question is struck through**, with the time it was answered. **Show the line**
+  goes to it, and **Keep it** brings the question back if the model was wrong. A kept question is
+  not judged again.
+- **Add your own question** and it is followed the same way.
+- **A talk in English** gets each question in English too.
+
+Each update reads only what is new, so a long talk costs the same per update as a short one. If
+you switch it on late, the first update reads the newest part and says how much it left out.
+
+It needs live transcription, so on a machine that transcribes after the meeting it has nothing to
+read until then. On one 8 GB card, choose a small model under *Settings → LLM → Model for preparing
+questions*: `gemma4:e4b` wrote in about 37 seconds beside Whisper, and recognition kept up. If the
+model does not fit beside the recording, the panel says it is waiting for room on the GPU, and the
+update runs when the recording ends. Recognition comes first: when it is close to falling behind,
+that update is skipped.
+
+The summary and the questions are encrypted like the minutes, and stay on the meeting. They are
+not part of a backup yet.
+
 ## Summarize an existing recording (no live capture)
 
 Press **Audio file** on the first screen, or drop an audio file (`wav`/`mp3`/`m4a`/…) anywhere on

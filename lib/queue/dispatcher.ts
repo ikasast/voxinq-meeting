@@ -9,6 +9,8 @@ import { claimNext, enqueue, finishRun, openJobFor, recoverInterrupted } from ".
 import { runDiarize } from "./runners/diarize";
 import { runEmotion } from "./runners/emotion";
 import { runMinutes } from "./runners/minutes";
+import { schedulePrep } from "@/lib/prep/schedule";
+import { runPrep } from "./runners/prep";
 import { runReview } from "./runners/review";
 import { runTranscribe } from "./runners/transcribe";
 import type { MinutesParams } from "./types";
@@ -33,6 +35,9 @@ let ticking = false;
  * about every couple of seconds. */
 const SWEEP_MS = 30_000;
 let lastSweep = 0;
+/** Runs are minutes apart, so a look every few ticks is on time. */
+const PREP_CHECK_MS = 15_000;
+let lastPrep = 0;
 /** Ids this process is running. The row says `running` too; this is what `finally` needs. */
 const inFlight = new Set<string>();
 /**
@@ -88,6 +93,10 @@ export async function tick(): Promise<void> {
       const freed = await sweepStaleRecordings().catch(() => 0);
       if (freed > 0) console.log(`[queue] released ${freed} recording hold(s) nobody was using`);
     }
+      if (Date.now() - lastPrep > PREP_CHECK_MS) {
+        lastPrep = Date.now();
+        await schedulePrep().catch((e) => console.error("[queue] could not schedule questions", e));
+      }
       // Whoever still has work keeps their key; everybody else loses theirs now. This is what
       // bounds how long a key is in memory at all — on an instance where nobody is working, the
       // cache is empty rather than holding whatever was last used.
@@ -186,6 +195,18 @@ async function run(job: {
         const signal = signals.get(job.id)?.signal;
         try {
           const r = await runReview(job, signal);
+          await finishRun(job.id, "done", r.note);
+        } catch (e) {
+          if (signal?.aborted) return;
+          throw e;
+        }
+        return;
+      }
+      case "prep": {
+        // Stopped for another recording, it goes back in the queue like feedback does.
+        const signal = signals.get(job.id)?.signal;
+        try {
+          const r = await runPrep(job, signal);
           await finishRun(job.id, "done", r.note);
         } catch (e) {
           if (signal?.aborted) return;
