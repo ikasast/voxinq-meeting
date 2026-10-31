@@ -99,6 +99,27 @@ Two consequences worth stating plainly:
   on the transcription service; that one finishes and its result is discarded, and the app
   says so rather than letting it look instant.
 
+### Whether a model fits is read from how it ran
+
+The estimate above is good enough for planning and was being shown as if it were a finding.
+Settings warned from the file size alone that a model was over this machine's budget and would
+be slow, and it was wrong both ways. Gemma 4 E4B is a 6.1 GB file that Ollama holds in about
+4.9 GB, all of it on the GPU. Qwen3.5 9B was flagged too; it keeps 3 of its 33 layers on the CPU
+and still wrote as fast as an 8B model that fits completely.
+
+So once a model has run on this machine, the field says what Ollama did with it — all on the
+GPU, or what share was — taken from the model loaded now or from the metrics of the latest
+minutes written with it (`lib/llm/model-runs.ts`). **Only the share is trusted, not the sizes**:
+Ollama reported 0.36 GB in total for Gemma 4 while it was plainly using far more. A model that
+has never run here is still judged by its file, and the queue keeps that estimate, because it
+has to decide before anything has run.
+
+Finding a model to download reads ollama.com's search and tag pages as HTML, since the site has
+no search API (`lib/llm/ollama-library.ts`). That is fragile, and contained: it runs only when
+an administrator presses Search, it says so when the markup stops making sense, and typing a
+name keeps working because nothing else depends on it. A server with no way out is told it
+cannot search, rather than shown an empty list.
+
 ## A recording asks for the GPU rather than waiting for it
 
 Everything else in the queue can wait. A recording cannot: it starts when someone presses a
@@ -384,6 +405,56 @@ recovers it.
 Sidechain ducking, which a desktop capture app can do, is not attempted here: Web Audio has no
 native sidechain, and the useful part (headroom and a limiter) does not need one.
 
+## A share with no audio is recovered from, not refused
+
+Recording an online meeting depends on a tick box the app does not control. Whether the share
+dialog's audio box starts ticked is the browser's decision — Chrome ticks a tab's audio and
+leaves system audio unticked for an entire screen — and `systemAudio: "include"` can offer the
+option but not choose it. So the mistake cannot be designed out; it can only be made cheap.
+
+It used to be expensive: a share with no audio threw, and the meeting had to be started again
+while it was already going. Now:
+
+- **The guidance comes before the dialog**, because nothing can be added inside it: the tab for
+  a meeting in the browser, the entire screen with system audio for a meeting app. The dialog
+  opens on the kind of surface chosen last time.
+- **A share with no audio starts the recording anyway.** The microphone may be getting something
+  worth keeping, and refusing throws that away to make a point.
+- **Sharing again swaps the source without stopping.** Each source has its own gain into the
+  limiter, so the display's chain can be replaced while everything else runs. A
+  `ConstantSourceNode` at zero keeps the worklet fed while nothing is shared; without it the
+  recording's clock stops with the audio, and every timestamp after the gap is wrong.
+- **Silence from a share is reported too**, after a minute at effectively zero. It is how a
+  share of the wrong window looks: a track exists, and it carries nothing. The threshold is well
+  below any room or line noise for that reason, and a minute long so that a pause in a meeting
+  does not set it off.
+
+## A meeting nobody ended is noticed, then cleaned up
+
+Forgetting to press End leaves an hour of an empty room in the recording, and it costs twice:
+the audio, and a transcript padded with whatever the recogniser made of the silence.
+
+**During the recording**, twenty minutes with nobody speaking asks whether the meeting is over.
+It asks; it does not end the meeting. A long break or a workshop's silent exercise is
+indistinguishable from an empty room, and a recording stopped wrongly cannot be taken back,
+where one that ran on can be trimmed. "Speaking" means loud enough for about 0.8 s in a row, so
+that a door or a cough does not reset the clock. In the background this arrives as a
+notification, because that is exactly when nobody is looking at the page. The check runs in the
+page, so it needs a page open, and a phone recording in the background is not covered.
+
+**Afterwards**, the transcript offers to choose lines and delete them together, and a recording
+that ran 10 minutes or more past its last line says so once, with a trim that opens at a minute
+after that line. The two are separate because the audio and the words are wanted for different
+reasons, and either may be worth keeping without the other.
+
+Deleting lines has to be done on both sides. The recording keeps one boundary per line, and
+speaker separation maps speakers onto lines **by position**, so a line deleted only from the
+database moves every later speaker by one, silently. The service therefore drops the same
+lines, counted against the list as it was before any of them went, and the route refuses while
+a recognition or a speaker separation is open, because those write back by position as well.
+Against a service older than the bulk call it falls back to one at a time, from the highest
+index down, so that the web app and the service can be upgraded separately.
+
 ## Two recognition backends, chosen by the hardware
 
 faster-whisper covers both cases that matter on the original box: `large-v3-turbo` for
@@ -430,6 +501,8 @@ The alternatives that still do not fit:
 - **VibeVoice-ASR** — 7B. It cannot share 8 GB with anything, and OOMs on long audio even on
   much larger cards.
 - **Parakeet** — strong on English, unproven for Japanese meetings, which is the primary use.
+- **Nemotron 3.5** — [measured below](#nemotron-35-was-measured-and-is-not-used): one model
+  too large for 8 GB, the other at about twice the error on Japanese.
 
 ### What whisper.cpp costs on a CPU
 
@@ -464,6 +537,61 @@ The finding that matters is the first column. **Transcription is live**, so RTF 
 the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,
 at a divergence a quarter of the transcript wide; the production default at 2.83 would take
 about 2.8 hours over a 60-minute meeting.
+
+### Nemotron 3.5 was measured, and is not used
+
+NVIDIA's Nemotron 3.5 family (October 2026) is the most serious alternative so far, because the
+larger model does recognition, speaker separation and word timing together, and takes a list of
+expected names. It splits into two questions.
+
+**Transcribe 30B does not fit.** The smallest official checkpoint is about 21 GB, and the
+smallest community GGUF is 13.9 GB plus a 1.67 GB encoder. It is also offline only, up to an hour
+per file, so it could not provide the live transcript either way. On a much larger card it would
+be worth measuring; through the
+[HTTP backend](#recognition-can-be-sent-over-http-and-it-is-one-backend-not-a-list-of-vendors)
+it may be reachable with no new code, though the speaker labels might not survive that route.
+
+**ASR Streaming 0.6B fits, and is much less accurate on Japanese here.** Measured with NVIDIA's
+own Q8 GGUF (742 MB) on NeMo-Speech.cpp 0.3.0, against `large-v3-turbo` through this project's
+own backend and settings. The audio is 300 clips from the public ReazonSpeech test set, chosen
+by a fixed seed and joined into one 31-minute file, scored against the human transcript after
+removing punctuation and normalising width. Host: RTX 4060 Laptop, i7-13620H.
+
+| | CER | RTF |
+| --- | --- | --- |
+| `large-v3-turbo`, RTX 4060 | **14.00%** | **0.041** |
+| 0.6B, CPU, default lookahead | 29.20% | 0.242 |
+| 0.6B, Intel iGPU over Vulkan, default lookahead | 29.04% | 0.328 |
+| 0.6B, Intel iGPU over Vulkan, 320 ms | **27.76%** | 0.192 |
+
+**This is a comparison on one body of audio, not an accuracy score** — see
+[why this project publishes none](#decided-against-not-deferred). It is broadcast audio, not a
+meeting room. The reference also favours Whisper somewhat: 0.6B writes fillers that the reference
+leaves out, and some of those were probably really said. What is not in doubt is the kind of
+error that remains, which is the wrong kanji for the right sound, and that is the kind that costs
+most in a meeting's names and terms.
+
+Three things stop it, in order:
+
+- **Twice the error.** NVIDIA's own FLEURS figures improve only from 12.22% at 320 ms to 11.48%
+  at 1.12 s, so the longest chunk, which was not tested here, would not close a gap this size.
+- **No usable word timing in Japanese.** The transcript came back as 96 "words" in 31 minutes,
+  each a clause or more, so
+  [dividing a line between speakers](#a-line-that-holds-two-speakers-is-divided-between-them)
+  has nothing to work from.
+- **A second runtime.** It needs NeMo-Speech.cpp or Transformers beside the two backends already
+  here, and the Windows CUDA build is linked against CUDA 13, which would not start on a driver
+  that stops at 12.8.
+
+Not measured: speed and memory on the RTX 4060 (the Vulkan runs above landed on the integrated
+GPU, and the CUDA build would not start), and clip-by-clip error, because the directory mode
+aborted in ggml. Neither would change the first reason.
+
+What is left is the one thing it did well: **about four times real time on a laptop CPU.** Live
+transcription on a machine with no GPU is what the
+[deferred path](#so-a-host-that-cannot-keep-up-does-not-try) exists to avoid, so it would be
+worth comparing with whisper.cpp on the same audio. *Changes if* that comparison favours it, or
+a Japanese-tuned model appears.
 
 ### Two STT images, because one of them could not run on a Mac at all
 
@@ -591,10 +719,22 @@ Meetings were embedded (bge-m3 via Ollama) with cosine ranking in the app, behin
 toggle. It was removed in the list-UI overhaul because keyword search over titles, transcripts
 and minutes answered the same questions more predictably.
 
-**Ask** deliberately does not use retrieval either. It packs a series' minutes newest-first and
-drops the oldest only when they do not fit, then says so in the footer. For "what were the TODOs
-so far", missing a meeting because it ranked poorly is worse than a longer prompt — the current
-approach cannot silently skip one.
+**Ask** deliberately does not rank a series' meetings either. It packs a series' minutes
+newest-first and drops the oldest only when they do not fit, then says so in the footer. For
+"what were the TODOs so far", missing a meeting because it ranked poorly is worse than a longer
+prompt — the current approach cannot silently skip one.
+
+Inside **one long transcript** the answer is different, because there the cost is time rather
+than omission: an hour is about 21,000 tokens, and reading it took 20 to 30 seconds before the
+first word. When a question is about one part, Ask takes the lines that match its words and the
+lines around them, about 5,500 tokens (`lib/llm/excerpt.ts`), and the footer says how many parts
+it read. That is plain word matching, not embeddings, and it fails safe: a question about the
+whole meeting, or one that matches nothing, still reads all of it.
+
+Most of what made Ask slow was not reading at all. The model reasoned before answering, the
+context was sized too small so the model loaded twice, and the size changed per call so a
+follow-up reloaded everything. Reasoning is now off, the context moves in coarse steps, and the
+model stays loaded for 15 minutes after a question, until a recording needs the GPU.
 
 Revisit when a single series stops fitting in the context window. That is not a meeting count,
 though it was written as one here for a while: the budget is spent on characters, and minutes
