@@ -210,6 +210,7 @@ model Meeting {
   deletedAt                 DateTime? @map("deleted_at") // trash (soft delete). null = normal. purged after a while
   archivedAt                DateTime? @map("archived_at") // archived: hidden from the list, still searchable, kept in DB
   pinnedAt                  DateTime? @map("pinned_at") // pinned to the top of the sidebar; null = not pinned
+  prepEnabled               Boolean   @default(false) @map("prep_enabled") // prepare questions while recording (lib/prep)
   createdAt                 DateTime  @default(now()) @map("created_at")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 
@@ -221,6 +222,7 @@ model Meeting {
   participants MeetingParticipant[]
   reviews      MeetingReview[]
   asked        AskTurn[]
+  prep         MeetingPrep?
   series       Series?              @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
@@ -474,6 +476,23 @@ model MeetingReview {
   @@index([meetingId])
   @@index([person])
   @@map("meeting_reviews")
+}
+
+/// Questions and a running summary, prepared while a talk is still being recorded (lib/prep).
+/// `body` is JSON and encrypted like the minutes, because it paraphrases what was said. The two
+/// times are in the clear so the scheduler can read them without anybody's key.
+model MeetingPrep {
+  meetingId String    @id @map("meeting_id")
+  body      String
+  /// The last line that has been read, by when it was saved. Null: none yet.
+  throughAt DateTime? @map("through_at")
+  /// When a run last ended, however it ended, so a failing one is not retried every tick.
+  ranAt     DateTime? @map("ran_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@map("meeting_preps")
 }
 
 /// A question asked about a meeting or a series, and what came back (Ask). Kept so it can be

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sttInternalUrl } from "@/lib/stt/internal";
-import { getLlmConfig, readSettings } from "@/lib/settings";
+import { getLlmConfig, getPrepConfig, readSettings } from "@/lib/settings";
 import { whisperModel } from "@/lib/stt/models";
 import { abortGeneration } from "@/lib/llm/generation-registry";
 import { unloadOllama } from "@/lib/llm/ollama";
@@ -121,7 +121,19 @@ export async function releaseRecording(meetingId: string): Promise<number> {
     where: { kind: RECORDING_KIND, meetingId, status: "running" },
     data: { status: "done", finishedAt: new Date(), detail: "Recording finished." },
   });
+  if (count > 0) await unloadPrepModel(meetingId);
   return count;
+}
+
+/**
+ * The model that wrote questions stays loaded between runs, and what comes after a meeting
+ * wants the card: speaker separation first of all, which does not load beside it.
+ */
+async function unloadPrepModel(meetingId: string): Promise<void> {
+  const meeting = await prisma.meeting.findUnique({ where: { id: meetingId }, select: { prepEnabled: true } });
+  if (!meeting?.prepEnabled) return;
+  const cfg = await getPrepConfig();
+  if (cfg.provider === "ollama") await unloadOllama(cfg);
 }
 
 /**

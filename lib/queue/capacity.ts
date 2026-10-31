@@ -132,6 +132,14 @@ export async function estimateVramMb(kind: JobKind, params: object): Promise<num
     return ollamaModelMb(s.ollamaBaseUrl, s.ollamaModel);
   }
 
+  // Beside a recording, so it is not priced by its file. A file is what makes 4.9 GB of Gemma 4
+  // look like 7.4 GB, and at that price this would never start while recording, which is the
+  // only time it is for. A model too large for what is left waits, and the panel says so.
+  if (kind === "prep") {
+    if (s.llmProvider === "anthropic" || s.llmProvider === "openai") return 0;
+    return isLocalUrl(s.ollamaBaseUrl) ? LLM_FALLBACK_MB : 0;
+  }
+
   if (kind === "transcribe") {
     const p = params as TranscribeParams;
     const asked = typeof p.profileId === "string" ? p.profileId : null;
