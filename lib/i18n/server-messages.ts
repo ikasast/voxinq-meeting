@@ -167,6 +167,10 @@ export const SERVER_MESSAGES = [
   "Wait until the work queued for this meeting has finished, then trim.",
   "This meeting has no recording to trim.",
   "The recording could not be trimmed: {reason}",
+  // Getting ready for the questions after a talk.
+  "Enter a question.",
+  "Recognition needs the GPU right now, so this waits for the next update.",
+  "The model's answer could not be read. It tries again at the next update.",
   // Deleting many lines at once.
   "Choose the lines to delete.",
   "Too many lines in one request.",

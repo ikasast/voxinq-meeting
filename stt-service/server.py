@@ -192,6 +192,26 @@ def _normalize(text: str) -> str:
     return "".join(ch for ch in text if ch not in "。、!?！？.… 　\n\r\t")
 
 # Activity tracking for WS connections and load requests (used to decide idle release).
+# How long the latest live segment took against how long it was. The web app reads this before
+# running anything else on the card during a recording: above 1 the meeting is outrunning
+# recognition, and the transcript is what the recording is for.
+_LIVE_SPEED: tuple[float, float] | None = None
+_LIVE_SPEED_FRESH_S = 60.0
+
+
+def _note_live_speed(rtf: float) -> None:
+    global _LIVE_SPEED
+    _LIVE_SPEED = (rtf, time.monotonic())
+
+
+def _live_speed() -> float | None:
+    """The latest figure, or None when nothing has been recognised live for a while."""
+    seen = _LIVE_SPEED
+    if seen is None or time.monotonic() - seen[1] > _LIVE_SPEED_FRESH_S:
+        return None
+    return round(seen[0], 3)
+
+
 _ACT_LOCK = threading.Lock()
 _ACTIVE_WS = 0
 _LAST_ACTIVITY = 0.0  # updated on every ws open/close and preload
@@ -653,6 +673,7 @@ async def health() -> dict:
         # False means this host records the meeting and transcribes it afterwards. The
         # recording screen reads this to know whether to expect text during the meeting.
         "liveTranscription": LIVE_TRANSCRIPTION,
+        "liveRtf": _live_speed(),
         "translate": translator_state(),
         # Runs a subprocess the first time, so keep it off the event loop.
         **await asyncio.to_thread(_diarization_info),
@@ -2119,6 +2140,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             # frames, /health, other connections) stays responsive during the ~seconds it takes.
             async with transcribe_lock:
                 model = whisper.get(state.model_name)
+                began = time.monotonic()
                 text, detected, words = await asyncio.to_thread(
                     transcribe_segment_ex,
                     model,
@@ -2127,6 +2149,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     state.initial_prompt,
                     word_timestamps=True,
                 )
+                _note_live_speed((time.monotonic() - began) / (audio.size / SAMPLE_RATE))
             if text:
                 start_s = start_sample / SAMPLE_RATE
                 end_s = (start_sample + audio.size) / SAMPLE_RATE

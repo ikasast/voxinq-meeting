@@ -63,6 +63,8 @@ export type AppSettings = {
   llmProvider: LlmProviderName;
   ollamaBaseUrl: string;
   ollamaModel: string;
+  // Written beside a live recording, so it has to fit next to Whisper. Empty: the minutes model.
+  ollamaPrepModel: string;
   anthropicModel: string;
   anthropicApiKey: string;
   openaiBaseUrl: string;
@@ -132,6 +134,7 @@ function defaults(): AppSettings {
     // the same port on IPv6 would answer instead of the local Ollama.
     ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434",
     ollamaModel: process.env.OLLAMA_MODEL ?? "qwen3:8b",
+    ollamaPrepModel: "",
     anthropicModel: process.env.ANTHROPIC_MODEL ?? process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
     openaiBaseUrl: process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1",
@@ -348,6 +351,22 @@ export async function getLlmConfig(): Promise<LlmConfig> {
     openaiModel: s.openaiModel,
     ollamaNumCtx: s.ollamaNumCtx || undefined,
   };
+}
+
+/**
+ * The most context a run beside a live recording may ask Ollama for.
+ *
+ * Measured beside Whisper on 8 GB: at 8K the model wrote 32 tokens a second and recognition kept
+ * up easily; at 16K it wrote 19 and recognition took twice as long. Each run reads only what is
+ * new, so it never needs more.
+ */
+const PREP_NUM_CTX = 8192;
+
+/** The minutes' provider and settings, with the model chosen for running beside a recording. */
+export async function getPrepConfig(): Promise<LlmConfig> {
+  const cfg = await getLlmConfig();
+  const s = await readEffectiveSettings();
+  return { ...cfg, ollamaModel: s.ollamaPrepModel.trim() || cfg.ollamaModel, ollamaNumCtx: PREP_NUM_CTX };
 }
 
 export async function getWhisperModel(): Promise<string> {

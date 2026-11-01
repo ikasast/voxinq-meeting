@@ -44,6 +44,8 @@ const ENCRYPTED: Record<string, { field: string; purpose: string }> = {
   meetingReview: { field: "result", purpose: "review" },
   // So does an answer to a question about a meeting; the question goes with it.
   askTurn: { field: "body", purpose: "ask" },
+  // Questions and a summary written during a talk paraphrase it.
+  meetingPrep: { field: "body", purpose: "prep" },
 };
 
 /** Rows that are not meeting content. Shared, or scoped by being about a person already. */
@@ -68,6 +70,7 @@ const VIA_MEETING = new Set([
   "meetingParticipant",
   "meetingGram",
   "meetingReview",
+  "meetingPrep",
 ]);
 
 /**

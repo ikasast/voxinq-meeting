@@ -51,6 +51,7 @@ export const USER_KEYS = [
   "llmProvider",
   "ollamaBaseUrl",
   "ollamaModel",
+  "ollamaPrepModel",
   "anthropicModel",
   "anthropicApiKey",
   "openaiBaseUrl",

@@ -119,7 +119,7 @@ On a machine with one CUDA card of about 8 GB — which is what Voxinq was writt
 without a GPU has no VRAM to arbitrate; the queue still serialises the work, but what is being
 shared is CPU time.
 
-Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM. Voxinq Meeting
+Whisper (during a meeting) and the LLM (after) do not both stay resident on 8 GB VRAM, apart from the [small model that prepares questions](design-decisions.md#writing-during-a-recording-after-all), when a meeting asks for it. Voxinq Meeting
 **releases Whisper on meeting end** so the LLM can run.
 
 ## Accounts, ownership and encryption

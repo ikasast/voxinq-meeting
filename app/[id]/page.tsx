@@ -27,6 +27,7 @@ import { TranscriptList } from "./transcript-list";
 import { MeetingBody } from "./meeting-body";
 import { ReviewPanel } from "./review-panel";
 import { RecordingDock } from "./recording-dock";
+import { readPrep } from "@/lib/prep/prep";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,11 @@ export default async function MeetingPage({
     },
   });
   if (!meeting) notFound();
+  const prep = await prisma.meetingPrep.findFirst({ where: { meetingId: meeting.id } });
+  const prepJob = await prisma.job.findFirst({
+    where: { kind: "prep", meetingId: meeting.id, status: { in: ["queued", "running"] } },
+    select: { status: true },
+  });
 
   // Whether minutes are on the way is the queue's to answer, not the meeting's: the two used to
   // be written down separately and drifted. See lib/meetings/minutes-state.ts.
@@ -238,6 +244,16 @@ export default async function MeetingPage({
       </div>
           </>
         }
+        prep={{
+          show: !external,
+          ended: !recordHere,
+          initial: {
+            enabled: meeting.prepEnabled,
+            prep: readPrep(prep?.body),
+            job: prepJob ? (prepJob.status as "queued" | "running") : null,
+            waiting: false,
+          },
+        }}
         lineCount={meeting.transcripts.length}
         transcriptFirst={meeting.summaries.length === 0}
         review={
@@ -339,7 +355,7 @@ export default async function MeetingPage({
       />
       {/* Room under the last line for the recording dock, which floats over the bottom of the
           window. */}
-      {recordHere ? <div aria-hidden className="h-28" /> : null}
+      {recordHere && meeting.summaries.length > 0 ? <div aria-hidden className="h-28" /> : null}
       {/* Asking about the meeting floats at the bottom right (ask-minutes.tsx). In a series the
           minutes it reads are the whole series', and this meeting's own words are the other
           choice; a one-off meeting is a series of one. */}
