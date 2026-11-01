@@ -64,6 +64,7 @@ from fastapi.responses import FileResponse
 
 from translator import preload_translator, translate_to_ja, translator_state
 from retention import recording_files, sweep as sweep_recordings
+from sessions import OpenSessions, Session
 from trim import trim_recording
 import voice
 
@@ -217,6 +218,8 @@ _ACTIVE_WS = 0
 _LAST_ACTIVITY = 0.0  # updated on every ws open/close and preload
 # meeting_id -> number of active recording connections (refcount survives brief reconnects).
 _RECORDING_MIDS: dict[str, int] = {}
+# Recording sessions still open: where the next one of a meeting starts depends on them.
+_OPEN_SESSIONS = OpenSessions()
 
 
 def _touch_activity(delta_ws: int = 0) -> None:
@@ -2064,6 +2067,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
     state = StreamState()
     started = False
     saved = False  # whether the recording was saved (via end, or the disconnect fallback)
+    session: Session | None = None
 
     silence_limit = int(SAMPLE_RATE * VAD_SILENCE_MS / 1000)
     max_seg = int(SAMPLE_RATE * VAD_MAX_SEGMENT_MS / 1000)
@@ -2194,6 +2198,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
     try:
         while True:
+            if session is not None:
+                session.listening()
             msg = await ws.receive()
             if msg.get("type") == "websocket.disconnect":
                 break
@@ -2225,8 +2231,16 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     # WAV. Start this session's clock at the end of that audio so every timestamp
                     # is an offset into the finished recording rather than into this session —
                     # the web app stores these on the utterance and seeks the player with them.
+                    # The last session may not have saved yet: see sessions.py.
                     if state.meeting_id:
-                        prior = _existing_recording_samples(state.meeting_id)
+                        if session is None:
+                            session = _OPEN_SESSIONS.open(state.meeting_id, asyncio.current_task())
+                        if _OPEN_SESSIONS.unsettled(session):
+                            await ws.send_text(json.dumps({"type": "status", "status": "loading"}))
+                        await _OPEN_SESSIONS.settle(session)
+                        prior = _OPEN_SESSIONS.start_after(
+                            session, _existing_recording_samples(state.meeting_id)
+                        )
                         state.elapsed_samples = prior
                         state.seg_start_sample = prior
                     started = True
@@ -2259,6 +2273,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         json.dumps({"type": "status", "status": "open", "live": True})
                     )
                 elif kind == "end":
+                    if session is not None:
+                        session.ending = True
                     # Even if the client disconnects while transcribing the final segment
                     # (even if send fails), always proceed to saving the recording.
                     try:
@@ -2273,9 +2289,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     whisper.release()  # free VRAM -> yield to Ollama
                     # Save the meeting audio and utterance boundaries for diarization (only when meetingId is set).
                     if state.meeting_id:
+                        # A short session can get here before the one it follows has gone.
+                        if session is not None:
+                            await _OPEN_SESSIONS.settle(session)
                         try:
                             save_recording(state.meeting_id, state.full_audio, state.finals)
                             saved = True
+                            if session is not None:
+                                session.saved()
                         except Exception as e:  # noqa: BLE001  a save failure must not block meeting end
                             with suppress(Exception):
                                 await ws.send_text(
@@ -2296,6 +2317,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
             # Keep all audio for post-meeting diarization (only when meetingId is set).
             if state.meeting_id:
                 state.full_audio.append(samples)
+                if session is not None:
+                    session.received(samples.size)
 
             # Judge silence/speech from the energy of the trailing frame
             tail = state.buffer[-frame:] if state.buffer.size >= frame else state.buffer
@@ -2326,6 +2349,10 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 partial_task = asyncio.create_task(send_partial(state.buffer.copy()))
     except WebSocketDisconnect:
         pass
+    except asyncio.CancelledError:
+        # A later session closed this one because it had gone quiet. The save below is the point.
+        if session is None or not session.superseded:
+            raise
     finally:
         if partial_task is not None and not partial_task.done():
             partial_task.cancel()
@@ -2346,6 +2373,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 save_recording(state.meeting_id, state.full_audio, state.finals)
             except Exception:  # noqa: BLE001  swallow failures during cleanup
                 pass
+        if session is not None:
+            _OPEN_SESSIONS.close(session)
 
 
 if __name__ == "__main__":
