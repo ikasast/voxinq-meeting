@@ -9,6 +9,7 @@
 export type PositionRow = {
   createdAt: string;
   audioStartMs?: number | null;
+  audioEndMs?: number | null;
 };
 
 export type Segment = { start: number; end: number };
@@ -52,6 +53,29 @@ export function audioPosition(
   const at = Date.parse(row.createdAt);
   if (!Number.isFinite(anchor) || !Number.isFinite(at)) return null;
   return Math.max(0, (sources.firstUtteranceStart ?? 0) + (at - anchor) / 1000);
+}
+
+/**
+ * Seconds into the recording where the last thing said ends, or null with nothing to place.
+ *
+ * The furthest of all the lines, not the last row: rows are in the order they were saved, which
+ * is not always the order of the recording. A line with no stored end counts its boundary while
+ * the counts agree (see audioPosition), and otherwise where it starts.
+ */
+export function latestLineEnd(rows: PositionRow[], sources: PositionSources): number | null {
+  const segments = sources.segments;
+  const paired = segments && segments.length === rows.length;
+  let latest: number | null = null;
+  rows.forEach((row, i) => {
+    const end =
+      typeof row.audioEndMs === "number" && Number.isFinite(row.audioEndMs)
+        ? row.audioEndMs / 1000
+        : paired && Number.isFinite(segments[i]?.end)
+          ? segments[i].end
+          : audioPosition(rows, i, sources);
+    if (end !== null && (latest === null || end > latest)) latest = end;
+  });
+  return latest;
 }
 
 /** Position relative to the first utterance — what the row's timestamp label shows. */
