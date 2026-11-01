@@ -121,20 +121,20 @@ function OpenQuestion({ q, isNew, model }: { q: PrepQuestion; isNew: boolean; mo
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={`${ROW} flex items-start gap-2 py-1.5 text-sm text-[var(--foreground)]`}
+        className={`${ROW} flex items-start gap-3 py-3 text-sm leading-6 text-[var(--foreground)]`}
       >
         <span className="min-w-0 flex-1">{q.text}</span>
-        {isNew ? <span className="mt-0.5 shrink-0 text-[11px] text-[var(--accent)]">{t("New")}</span> : null}
+        {isNew ? <span className="mt-1 shrink-0 text-[11px] text-[var(--accent)]">{t("New")}</span> : null}
         {q.en ? (
-          <span className="mt-0.5 shrink-0 rounded border border-[var(--border-strong)] px-1 text-[10px] leading-4 text-[var(--text-muted)]">
+          <span className="mt-1 shrink-0 rounded border border-[var(--border-strong)] px-1 text-[10px] leading-4 text-[var(--text-muted)]">
             EN
           </span>
         ) : null}
       </button>
       {open ? (
-        <div className="space-y-1 px-2 pb-2">
+        <div className="space-y-2 px-2 pb-3">
           {q.en ? (
-            <p lang="en" className="border-t border-[var(--border)] pt-1.5 text-sm text-[var(--text-secondary)]">
+            <p lang="en" className="text-sm leading-6 text-[var(--text-secondary)]">
               {q.en}
             </p>
           ) : null}
@@ -158,7 +158,7 @@ function AnsweredQuestion({ q, model }: { q: PrepQuestion; model: PrepModel }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className={`${ROW} flex gap-2 py-0.5 text-xs text-[var(--text-muted)]`}
+        className={`${ROW} flex gap-3 py-1.5 text-xs text-[var(--text-muted)]`}
       >
         <s className={`min-w-0 flex-1 ${open ? "" : "truncate"}`}>{q.text}</s>
         {ms !== null ? <span className="shrink-0 tabular-nums">{formatOffset(ms / 1000)}</span> : null}
@@ -203,7 +203,7 @@ export function PrepView({ model, boxed = false }: { model: PrepModel; boxed?: b
   return (
     <section
       aria-label={t("Questions")}
-      className={`flex flex-col gap-3 text-sm ${boxed ? "rounded-xl border border-[var(--border)] px-4 py-3" : ""}`}
+      className={`flex flex-col gap-4 text-sm ${boxed ? "rounded-xl border border-[var(--border)] px-4 py-3" : ""}`}
     >
       <div className="flex items-center gap-3">
         <h2 className="min-w-0 flex-1 font-medium text-[var(--text-strong)]">{t("Questions")}</h2>
@@ -250,7 +250,7 @@ export function PrepView({ model, boxed = false }: { model: PrepModel; boxed?: b
       {has || state.enabled ? (
         <>
           {open.length > 0 ? (
-            <ul className="-mx-2">
+            <ul className="-mx-2 divide-y divide-[var(--border)]">
               {open.map((q) => (
                 <OpenQuestion
                   key={q.id}
@@ -291,7 +291,7 @@ export function PrepView({ model, boxed = false }: { model: PrepModel; boxed?: b
           {answered.length > 0 ? (
             <div>
               <h3 className="text-xs text-[var(--text-muted)]">{t("Answered {n}", { n: answered.length })}</h3>
-              <ul className="-mx-2 mt-0.5">
+              <ul className="-mx-2 mt-1">
                 {answered.map((q) => (
                   <AnsweredQuestion key={q.id} q={q} model={model} />
                 ))}
