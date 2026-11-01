@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { audioPosition, displayOffset } from "@/lib/audio-position";
+import { audioPosition, displayOffset, latestLineEnd } from "@/lib/audio-position";
 import { mergeLiveTranscripts, type ServerSnapshot } from "@/lib/live-merge";
 import { formatOffset } from "@/lib/utils";
 import {
@@ -273,13 +273,10 @@ export function TranscriptList({
   // meeting, unless it is trimmed; after that it is only the trim's to bring up.
   const tailSec = useMemo(() => {
     const total = recInfo?.durationSec;
-    if (!total || transcripts.length === 0) return 0;
-    // Where the last line ends, if the recording kept its boundary; where it starts otherwise.
-    const n = transcripts.length;
-    const seg = recInfo?.segments?.length === n ? recInfo.segments[n - 1] : undefined;
-    const lastEnd = seg ? seg.end : wavPosition(n - 1);
+    const lastEnd = latestLineEnd(transcripts, positionSources);
+    if (!total || lastEnd === null) return 0;
     return Math.max(0, total - lastEnd);
-  }, [recInfo, transcripts, wavPosition]);
+  }, [recInfo, transcripts, positionSources]);
   const [tailDismissed, setTailDismissed] = useState(() => {
     try {
       return typeof window !== "undefined" && localStorage.getItem(`voxinq.tail.${meetingId}`) === "1";

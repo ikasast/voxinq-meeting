@@ -34,6 +34,8 @@ export type Item = {
   translation?: string | null;
   // Where this utterance starts in the recording. Null on rows saved before this was stored.
   audioStartMs?: number | null;
+  // Where it ends. Null on rows saved before this was stored.
+  audioEndMs?: number | null;
   // Set when this line was split off another at a speaker change — the id of the line it came
   // from. Its presence is what offers the way back.
   splitOfId?: string | null;

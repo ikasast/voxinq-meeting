@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { audioPosition, displayOffset, type PositionRow } from "../lib/audio-position";
+import { audioPosition, displayOffset, latestLineEnd, type PositionRow } from "../lib/audio-position";
 
 /** Rows a second apart in wall-clock, which is what the old estimate keyed off. */
 function rows(specs: { start?: number | null; atSec: number }[]): PositionRow[] {
@@ -84,5 +84,49 @@ describe("displayOffset", () => {
     const seek = audioPosition(r, 1, sources)!;
     const label = displayOffset(r, 1, sources)!;
     expect(seek - label).toBeCloseTo(audioPosition(r, 0, sources)!, 5);
+  });
+});
+
+describe("latestLineEnd", () => {
+  const at = (atSec: number) => new Date(Date.UTC(2026, 7, 15, 5, 0, atSec)).toISOString();
+
+  it("takes the furthest line, not the last one saved", () => {
+    // A later session whose clock started again from zero: its rows are saved last and sit early.
+    const r: PositionRow[] = [
+      { createdAt: at(1), audioStartMs: 3_000, audioEndMs: 12_000 },
+      { createdAt: at(2), audioStartMs: 1_600_000, audioEndMs: 1_622_000 },
+      { createdAt: at(3), audioStartMs: 9_000, audioEndMs: 11_000 },
+      { createdAt: at(4), audioStartMs: 931_000, audioEndMs: 932_500 },
+    ];
+    expect(latestLineEnd(r, {})).toBe(1622);
+  });
+
+  it("prefers a line's own end over the recording's boundary", () => {
+    const r: PositionRow[] = [{ createdAt: at(1), audioStartMs: 1_000, audioEndMs: 4_000 }];
+    expect(latestLineEnd(r, { segments: [{ start: 1, end: 9 }] })).toBe(4);
+  });
+
+  it("uses the boundary for a line with no stored end, while the counts agree", () => {
+    const r: PositionRow[] = [
+      { createdAt: at(1), audioStartMs: 1_000 },
+      { createdAt: at(2), audioStartMs: 5_000 },
+    ];
+    const segments = [
+      { start: 1, end: 5 },
+      { start: 5, end: 8.5 },
+    ];
+    expect(latestLineEnd(r, { segments })).toBe(8.5);
+  });
+
+  it("falls back to where the line starts when the boundaries no longer line up", () => {
+    const r: PositionRow[] = [
+      { createdAt: at(1), audioStartMs: 1_000 },
+      { createdAt: at(2), audioStartMs: 5_000 },
+    ];
+    expect(latestLineEnd(r, { segments: [{ start: 1, end: 900 }] })).toBe(5);
+  });
+
+  it("has nothing to say about no lines", () => {
+    expect(latestLineEnd([], { segments: [] })).toBeNull();
   });
 });

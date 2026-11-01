@@ -347,6 +347,7 @@ export default async function MeetingPage({
             // when the row was saved, which counts the minutes recording was stopped for and the
             // moment a diarization split the line.
             audioStartMs: line.audioStartMs,
+            audioEndMs: line.audioEndMs,
             splitOfId: line.splitOfId,
           }))}
         />
