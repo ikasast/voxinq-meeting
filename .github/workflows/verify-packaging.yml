@@ -131,11 +131,13 @@ jobs:
 
       # Homebrew refuses to install a formula that is not in a tap, so the branch's formula is
       # copied into a throwaway local one. `brew tap-new` is what makes a directory Homebrew
-      # will read -- creating it by hand leaves out the git repository some commands expect.
+      # will read -- creating it by hand leaves out the git repository some commands expect. A
+      # new tap also has to be trusted before Homebrew will load a formula from it.
       - name: Put the branch's formula in a local tap
         run: |
           set -euo pipefail
           brew tap-new local/voxinq --no-git 2>/dev/null || brew tap-new local/voxinq
+          brew trust local/voxinq
           tap="$(brew --repository local/voxinq)"
           mkdir -p "$tap/Formula"
           cp packaging/homebrew/voxinq.rb "$tap/Formula/voxinq.rb"
