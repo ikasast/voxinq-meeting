@@ -304,7 +304,7 @@ the household are different acts.
 
 **Search & speakers** (edit `settings.json` directly)
 - `voiceprintThreshold` — cosine similarity needed for voice-profile auto-naming, default `0.5`
-- `ollamaPrepModel` — the Ollama model for *Questions for afterwards*, which runs beside a live
+- `ollamaPrepModel` — the Ollama model for *Questions* on a meeting's page, which runs beside a live
   recording. Empty uses `ollamaModel`. On 8 GB it has to fit next to Whisper: see
   [the measurements](design-decisions.md#writing-during-a-recording-after-all).
 - `ollamaNumCtx` — Ollama context window in tokens. `0` (default) uses the built-in budget of

@@ -215,18 +215,20 @@ account.
 ### Getting ready for the questions after a talk
 
 Minutes start when the recording ends, which is too late for the questions at the end of a talk.
-**Questions for afterwards**, on the meeting's page, keeps a short summary and a list of questions
-up to date while the recording runs.
+**Questions**, on the meeting's page, keeps a list of questions and a short summary up to date
+while the recording runs. They stay in a column of their own, beside what is being said; on a phone
+they are a tab. Once there are minutes, they are a tab beside the minutes.
 
-- **Switch it on** with **Prepare during the recording**, before you start or at any point during
+- **Switch it on** with the switch next to **Questions**, before you start or at any point during
   the recording. It stays off otherwise, so a regular meeting does not use the GPU for it.
 - **It updates every 5 minutes** while there is something new, and **Update now** does it at once.
   It runs on the server, so it carries on with a phone's screen off. Open the page when you want it.
-- **An answered question is struck through**, with the time it was answered. **Show the line**
-  goes to it, and **Keep it** brings the question back if the model was wrong. A kept question is
-  not judged again.
+- **An answered question** moves down, greyed and struck through, with the time it was answered.
+  Click it for **Show the line**, which goes to it, and **Keep it**, which brings the question back
+  if the model was wrong. A kept question is not judged again.
 - **Add your own question** and it is followed the same way.
-- **A talk in English** gets each question in English too.
+- **A talk in English** gets each question in English too, marked `EN`: click the question to see
+  it. A question of your own gets its English at the next update.
 
 Each update reads only what is new, so a long talk costs the same per update as a short one. If
 you switch it on late, the first update reads the newest part and says how much it left out.

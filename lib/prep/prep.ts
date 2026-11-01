@@ -56,6 +56,8 @@ const MAX_TEXT = 300;
 /** New lines one run reads, in `estTokens`. About 24 minutes of speech at 300 characters a minute. */
 const LINES_BUDGET = 4000;
 
+const hasJapanese = (s: string) => /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(s);
+
 export function readPrep(body: string | null | undefined): Prep {
   if (!body) return { ...EMPTY_PREP };
   try {
@@ -121,20 +123,29 @@ export function prepPrompt(input: {
   // Asked for outright: left to itself, a model that has just struck out every question offers
   // none, and the list is empty at the moment it is needed.
   const wanted = Math.max(MIN_NEW_QUESTIONS, ENOUGH_OPEN - open.length);
+  // A question added by hand has no English until a run gives it some.
+  const untranslated = withEnglish ? open.filter((q) => !q.en && hasJapanese(q.text)) : [];
   const system = [
     "あなたは講演や会議の聴き手を助けるアシスタントです。話の途中までの文字起こしを読み、質疑で聞く価値のある質問を用意します。",
-    `summary と questions の text は${language === "en" ? "英語" : "日本語"}で書くこと。`,
+    `summary と questions の text は、発言の言語にかかわらず${language === "en" ? "英語" : "日本語"}で書くこと。`,
     withEnglish
-      ? "話者は英語で話しています。質問は実際に英語で口にするので、questions の各項目に en として自然で簡潔な英語の質問も付けること。"
+      ? "話者は英語で話していますが、text は日本語に訳して書くこと。質問は実際に英語で口にするので、各項目の en に text と同じ内容の自然で簡潔な英語の質問を付けること。"
       : "",
     "文字起こしは音声認識の結果で、誤字を含みます。書かれていない事実や数値を作らないこと。",
     "出力は次の形の JSON のみ。説明や前置きは書かないこと。",
-    withEnglish
-      ? '{"summary":["ここまでの要点"],"answered":[{"id":"q1","line":12}],"questions":[{"text":"質問","en":"The question in English"}]}'
-      : '{"summary":["ここまでの要点"],"answered":[{"id":"q1","line":12}],"questions":[{"text":"質問"}]}',
+    `{"summary":["ここまでの要点"],"answered":[{"id":"q1","line":12}],"questions":[${
+      withEnglish ? '{"text":"日本語の質問","en":"The question in English"}' : '{"text":"質問"}'
+    }]${
+      untranslated.length
+        ? `,"translations":[${untranslated.map((q) => `{"id":"${q.id}","en":"The question in English"}`).join(",")}]`
+        : ""
+    }}`,
     `summary: これまでの要点を${MAX_SUMMARY}項目以内の配列で。1項目は1文で短く。前回の要約に今回の内容を織り込み、書き直すこと。`,
     "answered: 未回答の質問のうち、今回の発言で実際に答えられたものだけ。id は質問の id、line はその答えが述べられた発言の番号。少しでも疑わしければ入れないこと。",
     `questions: 今回の内容から考えられる新しい質問を${wanted}つ。すでに答えられたことや、既存の質問と同じ内容は書かないこと。講演者の考えや、具体例、次の段階を尋ねる質問も歓迎。`,
+    untranslated.length
+      ? `translations: 必ず書くこと。次の質問をそれぞれ英語に訳す。${untranslated.map((q) => `${q.id}: ${q.text}`).join(" / ")}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n");
@@ -159,6 +170,8 @@ export type PrepAnswer = {
   summary: string[];
   answered: { id: string; line: number }[];
   questions: { text: string; en?: string }[];
+  /** English for questions that have none yet, by id. */
+  translations?: { id: string; en: string }[];
 };
 
 function stripFence(s: string): string {
@@ -200,10 +213,30 @@ export function parsePrep(raw: string): PrepAnswer | null {
     const en = clean((q as Record<string, unknown>).en);
     return text ? [{ text, ...(en ? { en } : {}) }] : [];
   });
-  return { summary, answered, questions: questions.slice(0, MAX_NEW_QUESTIONS) };
+  const translations = (Array.isArray(o.translations) ? o.translations : []).flatMap((a) => {
+    if (!a || typeof a !== "object") return [];
+    const { id, en } = a as Record<string, unknown>;
+    const english = clean(en);
+    return typeof id === "string" && english ? [{ id, en: english }] : [];
+  });
+  return {
+    summary,
+    answered,
+    questions: questions.slice(0, MAX_NEW_QUESTIONS),
+    ...(translations.length ? { translations } : {}),
+  };
 }
 
 const sameWords = (s: string) => s.replace(/[\s、。，．,.?？!！「」]/g, "").toLowerCase();
+
+/**
+ * The question as it is stored. Asked for Japanese and English, a model reading English sometimes
+ * writes English twice: one is shown then, since a second line saying the same thing is noise.
+ */
+function wording(q: { text: string; en?: string }, withEnglish: boolean) {
+  if (!withEnglish || !q.en) return { text: q.text };
+  return hasJapanese(q.text) ? { text: q.text, en: q.en } : { text: q.en };
+}
 
 /**
  * One finished run, written onto the prep as it stands now.
@@ -219,10 +252,13 @@ export function applyRun(prep: Prep, answer: PrepAnswer, read: PrepLine[], skipp
     const hit = read[line - 1];
     if (hit) struck.set(id, hit);
   }
+  const english = new Map((withEnglish ? (answer.translations ?? []) : []).map((t) => [t.id, t.en]));
   const questions = prep.questions.map((q) => {
+    const en = q.en ?? english.get(q.id);
+    const worded = en ? { ...q, en } : q;
     const hit = struck.get(q.id);
-    if (!hit || q.answered || q.kept) return q;
-    return { ...q, answered: { lineId: hit.id, ms: hit.audioStartMs } };
+    if (!hit || q.answered || q.kept) return worded;
+    return { ...worded, answered: { lineId: hit.id, ms: hit.audioStartMs } };
   });
   let nextId = prep.nextId;
   const seen = new Set(questions.map((q) => sameWords(q.text)));
@@ -232,8 +268,7 @@ export function applyRun(prep: Prep, answer: PrepAnswer, read: PrepLine[], skipp
     seen.add(key);
     questions.push({
       id: `q${nextId++}`,
-      text: q.text,
-      ...(withEnglish && q.en ? { en: q.en } : {}),
+      ...wording(q, withEnglish),
       source: "model",
       run: runs,
     });

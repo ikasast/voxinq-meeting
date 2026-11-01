@@ -103,6 +103,21 @@ describe("a finished run", () => {
     expect(applyRun(EMPTY_PREP, answer, lines, 0, true).questions[0].en).toBe("A question?");
     expect(applyRun(EMPTY_PREP, answer, lines, 0, false).questions[0].en).toBeUndefined();
   });
+
+  it("gives your own question its English from a later run", () => {
+    const mine = { ...open("q1", "費用は誰が負担しますか？"), source: "you" as const };
+    const answer = { summary: [], answered: [], questions: [], translations: [{ id: "q1", en: "Who pays?" }] };
+    const prep = { ...EMPTY_PREP, questions: [mine] };
+    expect(applyRun(prep, answer, lines, 0, true).questions[0].en).toBe("Who pays?");
+    expect(applyRun(prep, answer, lines, 0, false).questions[0].en).toBeUndefined();
+  });
+
+  it("shows one line when the model wrote English twice", () => {
+    const answer = { summary: [], answered: [], questions: [{ text: "Who pays?", en: "Who pays for it?" }] };
+    const [q] = applyRun(EMPTY_PREP, answer, lines, 0, true).questions;
+    expect(q.text).toBe("Who pays for it?");
+    expect(q.en).toBeUndefined();
+  });
 });
 
 describe("the person's own changes", () => {
@@ -146,6 +161,22 @@ describe("what a run is told", () => {
       lines,
     });
     expect(some.system).toContain("新しい質問を1つ");
+  });
+
+  it("asks for the English a question is missing, only on a talk in English", () => {
+    const ask = (withEnglish: boolean, q: Prep["questions"][number]) =>
+      prepPrompt({
+        title: "防災訓練",
+        description: null,
+        language: "ja",
+        withEnglish,
+        prep: { ...EMPTY_PREP, questions: [q] },
+        lines,
+      }).system;
+    expect(ask(true, open("q4", "費用は？"))).toContain("q4: 費用は？");
+    expect(ask(false, open("q4", "費用は？"))).not.toContain("translations");
+    expect(ask(true, { ...open("q4", "費用は？"), en: "Cost?" })).not.toContain("translations");
+    expect(ask(true, open("q4", "Who pays?"))).not.toContain("translations");
   });
 
   it("asks for English only for a talk in English", () => {

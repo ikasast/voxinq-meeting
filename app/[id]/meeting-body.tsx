@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { useT } from "../locale-provider";
 import { useOpenSpeakers } from "./speaker-bus";
 import { useShowLine } from "./line-bus";
+import { PrepView, type PrepStart, usePrep } from "./prep-panel";
 
 // A meeting's page in v4 (design B): the minutes are the document, and what was said sits in a
 // panel at the right that opens and closes, remembered per device. On a phone the two are tabs.
@@ -11,8 +12,13 @@ import { useShowLine } from "./line-bus";
 // Before there are minutes, what was said is the document: it stays in the page's own column,
 // below the minutes' empty state, with no panel and no tabs.
 //
+// The questions being prepared for after a talk are read while what was said runs on down the
+// page, so with no minutes yet they get a column of their own that stays put. Once there are
+// minutes the transcript has that place, and they are a tab beside the minutes.
+//
 // The transcript is rendered once and only moved by CSS: it is a live component — it follows a
-// recording, holds edits — and two copies of it would be two of everything.
+// recording, holds edits — and two copies of it would be two of everything. That goes for
+// switching the questions on in the middle of a recording too: only classes change.
 
 const PANEL_KEY = "voxinq.transcriptPanel";
 const WIDTH_KEY = "voxinq.transcriptWidth";
@@ -21,6 +27,8 @@ const DEFAULT_WIDTH = "min(36rem,44vw)";
 const MIN_WIDTH = 320;
 const maxWidth = () => Math.min(960, window.innerWidth * 0.6);
 const clamp = (w: number) => Math.round(Math.min(Math.max(w, MIN_WIDTH), maxWidth()));
+type Tab = "minutes" | "transcript" | "review" | "prep";
+
 function saveWidth(w: number | null) {
   try {
     if (w === null) localStorage.removeItem(WIDTH_KEY);
@@ -36,6 +44,7 @@ export function MeetingBody({
   lineCount,
   transcriptFirst,
   review,
+  prep: prepStart,
 }: {
   meetingId: string;
   /** The title, its actions and the meeting's details: the top of the document. */
@@ -47,10 +56,13 @@ export function MeetingBody({
   transcriptFirst: boolean;
   /** Meeting feedback, when its extension is on: a tab beside the minutes. */
   review?: ReactNode;
+  prep: PrepStart;
 }) {
   const t = useT();
   const [panel, setPanel] = useState(true);
-  const [tab, setTab] = useState<"minutes" | "transcript" | "review">("minutes");
+  const [tab, setTab] = useState<Tab>("minutes");
+  const prep = usePrep(meetingId, prepStart);
+  const questionsLabel = prep.openCount > 0 ? `${t("Questions")} · ${prep.openCount}` : t("Questions");
   // The tab rides on the panel's edge, at a third of the way down the screen whether or not the
   // page has scrolled: the panel is sticky, so its own top moves until it sticks.
   const aside = useRef<HTMLElement>(null);
@@ -100,16 +112,60 @@ export function MeetingBody({
   useShowLine(meetingId, showTranscript);
 
   if (transcriptFirst) {
+    // Past the end of the recording as well: the questions are asked right after it, while the
+    // minutes are still being written.
+    const side = prep.live || prep.has;
     // White like any meeting's page, with what was said in the grey it has in the panel — so a
     // meeting does not change colour the moment its minutes arrive.
     return (
-      <div data-paper className="mx-auto w-full max-w-[50rem] space-y-6">
-        {header}
-        {document}
-        <div className="rounded-xl bg-[var(--panel)] px-4 py-4 sm:px-5">{transcript}</div>
+      <div data-paper className={side ? "lg:flex lg:items-start lg:gap-6" : ""}>
+        {/* On a phone neither wrapper makes a box, as below, for the sticky tabs. */}
+        <div className={side ? "min-w-0 flex-1 max-lg:contents lg:pr-4" : ""}>
+          <div className={`mx-auto w-full max-w-[50rem] space-y-6 ${side ? "max-lg:contents" : ""}`}>
+            {header}
+            {document}
+            {side ? null : <PrepView model={prep} boxed />}
+            {side ? (
+              <PhoneTabs
+                tabs={[
+                  ["transcript", `${t("Transcript")} · ${lineCount}`],
+                  ["prep", questionsLabel],
+                ]}
+                current={tab === "prep" ? "prep" : "transcript"}
+                onChange={setTab}
+              />
+            ) : null}
+            <div className={`rounded-xl bg-[var(--panel)] px-4 py-4 sm:px-5 ${side && tab === "prep" ? "max-lg:hidden" : ""}`}>
+              {transcript}
+            </div>
+            {/* Room under the last line for the recording dock. Inside the column, not after it:
+                the questions stay put only as far as the end of what holds them, and a recording
+                keeps the page at the very bottom. */}
+            {prepStart.ended ? null : <div aria-hidden className="h-28" />}
+          </div>
+        </div>
+        {/* Reaches the window's right edge like the transcript's panel. Room at the foot for the
+            button that floats there. */}
+        {side ? (
+          <aside
+            aria-label={t("Questions")}
+            className={`min-w-0 max-lg:mt-6 lg:sticky lg:top-0 lg:-mb-12 lg:-mr-8 lg:-mt-6 lg:h-dvh lg:w-[min(24rem,38vw)] lg:shrink-0 lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:bg-[var(--panel)] lg:px-6 lg:pb-24 lg:pt-6 ${
+              tab === "prep" ? "" : "max-lg:hidden"
+            }`}
+          >
+            <PrepView model={prep} />
+          </aside>
+        ) : null}
       </div>
     );
   }
+
+  const docTabs: [Tab, string][] = [
+    ["minutes", t("Minutes")],
+    ...(prep.offered ? ([["prep", questionsLabel]] as [Tab, string][]) : []),
+    ...(review ? ([["review", t("Feedback")]] as [Tab, string][]) : []),
+  ];
+  const inDocument = tab === "review" || tab === "prep";
 
   return (
     // data-paper: the page behind a meeting is white (globals.css), with the sidebar and this
@@ -126,33 +182,16 @@ export function MeetingBody({
         <div className="mx-auto w-full max-w-[50rem] space-y-6 max-lg:contents">
           {header}
           {/* A phone: the two as tabs. */}
-          {/* Kept in sight under the phone's bar (h-14 in sidebar.tsx) while either is scrolled:
-              switching is what you want after reading down a long transcript. */}
-          <div className="sticky top-14 z-20 -mx-4 bg-[var(--paper)] px-4 py-2 lg:hidden">
-          <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
-            {(review ? (["minutes", "transcript", "review"] as const) : (["minutes", "transcript"] as const)).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                onClick={() => setTab(k)}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium ${
-                  tab === k
-                    ? "bg-[var(--surface)] text-[var(--text-strong)] shadow-sm"
-                    : "text-[var(--text-secondary)]"
-                }`}
-              >
-                {k === "minutes" ? t("Minutes") : k === "review" ? t("Feedback") : `${t("Transcript")} · ${lineCount}`}
-              </button>
-            ))}
-          </div>
-          </div>
-          {/* A wide screen: the minutes and the feedback as tabs over the document. */}
-          {review ? (
+          <PhoneTabs
+            tabs={[docTabs[0], ["transcript", `${t("Transcript")} · ${lineCount}`], ...docTabs.slice(1)]}
+            current={tab}
+            onChange={setTab}
+          />
+          {/* A wide screen: what goes with the minutes, as tabs over the document. */}
+          {docTabs.length > 1 ? (
             <div role="tablist" className="hidden gap-5 border-b border-[var(--border)] text-sm lg:flex">
-              {(["minutes", "review"] as const).map((k) => {
-                const on = k === "review" ? tab === "review" : tab !== "review";
+              {docTabs.map(([k, label]) => {
+                const on = k === "minutes" ? !inDocument : tab === k;
                 return (
                   <button
                     key={k}
@@ -164,14 +203,15 @@ export function MeetingBody({
                       on ? "border-[var(--accent)] font-semibold text-[var(--text-strong)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--foreground)]"
                     }`}
                   >
-                    {k === "minutes" ? t("Minutes") : t("Feedback")}
+                    {label}
                   </button>
                 );
               })}
             </div>
           ) : null}
-          <div className={`space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""} ${tab === "review" ? "hidden" : ""}`}>{document}</div>
+          <div className={`space-y-6 ${tab === "transcript" ? "max-lg:hidden" : ""} ${inDocument ? "hidden" : ""}`}>{document}</div>
           {review && tab === "review" ? <div>{review}</div> : null}
+          {tab === "prep" ? <PrepView model={prep} /> : null}
         </div>
       </div>
 
@@ -245,6 +285,41 @@ export function MeetingBody({
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+/** Kept in sight under the phone's bar (h-14 in sidebar.tsx) while any of them is scrolled:
+ *  switching is what you want after reading down a long transcript. */
+function PhoneTabs({
+  tabs,
+  current,
+  onChange,
+}: {
+  tabs: [Tab, string][];
+  current: Tab;
+  onChange: (tab: Tab) => void;
+}) {
+  return (
+    <div className="sticky top-14 z-20 -mx-4 bg-[var(--paper)] px-4 py-2 lg:hidden">
+      <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
+        {tabs.map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={current === k}
+            onClick={() => onChange(k)}
+            className={`min-w-0 flex-1 rounded-md py-1.5 text-sm font-medium ${tabs.length > 3 ? "px-1" : "px-3"} ${
+              current === k
+                ? "bg-[var(--surface)] text-[var(--text-strong)] shadow-sm"
+                : "text-[var(--text-secondary)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
