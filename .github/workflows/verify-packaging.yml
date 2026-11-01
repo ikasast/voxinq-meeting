@@ -45,8 +45,12 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
+      # `brew install ikasast/voxinq/voxinq`, as the docs have it, trusts the formula by itself.
+      # The steps before that install here read it first, and need to be told.
       - name: Tap
-        run: brew tap ikasast/voxinq https://github.com/ikasast/homebrew-voxinq
+        run: |
+          brew tap ikasast/voxinq https://github.com/ikasast/homebrew-voxinq
+          brew trust --formula ikasast/voxinq/voxinq
 
       - name: Show what the tap is offering
         run: brew info ikasast/voxinq/voxinq
