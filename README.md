@@ -147,6 +147,7 @@ on under **Administration → Extensions**:
 - **Schedule and reminders** — book meetings ahead, and be told when one is due
 - **Meeting feedback** — a score out of 100 for the facilitator or a participant, against criteria you set
 - **Ask about meetings** — ask a meeting's minutes or transcript, or a whole series, a question
+- **Questions** — questions and a short summary kept up to date during a talk, ready for the Q&A
 - **Write minutes in bulk** — queue minutes for every meeting that has none, in one go
 - **Minutes formats** — your own formats and writing instructions
 - **Suggest corrections** — check the transcript against your glossary, the series and the participants

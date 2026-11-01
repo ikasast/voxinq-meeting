@@ -245,7 +245,7 @@ export default async function MeetingPage({
           </>
         }
         prep={{
-          show: !external,
+          show: !external && extensions.prep,
           ended: !recordHere,
           initial: {
             enabled: meeting.prepEnabled,

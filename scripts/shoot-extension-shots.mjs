@@ -41,6 +41,7 @@ const W = JA
       fixed: (text) => text.replace("エンベリング", "エンベディング"),
       writeAll: "まとめて作成",
       feedbackTab: "振り返り",
+      questionsTab: "質問案",
       askTitle: "この議事録について質問する",
       fixWording: "表記の修正",
       suggest: "用語集から候補を出す",
@@ -65,6 +66,7 @@ const W = JA
       fixed: (text) => text.replace("in bedding", "embedding"),
       writeAll: "Write them all",
       feedbackTab: "Feedback",
+      questionsTab: "Questions",
       askTitle: "Ask about these minutes",
       fixWording: "Fix wording",
       suggest: "Suggest from the glossary",
@@ -262,6 +264,16 @@ const SHOTS = {
     await card.waitFor();
     await page.mouse.move(1, 1);
     return padded(card, 16);
+  },
+
+  async prep(page) {
+    // The tab beside the minutes on the sync: the panel as the demo left it, nothing running.
+    await page.goto(`${BASE}/demo-weekly-sync`, { waitUntil: "networkidle" });
+    await page.getByRole("tab", { name: W.questionsTab }).last().click();
+    const section = page.locator(`section[aria-label="${W.questionsTab}"]`).last();
+    await section.waitFor();
+    await page.mouse.move(1, 1);
+    return padded(section, 6);
   },
 
   async externalAi(page) {

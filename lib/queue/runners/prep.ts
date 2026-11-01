@@ -1,3 +1,4 @@
+import { extensionEnabled } from "@/lib/extensions-store";
 import { prisma } from "@/lib/prisma";
 import { getPrepConfig, readEffectiveSettings } from "@/lib/settings";
 import { providerFor } from "@/lib/llm/provider";
@@ -66,6 +67,7 @@ const current = async (meetingId: string) => {
 export async function runPrep(job: { meetingId: string | null }, signal?: AbortSignal) {
   const meetingId = job.meetingId;
   if (!meetingId) throw new Error("a prep job needs a meeting");
+  if (!(await extensionEnabled("prep"))) throw new Error("Questions is switched off.");
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
     select: { title: true, description: true, sttLanguage: true },

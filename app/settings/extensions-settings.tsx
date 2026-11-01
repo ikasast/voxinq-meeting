@@ -12,8 +12,9 @@ import { Switch } from "../switch";
 // (lib/extensions.ts). Switched for the whole instance, by an administrator; everybody else sees
 // what is on. Switching one off hides it and keeps its data.
 //
-// The list is one line each, to be scanned; a row opens the details — when it is worth having,
-// where it shows up, and a picture of it — which is what decides whether to switch it on.
+// A gallery, to be taken in at a glance: each card shows the extension's picture, and opens the
+// details — when it is worth having, where it shows up — which is what decides whether to switch
+// it on. Its switch sits on the card, so setting several takes no dialogs.
 
 type Words = {
   name: string;
@@ -40,6 +41,19 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
         "A question box on each meeting's page and each series page. Answers come only from that meeting or series, and are not saved.",
       ),
       needs: t("The minutes model (LLM)"),
+    },
+    prep: {
+      name: t("Questions"),
+      summary: t("Questions and a short summary kept up to date while a talk is recorded, ready for the Q&A at the end."),
+      scenes: [
+        t("A talk or a conference session where you want to ask something at the end."),
+        t("An English talk: each question comes with its English, to read out."),
+        t("Keeping track of which questions the speaker has already answered."),
+      ],
+      where: t(
+        "A Questions panel beside the transcript while recording, with a switch for each meeting, and a tab beside the minutes afterwards. It runs on the server, so it carries on with a phone's screen off.",
+      ),
+      needs: t("Live transcription, and the minutes model (LLM) or a smaller one that fits beside it"),
     },
     bulkMinutes: {
       name: t("Write minutes in bulk"),
@@ -259,27 +273,32 @@ export function ExtensionsSettings({ isAdmin }: { isAdmin: boolean }) {
       {!isAdmin ? (
         <p className="text-xs text-[var(--text-secondary)]">{t("Only an administrator switches extensions on or off.")}</p>
       ) : null}
-      <ul className="divide-y divide-[var(--border)]">
+      <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
         {EXTENSIONS.map(({ id }) => (
-          <li key={id} className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setOpen(id)}
-              className="group flex min-w-0 flex-1 items-center gap-3 rounded-md py-3 text-left hover:bg-[var(--hover-surface)] focus-visible:bg-[var(--hover-surface)]"
-              aria-haspopup="dialog"
-            >
-              <span className="min-w-0 flex-1 pl-1">
-                <span className="block text-sm font-medium text-[var(--text-strong)]">{words[id].name}</span>
-                <span className="mt-0.5 block text-xs text-[var(--text-secondary)]">{words[id].summary}</span>
-              </span>
-              <span className="shrink-0 text-xs text-[var(--accent-sub)] group-hover:underline">
-                {t("Details")}
-              </span>
-              <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]">
-                <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            {toggleFor(id)}
+          <li
+            key={id}
+            className="relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] hover:border-[var(--border-strong)] focus-within:border-[var(--border-strong)]"
+          >
+            <CardPicture id={id} on={state[id]} />
+            <div className="flex items-center gap-2 px-3 pt-2.5">
+              {/* Stretched over the whole card, so the picture and the summary open it too. The
+                  switch stays above it, and stays a control of its own. */}
+              <button
+                type="button"
+                onClick={() => setOpen(id)}
+                aria-haspopup="dialog"
+                className={`min-w-0 flex-1 text-left text-sm font-medium after:absolute after:inset-0 after:content-[''] ${
+                  state[id] ? "text-[var(--text-strong)]" : "text-[var(--text-secondary)]"
+                }`}
+              >
+                {words[id].name}
+              </button>
+              <span className="relative z-10 flex shrink-0">{toggleFor(id)}</span>
+            </div>
+            {/* The padding outside the clamp: inside it, the third line shows in the padding. */}
+            <div className="px-3 pb-3 pt-1">
+              <p className="line-clamp-2 text-xs text-[var(--text-secondary)]">{words[id].summary}</p>
+            </div>
           </li>
         ))}
       </ul>
@@ -290,6 +309,31 @@ export function ExtensionsSettings({ isAdmin }: { isAdmin: boolean }) {
         </ExtensionDetails>
       ) : null}
     </section>
+  );
+}
+
+/** Pictures of one wide row, which cropping to the card would cut down to a corner. */
+const WHOLE_PICTURE: readonly ExtensionId[] = ["corrections", "externalAi", "externalShare", "series", "translation"];
+
+/** Off, it is greyed: which ones are on should show from across the page. */
+function CardPicture({ id, on }: { id: ExtensionId; on: boolean }) {
+  const locale = useLocale();
+  const [pictured, setPictured] = useState(true);
+  return (
+    <div className="aspect-[16/10] overflow-hidden border-b border-[var(--border)] bg-[var(--elevated)]">
+      {pictured ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a static file, shown as is
+        <img
+          src={`/extension-shots/${locale}/${id}.webp`}
+          alt=""
+          loading="lazy"
+          onError={() => setPictured(false)}
+          className={`h-full w-full transition duration-200 motion-reduce:transition-none ${
+            WHOLE_PICTURE.includes(id) ? "object-contain" : "object-cover object-left-top"
+          } ${on ? "" : "opacity-45 grayscale"}`}
+        />
+      ) : null}
+    </div>
   );
 }
 

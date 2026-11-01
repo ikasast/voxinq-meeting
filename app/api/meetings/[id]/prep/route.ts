@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { extensionOff } from "@/app/api/extension-off";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { addQuestion, keepQuestion, type Prep, readPrep, removeQuestion } from "@/lib/prep/prep";
@@ -35,6 +36,8 @@ async function edit(meetingId: string, change: (p: Prep) => Prep) {
 }
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("prep");
+  if (off) return off;
   const { id } = await ctx.params;
   const meeting = await prisma.meeting.findUnique({ where: { id }, select: { prepEnabled: true } });
   if (!meeting) return apiError("meeting not found", 404);
@@ -42,6 +45,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const off = await extensionOff("prep");
+  if (off) return off;
   const { id } = await ctx.params;
   const meeting = await prisma.meeting.findUnique({ where: { id }, select: { prepEnabled: true } });
   if (!meeting) return apiError("meeting not found", 404);

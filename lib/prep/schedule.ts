@@ -1,4 +1,5 @@
 import { asUser } from "@/lib/db/scope";
+import { extensionEnabled } from "@/lib/extensions-store";
 import { prisma } from "@/lib/prisma";
 import { enqueue, openJobFor } from "@/lib/queue/queue";
 import { RECORDING_KIND } from "@/lib/queue/types";
@@ -15,6 +16,7 @@ export const PREP_EVERY_MS = 5 * 60_000;
 const MIN_NEW_LINES = 3;
 
 export async function schedulePrep(): Promise<number> {
+  if (!(await extensionEnabled("prep"))) return 0;
   const holds = await prisma.job.findMany({
     where: { kind: RECORDING_KIND, status: "running", meeting: { prepEnabled: true } },
     select: { meetingId: true, startedAt: true, meeting: { select: { ownerId: true } } },
