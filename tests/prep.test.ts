@@ -225,3 +225,18 @@ describe("what is stored", () => {
     expect(client).toMatch(/VIA_MEETING = new Set\(\[[\s\S]*?"meetingPrep"/);
   });
 });
+
+describe("as an extension", () => {
+  const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
+
+  it("does no work on the GPU while it is off, and refuses its API", () => {
+    expect(read("lib/prep/schedule.ts")).toContain('if (!(await extensionEnabled("prep"))) return 0;');
+    expect(read("lib/queue/runners/prep.ts")).toContain('if (!(await extensionEnabled("prep"))) throw');
+    expect(read("app/api/meetings/[id]/prep/route.ts").match(/extensionOff\("prep"\)/g)).toHaveLength(2);
+  });
+
+  it("is hidden on the meeting's page and in Settings while it is off", () => {
+    expect(read("app/[id]/page.tsx")).toContain("show: !external && extensions.prep");
+    expect(read("app/settings/page.tsx")).toContain("{extensions.prep ? (");
+  });
+});

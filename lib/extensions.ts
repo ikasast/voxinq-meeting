@@ -19,6 +19,12 @@ export const EXTENSIONS = [
     needs: "The minutes model (LLM)",
   },
   {
+    id: "prep",
+    name: "Questions",
+    description: "Questions and a short summary kept up to date while a talk is recorded, ready for the Q&A at the end.",
+    needs: "Live transcription, and the minutes model (LLM) or a smaller one that fits beside it",
+  },
+  {
     id: "bulkMinutes",
     name: "Write minutes in bulk",
     description: "Queue minutes for every listed meeting that has none, in one go.",

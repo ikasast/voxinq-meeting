@@ -610,22 +610,24 @@ export default function SettingsPage() {
                       labelClass="sr-only"
                     />
                   </Field>
-                  <Field label={t("Model for preparing questions")} htmlFor="ollamaPrepModel">
-                    <input
-                      id="ollamaPrepModel"
-                      type="text"
-                      list="ollama-installed"
-                      value={settings.ollamaPrepModel}
-                      onChange={(e) => update("ollamaPrepModel", e.target.value)}
-                      placeholder={settings.ollamaModel}
-                      className={inputClass}
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                      {t("Runs beside a live recording, so it has to fit next to the transcription model. Empty uses the model above.")}
-                    </p>
-                  </Field>
+                  {extensions.prep ? (
+                    <Field label={t("Model for preparing questions")} htmlFor="ollamaPrepModel">
+                      <input
+                        id="ollamaPrepModel"
+                        type="text"
+                        list="ollama-installed"
+                        value={settings.ollamaPrepModel}
+                        onChange={(e) => update("ollamaPrepModel", e.target.value)}
+                        placeholder={settings.ollamaModel}
+                        className={inputClass}
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                        {t("Runs beside a live recording, so it has to fit next to the transcription model. Empty uses the model above.")}
+                      </p>
+                    </Field>
+                  ) : null}
                 </>
               ) : settings.llmProvider === "anthropic" ? (
                 <>

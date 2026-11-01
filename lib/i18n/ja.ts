@@ -976,7 +976,6 @@ export const ja: Record<string, string> = {
   "Settings, LLM and Transcription: where minutes are written and where speech is recognised. Off, everything is done by Ollama and the built-in transcription.":
     "設定の「LLM」と「文字起こし」で、議事録を書く先と文字起こしの先を選べます。無効のときは、すべて Ollama と組み込みの文字起こしで処理します。",
   "An API key, and agreeing to send meetings outside this machine": "API キーと、会議の内容をこの機器の外に送ることへの同意",
-  "Details": "詳しく",
   "When it helps": "こんな場面で",
   "Where it shows up": "どこに出るか",
   "What it needs": "必要なもの",
@@ -1865,6 +1864,19 @@ export const ja: Record<string, string> = {
   "The last update read only the newest part: {n} earlier lines did not fit.": "前回の更新では新しい部分だけを読みました（それより前の {n} 行は入りませんでした）。",
   "So far": "ここまでの要点",
   "Questions": "質問案",
+  "Questions is switched off.": "質問案はオフになっています。",
+  "Questions and a short summary kept up to date while a talk is recorded, ready for the Q&A at the end.":
+    "講演の録音中に質問案と短い要約を更新し続け、終わりの質疑に備えます。",
+  "Live transcription, and the minutes model (LLM) or a smaller one that fits beside it":
+    "会議中の文字起こしと、議事録用のモデル（LLM）、または同時に載る小さなモデル",
+  "A talk or a conference session where you want to ask something at the end.":
+    "最後に質問したい講演や学会のセッション。",
+  "An English talk: each question comes with its English, to read out.":
+    "英語の講演。質問に英文が付くので、そのまま読み上げられます。",
+  "Keeping track of which questions the speaker has already answered.":
+    "講演者がもう答えた質問を確認しながら聞けます。",
+  "A Questions panel beside the transcript while recording, with a switch for each meeting, and a tab beside the minutes afterwards. It runs on the server, so it carries on with a phone's screen off.":
+    "録音中は発言の横に質問案のパネルが出て、会議ごとのスイッチでオンにします。議事録ができたあとは隣のタブで読めます。サーバー側で動くので、スマホの画面が消えていても続きます。",
   "Questions appear here once enough has been said.": "発言が増えると、ここに質問案が出ます。",
   "Add your own question": "自分の質問を追加",
   "New": "新規",

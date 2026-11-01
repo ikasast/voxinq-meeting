@@ -402,6 +402,45 @@ async function main() {
     },
   });
 
+  // Questions (an extension) on the sync, as the prep job would have written them — for the
+  // extension's picture.
+  const asked = JA
+    ? [
+        "リリース日を動かす場合、一番影響を受けるのはどのチームですか？",
+        "計測イベントが間に合わないときの代案はありますか？",
+        "ベータの参加者はどのように募りますか？",
+      ]
+    : [
+        "If the release date moves, which team is affected most?",
+        "What is the fallback if the analytics events are not ready?",
+        "How will people be invited to the beta?",
+      ];
+  await prisma.meetingPrep.create({
+    data: {
+      meetingId: IDS.sync,
+      ranAt: minutesAt(syncStart, 20),
+      body: JSON.stringify({
+        summary: JA
+          ? ["リリース日の候補を2つに絞った", "計測イベントの実装が残っている"]
+          : ["The release date is down to two options", "The analytics events are still to do"],
+        questions: [
+          ...asked.map((text, i) => ({ id: `q${i + 1}`, text, source: "model", run: 2 })),
+          {
+            id: "q4",
+            text: JA ? "APIの変更は次のリリースに含まれますか？" : "Is the API change in the next release?",
+            source: "model",
+            run: 1,
+            answered: { lineId: line(6), ms: 8 * 60_000 },
+          },
+        ],
+        runs: 2,
+        nextId: 5,
+        throughMs: 20 * 60_000,
+        skipped: 0,
+      }),
+    },
+  });
+
   // 2) In-progress meeting (no endedAt) with a partial transcript — for recording.png. With
   //    HERO_ENDED, the same meeting ended and written up, for the last frames of the hero.
   const liveStart = new Date(now - (HERO_ENDED ? 7 : 5) * 60_000);

@@ -214,6 +214,8 @@ account.
 
 ### Getting ready for the questions after a talk
 
+*The **Questions** extension.*
+
 Minutes start when the recording ends, which is too late for the questions at the end of a talk.
 **Questions**, on the meeting's page, keeps a list of questions and a short summary up to date
 while the recording runs. They stay in a column of their own, beside what is being said; on a phone

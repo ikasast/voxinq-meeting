@@ -329,8 +329,8 @@ It is written the first time the app starts without one, and never decided again
   named speakers or voiceprints, a series, a booked meeting, a format of its own, translation,
   a provider other than Ollama or an endpoint of its own, and Funnel published or
   `APP_PASSWORD` set. Asking, writing minutes in bulk and suggesting corrections leave no sign,
-  so they stay on, and so does Speaker separation. Voice cues, Emotion and Meeting feedback are
-  new in 4.0 and start off.
+  so they stay on, and so does Speaker separation. Voice cues, Emotion, Meeting feedback and
+  Questions are new since 3.x and start off.
 
 Switching one off hides it and refuses its API; nothing it stored is deleted. An extension a
 later version adds starts off. Delete the file to have the starting set decided again.

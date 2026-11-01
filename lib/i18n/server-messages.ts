@@ -30,6 +30,7 @@ export const SERVER_MESSAGES = [
   "That username is taken.",
   // Meeting feedback.
   "Meeting feedback is switched off.",
+  "Questions is switched off.",
   "Nobody of that name speaks in this meeting.",
   "Feedback is already being written for this meeting.",
   "The model's answer could not be read as feedback. Try again, or with another model.",
