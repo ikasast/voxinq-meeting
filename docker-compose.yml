@@ -174,7 +174,7 @@ services:
   ollama:
     # A fixed release rather than `latest`, so a `docker compose pull` for a Voxinq update does not
     # also change the model server underneath it. Dependabot proposes newer ones.
-    image: ollama/ollama:0.35.0
+    image: ollama/ollama:0.40.13
     profiles: ["${OLLAMA_PROFILE:-}"]
     volumes:
       - ollama:/root/.ollama
