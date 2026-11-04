@@ -388,6 +388,8 @@ export function TranscriptList({
     [reassignKeys, transcripts],
   );
   const separated = voiceKeys.some((k) => k !== MIC_SPEAKER);
+  // The recording is known to be gone (null while that is still being asked).
+  const noRecording = recInfo !== null && !recInfo.exists && !diarizing;
   const unnamedVoices = voiceKeys.filter((k) => !speakerLabels[k]?.trim()).length;
   // The participants who spoke, which is the count a run is given when the box is left empty.
   // Asked when the panel opens, because the list is edited elsewhere on this page.
@@ -1276,7 +1278,32 @@ export function TranscriptList({
           hint={t("Work out who spoke each line, and give them names")}
           onClose={() => setTool(null)}
         >
+          {/* Without the recording there is nothing to tell apart. Not yet separated, the steps
+              would only lead to a count that goes nowhere, so the panel says so instead; already
+              separated, the names are still theirs to give. */}
+          {noRecording && !separated ? (
+            <div
+              role="status"
+              className="rounded-md border border-[color-mix(in_srgb,var(--warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--warning)_8%,transparent)] px-3 py-2 text-sm text-[var(--text-secondary)]"
+            >
+              <p className="font-medium text-[var(--warning)]">{t("This meeting cannot be separated into speakers")}</p>
+              <p className="mt-0.5 text-xs">
+                {t("The recording is no longer kept, so the voices cannot be told apart.")}{" "}
+                {t("Recordings are deleted once their retention period has passed.")}
+              </p>
+            </div>
+          ) : (
           <ol id={`speakers-${meetingId}`} className="space-y-3">
+            {noRecording ? (
+              <Step n={1} state="done" title={t("Separated")}>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {`${t(voiceKeys.length === 1 ? "Told apart: 1 voice." : "Told apart: {n} voices.", {
+                    n: voiceKeys.length,
+                  })} ${t("The recording is no longer kept, so it cannot be done again.")}`}
+                </p>
+              </Step>
+            ) : (
+            <>
             <Step n={1} state={stepState(1)} title={t("How many")}>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -1301,15 +1328,7 @@ export function TranscriptList({
             </Step>
 
             <Step n={2} state={stepState(2)} title={t("Separate")}>
-              {recInfo && !recInfo.exists && !diarizing ? (
-                <p className="text-xs text-[var(--text-muted)]">
-                  {separated
-                    ? `${t(voiceKeys.length === 1 ? "Told apart: 1 voice." : "Told apart: {n} voices.", {
-                        n: voiceKeys.length,
-                      })} ${t("The recording is no longer kept, so it cannot be done again.")}`
-                    : t("The recording is no longer kept, so the voices cannot be told apart.")}
-                </p>
-              ) : diarizing ? (
+              {diarizing ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs text-[var(--accent-sub)]">{diarStatus}</span>
                   <button
@@ -1359,8 +1378,14 @@ export function TranscriptList({
                 </div>
               )}
             </Step>
+            </>
+            )}
 
-            <Step n={3} state={stepState(3)} title={t("Name them")}>
+            <Step
+              n={noRecording ? 2 : 3}
+              state={noRecording ? (unnamedVoices === 0 ? "done" : "next") : stepState(3)}
+              title={t("Name them")}
+            >
               {showSpeakerTools && separated ? (
                 <>
                   <SpeakerNamesEditor speakers={managerKeys} names={speakerLabels} onName={nameSpeaker} />
@@ -1426,6 +1451,7 @@ export function TranscriptList({
               )}
             </Step>
           </ol>
+          )}
         </ToolPanel>
       ) : null}
 
