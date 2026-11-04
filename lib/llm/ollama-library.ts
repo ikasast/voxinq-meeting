@@ -65,12 +65,15 @@ const NOT_TEXT = new Set(["embedding"]);
  */
 export function parseSearch(html: string): LibraryModel[] {
   const out: LibraryModel[] = [];
-  for (const item of html.split(/<li\s[^>]*class="border-b[^"]*"[^>]*>/).slice(1)) {
+  // Each result is an item holding a link to /library/<name>. Not by the item's class: the site
+  // changed it from a bottom rule to a top one (2026-11), and every search came back empty.
+  for (const item of html.split(/<li\b[^>]*>/).slice(1)) {
     const body = item.split("</li>")[0];
     const href = body.match(/<a\s[^>]*href="\/library\/([A-Za-z0-9._-]+)"/);
     if (!href) continue;
     const name = href[1];
-    const desc = body.match(/<p\s[^>]*title="([^"]*)"/);
+    // The description, from its title where it has one and its text where it does not.
+    const desc = body.match(/<p\s[^>]*title="([^"]*)"/) ?? body.match(/<p\s[^>]*>([\s\S]*?)<\/p>/);
     const chips = [...body.matchAll(/<span\s[^>]*rounded-md[^>]*>([\s\S]*?)<\/span>/g)].map((m) => strip(m[1]));
     const sizes = chips.filter((c) => SIZE.test(c));
     // Words only: a chip can hold a tooltip (the price of the cloud version), which is not one.

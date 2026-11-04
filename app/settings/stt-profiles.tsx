@@ -23,11 +23,12 @@ import { useBackGuard } from "@/app/use-back-guard";
 // Keys never come back from the server, so a saved one shows as dots and an empty box means
 // "leave it alone". Editing a name must not silently forget a key.
 //
-// This machine is a row in the same table. It is a destination like the others -- it is the
+// The Voxinq server is a row in the same list. It is a destination like the others -- it is the
 // default until you say otherwise, and it is what "local" means in the Re-transcribe picker --
-// and the model it runs was a lone select below the table, next to nothing that said what it
+// and the model it runs was a lone select below the list, next to nothing that said what it
 // belonged to. In the list it sits where you would look for it. It has no Remove: there is
-// always a machine, and unlike a saved endpoint you did not add it.
+// always a server, and unlike a saved endpoint you did not add it. It is named as the server
+// rather than "this machine", which on a phone read as the phone.
 
 const inputClass = "input mt-1";
 const labelClass = "label";
@@ -100,148 +101,121 @@ export function SttProfiles({
     <div className="space-y-4">
       {endpoints ? (
       <>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <label htmlFor="sttDefaultProfileId" className={labelClass}>
-            {t("Recognise speech")}
-          </label>
-          <select
-            id="sttDefaultProfileId"
-            value={defaultId}
-            onChange={(e) => onDefaultChange(e.target.value)}
-            disabled={disabled}
-            className={inputClass}
-          >
-            <option value="">{t("On this machine (default)")}</option>
-            {profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name || "Unnamed"}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
-            {t("New work uses this. Re-transcribe can pick another for one run.")}
-          </p>
-        </div>
-        <AddMenu disabled={disabled} onPick={add} />
+      <div>
+        {/* "Where", and the place named as the server: read on a phone, "this machine" was the
+            phone, which is the one place that never transcribes anything (2026-11-03). */}
+        <label htmlFor="sttDefaultProfileId" className={labelClass}>
+          {t("Where to transcribe")}
+        </label>
+        <select
+          id="sttDefaultProfileId"
+          value={defaultId}
+          onChange={(e) => onDefaultChange(e.target.value)}
+          disabled={disabled}
+          className={inputClass}
+        >
+          <option value="">{t("Voxinq server (default)")}</option>
+          {profiles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name || "Unnamed"}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          {t("Meetings you record or import are transcribed here. Re-transcribe can pick another place for one run.")}
+        </p>
       </div>
 
       {notice}
       </>
       ) : null}
 
-      <div className="overflow-x-auto rounded-md border border-[var(--border)]">
-        <table className="w-full min-w-[26rem] text-sm">
-          <thead>
-            <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
-              <th className="whitespace-nowrap px-3 py-2 font-medium">{t("Name")}</th>
-              <th className="whitespace-nowrap px-3 py-2 font-medium">{t("Model")}</th>
-              <th className="whitespace-nowrap px-3 py-2 font-medium">{t("Key")}</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-b border-[var(--border)] last:border-b-0">
-              <td className="w-full min-w-[9rem] max-w-0 px-3 py-2">
+      {/* A row each, with what was columns as one line under the name. As a table it was wider
+          than a phone, and Edit was the column that needed a sideways scroll to reach. */}
+      <ul className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
+        <li className="flex items-center gap-2 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-medium text-[var(--text-strong)]">{t("Voxinq server")}</span>
+              {defaultId === "" ? <DefaultBadge /> : null}
+            </div>
+            <span className="block truncate text-xs text-[var(--text-muted)]">
+              <span className="font-mono text-[var(--text-secondary)]">{localModel || "—"}</span>
+              {" · "}
+              {t("built in")}
+            </span>
+          </div>
+          {/* No Remove. Everything else in this list you added; this one is the app. */}
+          <button
+            type="button"
+            onClick={() => setEditing(editing === LOCAL_ID ? null : LOCAL_ID)}
+            disabled={disabled}
+            className="btn-icon !h-8 !w-8 shrink-0"
+            title={t("Edit {name}", { name: t("Voxinq server") })}
+            aria-label={t("Edit {name}", { name: t("Voxinq server") })}
+          >
+            <PencilIcon />
+          </button>
+        </li>
+        {profiles.map((p) => {
+          const host = profileDestination(p);
+          return (
+            <li key={p.id} className="flex items-center gap-2 px-3 py-2">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate font-medium text-[var(--text-strong)]">
-                    {t("On this machine")}
-                  </span>
-                  {defaultId === "" ? <DefaultBadge /> : null}
+                  <span className="truncate text-sm font-medium text-[var(--text-strong)]">{p.name || t("Unnamed")}</span>
+                  {p.id === defaultId ? <DefaultBadge /> : null}
                 </div>
-                <span className="block truncate text-xs text-[var(--text-muted)]">
-                  {t("built in")}
+                {/* The model, the key, and where it goes — the last is the part that has to be
+                    read, so a host outside your network is in the warning colour. */}
+                <span className="block truncate text-xs text-[var(--text-muted)]" title={host ?? undefined}>
+                  <span className="font-mono text-[var(--text-secondary)]">{p.model || "—"}</span>
+                  {" · "}
+                  {p.apiKey?.trim() ? (
+                    <span className="text-[var(--accent-sub)]">{t("key unsaved")}</span>
+                  ) : p.hasApiKey ? (
+                    t("key saved")
+                  ) : (
+                    t("no key")
+                  )}
+                  {" · "}
+                  {host ? (
+                    <span className="text-[var(--warning)]">{host}</span>
+                  ) : (
+                    t("your network")
+                  )}
                 </span>
-              </td>
-              <td className="px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
-                {localModel || "—"}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 text-xs text-[var(--text-muted)]">
-                {t("not needed")}
-              </td>
-              {/* No Remove. Everything else in this table you added; this one is the app. */}
-              <td className="px-3 py-2">
-                <div className="flex justify-end whitespace-nowrap">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(editing === LOCAL_ID ? null : LOCAL_ID)}
-                    disabled={disabled}
-                    className="btn-icon !h-8 !w-8"
-                    title={t("Edit {name}", { name: t("On this machine") })}
-                    aria-label={t("Edit {name}", { name: t("On this machine") })}
-                  >
-                    <PencilIcon />
-                  </button>
-                </div>
-              </td>
-            </tr>
-            {profiles.map((p) => {
-              const host = profileDestination(p);
-              return (
-                <tr key={p.id} className="border-b border-[var(--border)] last:border-b-0">
-                  <td className="w-full min-w-[9rem] max-w-0 px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-medium text-[var(--text-strong)]">
-                        {p.name || t("Unnamed")}
-                      </span>
-                      {p.id === defaultId ? <DefaultBadge /> : null}
-                    </div>
-                    {/* Where it goes, under the name rather than in a column of its own: six
-                        columns did not fit the card, and the actions were the ones pushed off
-                        the edge. This is the line that has to be read anyway. */}
-                    <span className="block truncate text-xs" title={host ?? undefined}>
-                      {host ? (
-                        <span className="text-[var(--warning)]">{host}</span>
-                      ) : (
-                        <span className="text-[var(--text-muted)]">{t("your network")}</span>
-                      )}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
-                    {p.model || "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-xs">
-                    {p.apiKey?.trim() ? (
-                      <span className="text-[var(--accent-sub)]">{t("unsaved")}</span>
-                    ) : p.hasApiKey ? (
-                      <span className="font-mono text-[var(--text-secondary)]">••••</span>
-                    ) : (
-                      <span className="text-[var(--text-muted)]">{t("none")}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-end gap-1 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(p.id)}
-                        disabled={disabled}
-                        className="btn-icon !h-8 !w-8"
-                        title={t("Edit {name}", { name: p.name || t("endpoint") })}
-                        aria-label={t("Edit {name}", { name: p.name || t("endpoint") })}
-                      >
-                        <PencilIcon />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => remove(p.id)}
-                        disabled={disabled}
-                        className="btn-icon !h-8 !w-8 !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
-                        title={t("Remove {name}", { name: p.name || t("endpoint") })}
-                        aria-label={t("Remove {name}", { name: p.name || t("endpoint") })}
-                      >
-                        <TrashIcon />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setEditing(p.id)}
+                  disabled={disabled}
+                  className="btn-icon !h-8 !w-8"
+                  title={t("Edit {name}", { name: p.name || t("endpoint") })}
+                  aria-label={t("Edit {name}", { name: p.name || t("endpoint") })}
+                >
+                  <PencilIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(p.id)}
+                  disabled={disabled}
+                  className="btn-icon !h-8 !w-8 !text-[var(--error)] hover:!bg-[color-mix(in_srgb,var(--error)_12%,transparent)]"
+                  title={t("Remove {name}", { name: p.name || t("endpoint") })}
+                  aria-label={t("Remove {name}", { name: p.name || t("endpoint") })}
+                >
+                  <TrashIcon />
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {endpoints ? <AddMenu disabled={disabled} onPick={add} /> : null}
 
       {editing === LOCAL_ID ? (
-        <EditorPanel title={t("On this machine")} onClose={() => setEditing(null)}>
+        <EditorPanel title={t("Voxinq server")} onClose={() => setEditing(null)}>
           {localEditor}
         </EditorPanel>
       ) : draft ? (
@@ -310,7 +284,7 @@ function AddMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={disabled}
-        className="btn-ink px-3 py-2 text-sm"
+        className="btn-outline px-3 py-1.5 text-sm"
         aria-expanded={open}
       >
         {t("+ Add endpoint")}
@@ -326,7 +300,7 @@ function AddMenu({
             className="fixed inset-0 z-10 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 z-20 mt-1 w-64 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg">
+          <div className="absolute left-0 z-20 mt-1 w-64 overflow-hidden rounded-md border border-[var(--border-strong)] bg-[var(--surface)] shadow-lg">
             {PROFILE_PRESETS.map((preset) => (
               <button
                 key={preset.label}

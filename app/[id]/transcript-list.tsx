@@ -1515,9 +1515,9 @@ export function TranscriptList({
                         endpoint:
                           sttProfiles.find((p) => p.id === defaultProfileId)?.name ?? t("endpoint"),
                       })
-                    : t("Same as settings (this machine)")}
+                    : t("Same as settings (Voxinq server)")}
                 </option>
-                <optgroup label={t("On this machine")}>
+                <optgroup label={t("Voxinq server")}>
                   {WHISPER_MODELS.map((m) => (
                     <option key={m.value} value={`local:${m.value}`}>
                       {m.label}

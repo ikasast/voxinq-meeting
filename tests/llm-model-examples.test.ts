@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Settings, LLM: models to start from, by how much memory the card has. Each is Ollama's own name,
-// so picking it fills the field and offers the download.
+// Settings, LLM: models to start from, by how much memory the card has, under "Add a model". Each is
+// Ollama's own name, so Add chooses it and downloads it.
 
 const field = readFileSync(join(__dirname, "..", "app/settings/ollama-model-field.tsx"), "utf8");
 
@@ -16,7 +16,7 @@ describe("the model examples", () => {
     expect([...vram].sort((a, b) => a - b)).toEqual(vram);
   });
 
-  it("fill the field when one is picked", () => {
-    expect(field).toContain("onClick={() => onChange(s.model)}");
+  it("are chosen and downloaded by Add", () => {
+    expect(field).toMatch(/onClick=\{\(\) => \{\s*onChange\(s\.model\);\s*void download\(s\.model\);/);
   });
 });

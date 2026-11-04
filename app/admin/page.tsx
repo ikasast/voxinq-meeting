@@ -5,6 +5,7 @@ import { signupIsOpen } from "@/lib/auth/signup";
 import { isExternalRequest } from "@/lib/is-tailnet";
 import { AdminScreen } from "./admin-screen";
 import { ADMIN_TABS, type AdminTab } from "./tabs";
+import { EXTENSION_IDS } from "@/lib/extensions";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 // Who may open it: an administrator, or — on an instance with no accounts yet, where there is
 // nobody to be one — whoever is inside, as the settings API already treats them. Never from
 // outside the tailnet.
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ tab?: string; open?: string }> }) {
   const external = await isExternalRequest();
   const me = await currentUser();
   const accounts = await hasUsersCached();
@@ -24,7 +25,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   // exists, and the home page is where they were going anyway.
   if (external || (me && !me.isAdmin)) redirect("/");
 
-  const asked = (await searchParams).tab;
+  const { tab: asked, open } = await searchParams;
   const tab: AdminTab = ADMIN_TABS.some((x) => x === asked) ? (asked as AdminTab) : "people";
-  return <AdminScreen tab={tab} meId={me?.id ?? null} accounts={accounts} signupOpen={signupIsOpen()} />;
+  // An extension's card to open, from the mark beside its settings (app/settings/extension-chip.tsx).
+  const card = EXTENSION_IDS.find((id) => id === open) ?? null;
+  return <AdminScreen tab={tab} meId={me?.id ?? null} accounts={accounts} signupOpen={signupIsOpen()} openExtension={card} />;
 }

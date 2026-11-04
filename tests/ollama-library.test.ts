@@ -45,6 +45,25 @@ describe("reading the search page", () => {
     expect(names.some((n) => n.includes("uncensored"))).toBe(false);
   });
 
+  // The shape of 2026-11: a rule along the top of each item instead of the bottom, and the
+  // description as the paragraph's text with no title.
+  it("reads the items whatever their rule, and a description without a title", () => {
+    const item = `
+<li  class="border-t-[0.5px] border-line first:border-t-0">
+  <a href="/library/gemma4" class="group grid">
+    <h2 title="gemma4"><span >gemma4</span></h2>
+    <div><span  class="inline-flex items-center rounded-md bg-indigo-50">vision</span>
+      <span  class="inline-flex items-center rounded-md bg-cyan-50">cloud</span></div>
+    <p class="mt-1 line-clamp-2">Gemma 4 &amp; more</p>
+    <div><span  class="inline-flex items-center rounded-md bg-[#ddf4ff]">e4b</span>
+      <span  class="inline-flex items-center rounded-md bg-[#ddf4ff]">12b</span></div>
+  </a>
+</li>`;
+    expect(parseSearch(item)).toEqual([
+      { name: "gemma4", description: "Gemma 4 & more", sizes: ["e4b", "12b"], capabilities: ["vision"] },
+    ]);
+  });
+
   it("finds nothing in a page of another shape, rather than something wrong", () => {
     expect(parseSearch("<html><body><div>redesigned</div></body></html>")).toEqual([]);
   });
