@@ -70,6 +70,8 @@
   --mood-joy: #34d399;
   --mood-anger: #f87171;
   --mood-sad: #818cf8;
+  /* An extension's own settings, marked so they read apart from the core ones (settings). */
+  --extension: #c4b5fd;
 }
 
 /* Light theme. Accent/status colors match the brand palette; neutrals are
@@ -117,6 +119,7 @@ html[data-theme="light"] {
   --mood-joy: #059669;
   --mood-anger: #dc2626;
   --mood-sad: #4f46e5;
+  --extension: #7c3aed;
 }
 
 @theme inline {

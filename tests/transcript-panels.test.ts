@@ -116,10 +116,21 @@ describe("Diarize", () => {
   // made the pair look inconsistent: one button vanished with the recording and one did not.
   it("goes when the recording goes", () => {
     const block = list.slice(at("{/* Speaker separation"), at("{/* Fixing the wording"));
-    const guard = block.indexOf("{recInfo && !recInfo.exists && !diarizing ? (");
+    expect(list).toContain("const noRecording = recInfo !== null && !recInfo.exists && !diarizing;");
+    const guard = block.indexOf("{noRecording ? (");
     expect(guard, "the button is not behind that guard any more").toBeGreaterThan(-1);
     // Before the button, so it governs it. `diarizing` is in there to keep Stop reachable.
     expect(guard).toBeLessThan(block.indexOf('t("Separate speakers")'));
+  });
+
+  // Asking how many voices there are, with nothing to separate, left people waiting on a
+  // button that could never work (2026-11-03). Say so in place of the steps.
+  it("says it cannot be done, rather than asking how many voices, once the recording is gone", () => {
+    const block = list.slice(at("{/* Speaker separation"), at("{/* Fixing the wording"));
+    const notice = block.indexOf("{noRecording && !separated ? (");
+    expect(notice).toBeGreaterThan(-1);
+    expect(block.indexOf('t("This meeting cannot be separated into speakers")')).toBeGreaterThan(notice);
+    expect(notice).toBeLessThan(block.indexOf('title={t("How many")}'));
   });
 });
 

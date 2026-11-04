@@ -18,6 +18,8 @@ describe("the Android app's display size", () => {
     expect(viewportFor(100, 412)).toBe("width=device-width, initial-scale=1");
     expect(viewportFor(115, 412)).toBe("width=358, initial-scale=1.15");
     expect(viewportFor(130, 412)).toBe("width=317, initial-scale=1.3");
+    // Smaller is the same rule the other way: laid out wider, drawn at less than 1.
+    expect(viewportFor(90, 412)).toBe("width=458, initial-scale=0.9");
     // A screen that says nothing about its width is left alone.
     expect(viewportFor(115, 0)).toBe("width=device-width, initial-scale=1");
   });
@@ -27,6 +29,7 @@ describe("the Android app's display size", () => {
     expect(displaySizeFrom(null)).toBe(115);
     expect(displaySizeFrom("130")).toBe(130);
     expect(displaySizeFrom("100")).toBe(100);
+    expect(displaySizeFrom("90")).toBe(90);
     expect(displaySizeFrom("150")).toBe(115);
     expect(displaySizeFrom("big")).toBe(115);
   });
@@ -48,6 +51,7 @@ describe("the Android app's display size", () => {
     expect(displayCookieFor(100, 412)).toBeNull();
     expect(viewportFromCookie(displayCookieFor(115, 412)!)).toEqual({ width: 358, initialScale: 1.15 });
     expect(viewportFromCookie(displayCookieFor(130, 412)!)).toEqual({ width: 317, initialScale: 1.3 });
+    expect(viewportFromCookie(displayCookieFor(90, 412)!)).toEqual({ width: 458, initialScale: 0.9 });
     // Anything this code could not have written is the default tag.
     for (const bad of [undefined, "", "317_2", "317_1", "50_1.3", "99999_1.3", "317_1.3;x", "abc_1.3"]) {
       expect(viewportFromCookie(bad)).toBeNull();

@@ -144,7 +144,7 @@ export default async function RootLayout({
             from. The same arithmetic as viewportFor and displayCookieFor there. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(navigator.userAgent.indexOf("VoxinqAndroid/")>=0){var s=Number(localStorage.getItem("voxinq.displaySize"));if([100,115,130].indexOf(s)<0)s=115;var w=Math.round(screen.width*100/s),m=document.querySelector('meta[name="viewport"]');if(s!==100&&screen.width>0){document.cookie="voxinq_display="+w+"_"+s/100+"; path=/; max-age=31536000; samesite=lax";if(m)m.setAttribute("content","width="+w+", initial-scale="+s/100)}else{document.cookie="voxinq_display=; path=/; max-age=0; samesite=lax"}}}catch(e){}`,
+            __html: `try{if(navigator.userAgent.indexOf("VoxinqAndroid/")>=0){var s=Number(localStorage.getItem("voxinq.displaySize"));if([90,100,115,130].indexOf(s)<0)s=115;var w=Math.round(screen.width*100/s),m=document.querySelector('meta[name="viewport"]');if(s!==100&&screen.width>0){document.cookie="voxinq_display="+w+"_"+s/100+"; path=/; max-age=31536000; samesite=lax";if(m)m.setAttribute("content","width="+w+", initial-scale="+s/100)}else{document.cookie="voxinq_display=; path=/; max-age=0; samesite=lax"}}}catch(e){}`,
           }}
         />
         <LocaleProvider locale={locale}>

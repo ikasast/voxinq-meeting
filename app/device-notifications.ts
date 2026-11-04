@@ -10,6 +10,11 @@ import { hasNativeRecorder } from "@/lib/stt/native";
 
 /** Remembered per device, so the banner does not offer what was already answered. */
 export const ASKED_KEY = "voxinq.notifyAsked";
+/**
+ * Switched off in Settings on this device. A site cannot take back the browser's permission, so
+ * the switch keeps its own "off" (2026-11-03): reminders stop, and other notices still show.
+ */
+export const OFF_KEY = "voxinq.remindersOff";
 
 export type NotifyState =
   /** The Android app: it sets its own reminders, which the phone's settings govern. */
@@ -17,13 +22,35 @@ export type NotifyState =
   /** Notifications need https (or localhost); over plain http there is no API to ask. */
   | "insecure"
   | "unsupported"
+  /** Allowed by the browser and switched off in Settings (OFF_KEY). */
+  | "off"
   | NotificationPermission;
+
+function switchedOff(): boolean {
+  try {
+    return localStorage.getItem(OFF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 export function notifyState(): NotifyState {
   if (hasNativeRecorder()) return "app";
   if (typeof window !== "undefined" && window.isSecureContext === false) return "insecure";
   if (typeof Notification === "undefined") return "unsupported";
+  if (Notification.permission === "granted" && switchedOff()) return "off";
   return Notification.permission;
+}
+
+/** The Settings switch, once the browser has allowed them: on or off on this device only. */
+export function setRemindersOn(on: boolean): NotifyState {
+  try {
+    if (on) localStorage.removeItem(OFF_KEY);
+    else localStorage.setItem(OFF_KEY, "1");
+  } catch {
+    // no storage: the browser's permission is all there is
+  }
+  return notifyState();
 }
 
 /** Ask the browser. The answer is the browser's to keep; the key only stops the banner asking. */
@@ -35,7 +62,7 @@ export async function askToNotify(): Promise<NotifyState> {
   }
   if (typeof Notification === "undefined") return notifyState();
   await Notification.requestPermission();
-  return notifyState();
+  return setRemindersOn(true);
 }
 
 /**

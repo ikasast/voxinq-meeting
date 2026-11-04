@@ -21,8 +21,11 @@
 
 import { appVersionFrom } from "@/lib/app-version";
 
-/** The sizes offered, in percent. */
-export const DISPLAY_SIZES = [100, 115, 130] as const;
+/**
+ * The sizes offered, in percent, as the steps of a slider like Android's own (2026-11-03). Not
+ * 145: on a 412 px phone that lays the page out at 284 px, under the 320 px it is built for.
+ */
+export const DISPLAY_SIZES = [90, 100, 115, 130] as const;
 export type DisplaySize = (typeof DISPLAY_SIZES)[number];
 
 /** Until one is chosen: at 100% the app read a little small on a phone (asked 2026-10-17). */

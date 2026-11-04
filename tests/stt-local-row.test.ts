@@ -44,12 +44,12 @@ describe("the row for this machine", () => {
   it("offers no way to remove it", () => {
     // The rows before the saved ones start. `{profiles.map(` also builds the default-endpoint
     // <option> list higher up the file, so the search starts from the table itself.
-    const tbody = table.indexOf("<tbody>");
-    const body = table.slice(tbody, table.indexOf("{profiles.map(", tbody));
+    const list = table.indexOf("<ul ");
+    const body = table.slice(list, table.indexOf("{profiles.map(", list));
     // Through t() since the screen was translated, so these follow the sentences there rather
     // than pinning the literals they used to be. Edit and remove are icons since, named for
     // the row they act on.
-    expect(body).toContain('t("On this machine")');
+    expect(body).toContain('t("Voxinq server")');
     expect(body).toContain("<PencilIcon />");
     expect(body, "the machine cannot be removed from the machine").not.toContain("<TrashIcon />");
     expect(body).not.toContain('t("Remove {name}"');
@@ -60,5 +60,19 @@ describe("the row for this machine", () => {
     // ids all start with "p"; this one does not, and that is the whole guarantee.
     expect(table).toContain('const LOCAL_ID = "local"');
     for (let i = 0; i < 200; i++) expect(newProfileId()).not.toBe("local");
+  });
+});
+
+describe("the list of places", () => {
+  // As a table it was wider than a phone, and Edit was the column a sideways scroll was needed
+  // to reach (2026-11-03).
+  it("is rows, with nothing that makes it scroll sideways", () => {
+    expect(table).not.toContain("<table");
+    expect(table).not.toContain("overflow-x-auto");
+  });
+
+  it("names the server rather than 'this machine', which on a phone is the phone", () => {
+    expect(table).toContain('t("Voxinq server (default)")');
+    expect(table).not.toContain("On this machine");
   });
 });

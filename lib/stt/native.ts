@@ -194,6 +194,28 @@ export function setAppLock(change: { enabled?: boolean; afterMinutes?: number })
   return askLock({ type: "lockSet", ...change }, change.enabled === undefined ? 3000 : 120_000);
 }
 
+/**
+ * Open the app's notification settings, where its reminders are switched on or off. False from an
+ * app too old to do it (it never answers) or one that could not.
+ */
+export function openAppNotificationSettings(timeoutMs = 1500): Promise<boolean> {
+  if (!bridge()) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    let off = () => {};
+    const timer = setTimeout(() => {
+      off();
+      resolve(false);
+    }, timeoutMs);
+    off = listen((m) => {
+      if (m.type !== "notificationSettings") return;
+      clearTimeout(timer);
+      off();
+      resolve(m.opened === true);
+    });
+    send({ type: "notificationSettings" });
+  });
+}
+
 /** The lock changed from the app's side — the server started or stopped requiring it. */
 export function onAppLockChange(fn: (state: AppLockState) => void): () => void {
   return listen((m) => {

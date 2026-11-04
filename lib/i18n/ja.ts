@@ -126,9 +126,6 @@ export const ja: Record<string, string> = {
   "The app keeps this rule; the server cannot check that it does. An app older than this version opens as before.":
     "この決まりを守るのはアプリで、サーバーからは確かめられません。このバージョンより古いアプリは、これまでどおり開きます。",
   "Only an administrator can require the app lock.": "アプリのロックを必須にできるのは管理者だけです。",
-  "Standard (100%)": "標準（100%）",
-  "Larger (115%)": "大きめ（115%）",
-  "Large (130%)": "大（130%）",
   "Text, icons and spacing together, in this app only. The phone's own font size still applies on top.":
     "文字・アイコン・余白をまとめて大きくします。このアプリだけの設定です。スマホ本体の文字サイズも、これに上乗せされます。",
   Error: "エラー",
@@ -326,14 +323,12 @@ export const ja: Record<string, string> = {
   "Edit the glossary": "用語集を編集",
   "New minutes use this; {action} can pick another. A series with its own keeps that.":
     "新しい議事録はこれを使います。「{action}」では別の書式も選べます。独自の書式を持つシリーズはそちらを使います。",
-  "New work uses this. Re-transcribe can pick another for one run.":
-    "新しい処理はここを使います。再文字起こしでは1回だけ別の場所も選べます。",
+  "Meetings you record or import are transcribed here. Re-transcribe can pick another place for one run.":
+    "新しく録音・取り込みした会議はここで文字起こしします。再文字起こしのときだけ別の場所も選べます。",
   "Recognition":
     "認識",
   "While recording, the screen goes black after this long; recording carries on. Saves a phone's battery, but hides the live transcript. This device only.":
     "録音中、この時間がたつと画面を黒くします（録音は続きます）。スマホの電池が持つ代わりに、文字起こしは見えなくなります。この端末だけの設定。",
-  "When a booked meeting is due, this device is notified while Voxinq is open in a tab. This device only.":
-    "予約した会議の時刻に、Voxinq をタブで開いていればこの端末に通知します。この端末だけの設定。",
   "Saved": "保存しました",
   "Not saved": "保存できませんでした",
   "Memory each needs: {guide}. Downloaded on first use.": "必要なメモリの目安: {guide}。初回に自動でダウンロードします。",
@@ -380,6 +375,9 @@ export const ja: Record<string, string> = {
     "空欄なら推定します。参加者で発言した人にチェックを入れると、その数が入ります。",
   "Separate": "分ける",
   "The recording is no longer kept, so the voices cannot be told apart.": "録音が残っていないため、声を聞き分けられません。",
+  "This meeting cannot be separated into speakers": "この会議は話者分離できません",
+  "Recordings are deleted once their retention period has passed.": "録音は保存期間を過ぎると削除されます。",
+  Separated: "分けた",
   "Separate again": "分け直す",
   "Name them": "名前を付ける",
   "{name} is the name of {n} voices.": "「{name}」が {n} つの声に付いています。",
@@ -419,8 +417,6 @@ export const ja: Record<string, string> = {
   "From Voxinq {version}, exported {when}": "Voxinq {version} から書き出し（{when}）",
   "unknown": "不明",
   "The meeting is recorded and recognised once it ends.": "会議は録音され、終わってからまとめて文字起こしされます。",
-  "unsaved": "未保存",
-  "none": "なし",
   "Recordings sent here leave this machine and go to {host}, which bills you for the length of the audio.":
     "ここに送る録音はこの PC を離れて {host} に届き、音声の長さに応じて課金されます。",
   "A local or private address — nothing leaves your network.": "ローカルまたはプライベートなアドレスです。ネットワークの外には出ません。",
@@ -595,8 +591,8 @@ export const ja: Record<string, string> = {
   "Recognizing…": "認識中…",
   "Same as settings ({endpoint})": "設定と同じ（{endpoint}）",
   endpoint: "エンドポイント",
-  "Same as settings (this machine)": "設定と同じ（この機器）",
-  "On this machine": "この機器で",
+  "Same as settings (Voxinq server)": "設定と同じ（Voxinq サーバー）",
+  "Voxinq server": "Voxinq サーバー",
   "Saved endpoints": "保存済みエンドポイント",
   "Share transcript": "発言を共有",
   "Waiting for the GPU to be free…": "GPU が空くのを待っています…",
@@ -671,7 +667,7 @@ export const ja: Record<string, string> = {
   "After 1 minute": "1分後",
   "After 5 minutes": "5分後",
   "After 10 minutes": "10分後",
-  "+ Add endpoint": "＋ エンドポイントを追加",
+  "+ Add endpoint": "＋ 接続先を追加",
   "the endpoint’s model": "そのエンドポイントのモデル",
   Transcription: "文字起こし",
   Appearance: "表示",
@@ -683,7 +679,6 @@ export const ja: Record<string, string> = {
   More: "その他",
   Name: "名前",
   Model: "モデル",
-  Key: "キー",
   Format: "書式",
   Export: "書き出し",
   Restore: "復元",
@@ -739,10 +734,12 @@ export const ja: Record<string, string> = {
   "Restore complete": "復元が完了しました",
   "Settings replaced.": "設定を置き換えました。",
 
-  "Recognise speech": "音声を認識する",
-  "On this machine (default)": "この機器で（既定）",
+  "Where to transcribe": "文字起こしする場所",
+  "Voxinq server (default)": "Voxinq サーバー（既定）",
   "built in": "組み込み",
-  "not needed": "不要",
+  "key saved": "キー保存済み",
+  "key unsaved": "キー未保存",
+  "no key": "キーなし",
   API: "API",
   "OpenAI-compatible — /v1/audio/transcriptions": "OpenAI 互換 — /v1/audio/transcriptions",
   "Google Gemini — the Interactions API": "Google Gemini — Interactions API",
@@ -1183,7 +1180,7 @@ export const ja: Record<string, string> = {
     "「録り直し」と付いた声紋は、いまこの機器で動いているものとは別の話者認識モデルで作られています。声紋はモデルをまたいで使えません。データは残っていますが誰とも一致しないので、自動命名を戻すにはその人たちを録り直してください。",
 
   // Recognition endpoints.
-  "your network": "自分のネットワーク",
+  "your network": "あなたのネットワーク",
 
   // The model picker.
   "large-v3-turbo (default; fast and accurate)": "large-v3-turbo（既定。速くて精度も高い）",
@@ -1430,20 +1427,13 @@ export const ja: Record<string, string> = {
   // ---- A booked meeting whose time has come ----
   "It is time for this meeting.": "この会議の時刻になりました。",
   "Notify me on this device": "この端末で通知を受け取る",
-  "Meeting reminders on this device": "この端末への予定の通知",
-  "In the Android app, reminders come from the app itself and follow the phone's notification settings.":
-    "Android アプリでは、予定の通知はアプリ自身が出します。スマホの通知設定に従います。",
   "Notifications need a secure connection. Open Voxinq through its https address to turn them on.":
     "通知は安全な接続（https）でしか使えません。https のアドレスで Voxinq を開いてから有効にしてください。",
   "This browser cannot show notifications.": "このブラウザでは通知を使えません。",
-  "Blocked for this site. Allow notifications in the browser's site settings (the icon at the left of the address bar), then come back to this page.":
-    "このサイトの通知はブロックされています。ブラウザのサイト設定（アドレスバー左のアイコン）で通知を許可してから、このページに戻ってください。",
-  "On for this device": "この端末で有効",
   "Send a test notification": "テスト通知を送る",
   "Sent. If nothing appeared, check the notification settings of your operating system.":
     "送りました。何も表示されない場合は、Windows など OS 側の通知設定を確認してください。",
   "The notification could not be shown.": "通知を表示できませんでした。",
-  "Turn on notifications": "通知を有効にする",
   "Notifications are on. A booked meeting will look like this when its time comes.":
     "通知は有効です。予定の会議の時刻になると、このように表示されます。",
   "Show these on this device even when the app is not the window you are looking at. Needs the browser or the installed app to be running — there is no outside push service.":
@@ -1642,9 +1632,6 @@ export const ja: Record<string, string> = {
   "That is not a model name Ollama would accept.": "Ollama が受け付けるモデル名ではありません。",
   "The Ollama address is not an http(s) address.": "Ollama のアドレスが http(s) ではありません。",
   "Models to try, by GPU memory": "GPU メモリ別のおすすめモデル",
-  "GPU memory": "GPU メモリ",
-  "Download size": "容量",
-  "What to expect": "特徴",
   "No GPU / 6 GB": "GPU なし / 6 GB",
   "Light. Short, plain minutes.": "軽量。短めで素朴な議事録。",
   "The default. Good minutes for everyday meetings.": "既定。普段の会議なら十分な議事録。",
@@ -1657,11 +1644,8 @@ export const ja: Record<string, string> = {
   "Cannot reach Ollama at this address.": "このアドレスの Ollama に接続できません。",
   "Downloading {model}…": "{model} をダウンロード中…",
   "It carries on if you close this page.": "このページを閉じてもダウンロードは続きます。",
-  "Installed · {size}": "インストール済み · {size}",
-  "Installed · {size} file, about {need} once loaded": "インストール済み · ファイル {size}、読み込み時 約 {need}",
   "Loaded, it needs about {need}, more than this machine's GPU budget of {budget}. Part of it will run on the CPU, which is much slower.":
     "読み込むと約 {need} になり、このマシンの GPU 予算 {budget} を超えます。一部が CPU で動くため、かなり遅くなります。",
-  "Not installed on this Ollama.": "この Ollama にはインストールされていません。",
   "An administrator can download it from this screen.": "管理者がこの画面からダウンロードできます。",
   "The download failed: {reason}": "ダウンロードに失敗しました: {reason}",
   "When it last ran here, all of it was on the GPU.": "前回このマシンで動いたときは、すべて GPU に載りました。",
@@ -1670,12 +1654,9 @@ export const ja: Record<string, string> = {
   "This is an estimate from the file; once it has written minutes here, what the card actually held is shown instead.":
     "これはファイルの大きさからの見積もりです。このマシンで一度議事録を作ると、実際に GPU に載った量が表示されます。",
   // Finding a model on ollama.com, below the field.
-  "Find a model on ollama.com": "ollama.com でモデルを探す",
   "Searching…": "検索中…",
   Search: "検索",
   Installed: "インストール済み",
-  "Searches ollama.com for part of a name, when you press Search. Only Ollama's own models are listed; any other name can still be typed above.":
-    "名前の一部で ollama.com を検索します（検索を押したときだけ）。Ollama 公式のモデルだけを表示します。それ以外の名前も上の欄に直接入力できます。",
   "Cannot reach ollama.com. A server kept off the internet cannot search or download models; the ones already installed can still be chosen above.":
     "ollama.com に接続できません。インターネットにつながないサーバーでは、モデルの検索もダウンロードもできません。インストール済みのモデルは上の欄から選べます。",
   "ollama.com answered, but not in a form this screen can read — its pages may have changed. Type the model's name above instead.":
@@ -1693,7 +1674,6 @@ export const ja: Record<string, string> = {
   "Other quantisations ({n})": "量子化の違うもの（{n} 件）",
   "Sizes are the download. Whether it fits is an estimate until the model has run here once; after that, it is what the card held.":
     "サイズはダウンロード容量です。GPU に収まるかは、このマシンで一度動かすまでは見積もりで、動かした後は実際に GPU に載った量で判定します。",
-  "Installed — it is in the field above, ready to save.": "インストール済みです。上の欄に入ったので、保存すれば使われます。",
   "Download ({size})": "ダウンロード（{size}）",
   // The queue's history.
   History: "履歴",
@@ -1728,8 +1708,6 @@ export const ja: Record<string, string> = {
     "{model} は、このマシンまたは誰かの議事録の生成に使われています。先にそちらで別のモデルを選んでください。",
   "{model} is still downloading.": "{model} はまだダウンロード中です。",
   "Ollama could not delete it: {reason}": "Ollama が削除できませんでした: {reason}",
-  "Installed models ({n})": "インストール済みのモデル（{n}）",
-  "Use this model": "このモデルを使う",
   "Minutes are written with this model, for this machine or for somebody on it.":
     "このマシンまたは誰かの議事録の生成に使われているモデルです。",
   "In use": "使用中",
@@ -1854,7 +1832,6 @@ export const ja: Record<string, string> = {
   // Getting ready for the questions after a talk.
   "Preparing questions…": "質問案を準備中…",
   "Model for preparing questions": "質問案の準備に使うモデル",
-  "Runs beside a live recording, so it has to fit next to the transcription model. Empty uses the model above.": "録音中に文字起こしと同時に動くので、文字起こしのモデルと一緒に GPU に載るものを選びます。空欄なら上のモデルを使います。",
   "Updating…": "更新中…",
   "Waiting for room on the GPU…": "GPU の空きを待っています…",
   "Up to {time}": "{time} まで反映",
@@ -1888,4 +1865,32 @@ export const ja: Record<string, string> = {
   "Enter a question.": "質問を入力してください。",
   "Recognition needs the GPU right now, so this waits for the next update.": "文字起こしが GPU を必要としているので、次の更新まで待ちます。",
   "The model's answer could not be read. It tries again at the next update.": "モデルの答えを読み取れませんでした。次の更新でもう一度試します。",
+  // Settings, rearranged (2026-11-03).
+  "Smaller": "小さく",
+  "Larger": "大きく",
+  "Search ollama.com (e.g. gemma4)": "ollama.com で検索（例: gemma4）",
+  "Search ollama.com": "ollama.com で検索",
+  "Searches ollama.com for part of a name, when you press Search. Only Ollama's own models are listed.": "名前の一部で ollama.com を検索します（検索を押したときだけ）。Ollama の公式モデルだけが出ます。",
+  "Back to the suggestions": "おすすめに戻る",
+  "Results for “{q}” ({n})": "「{q}」の検索結果（{n} 件）",
+  "Installed — it is chosen in the list above.": "インストール済みです。上の一覧で選ばれています。",
+  "About {need} once loaded": "読み込み時 約 {need}",
+  "Model to use": "使うモデル",
+  "This Ollama has no models yet.": "この Ollama にはまだモデルがありません。",
+  "The models this Ollama has. The bin deletes one.": "この Ollama にあるモデルです。ゴミ箱で削除できます。",
+  "The models this Ollama has. An administrator adds more.": "この Ollama にあるモデルです。追加は管理者が行います。",
+  "Type a name": "名前を直接入力",
+  "Model name": "モデル名",
+  "{model} is not installed on this Ollama.": "{model} はこの Ollama にインストールされていません。",
+  "Add a model": "モデルを追加",
+  "Extension settings": "拡張機能の設定",
+  "Same as above ({model})": "上と同じ（{model}）",
+  "{model} (not installed)": "{model}（未インストール）",
+  "Runs beside a live recording, so choose one that fits on the GPU next to the transcription model.": "録音中に文字起こしと同時に動くので、一緒に GPU に載るものを選びます。",
+  "Meeting start notifications": "会議の開始通知",
+  "Open the phone's Settings → Apps → Voxinq → Notifications.": "スマホの 設定 → アプリ → Voxinq → 通知 で変更できます。",
+  "When a booked meeting's time comes, this device is notified.": "予約した会議の時刻に、この端末に通知します。",
+  "Open the app's notification settings": "アプリの通知設定を開く",
+  "When a booked meeting's time comes, this device is notified. Only while Voxinq is open in a tab.": "予約した会議の時刻に、この端末に通知します。Voxinq をタブで開いている間だけです。",
+  "Blocked for this site. Allow notifications in the browser's site settings.": "このサイトの通知が拒否されています。ブラウザのサイト設定で許可してください。",
 };
