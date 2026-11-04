@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "./avatar";
-import { GearIcon, PersonIcon, ShieldIcon, SignOutIcon, StorageIcon } from "./icons";
+import { DotsIcon, GearIcon, HelpIcon, PersonIcon, ShieldIcon, SignOutIcon, StorageIcon } from "./icons";
 import { useT } from "./locale-provider";
 import { useBackGuard, useLinksAfterClosing } from "./use-back-guard";
 
@@ -36,9 +36,12 @@ export function AccountMenu({
   isAdmin,
   via,
   withName = false,
+  docsUrl,
 }: AccountMenuProps & {
   /** Beside the picture, whose session this is: in the open sidebar. Folded, the picture alone. */
   withName?: boolean;
+  /** The documentation, opened in a new tab. Here rather than in the sidebar's foot (2026-11-03). */
+  docsUrl?: string;
 }) {
   const [open, setOpen] = useState(false);
   const t = useT();
@@ -118,6 +121,8 @@ export function AccountMenu({
             {name ? <span className="truncate text-xs text-[var(--text-muted)]">{username}</span> : null}
           </span>
         ) : null}
+        {/* Settings, Administration and Help are in here now, so say there is more behind it. */}
+        {withName ? <DotsIcon aria-hidden className="ml-auto h-4 w-4 shrink-0 text-[var(--text-muted)]" /> : null}
       </button>
 
       {open && pos && typeof document !== "undefined"
@@ -161,14 +166,28 @@ export function AccountMenu({
                   <StorageIcon className="h-4 w-4" />
                   {t("Storage")}
                 </Link>
-                {/* The rail carries this on a desktop and does not exist on a phone, which
-                    would leave an administrator no way to reach it from the device they
-                    actually have with them. */}
+                {/* The sidebar's foot carried Settings, Administration and Help too, until it held
+                    so many links that they crowded the meetings (2026-11-03). Now they are here
+                    only, while there is an account to open this from. */}
                 {isAdmin ? (
                   <Link href="/admin" className={item} role="menuitem" onClick={() => setOpen(false)}>
                     <ShieldIcon className="h-4 w-4" />
                     {t("Administration")}
                   </Link>
+                ) : null}
+                {docsUrl ? (
+                  <a
+                    href={docsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={item}
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                  >
+                    <HelpIcon className="h-4 w-4" />
+                    {t("Help")}
+                    <span aria-hidden className="ml-auto text-xs text-[var(--text-muted)]">↗</span>
+                  </a>
                 ) : null}
                 <button
                   type="button"
