@@ -28,8 +28,8 @@ import { useExtensions } from "./extensions-provider";
 import type { SidebarMeeting, SidebarSeries } from "./sidebar-meetings";
 
 // v4's one way around the app (design B): a sidebar with the meetings in it, beside one main
-// screen. New meeting and search at the top, the meetings by day, settings and the account at
-// the foot. It folds to a narrow strip of icons or closes altogether, remembered per device; on a
+// screen. New meeting and search at the top, the meetings by day, the account at the foot with
+// settings in its menu. It folds to a narrow strip of icons or closes altogether, remembered per device; on a
 // phone it is a drawer from the left, opened from the bar along the top.
 
 type Mode = "open" | "rail" | "closed";
@@ -93,9 +93,11 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
 
 const OPEN_SERIES_KEY = "voxinq.sidebar.series";
 
-/** The sidebar's foot: its own tone, a firmer rule and a shade along the top (mockup 5B). */
-const FOOT =
-  "border-t border-[var(--border-strong)] bg-[var(--sidebar-foot)] shadow-[inset_0_6px_8px_-8px_rgba(0,0,0,0.25)]";
+/**
+ * The sidebar's foot: its own tone and a firmer rule (mockup 5B). The shade it also had along the
+ * top read as a shadow cast on the meetings above, so it went (2026-11-03).
+ */
+const FOOT = "border-t border-[var(--border-strong)] bg-[var(--sidebar-foot)]";
 /** Hover inside the foot, a step from its tone: --hover-surface alone is nearly the same colour. */
 const FOOT_STYLE = { "--hover-surface": "color-mix(in srgb, var(--foreground) 8%, var(--sidebar-foot))" } as CSSProperties;
 
@@ -439,18 +441,24 @@ export function Sidebar({
           <QueueIcon />
         </FootLink>
       ) : null}
-      {!external && isAdmin ? (
-        <FootLink rail={rail} href="/admin" label={t("Administration")} active={pathname.startsWith("/admin")}>
-          <ShieldIcon />
-        </FootLink>
-      ) : null}
-      <FootLink rail={rail} href={docsUrl} label={t("Help")} active={false} external>
-        <HelpIcon />
-      </FootLink>
-      {!external ? (
-        <FootLink rail={rail} href="/settings" label={t("Settings")} active={pathname.startsWith("/settings")}>
-          <GearIcon />
-        </FootLink>
+      {/* With an account these three are in its menu instead (account-menu.tsx); without one
+          there is no menu, so they stay here. */}
+      {!me ? (
+        <>
+          {!external && isAdmin ? (
+            <FootLink rail={rail} href="/admin" label={t("Administration")} active={pathname.startsWith("/admin")}>
+              <ShieldIcon />
+            </FootLink>
+          ) : null}
+          <FootLink rail={rail} href={docsUrl} label={t("Help")} active={false} external>
+            <HelpIcon />
+          </FootLink>
+          {!external ? (
+            <FootLink rail={rail} href="/settings" label={t("Settings")} active={pathname.startsWith("/settings")}>
+              <GearIcon />
+            </FootLink>
+          ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -514,7 +522,7 @@ export function Sidebar({
         {footLinks(false)}
         <div className="mt-2 flex items-center gap-2 px-2">
           {/* Open, the name beside the picture; the folded rail below has room for the picture only. */}
-          {me ? <AccountMenu {...me} withName /> : null}
+          {me ? <AccountMenu {...me} docsUrl={docsUrl} withName /> : null}
           <span className="ml-auto flex items-center gap-1">{extras}</span>
         </div>
         <p className="mt-1 px-2 text-[10px] text-[var(--text-muted)]">v{version}</p>
@@ -547,7 +555,7 @@ export function Sidebar({
       <div className="flex-1" />
       <div className={`${FOOT} flex w-full flex-col items-center gap-1 pb-1 pt-2`} style={FOOT_STYLE}>
         {footLinks(true)}
-        <div className="mt-1">{me ? <AccountMenu {...me} /> : null}</div>
+        <div className="mt-1">{me ? <AccountMenu {...me} docsUrl={docsUrl} /> : null}</div>
       </div>
     </div>
   );
