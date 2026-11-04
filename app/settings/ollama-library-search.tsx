@@ -1,18 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useT } from "@/app/locale-provider";
 import { fitFor, type Fit, type LibraryError, type LibraryModel, type LibraryTag } from "@/lib/llm/ollama-library";
 import { findInstalled, type InstalledModel } from "@/lib/llm/ollama-models";
 
-// Finding a model to download by part of its name, below the model field.
+// Finding a model to download by part of its name: "Add a model", below the installed list.
 //
 // The field takes Ollama's exact name, and nobody knows that `gemma4:e4b` is how "Gemma 4, the
 // 4B one" is spelled until they have looked it up. This looks it up: a search on ollama.com, then
 // the chosen model's sizes, each marked with whether it sits on this machine's card. Picking one
 // fills the field; Download fetches it.
 //
-// Administrators only, like downloading, and asked only when they press Search.
+// Administrators only, like downloading, and asked only when they press Search. Until then, and
+// again after "Back to the suggestions", what it was given to show instead: the models to start
+// from. Results are boxed in the accent colour and counted, and finding nothing or not reaching
+// ollama.com in red: in the small grey of the hints they read as one more hint (2026-11-03).
 
 type Run = { name: string; loadedMb: number; gpuMb: number };
 
@@ -35,6 +38,7 @@ export function OllamaLibrarySearch({
   onPick,
   onDownload,
   downloading,
+  children,
 }: {
   installed: InstalledModel[];
   runs: Run[];
@@ -44,6 +48,8 @@ export function OllamaLibrarySearch({
   onPick: (name: string) => void;
   onDownload: (name: string) => void;
   downloading: boolean;
+  /** Shown while nothing has been searched for. */
+  children?: ReactNode;
 }) {
   const t = useT();
   const [q, setQ] = useState("");
@@ -66,6 +72,15 @@ export function OllamaLibrarySearch({
       | null;
     if (!res.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
     return d ?? {};
+  };
+
+  const clear = () => {
+    setQ("");
+    setModels(null);
+    setFailed(null);
+    setChosen(null);
+    setTags(null);
+    setSearched("");
   };
 
   const search = async () => {
@@ -136,10 +151,7 @@ export function OllamaLibrarySearch({
   const pickedInstalled = picked ? findInstalled(installed, picked.name) !== null : false;
 
   return (
-    <div className="mt-3 text-xs">
-      <label htmlFor="ollamaSearch" className="mb-1 block text-[var(--text-secondary)]">
-        {t("Find a model on ollama.com")}
-      </label>
+    <div className="mt-2 text-xs">
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -152,7 +164,8 @@ export function OllamaLibrarySearch({
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="gemma4"
+          placeholder={t("Search ollama.com (e.g. gemma4)")}
+          aria-label={t("Search ollama.com")}
           autoComplete="off"
           spellCheck={false}
           className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-sm text-[var(--foreground)]"
@@ -162,119 +175,129 @@ export function OllamaLibrarySearch({
         </button>
       </form>
       <p className="mt-1 text-[var(--text-muted)]">
-        {t("Searches ollama.com for part of a name, when you press Search. Only Ollama's own models are listed; any other name can still be typed above.")}
+        {t("Searches ollama.com for part of a name, when you press Search. Only Ollama's own models are listed.")}
       </p>
 
-      {failed === "unreachable" ? (
-        <p className="mt-2 text-[var(--warning)]">
-          {t("Cannot reach ollama.com. A server kept off the internet cannot search or download models; the ones already installed can still be chosen above.")}
-        </p>
-      ) : failed === "unreadable" ? (
-        <p className="mt-2 text-[var(--warning)]">
-          {t("ollama.com answered, but not in a form this screen can read — its pages may have changed. Type the model's name above instead.")}
-        </p>
+      {failed || (models && models.length === 0) ? (
+        <div role="alert" className="mt-2 rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] bg-[color-mix(in_srgb,var(--error)_8%,transparent)] px-3 py-2 text-sm text-[var(--error)]">
+          {failed === "unreachable"
+            ? t("Cannot reach ollama.com. A server kept off the internet cannot search or download models; the ones already installed can still be chosen above.")
+            : failed === "unreadable"
+              ? t("ollama.com answered, but not in a form this screen can read — its pages may have changed. Type the model's name above instead.")
+              : t("No model matches “{q}”.", { q: searched })}
+          <button type="button" onClick={clear} className="ml-2 text-xs text-[var(--text-secondary)] hover:underline">
+            {t("Back to the suggestions")}
+          </button>
+        </div>
       ) : null}
 
-      {models && models.length === 0 ? (
-        <p className="mt-2 text-[var(--text-muted)]">{t("No model matches “{q}”.", { q: searched })}</p>
-      ) : null}
+      {models === null && !failed ? children : null}
 
       {models && models.length > 0 ? (
-        <ul className="mt-2 divide-y divide-[var(--border)] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
-          {models.map((m) => (
-            <li key={m.name}>
-              <button
-                type="button"
-                onClick={() => void choose(m.name)}
-                aria-pressed={chosen === m.name}
-                className={`flex w-full flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-left hover:bg-[var(--hover-surface)] ${chosen === m.name ? "bg-[var(--hover-surface)]" : ""}`}
-              >
-                {/* At least this wide before the sizes beside it go to the next line: a name cut
-                    to "g…" is no help in choosing. */}
-                <span className="min-w-0 flex-1 basis-40">
-                  <span className="block font-medium text-[var(--foreground)]">{m.name}</span>
-                  {m.description ? (
-                    <span className="block truncate text-[var(--text-muted)]" title={m.description}>
-                      {m.description}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-secondary)]">
-                  {m.sizes.join(" · ")}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {chosen && busy ? <p className="mt-2 text-[var(--text-muted)]">{t("Reading the sizes of {model}…", { model: chosen })}</p> : null}
-
-      {chosen && tags ? (
-        <div className="mt-3">
-          <p className="mb-1 text-[var(--text-secondary)]">
-            {budgetMb !== null
-              ? t("Sizes of {model}, against this machine's GPU budget of {budget}", { model: chosen, budget: gb(budgetMb) })
-              : t("Sizes of {model}", { model: chosen })}
-          </p>
+        <div className="mt-2 rounded-md border border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--accent)_6%,transparent)] p-2">
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <p className="min-w-0 flex-1 text-sm font-medium text-[var(--accent-sub)]">
+              {t("Results for “{q}” ({n})", { q: searched, n: models.length })}
+            </p>
+            <button type="button" onClick={clear} className="shrink-0 text-[var(--text-secondary)] hover:underline">
+              {t("Back to the suggestions")}
+            </button>
+          </div>
           <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
-            {shown.map((tag) => {
-              const v = verdict(tag);
-              const have = findInstalled(installed, tag.name) !== null;
-              const on = current.trim() === tag.name;
-              return (
-                <li key={tag.name}>
-                  <button
-                    type="button"
-                    onClick={() => onPick(tag.name)}
-                    aria-pressed={on}
-                    className={`flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-left hover:bg-[var(--hover-surface)] ${on ? "bg-[var(--hover-surface)]" : ""}`}
-                  >
-                    <span className={`min-w-0 flex-1 basis-40 break-all font-mono ${on ? "font-semibold text-[var(--accent-sub)]" : "text-[var(--foreground)]"}`}>
-                      {tag.name}
-                    </span>
-                    {have ? (
-                      <span className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-muted)]">
-                        {t("Installed")}
+            {models.map((m) => (
+              <li key={m.name}>
+                <button
+                  type="button"
+                  onClick={() => void choose(m.name)}
+                  aria-pressed={chosen === m.name}
+                  className={`flex w-full flex-wrap items-start gap-x-3 gap-y-1 px-3 py-2 text-left hover:bg-[var(--hover-surface)] ${chosen === m.name ? "bg-[var(--hover-surface)]" : ""}`}
+                >
+                  {/* At least this wide before the sizes beside it go to the next line: a name cut
+                      to "g…" is no help in choosing. */}
+                  <span className="min-w-0 flex-1 basis-40">
+                    <span className="block font-medium text-[var(--foreground)]">{m.name}</span>
+                    {m.description ? (
+                      <span className="block truncate text-[var(--text-muted)]" title={m.description}>
+                        {m.description}
                       </span>
                     ) : null}
-                    <span className="shrink-0 tabular-nums text-[var(--text-muted)]">{gb(tag.sizeMb)}</span>
-                    {v ? <span className={`shrink-0 rounded-full border px-2 py-0.5 ${v.cls}`}>{v.label}</span> : null}
-                  </button>
-                </li>
-              );
-            })}
-            {!showAll && main.length > 0 && others.length > 0 ? (
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setShowAll(true)}
-                  className="w-full px-3 py-2 text-center text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
-                >
-                  {t("Other quantisations ({n})", { n: others.length })}
+                  </span>
+                  <span className="rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-secondary)]">
+                    {m.sizes.join(" · ")}
+                  </span>
                 </button>
               </li>
-            ) : null}
+            ))}
           </ul>
-          <p className="mt-1 text-[var(--text-muted)]">
-            {t("Sizes are the download. Whether it fits is an estimate until the model has run here once; after that, it is what the card held.")}
-          </p>
+          {chosen && busy ? <p className="mt-2 px-1 text-[var(--text-muted)]">{t("Reading the sizes of {model}…", { model: chosen })}</p> : null}
 
-          {picked ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="break-all font-mono font-semibold text-[var(--foreground)]">{picked.name}</span>
-              {pickedInstalled ? (
-                <span className="text-[var(--text-muted)]">{t("Installed — it is in the field above, ready to save.")}</span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onDownload(picked.name)}
-                  disabled={downloading}
-                  className="btn-outline !px-2.5 !py-1 !text-xs"
-                >
-                  {t("Download ({size})", { size: gb(picked.sizeMb) })}
-                </button>
-              )}
+          {chosen && tags ? (
+            <div className="mt-3">
+              <p className="mb-1 text-[var(--text-secondary)]">
+                {budgetMb !== null
+                  ? t("Sizes of {model}, against this machine's GPU budget of {budget}", { model: chosen, budget: gb(budgetMb) })
+                  : t("Sizes of {model}", { model: chosen })}
+              </p>
+              <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
+                {shown.map((tag) => {
+                  const v = verdict(tag);
+                  const have = findInstalled(installed, tag.name) !== null;
+                  const on = current.trim() === tag.name;
+                  return (
+                    <li key={tag.name}>
+                      <button
+                        type="button"
+                        onClick={() => onPick(tag.name)}
+                        aria-pressed={on}
+                        className={`flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-left hover:bg-[var(--hover-surface)] ${on ? "bg-[var(--hover-surface)]" : ""}`}
+                      >
+                        <span className={`min-w-0 flex-1 basis-40 break-all font-mono ${on ? "font-semibold text-[var(--accent-sub)]" : "text-[var(--foreground)]"}`}>
+                          {tag.name}
+                        </span>
+                        {have ? (
+                          <span className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-muted)]">
+                            {t("Installed")}
+                          </span>
+                        ) : null}
+                        <span className="shrink-0 tabular-nums text-[var(--text-muted)]">{gb(tag.sizeMb)}</span>
+                        {v ? <span className={`shrink-0 rounded-full border px-2 py-0.5 ${v.cls}`}>{v.label}</span> : null}
+                      </button>
+                    </li>
+                  );
+                })}
+                {!showAll && main.length > 0 && others.length > 0 ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => setShowAll(true)}
+                      className="w-full px-3 py-2 text-center text-[var(--text-secondary)] hover:bg-[var(--hover-surface)]"
+                    >
+                      {t("Other quantisations ({n})", { n: others.length })}
+                    </button>
+                  </li>
+                ) : null}
+              </ul>
+              <p className="mt-1 text-[var(--text-muted)]">
+                {t("Sizes are the download. Whether it fits is an estimate until the model has run here once; after that, it is what the card held.")}
+              </p>
+
+              {picked ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="break-all font-mono font-semibold text-[var(--foreground)]">{picked.name}</span>
+                  {pickedInstalled ? (
+                    <span className="text-[var(--text-muted)]">{t("Installed — it is chosen in the list above.")}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onDownload(picked.name)}
+                      disabled={downloading}
+                      className="btn-outline !px-2.5 !py-1 !text-xs"
+                    >
+                      {t("Download ({size})", { size: gb(picked.sizeMb) })}
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

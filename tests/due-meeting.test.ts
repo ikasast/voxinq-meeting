@@ -80,16 +80,15 @@ describe("what the reminder offers", () => {
 
   it("can be turned on in Settings before the first meeting is due", () => {
     // The banner only appears once a meeting is due, so on a computer the first reminder could
-    // never be a notification. Settings → Appearance asks ahead, on a tap.
-    expect(settingsCard).toContain("const turnOn = async () => setState(await askToNotify());");
-    expect(settingsCard).toContain("onClick={() => void turnOn()}");
+    // never be a notification. Settings → Appearance asks ahead, from its switch.
+    expect(settingsCard).toContain("else void askToNotify().then(setState);");
     const settings = readFileSync(join(root, "app/settings/page.tsx"), "utf8");
-    expect(settings.indexOf("<ReminderNotifications />")).toBeGreaterThan(settings.indexOf('{tab === "appearance"'));
+    expect(settings.indexOf("<ReminderNotifications")).toBeGreaterThan(settings.indexOf('{tab === "appearance"'));
   });
 
   it("says why when it cannot be turned on here", () => {
     // Plain http has no notifications at all, and the Android app sets its own reminders.
-    for (const state of ['"app"', '"insecure"', '"unsupported"', '"denied"', '"granted"']) {
+    for (const state of ['"app"', '"insecure"', '"unsupported"', '"denied"', '"granted"', '"off"']) {
       expect(settingsCard).toContain(`state === ${state}`);
     }
   });

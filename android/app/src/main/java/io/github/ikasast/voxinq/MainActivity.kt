@@ -387,6 +387,21 @@ class MainActivity : ComponentActivity() {
             // The settings page: what the lock is, and changes to it (AppLock).
             "lock" -> RecorderBus.post(AppLock.stateMessage(this))
             "lockSet" -> setLock(msg)
+            // Settings → Appearance: the app's reminders follow its notification settings, so
+            // the page offers to open them. An older app never answers, and the page says where
+            // to find them instead.
+            "notificationSettings" -> {
+                val opened = try {
+                    startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName),
+                    )
+                    true
+                } catch (_: ActivityNotFoundException) {
+                    false
+                }
+                RecorderBus.post(message("notificationSettings", "opened" to opened))
+            }
             // The page offers an update when the app is behind the server (Updater).
             "update" -> {
                 val version = msg.optString("version")

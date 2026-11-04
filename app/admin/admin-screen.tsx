@@ -7,6 +7,7 @@ import { ExtensionsSettings } from "@/app/settings/extensions-settings";
 import { HouseDefaults } from "@/app/settings/house-defaults";
 import { MachineSettings } from "./machine-settings";
 import { PeopleList } from "./people-list";
+import type { ExtensionId } from "@/lib/extensions";
 import { ADMIN_TABS, type AdminTab } from "./tabs";
 
 // The administration screen's tabs (app/admin/page.tsx). A tab is a link with ?tab=, so a tab can
@@ -17,11 +18,14 @@ export function AdminScreen({
   meId,
   accounts,
   signupOpen,
+  openExtension = null,
 }: {
   tab: AdminTab;
   meId: string | null;
   accounts: boolean;
   signupOpen: boolean;
+  /** An extension whose card opens with the tab. */
+  openExtension?: ExtensionId | null;
 }) {
   const t = useT();
   const label: Record<AdminTab, string> = {
@@ -80,7 +84,7 @@ export function AdminScreen({
 
           {tab === "defaults" ? <HouseDefaults /> : null}
           {tab === "machine" ? <MachineSettings /> : null}
-          {tab === "extensions" ? <ExtensionsSettings isAdmin /> : null}
+          {tab === "extensions" ? <ExtensionsSettings isAdmin initialOpen={openExtension} /> : null}
 
           {tab === "security" ? (
             <div className="space-y-6">

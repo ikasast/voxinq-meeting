@@ -222,13 +222,20 @@ function texts(t: (k: string) => string): Record<ExtensionId, Words> {
   };
 }
 
-export function ExtensionsSettings({ isAdmin }: { isAdmin: boolean }) {
+export function ExtensionsSettings({
+  isAdmin,
+  initialOpen = null,
+}: {
+  isAdmin: boolean;
+  /** Opened with the page, when it was reached from the mark beside an extension's settings. */
+  initialOpen?: ExtensionId | null;
+}) {
   const t = useT();
   const router = useRouter();
   const state = useExtensions();
   const [busy, setBusy] = useState<ExtensionId | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<ExtensionId | null>(null);
+  const [open, setOpen] = useState<ExtensionId | null>(initialOpen);
   const words = texts(t);
 
   const toggle = async (id: ExtensionId, on: boolean) => {

@@ -8,11 +8,11 @@ import { OllamaLibrarySearch } from "./ollama-library-search";
 
 // The Ollama model field, with what the Ollama at that address actually has.
 //
-// Installed models are offered as suggestions, so the usual case is picking rather than
-// typing; and the field says whether the name typed is there. For an administrator a name
-// that is not there comes with a Download button, which fetches it on the server — the
-// download carries on if this page is closed, and picks up its progress when it is opened
-// again.
+// The installed models are the choice, as a list to pick from; a name the list does not have can
+// still be typed. For an administrator a name that is not there comes with a Download button,
+// which fetches it on the server — the download carries on if this page is closed, and picks up
+// its progress when it is opened again. Below, "Add a model" searches ollama.com, and shows
+// models to start from until something is searched for.
 
 type Installed = InstalledModel;
 /** How a model sat on the card the last time it ran here (lib/llm/model-runs.ts). */
@@ -56,6 +56,7 @@ export function OllamaModelField({
   isAdmin,
   inputClass,
   labelClass,
+  onInstalled,
 }: {
   baseUrl: string;
   model: string;
@@ -63,6 +64,8 @@ export function OllamaModelField({
   isAdmin: boolean;
   inputClass: string;
   labelClass: string;
+  /** What this Ollama has, for another model setting to be chosen from (the questions model). */
+  onInstalled?: (names: string[]) => void;
 }) {
   const t = useT();
   const [installed, setInstalled] = useState<Installed[]>([]);
@@ -76,6 +79,8 @@ export function OllamaModelField({
   const [inUse, setInUse] = useState<string[]>([]);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // "Type a name": a name the list does not offer, such as one for another server's naming.
+  const [typing, setTyping] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -93,13 +98,14 @@ export function OllamaModelField({
       };
       setReachable(d.reachable);
       setInstalled(d.models);
+      onInstalled?.(d.models.map((m) => m.name));
       setBudgetMb(d.budgetMb);
       setInUse(d.inUse ?? []);
       setRuns(d.runs ?? []);
     } catch {
       setReachable(false);
     }
-  }, [baseUrl]);
+  }, [baseUrl, onInstalled]);
 
   // The address is typed a character at a time; ask once it has stopped changing.
   useEffect(() => {
@@ -204,35 +210,144 @@ export function OllamaModelField({
   const run = hit && budgetMb !== null ? (runs.find((r) => sameModel(r.name, hit.name)) ?? null) : null;
   const share = run && run.loadedMb > 0 ? Math.round((Math.min(run.gpuMb, run.loadedMb) / run.loadedMb) * 100) : null;
   const tooBig = hit && budgetMb !== null && share === null && need > budgetMb;
+  const fit = !hit ? null : share !== null ? (
+    share >= 99 ? (
+      <p className="text-[var(--success)]">{t("When it last ran here, all of it was on the GPU.")}</p>
+    ) : (
+      <p className="text-[var(--warning)]">
+        {t("When it last ran here, {n}% of it was on the GPU and the rest ran on the CPU, which is slower.", { n: share })}
+      </p>
+    )
+  ) : tooBig ? (
+    <p className="text-[var(--warning)]">
+      {t(
+        "Loaded, it needs about {need}, more than this machine's GPU budget of {budget}. Part of it will run on the CPU, which is much slower.",
+        { need: gb(need, "mb"), budget: gb(budgetMb!, "mb") },
+      )}{" "}
+      {t("This is an estimate from the file; once it has written minutes here, what the card actually held is shown instead.")}
+    </p>
+  ) : budgetMb !== null ? (
+    <p className="text-[var(--text-muted)]">{t("About {need} once loaded", { need: gb(need, "mb") })}</p>
+  ) : null;
+
+  // A name that is not on the list -- typed, or one the list does not have yet -- is edited in
+  // the box; otherwise the list is the control and the box waits behind "Type a name".
+  const typed = typing || reachable === false || installed.length === 0 || (name !== "" && !hit && reachable !== null);
 
   return (
     <div>
-      <label htmlFor="ollamaModel" className={labelClass}>
-        {t("Model")}
-      </label>
-      <input
-        id="ollamaModel"
-        type="text"
-        list="ollama-installed"
-        value={model}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="qwen3:8b"
-        className={inputClass}
-        autoComplete="off"
-        spellCheck={false}
-      />
-      <datalist id="ollama-installed">
-        {installed.map((m) => (
-          <option key={m.name} value={m.name}>
-            {gb(m.sizeMb, "mb")}
-          </option>
-        ))}
-      </datalist>
+      {/* One place to choose, from what this Ollama has (2026-11-03). It used to be a box with
+          the installed models as suggestions, then a search, then suggestions, then the installed
+          models again, folded: four things down the page, and nowhere that said which one chose. */}
+      {installed.length > 0 ? (
+        <ul
+          role="radiogroup"
+          aria-label={t("Model to use")}
+          className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]"
+        >
+          {installed.map((m) => {
+            const on = sameModel(model, m.name);
+            const used = inUse.some((u) => sameModel(u, m.name));
+            return (
+              <li key={m.name} className={`px-3 py-2 ${on ? "bg-[color-mix(in_srgb,var(--accent)_8%,transparent)]" : ""}`}>
+                <div className="flex items-center gap-2">
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                    <input
+                      type="radio"
+                      name="ollamaModelChoice"
+                      checked={on}
+                      onChange={() => onChange(m.name)}
+                      className="h-4 w-4 shrink-0 accent-[var(--accent-solid)]"
+                    />
+                    <span className={`min-w-0 truncate font-mono text-sm ${on ? "font-semibold text-[var(--text-strong)]" : "text-[var(--foreground)]"}`}>
+                      {m.name}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">{gb(m.sizeMb, "mb")}</span>
+                  </label>
+                  {used ? (
+                    <span
+                      className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[11px] text-[var(--text-muted)]"
+                      title={t("Minutes are written with this model, for this machine or for somebody on it.")}
+                    >
+                      {t("In use")}
+                    </span>
+                  ) : isAdmin && confirming === m.name ? (
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => void remove(m.name)}
+                        disabled={deleting !== null}
+                        className="rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-2 py-0.5 font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                      >
+                        {deleting === m.name ? t("Deleting…") : t("Delete {size}", { size: gb(m.sizeMb, "mb") })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirming(null)}
+                        disabled={deleting !== null}
+                        className="text-[var(--text-muted)] hover:underline"
+                      >
+                        {t("Cancel")}
+                      </button>
+                    </span>
+                  ) : isAdmin ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(m.name)}
+                      disabled={deleting !== null}
+                      title={t("Remove {name}", { name: m.name })}
+                      aria-label={t("Remove {name}", { name: m.name })}
+                      className="shrink-0 rounded p-1 text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--error)] disabled:opacity-50"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+                {/* What the chosen one does on this card, under it. */}
+                {on && hit ? <div className="mt-1 pl-[1.625rem] text-xs">{fit}</div> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {reachable === false ? (
+        <p className="mt-1.5 text-xs text-[var(--warning)]">{t("Cannot reach Ollama at this address.")}</p>
+      ) : reachable && installed.length === 0 ? (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("This Ollama has no models yet.")}</p>
+      ) : installed.length > 0 ? (
+        <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+          {isAdmin
+            ? t("The models this Ollama has. The bin deletes one.")
+            : t("The models this Ollama has. An administrator adds more.")}{" "}
+          {!typed ? (
+            <button type="button" onClick={() => setTyping(true)} className="text-[var(--accent-sub)] hover:underline">
+              {t("Type a name")}
+            </button>
+          ) : null}
+        </p>
+      ) : null}
+
+      {typed ? (
+        <div className="mt-2">
+          <label htmlFor="ollamaModel" className={labelClass}>
+            {t("Model name")}
+          </label>
+          <input
+            id="ollamaModel"
+            type="text"
+            value={model}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="qwen3:8b"
+            className={inputClass}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-1.5 space-y-1 text-xs" aria-live="polite">
-        {reachable === false ? (
-          <p className="text-[var(--warning)]">{t("Cannot reach Ollama at this address.")}</p>
-        ) : !name || reachable === null ? null : pull && !pull.done ? (
+        {!name || reachable !== true || hit ? null : pull && !pull.done ? (
           <div>
             <p className="text-[var(--text-secondary)]">
               {t("Downloading {model}…", { model: name })}{" "}
@@ -252,39 +367,9 @@ export function OllamaModelField({
               {t("It carries on if you close this page.")}
             </p>
           </div>
-        ) : hit ? (
-          <>
-            <p className="text-[var(--accent-sub)]">
-              {budgetMb !== null
-                ? t("Installed · {size} file, about {need} once loaded", {
-                    size: gb(hit.sizeMb, "mb"),
-                    need: gb(need, "mb"),
-                  })
-                : t("Installed · {size}", { size: gb(hit.sizeMb, "mb") })}
-            </p>
-            {share !== null ? (
-              share >= 99 ? (
-                <p className="text-[var(--text-muted)]">{t("When it last ran here, all of it was on the GPU.")}</p>
-              ) : (
-                <p className="text-[var(--warning)]">
-                  {t("When it last ran here, {n}% of it was on the GPU and the rest ran on the CPU, which is slower.", {
-                    n: share,
-                  })}
-                </p>
-              )
-            ) : tooBig ? (
-              <p className="text-[var(--warning)]">
-                {t(
-                  "Loaded, it needs about {need}, more than this machine's GPU budget of {budget}. Part of it will run on the CPU, which is much slower.",
-                  { need: gb(need, "mb"), budget: gb(budgetMb!, "mb") },
-                )}{" "}
-                {t("This is an estimate from the file; once it has written minutes here, what the card actually held is shown instead.")}
-              </p>
-            ) : null}
-          </>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[var(--text-muted)]">{t("Not installed on this Ollama.")}</span>
+            <span className="text-[var(--warning)]">{t("{model} is not installed on this Ollama.", { model: name })}</span>
             {isAdmin ? (
               <button
                 type="button"
@@ -309,126 +394,69 @@ export function OllamaModelField({
         {error ? <p className="text-[var(--error)]">{error}</p> : null}
       </div>
 
+      {/* Adding one: the search, and before anything is searched for, the models to start from.
+          Administrators only, like downloading. */}
       {isAdmin ? (
-        <OllamaLibrarySearch
-          installed={installed}
-          runs={runs}
-          budgetMb={budgetMb}
-          current={model}
-          onPick={onChange}
-          onDownload={(name) => {
-            onChange(name);
-            void download(name);
-          }}
-          downloading={starting || (pull !== null && !pull.done)}
-        />
-      ) : null}
-
-      {/* Which model to start from, by how much memory the card has: the question somebody faced
-          with an empty field actually has. Picking one fills the field, and an administrator gets
-          its Download button. Sizes are the download; loaded, a model needs that plus room for the
-          meeting (the context), which is what the GPU column allows for. */}
-      <details className="mt-3 text-xs">
-        <summary className="cursor-pointer text-[var(--text-secondary)]">{t("Models to try, by GPU memory")}</summary>
-        <table className="mt-2 w-full border-collapse overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
-          <thead>
-            <tr className="text-left text-[var(--text-muted)]">
-              <th className="px-3 py-1.5 font-normal">{t("GPU memory")}</th>
-              <th className="px-3 py-1.5 font-normal">{t("Model")}</th>
-              <th className="px-3 py-1.5 font-normal">{t("Download size")}</th>
-              <th className="hidden px-3 py-1.5 font-normal sm:table-cell">{t("What to expect")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border)]">
-            {suggestions(t).map((s) => (
-              <tr key={s.model}>
-                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-[var(--text-secondary)]">{s.vram}</td>
-                <td className="whitespace-nowrap px-3 py-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onChange(s.model)}
-                    title={t("Use this model")}
-                    className={`text-left font-mono hover:underline ${sameModel(model, s.model) ? "font-semibold text-[var(--accent-sub)]" : "text-[var(--foreground)]"}`}
-                  >
-                    {s.model}
-                  </button>
-                </td>
-                <td className="whitespace-nowrap px-3 py-1.5 tabular-nums text-[var(--text-muted)]">{s.size}</td>
-                <td className="hidden px-3 py-1.5 text-[var(--text-muted)] sm:table-cell">{s.note}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="mt-1.5 text-[var(--text-muted)]">
-          {t("A guide, not a promise: the memory includes room for a long meeting. Without a GPU, use the smallest, and expect minutes to take several minutes.")}
-        </p>
-      </details>
-
-      {/* What is on the disk, to give some of it back. Only for whoever can delete; for
-          everybody else the suggestions in the field are the list. */}
-      {isAdmin && installed.length > 0 ? (
-        <details className="mt-3 text-xs">
-          <summary className="cursor-pointer text-[var(--text-secondary)]">
-            {t("Installed models ({n})", { n: installed.length })}
-          </summary>
-          <ul className="mt-2 divide-y divide-[var(--border)] rounded-md border border-[var(--border)] bg-[var(--surface)]">
-            {installed.map((m) => {
-              const used = inUse.some((u) => sameModel(u, m.name));
-              return (
-                <li key={m.name} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  {/* Picking it is the other thing somebody looking at this list wants. */}
-                  <button
-                    type="button"
-                    onClick={() => onChange(m.name)}
-                    className="min-w-0 flex-1 truncate text-left text-[var(--foreground)] hover:underline"
-                    title={t("Use this model")}
-                  >
-                    {m.name}
-                  </button>
-                  <span className="shrink-0 text-[var(--text-muted)]">{gb(m.sizeMb, "mb")}</span>
-                  {used ? (
-                    <span
-                      className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-muted)]"
-                      title={t("Minutes are written with this model, for this machine or for somebody on it.")}
-                    >
-                      {t("In use")}
+        <div className="mt-5">
+          <p className="flex items-center gap-2 text-sm font-medium text-[var(--text-strong)]">
+            {t("Add a model")}
+            <span className="rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[10px] font-normal text-[var(--text-muted)]">
+              {t("Administrator")}
+            </span>
+          </p>
+          <OllamaLibrarySearch
+            installed={installed}
+            runs={runs}
+            budgetMb={budgetMb}
+            current={model}
+            onPick={onChange}
+            onDownload={(name) => {
+              onChange(name);
+              void download(name);
+            }}
+            downloading={starting || (pull !== null && !pull.done)}
+          >
+            {/* Which model to start from, by how much memory the card has: the question somebody
+                faced with nothing installed actually has. Sizes are the download; loaded, a model
+                needs that plus room for the meeting (the context), which the GPU column allows for. */}
+            <p className="mb-1 mt-3 text-[var(--text-secondary)]">{t("Models to try, by GPU memory")}</p>
+            <ul className="divide-y divide-[var(--border)] overflow-hidden rounded-md border border-[var(--border)] bg-[var(--surface)]">
+              {suggestions(t).map((s) => {
+                const have = findInstalled(installed, s.model) !== null;
+                return (
+                  <li key={s.model} className="flex items-center gap-3 px-3 py-2">
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-mono text-[var(--foreground)]">{s.model}</span>
+                      <span className="block text-[var(--text-muted)]">
+                        <span className="tabular-nums">{s.vram} · {s.size}</span> · {s.note}
+                      </span>
                     </span>
-                  ) : confirming === m.name ? (
-                    <span className="flex shrink-0 items-center gap-1.5">
+                    {have ? (
+                      <span className="shrink-0 rounded-full border border-[var(--border-strong)] px-2 py-0.5 text-[var(--text-muted)]">
+                        {t("Installed")}
+                      </span>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => void remove(m.name)}
-                        disabled={deleting !== null}
-                        className="rounded-md border border-[color-mix(in_srgb,var(--error)_45%,transparent)] px-2 py-0.5 font-semibold text-[var(--error)] hover:bg-[color-mix(in_srgb,var(--error)_10%,transparent)] disabled:opacity-50"
+                        onClick={() => {
+                          onChange(s.model);
+                          void download(s.model);
+                        }}
+                        disabled={starting || (pull !== null && !pull.done)}
+                        className="btn-outline shrink-0 !px-2.5 !py-1 !text-xs"
                       >
-                        {deleting === m.name ? t("Deleting…") : t("Delete {size}", { size: gb(m.sizeMb, "mb") })}
+                        {t("Add")}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirming(null)}
-                        disabled={deleting !== null}
-                        className="text-[var(--text-muted)] hover:underline"
-                      >
-                        {t("Cancel")}
-                      </button>
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirming(m.name)}
-                      disabled={deleting !== null}
-                      title={t("Remove {name}", { name: m.name })}
-                      aria-label={t("Remove {name}", { name: m.name })}
-                      className="shrink-0 rounded p-1 text-[var(--text-muted)] hover:bg-[var(--hover-surface)] hover:text-[var(--error)] disabled:opacity-50"
-                    >
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-1.5 text-[var(--text-muted)]">
+              {t("A guide, not a promise: the memory includes room for a long meeting. Without a GPU, use the smallest, and expect minutes to take several minutes.")}
+            </p>
+          </OllamaLibrarySearch>
+        </div>
       ) : null}
     </div>
   );

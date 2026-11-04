@@ -34,6 +34,7 @@ import type { MinutesTemplate } from "@/lib/minutes-templates";
 import type { PublicSttProfile } from "@/lib/stt/profiles";
 import { useT } from "@/app/locale-provider";
 import { FieldRow } from "../field-row";
+import { ExtensionChip, ExtensionSettingsHeading } from "./extension-chip";
 
 type PublicSettings = {
   /** Whether the reader may change the settings that describe the machine. */
@@ -171,6 +172,8 @@ export default function SettingsPage() {
   // Edited as a whole, because a key typed into one entry must survive editing another.
   const [draftProfiles, setDraftProfiles] = useState<DraftProfile[]>([]);
   const [draftTemplates, setDraftTemplates] = useState<MinutesTemplate[]>([]);
+  // What the Ollama has, from the model field, for the questions model to be chosen from.
+  const [ollamaInstalled, setOllamaInstalled] = useState<string[]>([]);
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [clearAnthropicApiKey, setClearAnthropicApiKey] = useState(false);
@@ -383,9 +386,19 @@ export default function SettingsPage() {
         </nav>
 
         <div className="min-w-0">
-          <h2 className="mb-1 text-lg font-semibold text-[var(--text-strong)]">
-            {settingLabel(t, TABS.find((x) => x.id === tab)!.label)}
-          </h2>
+          {/* A tab that is all one extension's says which, as its settings elsewhere do. */}
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-[var(--text-strong)]">
+              {settingLabel(t, TABS.find((x) => x.id === tab)!.label)}
+            </h2>
+            {tab === "speakers" && extensions.speakers ? (
+              <ExtensionChip id="speakers" name={t("Speaker separation")} isAdmin={settings.isAdmin} />
+            ) : tab === "remote" ? (
+              <ExtensionChip id="externalShare" name={t("Read-only sharing")} isAdmin={settings.isAdmin} />
+            ) : tab === "review" ? (
+              <ExtensionChip id="review" name={t("Meeting feedback")} isAdmin={settings.isAdmin} />
+            ) : null}
+          </div>
 
           {/* Transcription */}
           {tab === "stt" ? (
@@ -474,8 +487,11 @@ export default function SettingsPage() {
               </Field>
 
               {extensions.translation ? (
+                <>
+                <ExtensionSettingsHeading>{t("Extension settings")}</ExtensionSettingsHeading>
                 <Field
                   label={t("Japanese translation")}
+                  tag={<ExtensionChip id="translation" name={t("Translation")} isAdmin={settings.isAdmin} />}
                   hint={t("Under each non-Japanese line. Runs on the CPU; a 1.2 GB model is downloaded on first use.")}
                 >
                   <label className="flex items-center gap-2 pt-2 text-sm text-[var(--text-secondary)]">
@@ -488,6 +504,7 @@ export default function SettingsPage() {
                     {t("Translate non-Japanese speech into Japanese")}
                   </label>
                 </Field>
+                </>
               ) : null}
 
             </section>
@@ -500,6 +517,7 @@ export default function SettingsPage() {
               <Field
                 label={t("Emotion")}
                 htmlFor="emotionThreshold"
+                tag={<ExtensionChip id="emotion" name={t("Emotion")} isAdmin={settings.isAdmin} />}
                 hint={t("A line is marked only when the voice sounds this sure. Higher shows fewer, clearer marks.")}
               >
                 <select
@@ -550,7 +568,12 @@ export default function SettingsPage() {
                 />
               </Field>
               {extensions.minutesFormats ? (
-                <Field label={t("Formats")}>
+                <>
+                <ExtensionSettingsHeading>{t("Extension settings")}</ExtensionSettingsHeading>
+                <Field
+                  label={t("Formats")}
+                  tag={<ExtensionChip id="minutesFormats" name={t("Minutes formats")} isAdmin={settings.isAdmin} />}
+                >
                   <MinutesTemplates
                     templates={draftTemplates}
                     defaultId={settings.defaultMinutesTemplateId}
@@ -562,6 +585,7 @@ export default function SettingsPage() {
                     onDefaultChange={(id) => update("defaultMinutesTemplateId", id)}
                   />
                 </Field>
+                </>
               ) : null}
             </section>
           ) : null}
@@ -600,7 +624,7 @@ export default function SettingsPage() {
                       className={inputClass}
                     />
                   </Field>
-                  <Field label={t("Ollama model")}>
+                  <Field label={t("Model to use")}>
                     <OllamaModelField
                       baseUrl={settings.ollamaBaseUrl}
                       model={settings.ollamaModel}
@@ -608,25 +632,42 @@ export default function SettingsPage() {
                       isAdmin={settings.isAdmin}
                       inputClass={inputClass}
                       labelClass="sr-only"
+                      onInstalled={setOllamaInstalled}
                     />
                   </Field>
                   {extensions.prep ? (
-                    <Field label={t("Model for preparing questions")} htmlFor="ollamaPrepModel">
-                      <input
-                        id="ollamaPrepModel"
-                        type="text"
-                        list="ollama-installed"
-                        value={settings.ollamaPrepModel}
-                        onChange={(e) => update("ollamaPrepModel", e.target.value)}
-                        placeholder={settings.ollamaModel}
-                        className={inputClass}
-                        autoComplete="off"
-                        spellCheck={false}
-                      />
-                      <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                        {t("Runs beside a live recording, so it has to fit next to the transcription model. Empty uses the model above.")}
-                      </p>
-                    </Field>
+                    <>
+                      <ExtensionSettingsHeading>{t("Extension settings")}</ExtensionSettingsHeading>
+                      <Field
+                        label={t("Model for preparing questions")}
+                        htmlFor="ollamaPrepModel"
+                        tag={<ExtensionChip id="prep" name={t("Questions")} isAdmin={settings.isAdmin} />}
+                      >
+                        {/* From the same installed list as the model above: a name typed here
+                            that Ollama does not have only fails during a recording. */}
+                        <select
+                          id="ollamaPrepModel"
+                          value={settings.ollamaPrepModel}
+                          onChange={(e) => update("ollamaPrepModel", e.target.value)}
+                          className={inputClass}
+                        >
+                          <option value="">{t("Same as above ({model})", { model: settings.ollamaModel || "—" })}</option>
+                          {ollamaInstalled.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                          {settings.ollamaPrepModel && !ollamaInstalled.includes(settings.ollamaPrepModel) ? (
+                            <option value={settings.ollamaPrepModel}>
+                              {t("{model} (not installed)", { model: settings.ollamaPrepModel })}
+                            </option>
+                          ) : null}
+                        </select>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                          {t("Runs beside a live recording, so choose one that fits on the GPU next to the transcription model.")}
+                        </p>
+                      </Field>
+                    </>
                   ) : null}
                 </>
               ) : settings.llmProvider === "anthropic" ? (
@@ -841,7 +882,7 @@ export default function SettingsPage() {
               {/* The Android app only (app/display-size.ts). */}
               {inApp ? (
                 <Field label={t("Display size")}>
-                  <DisplaySizeSetting inputClass={inputClass} />
+                  <DisplaySizeSetting />
                 </Field>
               ) : null}
               {/* The Android app only, and only one new enough to have it (app-lock-setting.tsx). */}
@@ -849,9 +890,12 @@ export default function SettingsPage() {
 
               {/* Per device, like the theme above it. */}
               {extensions.schedule ? (
-                <div className="pt-4">
-                  <ReminderNotifications />
-                </div>
+                <>
+                  <ExtensionSettingsHeading>{t("Extension settings")}</ExtensionSettingsHeading>
+                  <ReminderNotifications
+                    tag={<ExtensionChip id="schedule" name={t("Schedule and reminders")} isAdmin={settings.isAdmin} />}
+                  />
+                </>
               ) : null}
             </section>
           ) : null}
