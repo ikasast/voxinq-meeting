@@ -89,7 +89,11 @@ browser does:
   Delivery holds no microphone, so it runs as a data-sync service.
 - **Signed in**: the `WebView`'s session cookie is sent with the service's own HTTP requests
   (`CookieManager`). The STT service has no sign-in of its own; it is reachable only inside the
-  tailnet, as it is for the browser.
+  tailnet, as it is for the browser, and since 4.9 its `start` message must carry the web app's
+  token for the meeting. The page hands the app one with the recording; the app asks the web app
+  for a fresh one (`/api/meetings/{id}/stt-token`) before every connection, and falls back to the
+  last when the web app cannot be reached. An app from before 4.9 sends none, and the page tells
+  its owner to update rather than start a recording the service would refuse.
 
 On the web side, one addition:
 

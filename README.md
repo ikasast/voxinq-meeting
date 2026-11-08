@@ -100,8 +100,8 @@ tailscale serve --bg --https=443 localhost:3000
 tailscale serve --bg --https=8443 localhost:8000
 ```
 
-> ⚠️ Port 8443, the transcription service, has no authentication. **Never publish it outside your
-> tailnet** (Funnel or otherwise).
+> ⚠️ Port 8443, the transcription service, answers only what the web app signs, but nobody signs in
+> to it. **Never publish it outside your tailnet** (Funnel or otherwise).
 
 **⑤ Open `https://<host>.<tailnet>.ts.net` on the phone** — in the Android app (below), or in Safari on
 an iPhone, which records only while the screen stays on and Safari stays in front. Then [run one short meeting through](docs/setup.md#check-that-it-works) before the first real one.

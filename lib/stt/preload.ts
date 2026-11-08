@@ -74,7 +74,7 @@ export async function preloadStt(
     if (model) params.set("model", model);
     if (translate) params.set("translate", "1");
     const qs = params.size > 0 ? `?${params}` : "";
-    const res = await fetch(`${sttHttpBase()}/preload${qs}`, {
+    const res = await fetch(`/api/stt/preload${qs}`, {
       method: "POST",
       signal: AbortSignal.timeout(8000),
     });

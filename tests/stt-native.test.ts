@@ -154,6 +154,49 @@ describe("the page's side of the app's recorder", () => {
       meetingId: "m1",
       status: "open",
       startedAt: 1757670000000,
+      sttToken: false,
+    });
+  });
+
+  describe("on a server whose transcription service asks for a token", () => {
+    afterEach(() => vi.unstubAllGlobals());
+    const issuing = () =>
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string) => {
+          expect(url).toBe("/api/meetings/m1/stt-token");
+          return new Response(JSON.stringify({ token: "m.m1.2000000000.sig", expiresAt: 2000000000000 }));
+        }),
+      );
+
+    it("hands the app the meeting's token with the recording", async () => {
+      issuing();
+      const app = installApp();
+      const h = handlers();
+      const starting = startNative(h, { meetingId: "m1" });
+      await vi.waitFor(() => expect(app.sent).toEqual([{ type: "hello" }]));
+      app.tell({ type: "state", recording: false, meetingId: null, status: null, startedAt: 0, sttToken: true });
+      const handle = await starting;
+      expect(app.sent[1]).toEqual({
+        type: "start",
+        wsUrl: "wss://stt.example:8443/ws",
+        meetingId: "m1",
+        token: "m.m1.2000000000.sig",
+        micMode: "room",
+      });
+      handle.detach();
+    });
+
+    it("says to update an app too old to show one, and starts nothing", async () => {
+      issuing();
+      const app = installApp();
+      const h = handlers();
+      const starting = startNative(h, { meetingId: "m1" });
+      await vi.waitFor(() => expect(app.sent).toEqual([{ type: "hello" }]));
+      app.tell({ type: "state", recording: false, meetingId: null, status: null, startedAt: 0 });
+      await expect(starting).rejects.toThrow("This server needs a newer Voxinq app to record.");
+      expect(app.sent).toEqual([{ type: "hello" }]);
+      expect(h.onStatus).not.toHaveBeenCalled();
     });
   });
 

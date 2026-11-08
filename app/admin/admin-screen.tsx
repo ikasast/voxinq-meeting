@@ -8,6 +8,7 @@ import { HouseDefaults } from "@/app/settings/house-defaults";
 import { MachineSettings } from "./machine-settings";
 import { PeopleList } from "./people-list";
 import type { ExtensionId } from "@/lib/extensions";
+import type { SttAuthState } from "@/lib/stt/auth-state";
 import { ADMIN_TABS, type AdminTab } from "./tabs";
 
 // The administration screen's tabs (app/admin/page.tsx). A tab is a link with ?tab=, so a tab can
@@ -19,6 +20,7 @@ export function AdminScreen({
   accounts,
   signupOpen,
   openExtension = null,
+  sttAuth = "signed",
 }: {
   tab: AdminTab;
   meId: string | null;
@@ -26,8 +28,20 @@ export function AdminScreen({
   signupOpen: boolean;
   /** An extension whose card opens with the tab. */
   openExtension?: ExtensionId | null;
+  /** Whether the transcription service answers only this app (lib/stt/auth-state.ts). */
+  sttAuth?: SttAuthState;
 }) {
   const t = useT();
+  const sttProblem =
+    sttAuth === "open"
+      ? t(
+          "The transcription service answers any device that can reach it, recordings included. Fetch the current docker-compose.yml from the release branch and restart, or give the web app and the service the same STT_SECRET.",
+        )
+      : sttAuth === "mismatch"
+        ? t(
+            "The transcription service expects a secret this app does not have, so recording and playback fail. Give the web app and the service the same STT_SECRET.",
+          )
+        : null;
   const label: Record<AdminTab, string> = {
     people: t("People"),
     defaults: t("Defaults for everyone"),
@@ -44,6 +58,15 @@ export function AdminScreen({
           {t("What describes this server and everybody on it. Your own preferences are under Settings.")}
         </p>
       </div>
+
+      {sttProblem ? (
+        <p
+          role="alert"
+          className="rounded-md border border-[color-mix(in_srgb,var(--warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] px-3 py-2 text-sm text-[var(--text-primary)]"
+        >
+          {sttProblem}
+        </p>
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-[12rem_minmax(0,1fr)]">
         <nav aria-label={t("Administration")} className="flex gap-1 overflow-x-auto md:flex-col">
@@ -97,6 +120,16 @@ export function AdminScreen({
                     : t("Closed: only an administrator makes accounts.")}
                 </p>
                 <p className="text-xs text-[var(--text-muted)]">{t("Set with VOXINQ_SIGNUP in .env.")}</p>
+              </section>
+              <section className="space-y-1 border-t border-[var(--border)] pt-6">
+                <h3 className="text-sm font-medium text-[var(--text-primary)]">{t("Transcription service")}</h3>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  {sttAuth === "signed"
+                    ? t("Answers this app only: every request to it is signed, and a recording carries a token for its own meeting.")
+                    : sttAuth === "unknown"
+                      ? t("Could not be reached, so whether it answers only this app is not known.")
+                      : sttProblem}
+                </p>
               </section>
             </div>
           ) : null}

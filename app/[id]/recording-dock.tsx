@@ -4,7 +4,6 @@ import { useDockSpace } from "../dock-space";
 import { readStored } from "@/lib/i18n/stored";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { sttHttpBase } from "@/lib/stt/client";
 import { effectiveSttLanguage } from "@/lib/stt/models";
 import { sttHealth } from "@/lib/stt/preload";
 import { useConfirmEx } from "../confirm-dialog";
@@ -327,7 +326,7 @@ export function RecordingDock({
     if (activeModel) params.set("model", activeModel);
     if (sttTranslateRef.current) params.set("translate", "1");
     const qs = params.size > 0 ? `?${params}` : "";
-    fetch(`${sttHttpBase()}/preload${qs}`, { method: "POST" }).catch(() => {});
+    fetch(`/api/stt/preload${qs}`, { method: "POST" }).catch(() => {});
   }, [settingsLoaded, meetingLoaded, external, activeModel]);
 
   // Track whether the model is loaded yet. Polls while it is still loading and stops once it
@@ -601,7 +600,7 @@ export function RecordingDock({
   // Protect the recording (WAV used for diarization/re-transcription). If off, auto-deleted after 7 days.
   const protectRecording = useCallback(async () => {
     try {
-      await fetch(`${sttHttpBase()}/recordings/${meetingId}/protect?on=true`, {
+      await fetch(`/api/meetings/${meetingId}/recording/protect?on=true`, {
         method: "POST",
         signal: AbortSignal.timeout(6000),
       });

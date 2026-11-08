@@ -4,12 +4,9 @@ import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { isSpeakerKey } from "@/lib/speakers";
+import { sttFetch } from "@/lib/stt/internal";
 
 export const runtime = "nodejs";
-
-// STT runs on the same host, so reach it over loopback (same pattern as the meeting-end
-// route, including 127.0.0.1 rather than localhost — see the comment there).
-const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 const TEXT_MAX = 5000;
 
@@ -81,8 +78,8 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/transcri
   let synced = false;
   if (index >= 0) {
     try {
-      const res = await fetch(
-        `${STT_INTERNAL_URL}/recordings/${target.meetingId}/segments/delete`,
+      const res = await sttFetch(
+        `/recordings/${target.meetingId}/segments/delete`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

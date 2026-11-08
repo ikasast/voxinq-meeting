@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { sttHttpBase } from "@/lib/stt/client";
 import { useT } from "@/app/locale-provider";
 
 // "Resume recording" for an ended meeting — shown only when the recording (WAV) is still kept.
@@ -16,7 +15,7 @@ export function ResumeRecordingButton({ meetingId }: { meetingId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${sttHttpBase()}/recordings/${meetingId}`, { signal: AbortSignal.timeout(6000) })
+    fetch(`/api/meetings/${meetingId}/recording`, { signal: AbortSignal.timeout(6000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { exists?: boolean } | null) => {
         if (!cancelled && d?.exists) setExists(true);

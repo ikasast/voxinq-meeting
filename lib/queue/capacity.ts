@@ -1,6 +1,6 @@
 import { findInstalled, listModels, loadedMb, ollamaBase } from "@/lib/llm/ollama-models";
 import { whisperModel } from "@/lib/stt/models";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 import { readEffectiveSettings, readSettings } from "@/lib/settings";
 import type { JobKind } from "./types";
 import type { MinutesParams } from "./types";
@@ -42,7 +42,7 @@ type Health = {
 
 async function health(): Promise<Health> {
   try {
-    const res = await fetch(`${sttInternalUrl()}/health`, { signal: AbortSignal.timeout(5000) });
+    const res = await sttFetch(`/health`, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return {};
     return (await res.json()) as Health;
   } catch {

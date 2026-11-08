@@ -42,7 +42,7 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 
 All optional. **Under Docker, the `stt` container receives only the variables
 `docker-compose.yml` names** — `HF_TOKEN`, `DIA_BACKEND`, `DIA_MIN_PIECE_S`, `WHISPER_MODEL`,
-`STT_ALLOWED_ORIGINS` and `TZ` — so putting any other one below in `.env` does nothing. To set
+`STT_ALLOWED_ORIGINS`, `STT_SECRET` (see below) and `TZ` — so putting any other one below in `.env` does nothing. To set
 it, add it to the `stt` service in a `docker-compose.override.yml` beside the compose file, which
 Compose reads on its own and git ignores:
 
@@ -128,10 +128,21 @@ Under Docker, `OLLAMA_BASE_URL` is set by the compose file to the bundled Ollama
 > answers these requests instead, silently and with no error to point at. Naming the IPv4
 > address avoids the whole class of problem. Same reasoning for `ollamaBaseUrl`.
 
+`STT_SECRET` — what the web app and the STT service share so that the service answers only the
+web app. The web app signs every request it makes to the service, and gives each recording a
+token for its own meeting, issued only to that meeting's owner; the service refuses anything
+else. **Both must have the same value.** Under Docker you set nothing: the compose file gives
+both containers `VOXINQ_STT_SECRET` from `.env` if it is there, and otherwise `POSTGRES_PASSWORD`.
+Set `VOXINQ_STT_SECRET` (any long random string) to keep the database password out of the `stt`
+container. The `voxinq` launcher generates one and keeps it in its data directory. For a native
+install, set `STT_SECRET` to the same value for both processes. Without it the service answers
+anybody who can reach its port, and **Administration** says so.
+
 `STT_ALLOWED_ORIGINS` — comma-separated browser origins allowed to call the STT service.
 (This one is read by the **STT service**, not the web app; under Docker it is passed to the
 `stt` container by `docker-compose.yml`.)
-The browser talks to it directly, so it must accept the origin the web app is served from.
+The browser opens a recording's connection to it directly, so it must accept the origin the web
+app is served from.
 Leave unset to allow the usual self-hosted origins automatically (`localhost`, private LAN
 addresses, and `*.ts.net`); set it to lock the service to an explicit list, e.g.
 `https://myhost.tailnet.ts.net,http://localhost:3000`. Everything else — including any site

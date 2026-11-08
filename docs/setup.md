@@ -502,7 +502,13 @@ pip install -r requirements-pyannote.txt
 
 #### 5. Run
 
+Give both the same `STT_SECRET`, so the transcription service answers only the web app
+([configuration](configuration.md)). Any long random string; without it the service answers
+anybody who can reach port 8000.
+
 ```bash
+export STT_SECRET="the-same-long-random-string-for-both"
+
 # STT service (GPU)
 cd stt-service && . .venv/Scripts/activate && python -m uvicorn server:app --host 0.0.0.0 --port 8000
 

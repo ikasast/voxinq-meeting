@@ -95,8 +95,8 @@ tailscale serve --bg --https=443 localhost:3000
 tailscale serve --bg --https=8443 localhost:8000
 ```
 
-> ⚠️ 8443（文字起こしサービス）には認証がありません。**Tailscale の外（Funnel など）には
-> 絶対に公開しないでください。**
+> ⚠️ 8443（文字起こしサービス）は Web アプリが署名した要求にしか応じませんが、ログインの仕組みは
+> ありません。**Tailscale の外（Funnel など）には絶対に公開しないでください。**
 
 **⑤ スマホで `https://<ホスト名>.<テイルネット名>.ts.net` を開く**：Android はアプリ（下記）で、
 iPhone は Safari で開きます（iPhone は、画面を点けて Safari を前に出している間だけ録音できます）。最初の本番の前に、[短い会議を 1 本通しで試してください](docs/ja/setup.md#動作確認)。

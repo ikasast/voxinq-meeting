@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, readJson } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 import { deleteRecording } from "@/lib/trash";
 
 export const runtime = "nodejs";
 
 // Protect, unprotect or delete recordings from the storage screen, one or several at once.
 //
-// Server side rather than from the browser to the transcription service, as the meeting page's
-// protect button does: the storage screen acts on several meetings at once, and which of them
-// are the reader's own is the database's answer (prisma is scoped to the reader), not the
-// browser's.
+// Which of them are the reader's own is the database's answer (prisma is scoped to the reader),
+// not the browser's — as for every request that reaches the transcription service.
 //
 // Deleting removes the audio only. The transcript and the minutes stay; what goes is playing
 // it back, re-transcribing and separating speakers again.
@@ -61,7 +59,7 @@ export async function POST(req: NextRequest) {
 
 async function protect(id: string, on: boolean): Promise<boolean> {
   try {
-    const res = await fetch(`${sttInternalUrl()}/recordings/${encodeURIComponent(id)}/protect?on=${on}`, {
+    const res = await sttFetch(`/recordings/${encodeURIComponent(id)}/protect?on=${on}`, {
       method: "POST",
       signal: AbortSignal.timeout(5000),
     });

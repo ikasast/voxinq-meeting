@@ -5,7 +5,7 @@ import path from "path";
 import JSZip from "jszip";
 import { prisma } from "../prisma";
 import { readSettings } from "../settings";
-import { sttInternalUrl } from "../stt/internal";
+import { sttFetch } from "../stt/internal";
 import {
   BUNDLE_FORMAT,
   BUNDLE_VERSION,
@@ -140,9 +140,8 @@ export async function buildBundle(opts: ExportOptions): Promise<{ zip: Buffer; m
   const recordings: RecordingEntry[] = [];
 
   if (opts.includeRecordings) {
-    const base = sttInternalUrl();
     // Fail loudly rather than hand back a backup quietly missing what was asked for.
-    const health = await fetch(`${base}/health`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+    const health = await sttFetch(`/health`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
     if (!health || !health.ok) throw new SttUnavailableError();
 
     let done = 0;
@@ -150,7 +149,7 @@ export async function buildBundle(opts: ExportOptions): Promise<{ zip: Buffer; m
       done += 1;
       phase(`recordings ${done}/${db.meetings.length}`);
 
-      const meta = (await fetch(`${base}/recordings/${m.id}/sidecars`, {
+      const meta = (await sttFetch(`/recordings/${m.id}/sidecars`, {
         signal: AbortSignal.timeout(15000),
       })
         .then((r) => (r.ok ? (r.json() as Promise<Sidecars>) : null))
@@ -158,7 +157,7 @@ export async function buildBundle(opts: ExportOptions): Promise<{ zip: Buffer; m
       // No recording is ordinary: they expire, and older meetings predate saving them.
       if (!meta?.exists) continue;
 
-      const audio = await fetch(`${base}/recordings/${m.id}/audio`, {
+      const audio = await sttFetch(`/recordings/${m.id}/audio`, {
         signal: AbortSignal.timeout(120000),
       })
         .then((r) => (r.ok ? r.arrayBuffer() : null))

@@ -14,7 +14,7 @@
 
 import { prisma, type PrismaTransaction } from "../prisma";
 import { writeSettings, type AppSettings } from "../settings";
-import { sttInternalUrl } from "../stt/internal";
+import { sttFetch } from "../stt/internal";
 import type { BundleDb, BundleMeeting } from "./manifest";
 import { setPhase } from "./progress";
 
@@ -295,7 +295,6 @@ export async function runImport(input: ImportInput): Promise<ImportResult> {
   // After the rows, and outside their transactions: a recording without its meeting is
   // useless, and a meeting without its recording is merely diminished.
   if (imported.length > 0) {
-    const base = sttInternalUrl();
     let r = 0;
     for (const meetingId of imported) {
       r += 1;
@@ -304,7 +303,7 @@ export async function runImport(input: ImportInput): Promise<ImportResult> {
       phase(`recordings ${r}/${imported.length}`);
 
       try {
-        const res = await fetch(`${base}/recordings/${meetingId}/restore`, {
+        const res = await sttFetch(`/recordings/${meetingId}/restore`, {
           method: "POST",
           headers: { "Content-Type": "application/octet-stream" },
           body: new Uint8Array(files.wav),
@@ -319,7 +318,7 @@ export async function runImport(input: ImportInput): Promise<ImportResult> {
         else result.recordingsRestored += 1;
 
         if (files.segments || files.speakers || files.embeddings || files.keep) {
-          await fetch(`${base}/recordings/${meetingId}/sidecars`, {
+          await sttFetch(`/recordings/${meetingId}/sidecars`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

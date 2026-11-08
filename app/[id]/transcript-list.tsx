@@ -15,7 +15,6 @@ import {
   separatedSpeakers,
 } from "@/lib/speakers";
 import { tellSpeakers, useOpenSpeakers } from "./speaker-bus";
-import { sttHttpBase } from "@/lib/stt/client";
 import { WHISPER_MODELS, effectiveSttLanguage } from "@/lib/stt/models";
 import { useConfirm } from "../confirm-dialog";
 import {
@@ -232,7 +231,7 @@ export function TranscriptList({
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${sttHttpBase()}/recordings/${meetingId}`, { signal: AbortSignal.timeout(6000) })
+    fetch(`/api/meetings/${meetingId}/recording`, { signal: AbortSignal.timeout(6000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: RecordingInfo | null) => {
         if (!cancelled && d) setRecInfo(d);
@@ -347,7 +346,7 @@ export function TranscriptList({
     setRecBusy(true);
     try {
       const res = await fetch(
-        `${sttHttpBase()}/recordings/${meetingId}/protect?on=${!recInfo.protected}`,
+        `/api/meetings/${meetingId}/recording/protect?on=${!recInfo.protected}`,
         { method: "POST" },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1608,7 +1607,7 @@ export function TranscriptList({
             ref={audioRef}
             controls
             preload="metadata"
-            src={`${sttHttpBase()}/recordings/${meetingId}/audio`}
+            src={`/api/meetings/${meetingId}/recording/audio`}
             className="h-9 w-full"
           />
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">

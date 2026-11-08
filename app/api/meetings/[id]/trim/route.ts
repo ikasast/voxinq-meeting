@@ -4,11 +4,9 @@ import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { prisma } from "@/lib/prisma";
 import { openJobFor } from "@/lib/queue/queue";
 import { planTrim } from "@/lib/recording/trim";
+import { sttFetch } from "@/lib/stt/internal";
 
 export const runtime = "nodejs";
-
-// STT runs on the same host, so reach it over loopback (see the meeting-end route).
-const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 // Keep only [startMs, endMs) of a meeting's recording, and the lines that fall in it.
 //
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     orderBy: { createdAt: "asc" },
     select: { id: true, audioStartMs: true, audioEndMs: true },
   });
-  const state = (await fetch(`${STT_INTERNAL_URL}/recordings/${id}`, { signal: AbortSignal.timeout(10_000) })
+  const state = (await sttFetch(`/recordings/${id}`, { signal: AbortSignal.timeout(10_000) })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)) as { exists?: boolean; segments?: { start: number; end: number }[] } | null;
   if (!state?.exists) return apiError("This meeting has no recording to trim.", 404);
@@ -56,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ removed: plan.dropIds.length, total: rows.length });
   }
 
-  const res = await fetch(`${STT_INTERNAL_URL}/recordings/${id}/trim`, {
+  const res = await sttFetch(`/recordings/${id}/trim`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ startMs: from, endMs: to, drop: plan.drop, expectedCount: rows.length }),

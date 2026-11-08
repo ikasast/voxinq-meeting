@@ -3,7 +3,7 @@ import { formatDateTimeIn, formatDurationIn } from "@/lib/i18n/format";
 import { currentLocale, serverT } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { barWidths, daysUntil, fateOf, formatMB, type Fate, type RecordingSize } from "@/lib/storage/usage";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 import { trashRetentionDays } from "@/lib/retention";
 import { RecordingList, type RecordingRow } from "./recording-list";
 
@@ -75,7 +75,7 @@ async function textUsage(ids: string[]): Promise<TextUsage> {
 async function recordingSizes(ids: string[]): Promise<Record<string, RecordingSize> | null> {
   if (ids.length === 0) return {};
   try {
-    const res = await fetch(`${sttInternalUrl()}/recordings/sizes`, {
+    const res = await sttFetch(`/recordings/sizes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),

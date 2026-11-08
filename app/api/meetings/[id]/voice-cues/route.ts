@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { extensionOff } from "@/app/api/extension-off";
 import { prisma } from "@/lib/prisma";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 import { type Measured, relativeCues } from "@/lib/voice-cues";
 
 export const runtime = "nodejs";
@@ -29,7 +29,7 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/meetings/[
   );
   if (placed.length === 0) return apiError("No line has a place in the recording to measure.", 409);
 
-  const res = await fetch(`${sttInternalUrl()}/recordings/${encodeURIComponent(id)}/voice`, {
+  const res = await sttFetch(`/recordings/${encodeURIComponent(id)}/voice`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

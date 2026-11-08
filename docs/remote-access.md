@@ -11,9 +11,11 @@ Two extra rules follow from the browser security model:
 - **Recording needs a secure context (HTTPS).** `getUserMedia` (microphone), Wake Lock and
   PWA install only work over `https://` (or `localhost`). Plain `http://<private-ip>` is
   **not** a secure context, so the mic is blocked.
-- **The STT service has no authentication of its own** — it only restricts browser origins
-  (see [Configuration → `STT_ALLOWED_ORIGINS`](configuration.md)). So it must never be
-  exposed to the public internet without an auth layer in front of it.
+- **The STT service has no accounts of its own.** It answers only requests the web app signed,
+  and recordings carrying the web app's token for their meeting
+  (see [Configuration → `STT_SECRET`](configuration.md)), but nobody signs in to it. Keep it
+  off the public internet all the same: it is the one port that streams audio in, and an
+  instance without the secret answers anybody.
 
 There are two families of solutions:
 
@@ -183,8 +185,9 @@ This is safe to combine with the phone-over-Tailscale setup: tailnet devices kee
 requests never carry the `Tailscale-User-Login` header — and Tailscale controls that header —
 the internal/external boundary cannot be forged.
 
-> ⚠️ **Never Funnel the STT port (8000/8443).** It has no authentication; Funnel would put your
-> recordings and GPU on the public internet. Only the web app (3000) should be Funnelled.
+> ⚠️ **Never Funnel the STT port (8000/8443).** It refuses what the web app did not sign, but
+> nobody signs in to it, and an instance without `STT_SECRET` answers anybody — Funnel would put
+> that on the public internet. Only the web app (3000) should be Funnelled.
 
 ---
 
@@ -301,7 +304,7 @@ Now `https://10.9.0.1` on the phone can record end to end.
 ## C. Public URL (reachable from any browser)
 
 If you would rather not run a VPN client on each device, expose a public HTTPS URL — but
-remember the STT service has **no authentication**, so you must add one at the edge.
+remember nobody signs in to the STT service, so you must add sign-in at the edge.
 
 - **[Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
   + Cloudflare Access** — a `cloudflared` daemon on the host opens an outbound tunnel, so you

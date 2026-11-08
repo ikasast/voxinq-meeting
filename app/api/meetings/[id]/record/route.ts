@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { gpuContenders, reserveForRecording } from "@/lib/queue/recording";
 import { recordingPlan } from "@/lib/recording/plan";
 import { readEffectiveSettings } from "@/lib/settings";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 
 export const runtime = "nodejs";
 
@@ -44,7 +44,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   // either way, and the card is reserved as it would be from the page.
   let deferredHost = false;
   try {
-    const res = await fetch(`${sttInternalUrl()}/health`, { signal: AbortSignal.timeout(5000) });
+    const res = await sttFetch(`/health`, { signal: AbortSignal.timeout(5000) });
     const health = (await res.json().catch(() => null)) as { liveTranscription?: boolean } | null;
     deferredHost = health?.liveTranscription === false;
   } catch {
