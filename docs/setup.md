@@ -21,6 +21,10 @@ if a terminal is not where you want to be, go straight to
 An **NVIDIA GPU with CUDA** (8 GB of VRAM is plenty) gives the best experience, but is **not
 required** — the table below is what changes without one.
 
+Whatever the GPU, plan on **16 GB of memory** and **about 40 GB free** (about 20 GB without a
+GPU): the CUDA transcription image is 21 GB unpacked (1.8 GB for the CPU one), Ollama's image
+about 9 GB, and a minutes model about 5 GB.
+
 ### What has actually been run
 
 The support table below says what the code *chooses*. This one says where that has been seen to

@@ -48,8 +48,10 @@ Four places, each closed on its own:
 - **The way out: nothing sent.** By default nothing goes to an outside service, and once it is set
   up the server can be one that cannot reach the internet at all
   ([A closed server](docs/closed-network.md)).
-- **What is kept: encrypted per person.** With accounts, each person's transcripts and minutes are
-  encrypted under their own key — not readable by an administrator either.
+- **What is kept: encrypted per person.** With accounts, what was said in each person's meetings —
+  the transcripts, the minutes and what is written from them — is encrypted under their own key,
+  not readable by an administrator either. Titles, agendas, names and the recordings themselves
+  are not ([what is and is not](docs/usage.md#what-is-encrypted-and-what-is-not)).
 - **The devices: a lost phone does not open.** The Android app locks behind the phone's fingerprint,
   face or screen lock, and an administrator can require that of every phone. Two-factor sign-in
   and device approval on the Tailscale side are recommended alongside.
@@ -60,6 +62,7 @@ More in [encryption](docs/usage.md#encryption), [remote access](docs/remote-acce
 ## Quick start
 
 For a Windows PC with an NVIDIA GPU. **Recommended:** that PC, an Android phone, and Tailscale.
+The PC needs 16 GB of memory and about 40 GB free (about 20 GB without a GPU).
 
 **① Install** [Docker Desktop](https://www.docker.com/products/docker-desktop/) and
 [Tailscale](https://tailscale.com/download) on the PC, and Tailscale on the phone — signed in with the
@@ -101,13 +104,14 @@ tailscale serve --bg --https=8443 localhost:8000
 > tailnet** (Funnel or otherwise).
 
 **⑤ Open `https://<host>.<tailnet>.ts.net` on the phone** — in the Android app (below), or in Safari on
-an iPhone. Then [run one short meeting through](docs/setup.md#check-that-it-works) before the first real one.
+an iPhone, which records only while the screen stays on and Safari stays in front. Then [run one short meeting through](docs/setup.md#check-that-it-works) before the first real one.
 
 <details>
 <summary><b>Without an NVIDIA GPU, or on a Mac</b></summary>
 
 It runs on any PC or a Mac. What changes is **when** the text appears — when the meeting ends instead
-of as you speak — and that the minutes take longer. Start with the CPU override as well:
+of as you speak — and that the minutes take longer. An AMD or Intel GPU is not used: such a PC
+runs on its CPU. Start with the CPU override as well:
 
 ```bash
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml

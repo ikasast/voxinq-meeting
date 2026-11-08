@@ -942,7 +942,8 @@ shared across accounts and shows everybody's work without showing what any of it
 
 ## What encryption at rest protects, and what it does not
 
-Transcripts and minutes are encrypted under a key that belongs to the account. Titles and dates
+Transcripts and minutes, and what is written from them, are encrypted under a key that belongs
+to the account ([the full list](usage.md#what-is-encrypted-and-what-is-not)). Titles and dates
 (and the tags 3.x kept) are not: they are what the list, the calendar and the search bar are made of, and
 encrypting them would mean an app that cannot show you your own meetings without unlocking every
 one of them.
