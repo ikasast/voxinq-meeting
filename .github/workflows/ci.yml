@@ -141,6 +141,7 @@ jobs:
       # The retention sweep: a recording goes with every file beside it, and files an older
       # sweep left are cleared once the period has passed. Standard library only.
       - run: python stt-service/test_retention.py
+      - run: python stt-service/test_auth.py
 
       # How each line was said (Voice cues): loudness, pitch and voiced time, measured from a
       # synthetic WAV whose pitch is known. numpy only.

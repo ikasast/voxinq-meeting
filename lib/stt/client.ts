@@ -2,6 +2,7 @@ import { antiAliasStages } from "@/lib/audio/lowpass";
 import { appendLocal, createLocal, finishLocal } from "@/lib/local-recordings";
 import { fromDiarizer, MIC_SPEAKER } from "@/lib/speakers";
 import { micConstraints, micGain, streamIsLive } from "./mic-constraints";
+import { sttTokens } from "./token";
 import { storedText } from "@/lib/i18n/stored";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
@@ -172,7 +173,7 @@ type ServerMessage =
   | { type: "partial"; text: string }
   | { type: "final"; text: string; speaker?: string; seq?: number; start?: number; end?: number }
   | { type: "translation"; seq: number; text: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: string };
 
 export async function startMic(
   handlers: SttHandlers,
@@ -315,8 +316,11 @@ export async function startMic(
 
   // Passing meetingId lets the STT service save the meeting audio for later diarization.
   // language: "auto"|"ja"|"en" (auto = auto-detect), initialPrompt: glossary to bias recognition.
-  const startPayload = JSON.stringify({
+  // The token says this meeting is the recorder's own (lib/stt/token.ts); fetched per connection.
+  const nextToken = sttTokens(opts?.meetingId);
+  const startPayload = (token: string | undefined) => JSON.stringify({
     type: "start",
+    token,
     model: opts?.model,
     meetingId: opts?.meetingId,
     language: opts?.language,
@@ -405,12 +409,17 @@ export async function startMic(
   const connect = () => {
     log(retries > 0 ? `reconnecting (${retries})` : "connecting", wsUrl());
     handlers.onStatus(retries === 0 ? "connecting" : retries <= QUICK_RETRIES ? "reconnecting" : "local");
+    const token = nextToken();
     const sock = new WebSocket(wsUrl());
     sock.binaryType = "arraybuffer";
     ws = sock;
     opened = false;
 
-    sock.addEventListener("open", () => sock.send(startPayload));
+    sock.addEventListener("open", () => {
+      void token.then((t) => {
+        if (sock === ws && sock.readyState === WebSocket.OPEN) sock.send(startPayload(t));
+      });
+    });
 
     sock.addEventListener("message", (ev) => {
       if (typeof ev.data !== "string") return;
@@ -454,7 +463,13 @@ export async function startMic(
           // The service cannot go on (a model that will not load, say). Not tried again, but
           // not stopped either: the audio goes on into the copy, to be sent once it is fixed.
           fatal = true;
-          handlers.onError(msg.message);
+          // "refused": the meeting's token was not accepted (stt-service/auth.py). English, as a
+          // key: the page shows it through the table (lib/i18n/stored.ts).
+          handlers.onError(
+            msg.code === "refused"
+              ? "The transcription service did not accept this recording. Reload the page and try again."
+              : msg.message,
+          );
           handlers.onStatus(copy ? "local" : "error");
           break;
       }

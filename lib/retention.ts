@@ -1,5 +1,5 @@
 import { readMachineSettings } from "./settings";
-import { sttInternalUrl } from "./stt/internal";
+import { sttFetch } from "./stt/internal";
 
 // How long what the machine holds is kept (Settings → Data).
 //
@@ -17,7 +17,7 @@ export type RecordingRetention = { days: number; from: "app" | "environment" } |
 /** The period the service is enforcing now, or null when it does not answer. */
 export async function recordingRetention(): Promise<RecordingRetention> {
   try {
-    const res = await fetch(`${sttInternalUrl()}/retention`, { signal: AbortSignal.timeout(4000), cache: "no-store" });
+    const res = await sttFetch(`/retention`, { signal: AbortSignal.timeout(4000), cache: "no-store" });
     if (!res.ok) return null;
     const d = (await res.json()) as { days?: unknown; from?: unknown };
     return typeof d.days === "number" ? { days: d.days, from: d.from === "app" ? "app" : "environment" } : null;
@@ -31,7 +31,7 @@ export async function pushRecordingRetention(days?: number): Promise<boolean> {
   const value = days ?? (await readMachineSettings()).recordingRetentionDays;
   if (value < 0) return true;
   try {
-    const res = await fetch(`${sttInternalUrl()}/retention`, {
+    const res = await sttFetch(`/retention`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ days: value }),

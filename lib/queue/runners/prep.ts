@@ -2,7 +2,7 @@ import { extensionEnabled } from "@/lib/extensions-store";
 import { prisma } from "@/lib/prisma";
 import { getPrepConfig, readEffectiveSettings } from "@/lib/settings";
 import { providerFor } from "@/lib/llm/provider";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 import { RECORDING_KIND } from "@/lib/queue/types";
 import {
   applyRun,
@@ -38,7 +38,7 @@ async function recognitionBusy(meetingId: string): Promise<boolean> {
   });
   if (!hold) return false;
   try {
-    const res = await fetch(`${sttInternalUrl()}/health`, { signal: AbortSignal.timeout(3000) });
+    const res = await sttFetch(`/health`, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return false;
     const { liveRtf } = (await res.json()) as { liveRtf?: number | null };
     return typeof liveRtf === "number" && liveRtf >= LIVE_RTF_LIMIT;

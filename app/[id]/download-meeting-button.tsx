@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { sttHttpBase } from "@/lib/stt/client";
 import { CopyIcon, DownloadIcon } from "../icons";
 import { useT } from "@/app/locale-provider";
 import { DropMenu, ICON_BUTTON, MENU_ITEM, MenuRule } from "../drop-menu";
@@ -37,7 +36,7 @@ export function DownloadMeetingButton({
 
   const askRecording = () => {
     setError(null);
-    fetch(`${sttHttpBase()}/recordings/${meetingId}`, { signal: AbortSignal.timeout(5000) })
+    fetch(`/api/meetings/${meetingId}/recording`, { signal: AbortSignal.timeout(5000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { exists?: boolean } | null) => setHasRecording(Boolean(d?.exists)))
       .catch(() => setHasRecording(false));
@@ -48,7 +47,7 @@ export function DownloadMeetingButton({
     try {
       // Not from the cache: the page's own player has usually loaded this file already, as a
       // media request without CORS, and a fetch that reuses that copy is refused by the browser.
-      const res = await fetch(`${sttHttpBase()}/recordings/${meetingId}/audio`, { cache: "no-store" });
+      const res = await fetch(`/api/meetings/${meetingId}/recording/audio`, { cache: "no-store" });
       if (!res.ok) throw new Error(t("Recording download failed (HTTP {status})", { status: res.status }));
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");

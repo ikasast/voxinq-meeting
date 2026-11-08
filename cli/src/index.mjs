@@ -24,6 +24,7 @@ import { appRoot, paths } from "./paths.mjs";
 import { pickPort, portFree, waitForHttp } from "./ports.mjs";
 import { alive, clearState, readState, writeState } from "./state.mjs";
 import { openBrowser, startService, stopService } from "./processes.mjs";
+import { sttSecret } from "./stt-secret.mjs";
 import { setupInstall } from "./setup.mjs";
 import { autostartEnabled, autostartOff, autostartOn } from "./autostart.mjs";
 import {
@@ -118,12 +119,14 @@ async function cmdStart(args) {
   }
 
   say("Starting the transcription service…");
+  const secret = sttSecret();
   const stt = startService("stt", python, ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", String(sttPort)], {
     cwd: join(appDir, "stt-service"),
     env: {
       STT_RECORDINGS_DIR: paths.recordings(),
       HF_HOME: join(paths.cache(), "huggingface"),
       STT_PORT: String(sttPort),
+      STT_SECRET: secret,
     },
   });
 
@@ -141,6 +144,7 @@ async function cmdStart(args) {
       // without anything being rebuilt.
       STT_WS_URL: `ws://127.0.0.1:${sttPort}/ws`,
       STT_INTERNAL_URL: `http://127.0.0.1:${sttPort}`,
+      STT_SECRET: secret,
       NODE_ENV: "production",
     },
   });

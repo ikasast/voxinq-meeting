@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { sttHttpBase } from "@/lib/stt/client";
 import { useT } from "./locale-provider";
 
 type State = { exists: boolean; protected?: boolean };
@@ -15,7 +14,7 @@ export function RecordingBadges({ ids }: { ids: string[] }) {
   useEffect(() => {
     if (ids.length === 0) return;
     let cancelled = false;
-    fetch(`${sttHttpBase()}/recordings/states`, {
+    fetch("/api/stt/states", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),

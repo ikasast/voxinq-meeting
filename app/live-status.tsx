@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { sttHttpBase } from "@/lib/stt/client";
 import { useT } from "./locale-provider";
 
 // Live per-meeting status on the list. Polls the STT service (which knows what the GPU is
@@ -29,7 +28,7 @@ export function LiveStatus({ ids }: { ids: string[] }) {
     let cancelled = false;
     const poll = async () => {
       try {
-        const d = (await fetch(`${sttHttpBase()}/activity`, {
+        const d = (await fetch("/api/stt/activity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ids }),

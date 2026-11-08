@@ -15,6 +15,11 @@ data class RecorderConfig(
     val translate: Boolean,
     val liveTranscript: Boolean?,
     val micMode: String?,
+    /**
+     * The page's token for this meeting (lib/stt/token.ts), for when the web app cannot be asked
+     * for a fresh one. Null when the server does not ask for one.
+     */
+    val token: String? = null,
 ) {
     val room: Boolean get() = micMode == "room"
 
@@ -24,8 +29,9 @@ data class RecorderConfig(
      * What the page left out stays out, as `JSON.stringify` drops `undefined`: the service reads
      * a missing `liveTranscript` as "whatever this host can do", which is not the same as false.
      */
-    fun startMessage(): String = JSONObject().apply {
+    fun startMessage(token: String? = this.token): String = JSONObject().apply {
         put("type", "start")
+        token?.let { put("token", it) }
         model?.let { put("model", it) }
         put("meetingId", meetingId)
         language?.let { put("language", it) }
@@ -45,6 +51,7 @@ data class RecorderConfig(
         put("translate", translate)
         liveTranscript?.let { put("liveTranscript", it) }
         micMode?.let { put("micMode", it) }
+        token?.let { put("token", it) }
     }.toString()
 
     companion object {
@@ -69,6 +76,7 @@ data class RecorderConfig(
                     null
                 },
                 micMode = json.stringOrNull("micMode"),
+                token = json.stringOrNull("token"),
             )
         }
 

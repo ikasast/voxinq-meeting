@@ -6,6 +6,7 @@ import { isExternalRequest } from "@/lib/is-tailnet";
 import { AdminScreen } from "./admin-screen";
 import { ADMIN_TABS, type AdminTab } from "./tabs";
 import { EXTENSION_IDS } from "@/lib/extensions";
+import { sttAuthState } from "@/lib/stt/auth-state";
 
 export const dynamic = "force-dynamic";
 
@@ -29,5 +30,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const tab: AdminTab = ADMIN_TABS.some((x) => x === asked) ? (asked as AdminTab) : "people";
   // An extension's card to open, from the mark beside its settings (app/settings/extension-chip.tsx).
   const card = EXTENSION_IDS.find((id) => id === open) ?? null;
-  return <AdminScreen tab={tab} meId={me?.id ?? null} accounts={accounts} signupOpen={signupIsOpen()} openExtension={card} />;
+  return (
+    <AdminScreen
+      tab={tab}
+      meId={me?.id ?? null}
+      accounts={accounts}
+      signupOpen={signupIsOpen()}
+      openExtension={card}
+      sttAuth={await sttAuthState()}
+    />
+  );
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 import { getLlmConfig, getPrepConfig, readSettings } from "@/lib/settings";
 import { whisperModel } from "@/lib/stt/models";
 import { abortGeneration } from "@/lib/llm/generation-registry";
@@ -169,7 +169,7 @@ export async function sweepStaleRecordings(): Promise<number> {
 
   let live: Record<string, string | null>;
   try {
-    const res = await fetch(`${sttInternalUrl()}/activity`, {
+    const res = await sttFetch(`/activity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),

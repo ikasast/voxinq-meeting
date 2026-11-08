@@ -1,4 +1,4 @@
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
 
 // Both of the jobs that run on the STT service have the same shape: post to start, then ask
 // until it stops saying "running". The shape lives here once so the two runners are about what
@@ -30,7 +30,7 @@ export async function sttRuntime(): Promise<{
   diarizationBackend?: string;
 }> {
   try {
-    const res = await fetch(`${sttInternalUrl()}/health`, { signal: AbortSignal.timeout(5000) });
+    const res = await sttFetch(`/health`, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return {};
     const d = (await res.json()) as Record<string, unknown>;
     const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
@@ -45,7 +45,7 @@ export async function sttRuntime(): Promise<{
 }
 
 export async function sttPost(path: string, body?: unknown): Promise<SttJobStatus> {
-  const res = await fetch(`${sttInternalUrl()}${path}`, {
+  const res = await sttFetch(`${path}`, {
     method: "POST",
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
@@ -76,7 +76,7 @@ export async function sttWait(statusPath: string, signal?: AbortSignal): Promise
   const until = Date.now() + MAX_WAIT_MS;
   for (;;) {
     if (signal?.aborted) throw new Error("cancelled");
-    const res = await fetch(`${sttInternalUrl()}${statusPath}`, {
+    const res = await sttFetch(`${statusPath}`, {
       signal: AbortSignal.timeout(30_000),
     });
     const job = (await res.json()) as SttJobStatus;

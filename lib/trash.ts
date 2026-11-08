@@ -1,7 +1,7 @@
 import { asSystem } from "./db/scope";
 import { pushRecordingRetention, trashRetentionDays } from "./retention";
 import { prisma } from "./prisma";
-import { sttInternalUrl } from "./stt/internal";
+import { sttFetch } from "./stt/internal";
 
 // How long a meeting stays in the trash, and the emptying of it.
 //
@@ -21,7 +21,7 @@ export const TRASH_PURGE_DAYS = 30;
  */
 export async function deleteRecording(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${sttInternalUrl()}/recordings/${encodeURIComponent(id)}`, {
+    const res = await sttFetch(`/recordings/${encodeURIComponent(id)}`, {
       method: "DELETE",
       signal: AbortSignal.timeout(5000),
     });

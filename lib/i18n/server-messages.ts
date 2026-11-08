@@ -139,6 +139,9 @@ export const SERVER_MESSAGES = [
   // The recording, as the browser starts it.
   "This device or browser cannot capture PC audio. Use Chrome or Edge on a PC.",
   "Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.",
+  // The service refused a recording's token (stt-service/auth.py), and the app too old to send one.
+  "The transcription service did not accept this recording. Reload the page and try again.",
+  "This server needs a newer Voxinq app to record. Update the app, then try again.",
 
   // The sample meeting somebody learns on.
   "Sample meetings can only be created from inside your private network.",

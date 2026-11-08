@@ -152,6 +152,17 @@ without it a key opened once was dropped a quarter of an hour later and an entir
 which they must during a migration and for ever on accounts with no key. The client encrypts on
 write and decrypts anything carrying the prefix on read, wherever it appears in a result.
 
+**The STT service answers the web app only.** It has no accounts, so the web app decides and the
+service checks that it did: both hold `STT_SECRET` (`lib/stt/auth.ts`, `stt-service/auth.py`).
+Every HTTP request from the web server carries a short-lived signature, added by `sttFetch`, and
+the service refuses anything unsigned except `/health`. The browser reaches the service for one
+thing only, a recording's WebSocket; its `start` message carries a token naming the meeting, issued
+by `/api/meetings/{id}/stt-token` to that meeting's owner. Everything else the browser used to ask
+the service directly — whether a recording exists, the audio itself, protecting it, the list's
+badges, warming the model, a voiceprint — now goes through routes in the web app that check
+ownership the way every other route does (`lib/stt/relay.ts`). Without a secret nothing is signed
+or checked, and Administration says so.
+
 **Search** is a blind index. `MeetingGram` holds keyed hashes of the two-character sequences a
 meeting contains; a query is hashed the same way and must match every token. The index narrows
 and the candidates are then decrypted and scanned, which removes the overlaps bigrams inevitably

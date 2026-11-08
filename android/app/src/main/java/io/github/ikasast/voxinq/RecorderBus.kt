@@ -73,6 +73,9 @@ object RecorderBus {
             "meetingId" to it.meetingId,
             "status" to it.status,
             "startedAt" to it.startedAt,
+            // This app shows the transcription service a token for the meeting. The page will not
+            // hand a recording to one that cannot, on a server that asks for it (lib/stt/native.ts).
+            "sttToken" to true,
         )
     }
 }

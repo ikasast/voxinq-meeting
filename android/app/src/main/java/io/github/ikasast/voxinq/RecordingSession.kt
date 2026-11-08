@@ -93,6 +93,9 @@ class RecordingSession(
         private const val RETRY_SWEEP_MS = 60_000L
 
         private const val END_WAIT_MS = 10_000L
+
+        /** How long a connection waits for a fresh token before going with the one it has. */
+        private const val TOKEN_WAIT_MS = 5_000L
         private const val DRAIN_MS = 30_000L
         private val JSON = "application/json".toMediaType()
         private val DIARIZED = Regex("^speaker(\\d+)$")
@@ -348,12 +351,34 @@ class RecordingSession(
         socket = client.newWebSocket(request, Listener(gen))
     }
 
+    /** The newest token for this meeting: the page's, until the web app gives a fresher one. */
+    @Volatile private var token: String? = config.token
+
+    /**
+     * A token for this connection (lib/stt/token.ts), asked of the web app each time, so a long
+     * meeting or a recording sent hours later is not refused for an old one. When the web app
+     * cannot be reached the last one goes, and it is good for a day.
+     */
+    private suspend fun freshToken(): String? {
+        val id = URLEncoder.encode(config.meetingId, "UTF-8")
+        val text = withTimeoutOrNull(TOKEN_WAIT_MS) {
+            runCatching { call("GET", "/api/meetings/$id/stt-token", null) }.getOrNull()
+        } ?: return token
+        val json = runCatching { JSONObject(text) }.getOrNull() ?: return token
+        // Null from the web app: the service is not asking for one.
+        return json.stringOrNull("token").also { token = it }
+    }
+
     private inner class Listener(private val gen: Int) : WebSocketListener() {
         override fun onOpen(webSocket: WebSocket, response: Response) {
-            synchronized(lock) {
-                if (webSocket !== socket) return
-                webSocket.send(config.startMessage())
-                connected = true
+            // The service waits for `start`, and no audio goes before it has answered "open".
+            scope.launch {
+                val t = freshToken()
+                synchronized(lock) {
+                    if (webSocket !== socket) return@launch
+                    webSocket.send(config.startMessage(t))
+                    connected = true
+                }
             }
         }
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { sttInternalUrl } from "@/lib/stt/internal";
+import { sttFetch } from "@/lib/stt/internal";
+import { readerOwns, relay } from "@/lib/stt/relay";
 
 export const runtime = "nodejs";
 // Minutes, not seconds: this is somebody's hour-long recording arriving over a phone's uplink.
@@ -29,6 +30,13 @@ function oneLine(detail: string | undefined): string | undefined {
     .filter(Boolean);
   if (lines.length <= 1) return detail.trim();
   return `${lines[0].split(":")[0]}: ${lines[lines.length - 1]}`;
+}
+
+/** Whether this meeting has a recording, how long, and whether it is kept (lib/stt/relay.ts). */
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  if (!(await readerOwns(id))) return apiError("meeting not found", 404);
+  return relay(`/recordings/${encodeURIComponent(id)}`, { timeoutMs: 6000 });
 }
 
 /**
@@ -65,7 +73,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   let res: Response;
   try {
-    res = await fetch(`${sttInternalUrl()}/upload/${encodeURIComponent(id)}?transcribe=false`, {
+    res = await sttFetch(`/upload/${encodeURIComponent(id)}?transcribe=false`, {
       method: "POST",
       headers: { "Content-Type": "application/octet-stream" },
       body: req.body,

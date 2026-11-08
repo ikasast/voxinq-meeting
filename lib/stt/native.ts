@@ -8,6 +8,7 @@
 // line arrives already saved. See docs/android-app.md.
 
 import { type LinkStatus, type SttHandle, type SttHandlers, sttWsUrl } from "./client";
+import { sttTokens } from "./token";
 
 /** What the app injects: strings go out through `postMessage`, and come back as message events. */
 type Bridge = {
@@ -49,6 +50,8 @@ export type NativeState = {
   meetingId: string | null;
   status: LinkStatus | null;
   startedAt: number;
+  /** The app shows the transcription service a token for the meeting (4.9 on). */
+  sttToken: boolean;
 };
 
 export type NativeStartOptions = {
@@ -132,6 +135,7 @@ export function nativeState(timeoutMs = 1500): Promise<NativeState | null> {
         meetingId: typeof m.meetingId === "string" ? m.meetingId : null,
         status: asStatus(m.status),
         startedAt: typeof m.startedAt === "number" ? m.startedAt : 0,
+        sttToken: m.sttToken === true,
       });
     });
     send({ type: "hello" });
@@ -295,11 +299,20 @@ function subscribe(handlers: NativeHandlers): NativeHandle {
 /** Hand this meeting's recording to the app. The same options `startMic` takes, less the audio routing. */
 export async function startNative(handlers: NativeHandlers, opts: NativeStartOptions): Promise<NativeHandle> {
   if (!bridge()) throw new Error("The app's recorder is not available");
+  // The first token comes from here; the app fetches its own for every connection after
+  // (RecordingSession.kt). An app from before 4.9 cannot, and the service would refuse it with a
+  // reason that says nothing about the app — so it is told here, before anything starts.
+  const token = await sttTokens(opts.meetingId)();
+  const state = token ? await nativeState() : null;
+  if (state && !state.sttToken) {
+    // English, as a key: the page shows it through the table (lib/i18n/stored.ts).
+    throw new Error("This server needs a newer Voxinq app to record. Update the app, then try again.");
+  }
   const handle = subscribe(handlers);
   handlers.onStatus("connecting");
   // Room, always (lib/stt/mic-constraints.ts). Said rather than assumed: an app from before 4.0
   // reads it and records at the handset's level without it.
-  send({ type: "start", wsUrl: sttWsUrl(), ...opts, micMode: "room" });
+  send({ type: "start", wsUrl: sttWsUrl(), ...opts, token, micMode: "room" });
   return handle;
 }
 

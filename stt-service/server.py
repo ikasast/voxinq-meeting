@@ -60,8 +60,9 @@ from backends import (
 )
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 
+import auth
 from translator import preload_translator, translate_to_ja, translator_state
 from retention import recording_files, sweep as sweep_recordings
 from sessions import OpenSessions, Session
@@ -325,6 +326,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Everything but /health is the web server's to ask (auth.py). /health stays open: the browser
+# reads it to tell "the transcription service cannot be reached from here" from "the app is
+# down", and it says nothing about any meeting. A preflight carries no credentials by design.
+@app.middleware("http")
+async def _web_server_only(request: Request, call_next):
+    if (
+        auth.enabled()
+        and request.url.path != "/health"
+        and request.method != "OPTIONS"
+        and not auth.server_request_ok(request.headers.get(auth.HEADER))
+    ):
+        return JSONResponse({"detail": "not signed by the web app"}, status_code=401)
+    return await call_next(request)
 
 
 class WhisperHolder:
@@ -676,6 +692,9 @@ async def health() -> dict:
         # False means this host records the meeting and transcribes it afterwards. The
         # recording screen reads this to know whether to expect text during the meeting.
         "liveTranscription": LIVE_TRANSCRIPTION,
+        # False: no STT_SECRET, so anybody who can reach this port can use it (auth.py). The web
+        # app tells administrators.
+        "auth": auth.enabled(),
         "liveRtf": _live_speed(),
         "translate": translator_state(),
         # Runs a subprocess the first time, so keep it off the event loop.
@@ -2212,8 +2231,24 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     continue
                 kind = payload.get("type")
                 if kind == "start":
+                    meeting_id = _safe_meeting_id(payload.get("meetingId"))
+                    # Only the meeting's owner is given a token for it, by the web app. Without
+                    # one this would append anybody's audio to anybody's recording.
+                    if auth.enabled() and not auth.meeting_token_ok(payload.get("token"), meeting_id):
+                        with suppress(Exception):
+                            await ws.send_text(
+                                json.dumps(
+                                    {
+                                        "type": "error",
+                                        "code": "refused",
+                                        "message": "The transcription service did not accept this recording. Reload the page and try again.",
+                                    }
+                                )
+                            )
+                        await ws.close(code=1008)
+                        break
                     state.model_name = payload.get("model")
-                    state.meeting_id = _safe_meeting_id(payload.get("meetingId"))
+                    state.meeting_id = meeting_id
                     if state.meeting_id:
                         _recording_add(state.meeting_id)  # for /activity (list "Recording…")
                     lang = payload.get("language")

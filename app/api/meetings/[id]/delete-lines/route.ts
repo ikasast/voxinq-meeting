@@ -3,11 +3,9 @@ import { apiError, readJson } from "@/lib/api";
 import { reindexAfterWrite } from "@/lib/crypto/reindex-hook";
 import { prisma } from "@/lib/prisma";
 import { openJobFor } from "@/lib/queue/queue";
+import { sttFetch } from "@/lib/stt/internal";
 
 export const runtime = "nodejs";
-
-// STT runs on the same host, so reach it over loopback (see the meeting-end route).
-const STT_INTERNAL_URL = process.env.STT_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
 /** More than any meeting has lines, and few enough for one request. */
 const MAX_IDS = 20_000;
@@ -61,7 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
  */
 async function dropSegments(meetingId: string, indices: number[], count: number): Promise<boolean> {
   const call = (body: object) =>
-    fetch(`${STT_INTERNAL_URL}/recordings/${meetingId}/segments/delete`, {
+    sttFetch(`/recordings/${meetingId}/segments/delete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

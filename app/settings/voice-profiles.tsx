@@ -165,7 +165,7 @@ export function VoiceProfiles() {
     setError(null);
     try {
       const wav = pcmToWav(chunksRef.current);
-      const res = await fetch(`${sttHttpBase()}/voiceprint`, { method: "POST", body: wav });
+      const res = await fetch("/api/stt/voiceprint", { method: "POST", body: wav });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
         throw new Error(d?.detail ?? t("Extraction failed (HTTP {status})", { status: res.status }));

@@ -477,6 +477,10 @@ export const ja: Record<string, string> = {
     "この端末・ブラウザは PC 音声を取り込めません。PC の Chrome か Edge を使ってください。",
   "Lost the transcription service (code {code}{reason}) after {n} tries to reconnect.":
     "文字起こしサービスとの接続が切れました（コード {code}{reason}）。{n} 回再接続を試みました。",
+  "The transcription service did not accept this recording. Reload the page and try again.":
+    "文字起こしサービスがこの録音を受け付けませんでした。ページを再読み込みして、もう一度試してください。",
+  "This server needs a newer Voxinq app to record. Update the app, then try again.":
+    "このサーバーで録音するには、新しい Voxinq アプリが必要です。アプリを更新してから、もう一度試してください。",
   "Next meeting": "次の会議",
   "Next meeting in this series": "このシリーズの次の会議",
   "Fix wording": "表記の修正",
@@ -1801,6 +1805,15 @@ export const ja: Record<string, string> = {
     "誰でも：tailnet の新しい人は、初めてアクセスしたときにアカウントになります。",
   "Closed: only an administrator makes accounts.": "管理者だけ：アカウントは管理者が作ります。",
   "Set with VOXINQ_SIGNUP in .env.": ".env の VOXINQ_SIGNUP で変更します。",
+  "Transcription service": "文字起こしサービス",
+  "Answers this app only: every request to it is signed, and a recording carries a token for its own meeting.":
+    "このアプリにだけ応答します。要求にはすべて署名が付き、録音はその会議用のトークンを持っています。",
+  "Could not be reached, so whether it answers only this app is not known.":
+    "つながらないため、このアプリにだけ応答するかどうか分かりません。",
+  "The transcription service answers any device that can reach it, recordings included. Fetch the current docker-compose.yml from the release branch and restart, or give the web app and the service the same STT_SECRET.":
+    "文字起こしサービスが、届くどの端末にも応答する状態です（録音も取得できます）。release ブランチから最新の docker-compose.yml を取り直して再起動するか、Web アプリと文字起こしサービスに同じ STT_SECRET を設定してください。",
+  "The transcription service expects a secret this app does not have, so recording and playback fail. Give the web app and the service the same STT_SECRET.":
+    "文字起こしサービスが、このアプリの持っていない秘密を求めているため、録音も再生もできません。Web アプリと文字起こしサービスに同じ STT_SECRET を設定してください。",
   "Recognition model": "文字起こしのモデル",
   "Change it under Administration → This machine": "管理 → このマシン で変更できます",
   "Set for the whole machine by an administrator.": "マシン全体の設定で、管理者が変更します。",

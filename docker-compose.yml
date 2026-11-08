@@ -84,6 +84,11 @@ services:
       # it a stolen database alone reads whatever was unlocked; with it, a dump or a backup on
       # its own does not. Keep it out of the backup.
       VOXINQ_KEY_SECRET: ${VOXINQ_KEY_SECRET:-}
+      # Shared with `stt` below: the web app signs what it asks of the transcription service and
+      # issues each recording a token for its own meeting, and the service refuses anything
+      # else. Derived from POSTGRES_PASSWORD unless VOXINQ_STT_SECRET is set — set it to keep the
+      # database password out of the stt container. Both services must get the same value.
+      STT_SECRET: ${VOXINQ_STT_SECRET:-${POSTGRES_PASSWORD:-}}
       # Meeting dates on the list, the detail header, the print page and the exports are
       # formatted here, in the container. A container has no timezone unless it is given
       # one, so leaving this unset renders them in UTC while the browser renders the
@@ -139,8 +144,11 @@ services:
       # into a neighbour. Unset keeps every piece: a short one is usually a real "yes".
       DIA_MIN_PIECE_S: ${DIA_MIN_PIECE_S:-}
       WHISPER_MODEL: ${WHISPER_MODEL:-large-v3-turbo}
-      # The browser's origin must be allowed; it calls this service directly.
+      # The browser's origin must be allowed; it opens a recording's connection here directly.
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}
+      # The same as web's: only the web app's signed requests, and recordings carrying its token
+      # for their meeting, are answered. Without it anybody who reaches the port can use it.
+      STT_SECRET: ${VOXINQ_STT_SECRET:-${POSTGRES_PASSWORD:-}}
       # Log timestamps only — nothing here is shown in the UI — but a stack whose services
       # disagree about what time it is makes correlating logs needlessly hard.
       TZ: ${TZ:-UTC}
