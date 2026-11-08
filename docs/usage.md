@@ -764,10 +764,29 @@ and nothing about what filled it.
 
 ## Encryption
 
-Once an account has a password it has a key, and its transcripts and minutes are encrypted with
-it. Titles and dates are not: they are what the list, the calendar and the search bar are made
-of. An account an administrator creates gets its key the first time its owner signs in, and
-that is when its recovery code is shown.
+Once an account has a password it has a key, and what was said in its meetings is encrypted with
+it. What describes a meeting is not: the list, the calendar and the search bar are made of it.
+An account an administrator creates gets its key the first time its owner signs in, and that is
+when its recovery code is shown.
+
+### What is encrypted, and what is not
+
+| | |
+| --- | --- |
+| **Encrypted** with the account's key | the transcript's lines; the minutes; meeting feedback; questions asked about a meeting and their answers; the summary and questions written during a talk |
+| **Not encrypted**, in the database | titles and dates; purpose and agenda; participants, series members and the names given to speakers; series names, backgrounds, glossaries and minutes formats; **translations of lines**; voiceprints; the queue |
+| **Not encrypted**, on the transcription service's disk | **the recording itself**, and what is worked out from it (where each line sits, speaker separation, voice cues, emotion) |
+| **Not encrypted**, on the server | `settings.json`, which holds API keys |
+| **Encrypted with a password of its own** | a backup file (`.voxbak`) — see [Backup & restore](#backup--restore) |
+
+**Nothing is encrypted** on an instance without accounts, or for an account with no password —
+one that has only ever been used from inside the tailnet. Setting a password gives it a key, and
+what it already has is encrypted then.
+
+**The recording is reachable inside the tailnet.** The transcription service has no sign-in of
+its own (it is why port 8443 must never be published), so a device in your tailnet that knows a
+meeting's ID can fetch its audio from it. Meeting IDs are long and random, and nothing lists
+them, but this is a door the encryption does not close.
 
 **Your recovery code is shown once.** It is the only way back into your meetings if you forget
 your password, and it is not stored anywhere — an administrator can send you a link to set a new

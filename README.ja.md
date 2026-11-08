@@ -47,8 +47,9 @@
   外からアプリに届く道がありません。
 - **出口：外へ送らない。** 既定では何も外部に送りません。さらに、準備が済んだらインターネットへ一切
   出られない専用サーバーにもできます（→ [閉じたサーバーで動かす](docs/ja/closed-network.md)）。
-- **中身：人ごとに暗号化する。** アカウントを作ると、発言と議事録は本人の鍵で暗号化され、管理者にも
-  読めません。
+- **中身：人ごとに暗号化する。** アカウントを作ると、会議で話された内容（発言・議事録と、そこから
+  書かれたもの）は本人の鍵で暗号化され、管理者にも読めません。タイトル・議題・名前と録音そのものは
+  暗号化されません（→ [暗号化されるもの・されないもの](docs/ja/security.md#暗号化されるものされないもの)）。
 - **端末：なくしたスマホから開かせない。** Android アプリは指紋・顔・画面ロックでロックでき、管理者は
   全員のスマホに必須にできます。Tailscale 側の二段階認証と端末の承認もあわせて勧めています。
 
@@ -57,6 +58,7 @@
 ## はじめ方
 
 NVIDIA GPU 搭載の Windows PC を例にしています。**推奨構成**は、その PC ＋ Android スマホ ＋ Tailscale です。
+PC にはメモリ 16GB と、約 40GB の空き（GPU 無しなら約 20GB）が要ります。
 
 **① 入れる**：PC に [Docker Desktop](https://www.docker.com/products/docker-desktop/) と
 [Tailscale](https://tailscale.com/download)、スマホに Tailscale を入れ、**同じアカウント**でログインします。
@@ -97,13 +99,13 @@ tailscale serve --bg --https=8443 localhost:8000
 > 絶対に公開しないでください。**
 
 **⑤ スマホで `https://<ホスト名>.<テイルネット名>.ts.net` を開く**：Android はアプリ（下記）で、
-iPhone は Safari で開きます。最初の本番の前に、[短い会議を 1 本通しで試してください](docs/ja/setup.md#動作確認)。
+iPhone は Safari で開きます（iPhone は、画面を点けて Safari を前に出している間だけ録音できます）。最初の本番の前に、[短い会議を 1 本通しで試してください](docs/ja/setup.md#動作確認)。
 
 <details>
 <summary><b>NVIDIA GPU が無い PC や Mac の場合</b></summary>
 
 GPU の無い PC でも Mac でも動きます。違いは、文字が会議中ではなく**会議の終了後にまとめて出る**ことと、
-議事録の作成に時間がかかることです。起動時に CPU 用の設定も読み込みます。
+議事録の作成に時間がかかることです。AMD / Intel の GPU は使わず、CPU で動きます。起動時に CPU 用の設定も読み込みます。
 
 ```bash
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.cpu.yml
