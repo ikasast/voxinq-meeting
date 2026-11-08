@@ -99,3 +99,10 @@ docker-compose.override.yml
 android/keystore.properties
 *.jks
 *.keystore
+
+# Benchmark data and raw results (docs/benchmarks.md): public data on its own terms, not redistributed.
+/bench/data/
+/bench/results/
+
+# Downloaded by diarization/fetch_models.py.
+/diarization/models/

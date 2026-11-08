@@ -175,6 +175,7 @@ whole instance, and an interface in English or Japanese.
 | Use a different LLM | 🤖 [LLM providers](docs/llm-providers.md) |
 | Use the Android app | 📱 [Android app](android/README.md) |
 | Understand how it works, and why | 🏗 [Architecture](docs/architecture.md) · 🧭 [Design decisions](docs/design-decisions.md) |
+| See how accurate it is | 📏 [Benchmarks](docs/benchmarks.md) |
 | Fix a problem | 🩺 [Troubleshooting](docs/troubleshooting.md) |
 
 Similar open-source projects: [Meetily](https://github.com/Zackriya-Solutions/meeting-minutes),
