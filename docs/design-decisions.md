@@ -374,11 +374,14 @@ there before is gone. Re-transcribing is not a way to "get the same thing again"
 
 **For anyone measuring this:** the noise floor is larger than most differences worth measuring,
 so any A/B on recognition needs a control of the same audio against itself before its number
-means anything. The **13.8%** recorded below for [whisper.cpp against faster-whisper](#what-whispercpp-costs-on-a-cpu)
-has no such control and sits *below* the floor measured here. That does not make it wrong — it
-was measured on different material, in Japanese, and the floor is material-dependent — but it
-does mean the figure cannot presently be relied on as a quality difference between the two
-engines. It should be re-measured against a control before it is quoted again.
+means anything.
+
+**The floor belongs to the audio, not to the engine.** On 33 minutes of clean public speech
+([Benchmarks](benchmarks.md#same-audio-three-times)) three runs with the same settings came out
+identical. The fallback only samples when a decode fails its checks, and close-miked speech
+rarely fails them; the meeting above failed them often. So a control is needed on meeting audio
+and not on clean speech — and a result on clean speech says nothing about the floor of a
+meeting.
 
 ## Opus on the wire was measured and could not be cleared
 
@@ -426,6 +429,13 @@ mechanisms are in play and are easy to mistake for one:
 On top of those, low-confidence segments are dropped by `no_speech_prob` / `avg_logprob`, and a
 blocklist catches the canned phrases Whisper emits over silence. Adding another VAD library
 would duplicate layer 2.
+
+**Layer 2 has a measured cost.** On clean public speech it drops words and lifts faint ones from
+the edges into the text: with it on, faster-whisper got 14.1% of characters wrong, with it off
+10.3% — level with whisper.cpp, which has no layer 2
+([Benchmarks](benchmarks.md#what-the-gap-between-the-paths-is)). That material has almost no
+silence, so the hallucinations layer 2 exists to stop were not part of the test. It stays on
+until the same comparison has been made on meeting audio.
 
 ## Capture is filtered and limited before it leaves the browser
 
@@ -578,6 +588,12 @@ different model, and any model that is not `large-v3-turbo` is penalised here fo
 > and the spread from 26.3% to 13.8% is wider than a floor alone would explain — but no number
 > here should be quoted as a quality difference until each row is re-measured against the same
 > audio compared with itself. The RTF column is unaffected.
+>
+> **Re-measured with a reference, for the default model:** on public Japanese speech with human
+> transcriptions ([Benchmarks](benchmarks.md#recognition-japanese)), `large-v3-turbo` through
+> whisper.cpp got 11.2% of characters wrong and through faster-whisper 14.1%. The CPU path is
+> not the worse one; the gap is faster-whisper's own voice detector, not the weights. The other
+> rows have not been re-measured.
 
 The finding that matters is the first column. **Transcription is live**, so RTF above 1 means
 the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,

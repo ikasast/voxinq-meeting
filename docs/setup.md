@@ -90,13 +90,11 @@ A machine with no GPU acceleration **records the meeting and transcribes it in o
 end**, rather than trying to keep up and falling behind. What is lost is the text during the
 meeting.
 
-The model is nominally the same, but **the weights are not**: faster-whisper runs CTranslate2
-weights and whisper.cpp runs GGML-quantised ones, and the two do not produce the same
-transcript. Measured on a real 12-minute Japanese meeting with the segmentation held constant,
-`large-v3-turbo` through whisper.cpp diverges from the same model through faster-whisper by
-**13.8% of characters**. Neither output is ground truth, so that is a difference rather than a
-verdict — the numbers and the method are in
-[Design decisions](design-decisions.md#what-whispercpp-costs-on-a-cpu). Everything after that (minutes, speaker
+The transcript is not worse for it. On public Japanese speech with human transcriptions, the
+CPU path got **11.2%** of characters wrong against the GPU path's **14.1%**, both running
+`large-v3-turbo`, and recognised a whole file at 0.72 of its length — an hour's meeting is text
+about 43 minutes after it ends. The figures, why the paths differ, and how to run the same
+measurement are in [Benchmarks](benchmarks.md). Everything after that (minutes, speaker
 separation, search) is unchanged. `STT_LIVE_TRANSCRIPTION=1` forces live recognition anyway on
 a machine you know is fast enough.
 

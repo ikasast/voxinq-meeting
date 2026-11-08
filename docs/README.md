@@ -13,6 +13,7 @@ want to do:
 | **Learn the features** (record, upload, speakers, series, feedback, ask, minutes in bulk, fixing words, export, recording without the server) | 📖 [Usage & recipes](usage.md) |
 | **Understand how it works** (components, data flow, what is Voxinq and what is not) | 🏗 [Architecture](architecture.md) |
 | **Understand *why*** (the trade-offs, and what was tried and rejected) | 🧭 [Design decisions](design-decisions.md) |
+| **See how accurate it is** (recognition and speaker separation on public data, and how to run it yourself) | 📏 [Benchmarks](benchmarks.md) |
 | **Record on Android with the screen off** (install, updates, what the app adds) | 📱 [Voxinq for Android](../android/README.md) |
 | **Understand the Android app** (why a native app, its shape, what it was decided not to do) | 🧩 [Android app design](android-app.md) |
 | **Fix a problem** (common issues and their causes) | 🩺 [Troubleshooting](troubleshooting.md) |
