@@ -32,20 +32,27 @@ import { prismaRaw } from "./prisma-raw";
 /**
  * What is encrypted, and under what name.
  *
- * The two things a meeting actually contains. Titles, dates and tags stay in the clear on
- * purpose: they are what the list, the calendar and the search bar are made of, and encrypting
- * them would mean an app that cannot show you your own meetings without unlocking every one.
- * That is the trade, and it is written down in the documentation rather than implied here.
+ * What a meeting actually contains: what was said, and what is written from it. Titles, dates
+ * and tags stay in the clear on purpose: they are what the list, the calendar and the search bar
+ * are made of, and encrypting them would mean an app that cannot show you your own meetings
+ * without unlocking every one. That is the trade, and it is written down in the documentation
+ * rather than implied here.
  */
-const ENCRYPTED: Record<string, { field: string; purpose: string }> = {
-  transcript: { field: "text", purpose: "transcript" },
-  meetingSummary: { field: "summaryText", purpose: "minutes" },
+type EncryptedField = { field: string; purpose: string };
+
+const ENCRYPTED: Record<string, EncryptedField[]> = {
+  transcript: [
+    { field: "text", purpose: "transcript" },
+    // A translation is what was said, in another language. It was left in the clear until 4.9.
+    { field: "translation", purpose: "translation" },
+  ],
+  meetingSummary: [{ field: "summaryText", purpose: "minutes" }],
   // Feedback quotes what was said, so it is kept like the minutes.
-  meetingReview: { field: "result", purpose: "review" },
+  meetingReview: [{ field: "result", purpose: "review" }],
   // So does an answer to a question about a meeting; the question goes with it.
-  askTurn: { field: "body", purpose: "ask" },
+  askTurn: [{ field: "body", purpose: "ask" }],
   // Questions and a summary written during a talk paraphrase it.
-  meetingPrep: { field: "body", purpose: "prep" },
+  meetingPrep: [{ field: "body", purpose: "prep" }],
 };
 
 /** Rows that are not meeting content. Shared, or scoped by being about a person already. */
@@ -252,18 +259,16 @@ function stampOwner(model: string, args: Args, userId: string, operation: string
 export { prismaRaw };
 export type { PrismaClient };
 
-/** Encrypt the field this model keeps its content in, wherever the write put it. */
-function encryptIncoming(
-  args: Args,
-  spec: { field: string; purpose: string },
-  master: Buffer,
-): void {
+/** Encrypt the fields this model keeps its content in, wherever the write put them. */
+function encryptIncoming(args: Args, specs: EncryptedField[], master: Buffer): void {
   const one = (row: Record<string, unknown>) => {
-    const v = row[spec.field];
-    // Already encrypted means a re-save of something read back out; encrypting it twice would
-    // produce a value nothing can read.
-    if (typeof v === "string" && !isEncrypted(v)) {
-      row[spec.field] = encryptField(v, master, spec.purpose);
+    for (const spec of specs) {
+      const v = row[spec.field];
+      // Already encrypted means a re-save of something read back out; encrypting it twice would
+      // produce a value nothing can read.
+      if (typeof v === "string" && !isEncrypted(v)) {
+        row[spec.field] = encryptField(v, master, spec.purpose);
+      }
     }
   };
   const data = args.data;

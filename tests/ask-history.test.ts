@@ -11,7 +11,7 @@ const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
 describe("the questions asked about meetings", () => {
   it("are owned, and kept encrypted", () => {
     const client = read("lib/prisma.ts");
-    expect(client).toContain('askTurn: { field: "body", purpose: "ask" }');
+    expect(client).toContain('askTurn: [{ field: "body", purpose: "ask" }]');
     expect(client).toMatch(/const OWNED = new Set\(\[[^\]]*"askTurn"/);
   });
 
