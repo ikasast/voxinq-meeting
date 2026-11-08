@@ -147,11 +147,12 @@ condition is not decoration: a tailnet visit creates no session row and types no
 without it a key opened once was dropped a quarter of an hour later and an entire archive read as
 `🔒 encrypted` with nothing on screen to say why.
 
-**Encrypted columns** are `Transcript.text`, `MeetingSummary.summaryText`,
-`MeetingReview.result`, `AskTurn.body` and `MeetingPrep.body` (the `ENCRYPTED` map in
-`lib/prisma.ts`), stored as `enc:v1.<purpose>.<iv>.<ct>.<tag>`. Everything else is in the clear,
-including `Transcript.translation` and the recordings, which live on the STT service's disk; the
-full list for readers is in [usage](usage.md#what-is-encrypted-and-what-is-not). The prefix lets encrypted and plaintext rows share a column,
+**Encrypted columns** are `Transcript.text`, `Transcript.translation` (since 4.9),
+`MeetingSummary.summaryText`, `MeetingReview.result`, `AskTurn.body` and `MeetingPrep.body` (the
+`ENCRYPTED` map in `lib/prisma.ts`), stored as `enc:v1.<purpose>.<iv>.<ct>.<tag>`. Everything else
+is in the clear, including the recordings, which live on the STT service's disk; the full list
+for readers is in [usage](usage.md#what-is-encrypted-and-what-is-not). The prefix lets encrypted
+and plaintext rows share a column,
 which they must during a migration and for ever on accounts with no key. The client encrypts on
 write and decrypts anything carrying the prefix on read, wherever it appears in a result.
 

@@ -221,7 +221,7 @@ describe("what is stored", () => {
 
   it("is encrypted like the minutes, and belongs through the meeting", () => {
     const client = readFileSync(join(__dirname, "../lib/prisma.ts"), "utf8");
-    expect(client).toContain('meetingPrep: { field: "body", purpose: "prep" }');
+    expect(client).toContain('meetingPrep: [{ field: "body", purpose: "prep" }]');
     expect(client).toMatch(/VIA_MEETING = new Set\(\[[\s\S]*?"meetingPrep"/);
   });
 });

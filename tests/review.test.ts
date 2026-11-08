@@ -117,7 +117,7 @@ describe("a long meeting", () => {
 describe("where it lives", () => {
   it("is scoped to the meeting's owner and encrypted like the minutes", () => {
     const prisma = read("lib/prisma.ts");
-    expect(prisma).toContain('meetingReview: { field: "result", purpose: "review" }');
+    expect(prisma).toContain('meetingReview: [{ field: "result", purpose: "review" }]');
     expect(prisma).toMatch(/VIA_MEETING = new Set\(\[[\s\S]*?"meetingReview"/);
   });
 

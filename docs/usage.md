@@ -773,8 +773,8 @@ when its recovery code is shown.
 
 | | |
 | --- | --- |
-| **Encrypted** with the account's key | the transcript's lines; the minutes; meeting feedback; questions asked about a meeting and their answers; the summary and questions written during a talk |
-| **Not encrypted**, in the database | titles and dates; purpose and agenda; participants, series members and the names given to speakers; series names, backgrounds, glossaries and minutes formats; **translations of lines**; voiceprints; the queue |
+| **Encrypted** with the account's key | the transcript's lines and their translations; the minutes; meeting feedback; questions asked about a meeting and their answers; the summary and questions written during a talk |
+| **Not encrypted**, in the database | titles and dates; purpose and agenda; participants, series members and the names given to speakers; series names, backgrounds, glossaries and minutes formats; voiceprints; the queue |
 | **Not encrypted**, on the transcription service's disk | **the recording itself**, and what is worked out from it (where each line sits, speaker separation, voice cues, emotion) |
 | **Not encrypted**, on the server | `settings.json`, which holds API keys |
 | **Encrypted with a password of its own** | a backup file (`.voxbak`) — see [Backup & restore](#backup--restore) |
@@ -783,10 +783,11 @@ when its recovery code is shown.
 one that has only ever been used from inside the tailnet. Setting a password gives it a key, and
 what it already has is encrypted then.
 
-**The recording is reachable inside the tailnet.** The transcription service has no sign-in of
-its own (it is why port 8443 must never be published), so a device in your tailnet that knows a
-meeting's ID can fetch its audio from it. Meeting IDs are long and random, and nothing lists
-them, but this is a door the encryption does not close.
+**The recording is not encrypted, but it is only handed to its owner.** The transcription service
+answers nothing but the web app's signed requests, and the web app plays a recording only to the
+meeting's owner ([`STT_SECRET`](configuration.md)). On an instance where the service has no
+secret, Administration says so — and until it does, any device in the tailnet that knows a
+meeting's ID can fetch its audio from the service directly.
 
 **Your recovery code is shown once.** It is the only way back into your meetings if you forget
 your password, and it is not stored anywhere — an administrator can send you a link to set a new

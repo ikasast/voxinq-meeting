@@ -16,6 +16,12 @@ import { prismaRaw } from "@/lib/prisma-raw";
 
 const BATCH = 500;
 
+const PLAIN_TRANSLATION = (ownerId: string) => ({
+  meeting: { ownerId },
+  translation: { not: null },
+  NOT: { translation: { startsWith: "enc:v1." } },
+});
+
 export async function runEncryptExisting(
   job: { meetingId: string | null; params: string },
   signal?: AbortSignal,
@@ -49,6 +55,28 @@ export async function runEncryptExisting(
         ),
     );
     transcripts += rows.length;
+  }
+
+  // Translations, kept in the clear until 4.9 — so an account encrypted before then has its
+  // lines behind the key and their translations beside them in the open, and this finds those too.
+  for (;;) {
+    if (signal?.aborted) break;
+    const rows = await prismaRaw.transcript.findMany({
+      where: PLAIN_TRANSLATION(ownerId),
+      select: { id: true, translation: true },
+      take: BATCH,
+    });
+    if (rows.length === 0) break;
+    await prismaRaw.$transaction(
+      rows
+        .filter((r) => r.translation !== null && !isEncrypted(r.translation))
+        .map((r) =>
+          prismaRaw.transcript.update({
+            where: { id: r.id },
+            data: { translation: encryptField(r.translation!, master, "translation") },
+          }),
+        ),
+    );
   }
 
   for (;;) {
@@ -102,14 +130,15 @@ export async function runEncryptExisting(
  * Their search would simply have stopped finding anything, with nothing to say why.
  */
 export async function needsEncryptionPass(ownerId: string): Promise<boolean> {
-  const [plainText, plainMinutes, unindexed] = await Promise.all([
+  const [plainText, plainTranslations, plainMinutes, unindexed] = await Promise.all([
     prismaRaw.transcript.count({
       where: { meeting: { ownerId }, NOT: { text: { startsWith: "enc:v1." } } },
     }),
+    prismaRaw.transcript.count({ where: PLAIN_TRANSLATION(ownerId) }),
     prismaRaw.meetingSummary.count({
       where: { meeting: { ownerId }, NOT: { summaryText: { startsWith: "enc:v1." } } },
     }),
     prismaRaw.meeting.count({ where: { ownerId, grams: { none: {} } } }),
   ]);
-  return plainText + plainMinutes + unindexed > 0;
+  return plainText + plainTranslations + plainMinutes + unindexed > 0;
 }
