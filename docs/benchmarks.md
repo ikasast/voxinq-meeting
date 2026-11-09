@@ -8,7 +8,8 @@ reproduced.
 The scripts are in [`bench/`](../bench). They call the transcription service's and the
 diarizer's own code rather than copying their settings, so what is measured is what ships.
 The figures below are from one machine on one date (2026-11-09, v4.8.0 plus the changes
-merged since), and the machine is named with them.
+merged since, including the fix to sherpa-onnx's merge step described below), and the machine
+is named with them.
 
 **In short**
 
@@ -17,7 +18,7 @@ merged since), and the machine is named with them.
 | Japanese recognition of a whole recording, character error rate | **10.5%** (faster-whisper, CUDA) | **11.2%** (whisper.cpp) |
 | Recognition speed, as a fraction of the audio's length | **0.034** — an hour in about 2 minutes | **0.72** — an hour in about 43 minutes |
 | Same audio three times | identical (0.00% apart) | — |
-| Speaker separation, clear lines given to the right person (English) | **90.5%** (pyannote) | **53.3%** (sherpa-onnx) |
+| Speaker separation, clear lines given to the right person (English) | **90.5%** (pyannote) | **86.1%** (sherpa-onnx) |
 | Speed of speaker separation | 0.066 — an hour in about 4 minutes | 0.14 — an hour in about 8 minutes |
 
 Three things here were not expected, and each is explained below:
@@ -28,8 +29,9 @@ Three things here were not expected, and each is explained below:
 - The run-to-run variation recorded in
   [Design decisions](design-decisions.md#transcription-is-not-reproducible-and-the-cause-is-the-temperature-fallback)
   does not appear on this material at all ([why](#same-audio-three-times)).
-- Speaker separation on the CPU path does little better than separating no one, partly because
-  of a step that can be fixed ([why](#what-the-results-say)).
+- Speaker separation on the CPU path did little better than separating no one, and the cause
+  was Voxinq's own step after sherpa-onnx, not the model. Fixed, it comes within a point of
+  pyannote ([why](#what-the-results-say)).
 
 **The machine:** Intel Core i7-13620H (10 cores, 16 threads), NVIDIA GeForce RTX 4060 Laptop
 GPU (8 GB), Windows 11. faster-whisper 1.2.1 on CTranslate2 4.8.0, pywhispercpp 1.5.1,
@@ -216,25 +218,27 @@ are ticked as expected to speak, and not told.
 
 | | pyannote (GPU path) | sherpa-onnx (CPU path) | everyone given to whoever talks most |
 | --- | --- | --- | --- |
-| Clear lines, right | **90.5%** | 53.3% | — |
-| All lines, right by length | **85.3%** | 54.4% | 49.7% |
-| All lines, right by count | 61.6% | 39.8% | 36.4% |
-| Lines spoken over, right | 26.2% | 23.1% | — |
-| Not told the count: by length | 85.3% | 52.2% | |
-| Recognition speed, as a fraction of the audio's length | 0.066 | 0.14 | |
+| Clear lines, right | **90.5%** | 86.1% | — |
+| All lines, right by length | **85.3%** | 84.5% | 49.7% |
+| All lines, right by count | 61.6% | 58.4% | 36.4% |
+| Lines spoken over, right | 26.2% | 24.4% | — |
+| Not told the count: by length | 85.3% | 84.1% | |
+| Speed, as a fraction of the audio's length | 0.066 | 0.14 | |
 
 By meeting, told the count, by length:
 
-| | pyannote | sherpa-onnx | whoever talks most |
-| --- | --- | --- | --- |
-| `EN2002a` (36 min) | 79.0% | 35.1% | 35.1% |
-| `ES2004a` (17 min) | 88.7% | 56.5% | 42.6% |
-| `IS1009a` (14 min) | 87.9% | 66.5% | 60.2% |
-| `TS3003a` (25 min) | 95.9% | 91.6% | 84.5% |
+| | pyannote | sherpa-onnx | sherpa-onnx before the fix | whoever talks most |
+| --- | --- | --- | --- | --- |
+| `EN2002a` (36 min) | 79.0% | 78.7% | 35.1% | 35.1% |
+| `ES2004a` (17 min) | 88.7% | 87.9% | 56.5% | 42.6% |
+| `IS1009a` (14 min) | 87.9% | 85.2% | 66.5% | 60.2% |
+| `TS3003a` (25 min) | 95.9% | 95.0% | 91.6% | 84.5% |
 
 The last column is the score for giving every line to the person who talks most: what a
 diarizer that separated no one at all would get. It is high where one person dominates, as in
-`TS3003a`, so a figure only means something next to it.
+`TS3003a`, so a figure only means something next to it. Before the fix, sherpa-onnx scored
+54.4% by length overall against that baseline's 49.7%, 53.3% of clear lines, and 52.2% when not
+told the count.
 
 ### What the results say
 
@@ -249,29 +253,50 @@ a line of its own: lines are cut where the recording pauses, and there is no pau
 of someone else's sentence. So the clear-line figure is the nearer one to what a transcript
 shows; the all-lines figure is what it is when people talk over each other.
 
-**sherpa-onnx does little better than separating no one** on these meetings: 54.4% by length
-against 49.7%. In `EN2002a` it put 521 of 523 lines on one person, even told there were four.
-Two causes, each found by changing one thing:
+**sherpa-onnx comes within a point of pyannote** on these meetings: 84.5% by length against
+85.3%, and 86.1% of clear lines against 90.5%. Not told the count, it found four people in
+three of the meetings and five in `EN2002a`, at 84.1%.
 
-- **The voices.** Its voice model was trained on Chinese speech, chosen because it told Japanese
-  speakers apart where the English-trained one could not
-  ([the swap](design-decisions.md#diarization-has-two-backends-chosen-by-the-hardware)). Given
-  the count directly, sherpa's own clustering still reached only 80.0% on `IS1009a` and 63.3% on
-  `ES2004a`, against pyannote's 87.9% and 88.7%.
-- **The step after it.** sherpa splits a meeting into too many clusters, and Voxinq then merges
-  them down to the count. On these meetings that merge joined real people together and left
-  clusters of a single turn apart — four labels, three of them for one line each. The two
-  figures above are without it; with it they were 66.5% and 56.5%. That is a defect, not a
-  property of English, and fixing it is a separate change.
+Until this was fixed it did little better than separating no one: 54.4% by length, and in
+`EN2002a` it put 521 of 523 lines on one person even when told there were four. The fault was
+in Voxinq's own step after sherpa, not in sherpa or its voice model:
 
-It is not a matter of English. On real Japanese meetings the same backend agreed with pyannote
-on 86% of a 12-minute meeting, and gave a 49-minute one to a single speaker
-([recorded here](design-decisions.md#diarization-has-two-backends-chosen-by-the-hardware)) —
-the collapse seen above. With a GPU, pyannote is chosen and none of this applies. Without one,
-pyannote can still be asked for (`DIA_BACKEND=pyannote`); it runs at roughly the length of the
-audio on a CPU, so an hour's meeting takes about an hour to separate, but separates it.
+- **What sherpa returns is sound.** It splits a meeting into far more clusters than there are
+  people — 136 for the four in `EN2002a` — but the clusters are nearly pure: giving each turn
+  to whoever the reference says spoke most of it, 91–98% of a cluster's speech is one person's.
+- **The merge that followed was not.** Voxinq joined the two most alike clusters, again and
+  again, until the count was reached. A cluster of one or two turns — crosstalk, a laugh, two
+  voices at once — is alike to nobody, so it was always joined last, and real people were joined
+  first to make room for it: four labels, three of them for a line each.
+- **The fix** merges only what is clearly one person — clusters whose centroids are at least
+  0.82 alike — and then decides who the speakers are by how much each group says: told the
+  count, the groups with the most speech; not told, every group with at least 10 seconds and 1%
+  of the speech. Every other cluster goes to the speaker it is nearest. In these meetings one
+  person's clusters were 0.88–0.97 alike and different people's 0.5–0.75, though one pair
+  reached 0.81; any threshold from 0.80 to 0.85 gave the figures above, and 0.78 joined two
+  people in `EN2002a`.
+- **The other fix tried** was to give the count to sherpa's own clustering and skip the merge.
+  That reached 76.3% by length: better than before, worse than the fixed merge, so the count
+  still goes to the merge.
 
-**Limits:** four meetings, in English, from a headset mix. Real Japanese meetings, measured on
+The threshold was chosen on these same four meetings, so they are not an independent test of
+it. Two real Japanese meetings that took no part in choosing it are:
+
+| | before the fix | after |
+| --- | --- | --- |
+| 12 minutes, 3 people, told the count | 86% of lines agree with pyannote, 2 speakers found | **89%**, 3 found |
+| 12 minutes, 3 people, not told | 86%, 2 found | **89%**, 4 found (the fourth with 4 lines) |
+| 41 minutes, 4 people, told the count | 62%, 2 speakers found | **85%**, 4 found |
+| 41 minutes, 4 people, not told | 35% — every line on one speaker | **85%**, 4 found |
+
+The 41-minute meeting shows the collapse
+[recorded in Design decisions](design-decisions.md#diarization-has-two-backends-chosen-by-the-hardware)
+for a 49-minute one, whose recording no longer exists to be run again. With a GPU, pyannote is chosen
+anyway; without one, the gap that remains is a few points, and `DIA_BACKEND=pyannote` still
+closes it at the price of separation taking about as long as the meeting.
+
+**Limits:** four meetings, in English, from a headset mix, plus two Japanese meetings scored
+against pyannote rather than against people. More real Japanese meetings, measured on
 recordings that cannot be published, are in
 [Design decisions](design-decisions.md#a-line-that-holds-two-speakers-is-divided-between-them).
 

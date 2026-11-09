@@ -278,8 +278,7 @@ participant count, or assign speakers manually per line.
 
 **Which backend ran matters here.** `curl http://127.0.0.1:8000/health` reports
 `diarizationBackend`. `sherpa` is the ONNX backend used where there is no CUDA, and it is
-measurably weaker at this on long meetings — that is the known trade for working at all on
-those machines. `pyannote` is the accurate one; if you have an NVIDIA GPU and see `sherpa`,
+somewhat weaker at this — that is the known trade for working at all on those machines. `pyannote` is the accurate one; if you have an NVIDIA GPU and see `sherpa`,
 pyannote did not install (check `HF_TOKEN` and the diarization venv).
 
 ## A transcript shows 🔒 encrypted

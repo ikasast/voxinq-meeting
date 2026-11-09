@@ -566,7 +566,8 @@ up:
 | NVIDIA GPU | pyannote | needs a Hugging Face token — see below |
 | anything else (Mac, AMD/Intel GPU, CPU) | sherpa-onnx | nothing; the models ship with the image |
 
-pyannote is noticeably more accurate on long meetings, which is why it is preferred where it
+pyannote is somewhat more accurate — a point or so overall, a few more on clear lines
+([measured](benchmarks.md#speaker-separation-english)) — which is why it is preferred where it
 can run. It cannot run usefully without CUDA — on a CPU it takes about as long as the meeting
 itself — so machines without a GPU get sherpa-onnx, which runs at roughly five times real time
 and needs no account anywhere.

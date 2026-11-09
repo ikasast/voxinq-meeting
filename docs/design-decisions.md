@@ -288,7 +288,7 @@ new lines that point back at it, which is what **Undo split** walks back.
 | | chosen when | needs | accuracy |
 | --- | --- | --- | --- |
 | `backend_pyannote` | a CUDA device is present | torch + torchcodec, `HF_TOKEN` (gated model) | the reference |
-| `backend_sherpa` | otherwise | ONNX Runtime, no token | usable, sometimes much worse |
+| `backend_sherpa` | otherwise | ONNX Runtime, no token | a few points behind ([measured](benchmarks.md#what-the-results-say)) |
 
 `DIA_BACKEND=pyannote|sherpa` forces one. An explicit choice that cannot run is an error rather
 than a silent downgrade — someone who asked for pyannote wants its accuracy, and quietly
@@ -344,6 +344,44 @@ that would ever be selected.
 The lesson that generalises: **validate a component swap on the largest real input available,
 not the most convenient one.** The 105-second meeting was chosen because it was quick to run,
 and every failure mode that mattered only appears at length.
+
+**The collapse was the merge, not the model, and it was fixed (November 2026).** A public
+benchmark ([Benchmarks](benchmarks.md#what-the-results-say)) showed the same collapse on AMI
+meetings in English: told there were four people, sherpa put 521 of 523 lines of one meeting on
+one of them. sherpa's own clusters were nearly pure — 91–98% of each cluster's speech one
+person's — so the fault was the centroid merge above. It joined the most alike clusters until
+the count was reached, and a cluster of one or two turns (crosstalk, a laugh, two voices at
+once) is alike to nobody: it was always joined last, so real people were joined first to make
+room for it, and the output was four labels, three of them for a line each.
+
+The merge now joins only what is clearly one person (centroids at least 0.82 alike), then
+chooses the speakers by how much each group says — the `want` groups with the most speech, or,
+not told the count, every group with at least 10 seconds and 1% of it — and folds every other
+cluster into the nearest speaker. Measured:
+
+| | before | after | pyannote |
+| --- | --- | --- | --- |
+| AMI, 4 meetings, told the count, by length | 54.4% | **84.5%** | 85.3% |
+| AMI, not told | 52.2% | **84.1%** | 85.3% |
+| Japanese, 12 min, 3 people, agreement with pyannote | 86% | **89%** | — |
+| Japanese, 41 min, 4 people, told the count | 62% | **85%** | — |
+| Japanese, 41 min, 4 people, not told | 35% (one speaker) | **85%** | — |
+
+Two alternatives were measured and not taken. Giving the count to sherpa's own clustering
+and skipping the merge reached 76.3% on AMI. A fixed minimum size for a cluster to count, in
+seconds or as a share, could not be set: one meeting needed it at 10 seconds or more to stop a
+pile of crosstalk from taking a speaker's place, another at 8 or less so that people who said only
+24 and 32 seconds in 25 minutes were kept. Deciding by size only after the clearly-same
+clusters are joined works for both, because by then a real person is mostly one group and
+the crosstalk is still many small ones.
+
+The threshold was chosen on the AMI meetings (0.80 to 0.85 all give the figures above; 0.78
+joined two people in one meeting). The Japanese meetings took no part in choosing it. The
+49-minute meeting in the table further up could not be rerun — its recording has been deleted —
+so the 41-minute one, which the old merge also gave to one speaker, stands in for it.
+
+pyannote stays the choice where CUDA exists: it is still ahead, by a point overall and by four
+on lines nobody else is speaking over.
 
 ## Transcription is not reproducible, and the cause is the temperature fallback
 

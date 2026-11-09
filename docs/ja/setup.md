@@ -326,7 +326,8 @@ docker compose exec ollama ollama pull qwen3:8b
 | NVIDIA GPU あり | pyannote | `HF_TOKEN` が必要 → 次項 |
 | それ以外（Mac / AMD・Intel GPU / CPU のみ） | sherpa-onnx | **不要**（モデルはイメージに同梱） |
 
-pyannote のほうが長い会議での精度が明確に高いため、動く環境ではこちらが選ばれます。ただし GPU が
+pyannote のほうが精度がやや高い（[公開データでの測定](../benchmarks.md#speaker-separation-english)では全体で約 1 ポイント、
+重なりの無い行で約 4 ポイント）ため、動く環境ではこちらが選ばれます。ただし GPU が
 無いと会議とほぼ同じ時間がかかるため、その場合は実時間の約 5 倍速で動く sherpa-onnx になります。
 
 `.env` で `DIA_BACKEND="pyannote"` / `DIA_BACKEND="sherpa"` と書けば固定できます。動かせない方を
