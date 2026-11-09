@@ -14,7 +14,7 @@ merged since), and the machine is named with them.
 
 | | GPU path | CPU path |
 | --- | --- | --- |
-| Japanese recognition of a whole recording, character error rate | **14.1%** (faster-whisper, CUDA) | **11.2%** (whisper.cpp) |
+| Japanese recognition of a whole recording, character error rate | **10.5%** (faster-whisper, CUDA) | **11.2%** (whisper.cpp) |
 | Recognition speed, as a fraction of the audio's length | **0.034** — an hour in about 2 minutes | **0.72** — an hour in about 43 minutes |
 | Same audio three times | identical (0.00% apart) | — |
 | Speaker separation, clear lines given to the right person (English) | **90.5%** (pyannote) | **53.3%** (sherpa-onnx) |
@@ -22,8 +22,9 @@ merged since), and the machine is named with them.
 
 Three things here were not expected, and each is explained below:
 
-- The CPU path recognises *better* than the GPU path, and the cause is one setting
-  ([why](#what-the-gap-between-the-paths-is)).
+- The CPU path first measured *better* than the GPU path, and the cause was one setting. It
+  was tested on real meetings and changed, and the paths are now level
+  ([why](#what-the-gap-between-the-paths-was)).
 - The run-to-run variation recorded in
   [Design decisions](design-decisions.md#transcription-is-not-reproducible-and-the-cause-is-the-temperature-fallback)
   does not appear on this material at all ([why](#same-audio-three-times)).
@@ -68,7 +69,7 @@ error, though a reader would not call it one.
 
 | | CER, clips | CER, long file | Speed, clips | Speed, long file |
 | --- | --- | --- | --- | --- |
-| faster-whisper, CUDA (GPU path) | 15.0% | **14.1%** | 0.070 | **0.034** |
+| faster-whisper, CUDA (GPU path) | 12.5% | **10.5%** | 0.059 | **0.034** |
 | whisper.cpp, CPU (CPU path) | 10.6% | **11.2%** | 2.49 | **0.72** |
 
 Speed is time taken over the audio's length: below 1 is faster than real time. Loading the
@@ -81,22 +82,25 @@ further behind with every line of a live meeting, which is why a machine without
 the recording after the meeting instead. A whole file goes much faster, at 0.72 — so an hour's
 meeting is text about 43 minutes after it ends.
 
-### What the gap between the paths is
+### What the gap between the paths was
 
-The two paths run the same model, so a gap of three to four points needs explaining. Two
-differences were tested by changing one at a time on the GPU path:
+The two paths run the same model, so the gap first measured — three to four points — needed
+explaining. Two differences were tested by changing one at a time on the GPU path, and then
+two ways of keeping the second:
 
 | GPU path, changed | CER, clips | CER, long file |
 | --- | --- | --- |
-| as shipped | 15.0% | 14.1% |
+| as first measured: the voice detector cuts any silence of 0.3–0.5 s | 15.0% | 14.1% |
 | weights at `float16` rather than `int8_float16` | 14.8% | 14.3% |
-| faster-whisper's own voice detector off | **12.2%** | **10.3%** |
+| faster-whisper's own voice detector off | 12.2% | 10.3% |
+| detector cuts silences of 2 s or more, at a lower threshold | 12.6% | 12.4% |
+| **detector cuts silences of 10 s or more — what ships now** | **12.5%** | **10.5%** |
 
-**The weights are not it.** **The voice detector is.** On faster-whisper the service turns on
-its built-in Silero voice detector (`vad_filter=True`) inside every piece it recognises; the
+**The weights were not it.** **The voice detector was.** On faster-whisper the service turns
+on its built-in Silero voice detector (`vad_filter=True`) inside every piece it recognises; the
 CPU path has no such step. It is there to stop Whisper inventing text over silence
-([the two layers](design-decisions.md#vad-is-two-layers-both-already-present)), and on this
-material it gets in the way in two directions:
+([the two layers](design-decisions.md#vad-is-two-layers-both-already-present)), and as first
+set, on this material it got in the way in two directions:
 
 - **It drops speech.** Over the long file the output comes out 3% shorter than the reference
   with it on, and the same length with it off. Among the clips, 21 outputs fall below 80% of
@@ -109,10 +113,61 @@ material it gets in the way in two directions:
 
 Turned off, the GPU path matches the CPU path.
 
-**This page does not change the setting**, and the figures above are as shipped. The detector
-was turned on for silence inside meeting audio, and television clips have almost none — so
-the half of the trade it pays for is not tested here. Whether to loosen or remove it needs the
-same comparison on real meetings with their pauses, and is a separate change.
+But the detector was turned on for silence inside meeting audio, and television clips have
+almost none — so the half of the trade it pays for could not be tested here. It was tested on
+real meetings instead, and what ships now came out of that: the detector stays, and cuts only
+silences of ten seconds or more, at a threshold of 0.2 with a second's margin either side
+(`INNER_VAD_MIN_SILENCE_MS` in `stt-service/server.py`). On this material that is within a
+fifth of a point of having it off.
+
+#### On real meetings
+
+**Data:** three of the author's own meetings, recorded with Voxinq — two in Japanese (41 and
+12 minutes) and one mostly in English (53 minutes, held online). They cannot be published, so
+there is no reference and no CER; what can be counted without one is below. Between them they
+hold six and a half minutes of pauses of two seconds or more, and the 41-minute meeting has 80
+seconds of digital silence: exact zeros, which is what a muted microphone or a shared window
+with nothing playing sends.
+
+Each meeting was recognised as a whole file (the re-transcription path) with each setting,
+three times — the ten-second setting once — and line by line through the recording screen's
+splitter (the live path). "Speech left out" uses Silero itself as the referee: stretches of
+three seconds or more that it calls speech and that no recognised word covers.
+
+| Whole file, the two Japanese meetings (53 min) | as first set | off | ≥ 2 s | ≥ 10 s |
+| --- | --- | --- | --- | --- |
+| Speech left out | 29 s | 6 s | 20 s | **0 s** |
+| Text, against the first setting | — | +4.1% | +1.7% | **+4.4%** |
+| Lines invented over silence | none | one | none | **none** |
+
+- **As first set, the detector lost whole sentences.** The 12-minute meeting lost most of its
+  first half-minute: Silero called it speech, but once the short pauses in it were cut,
+  Whisper decoded one sentence of that 30-second window and skipped the rest. Where the first
+  setting and "off" disagree in the 41-minute meeting, 40 places picked at random were read in
+  context: "off" read as the right one in 17, the first setting in 12, and 11 could not be
+  told apart.
+- **Off invented one line**, inside 56 seconds of digital silence: a short phrase of the kind
+  Whisper makes up, and not one the blocklist catches. Cutting silences of ten seconds or more
+  removes it. On the 12-minute meeting the output is identical to "off". On the 41-minute one
+  no speech is left out either, and a sentence "off" had lost is back; the wording differs from
+  "off" in small ways, about as often in each direction, since every 30-second window after a
+  cut silence falls in a different place.
+- **The Japanese meetings came out identical run to run**, with every setting: no segment
+  needed the temperature fallback, so nothing was sampled ([as below](#same-audio-three-times)).
+  The differences above are the settings, not noise.
+- **The English meeting did need the fallback**, and runs differed — by 6.3% of characters with
+  the first setting, 3.0% with the detector off. Speech left out ranged from 36 to 44 s with
+  the first setting, 32 to 58 s off and 37 s at ten seconds: within the spread between runs.
+  One twelve-second stretch of unclear speech came out as a sentence repeated seven times in
+  every run with the detector off and at ten seconds; with the first setting, other stretches
+  repeated three times or more in some runs. No setting kept this meeting free of loops, and
+  neither the blocklist nor the confidence filter caught any of them.
+
+**On the live path the setting matters less.** Each line is already a piece the energy
+splitter judged to hold speech, twelve seconds at most, so there is little silence left inside
+it. Between the first setting and "off", the Japanese text differed by 5% of characters and
+grew by about 1%, all of it speech either way; the two-second setting came out within a few
+characters of "off". A ten-second setting cannot cut anything inside such a piece except at its edges.
 
 Those edge words are also part of what remains for every path: the reference does not include
 them, so a path that transcribes them is charged for it.
@@ -126,9 +181,11 @@ That is not a contradiction of the 15% recorded in
 [Design decisions](design-decisions.md#transcription-is-not-reproducible-and-the-cause-is-the-temperature-fallback),
 and it says where that variation comes from. Whisper only samples — the step that draws random
 numbers — when a decode fails its checks for repetition or low confidence. Clean, close-miked
-speech almost never fails them; a real meeting does, often. So the variation is a property of
-the audio: none on clear speech, a sixth of the text on the meeting where it was measured.
-Anyone comparing two settings on meeting audio still needs that control.
+speech almost never fails them; some real meetings do, often. So the variation is a property of
+the audio: none on clear speech, a sixth of the text on the meeting where it was measured. Of
+the three meetings [above](#on-real-meetings), the two in Japanese never failed them and were
+identical run to run; the English one did, and runs differed by 3–6%. Anyone comparing two
+settings on meeting audio still needs that control.
 
 ## Speaker separation (English)
 

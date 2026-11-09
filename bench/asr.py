@@ -95,7 +95,7 @@ def main() -> None:
             language=a.language,
             initial_prompt=server._effective_prompt(a.model, None) or None,
             beam_size=5,
-            vad_min_silence_ms=500,
+            vad_min_silence_ms=server.INNER_VAD_MIN_SILENCE_MS,
             no_speech_threshold=server.STT_NO_SPEECH_THRESH,
             word_timestamps=True,
         )

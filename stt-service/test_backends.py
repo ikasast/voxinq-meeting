@@ -821,6 +821,20 @@ def test_without_the_flag_nothing_is_aligned() -> None:
     assert segs[0].words is None
 
 
+def test_the_inner_vad_only_cuts_long_silences() -> None:
+    # At faster-whisper's own threshold and a 300-500 ms silence it dropped speech: 3-4 points
+    # of character error rate on public data, and whole sentences on real meetings.
+    model = _FakeWhisper([_FakeSegment("そうですね", 0.0, 1.5)])
+    _fw().transcribe(
+        model, np.zeros(backends.SAMPLE_RATE, dtype=np.float32), language=None, initial_prompt=None,
+        beam_size=5, vad_min_silence_ms=10_000, no_speech_threshold=0.6,
+    )
+    assert model.kwargs["vad_filter"] is True
+    assert model.kwargs["vad_parameters"] == {
+        "min_silence_duration_ms": 10_000, "threshold": 0.2, "speech_pad_ms": 1000,
+    }
+
+
 def test_every_backend_accepts_being_asked_for_words() -> None:
     # The caller is backend-agnostic. Asking for words must never be the thing that breaks one.
     for cls in (backends.FasterWhisperBackend, backends.WhisperCppBackend,

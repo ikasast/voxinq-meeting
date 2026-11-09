@@ -91,9 +91,9 @@ end**, rather than trying to keep up and falling behind. What is lost is the tex
 meeting.
 
 The transcript is not worse for it. On public Japanese speech with human transcriptions, the
-CPU path got **11.2%** of characters wrong against the GPU path's **14.1%**, both running
+CPU path got **11.2%** of characters wrong against the GPU path's **10.5%**, both running
 `large-v3-turbo`, and recognised a whole file at 0.72 of its length — an hour's meeting is text
-about 43 minutes after it ends. The figures, why the paths differ, and how to run the same
+about 43 minutes after it ends. The figures, why the paths once differed, and how to run the same
 measurement are in [Benchmarks](benchmarks.md). Everything after that (minutes, speaker
 separation, search) is unchanged. `STT_LIVE_TRANSCRIPTION=1` forces live recognition anyway on
 a machine you know is fast enough.
