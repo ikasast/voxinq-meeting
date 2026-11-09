@@ -422,20 +422,30 @@ mechanisms are in play and are easy to mistake for one:
    one utterance ends and the next begins (`VAD_SILENCE_MS`, `VAD_ENERGY_THRESH`, and the rest
    of the `VAD_*` settings). This is what makes text appear at natural pauses.
 2. **Within-segment silence** — on faster-whisper, `vad_filter=True` hands each segment to its
-   built-in **Silero** VAD before recognition, which is the main defence against silence-derived
-   hallucinations. whisper.cpp ships its Silero VAD as a separate model that is not wired up
-   yet, so on that backend layer 1 and the filters below are what remain.
+   built-in **Silero** VAD before recognition, which cuts out silences of ten seconds or more
+   (`INNER_VAD_MIN_SILENCE_MS`) — the defence against text invented over long silence.
+   whisper.cpp ships its Silero VAD as a separate model that is not wired up yet, so on that
+   backend layer 1 and the filters below are what remain.
 
 On top of those, low-confidence segments are dropped by `no_speech_prob` / `avg_logprob`, and a
 blocklist catches the canned phrases Whisper emits over silence. Adding another VAD library
 would duplicate layer 2.
 
-**Layer 2 has a measured cost.** On clean public speech it drops words and lifts faint ones from
-the edges into the text: with it on, faster-whisper got 14.1% of characters wrong, with it off
-10.3% — level with whisper.cpp, which has no layer 2
-([Benchmarks](benchmarks.md#what-the-gap-between-the-paths-is)). That material has almost no
-silence, so the hallucinations layer 2 exists to stop were not part of the test. It stays on
-until the same comparison has been made on meeting audio.
+**Layer 2 is set loose, because set tight it cost more than it saved.** It used to cut any
+silence of 300–500 ms at Silero's default threshold. On clean public speech that dropped words
+and lifted faint ones from the edges into the text: faster-whisper got 14.1% of characters
+wrong with it, 10.3% without it — level with whisper.cpp, which has no layer 2. That material
+has almost no silence, so the same comparison was made on three real meetings
+([Benchmarks](benchmarks.md#on-real-meetings)). There the tight setting left out half a minute
+of speech that Silero itself called speech, mostly by changing how Whisper's 30-second windows
+fell, and turning it off invented one line — inside nearly a minute of digital silence, which a
+muted microphone or an idle shared window sends. No hallucination came from a short pause.
+
+So layer 2 now cuts only silences of ten seconds or more, at a threshold of 0.2 with a second's
+margin either side: it removed that line, left out no speech on the Japanese meetings, and
+scores 10.5% on the public set. *Changes if* a meeting turns up text invented over a pause
+shorter than that. The English meeting's repetition loops are not this: they came over unclear
+speech, with every setting.
 
 ## Capture is filtered and limited before it leaves the browser
 
@@ -592,8 +602,9 @@ different model, and any model that is not `large-v3-turbo` is penalised here fo
 > **Re-measured with a reference, for the default model:** on public Japanese speech with human
 > transcriptions ([Benchmarks](benchmarks.md#recognition-japanese)), `large-v3-turbo` through
 > whisper.cpp got 11.2% of characters wrong and through faster-whisper 14.1%. The CPU path is
-> not the worse one; the gap is faster-whisper's own voice detector, not the weights. The other
-> rows have not been re-measured.
+> not the worse one; the gap was faster-whisper's own voice detector, not the weights, and with
+> the detector loosened ([VAD is two layers](#vad-is-two-layers-both-already-present))
+> faster-whisper gets 10.5%. The other rows have not been re-measured.
 
 The finding that matters is the first column. **Transcription is live**, so RTF above 1 means
 the service falls behind the meeting and never catches up. On this CPU only `small-q5_1` fits,

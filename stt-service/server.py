@@ -120,6 +120,12 @@ VAD_MIN_SPEECH_MS = int(os.environ.get("VAD_MIN_SPEECH_MS", "250"))
 STT_NO_SPEECH_THRESH = float(os.environ.get("STT_NO_SPEECH_THRESH", "0.6"))
 STT_LOGPROB_THRESH = float(os.environ.get("STT_LOGPROB_THRESH", "-1.0"))
 
+# The silence the recogniser's own VAD (faster-whisper's Silero) cuts out: only this long or
+# longer. Shorter pauses go to Whisper as they are. Cutting at 300-500 ms dropped speech, and
+# on real meetings the hallucinations it is there for came from long silences only
+# (docs/design-decisions.md, "VAD is two layers").
+INNER_VAD_MIN_SILENCE_MS = 10_000
+
 # Minimum interval between provisional ("partial") transcriptions of the segment still being
 # spoken. Without partials nothing appears until a segment is finalized (up to
 # VAD_MAX_SEGMENT_MS of continuous speech), which reads as the recognizer hanging.
@@ -414,7 +420,7 @@ def transcribe_segment_ex(
     beam_size=1 (greedy) is used for disposable partials; finals keep the accurate default.
     The detected language decides whether the utterance gets translated.
     Suppresses silence-derived hallucinations in three stages:
-      - remove non-speech regions with Whisper's built-in VAD (silero)
+      - cut out long silences with Whisper's built-in VAD (silero; INNER_VAD_MIN_SILENCE_MS)
       - discard low-confidence segments by no_speech_prob / avg_logprob
       - blocklist of known canned phrases
     """
@@ -424,7 +430,7 @@ def transcribe_segment_ex(
         language=language,
         initial_prompt=initial_prompt or None,
         beam_size=beam_size,
-        vad_min_silence_ms=300,
+        vad_min_silence_ms=INNER_VAD_MIN_SILENCE_MS,
         no_speech_threshold=STT_NO_SPEECH_THRESH,
         word_timestamps=word_timestamps,
     )
@@ -1768,7 +1774,7 @@ def _retranscribe_job(
             language=language,
             initial_prompt=_effective_prompt(model_name, initial_prompt) or None,
             beam_size=5,
-            vad_min_silence_ms=500,
+            vad_min_silence_ms=INNER_VAD_MIN_SILENCE_MS,
             no_speech_threshold=STT_NO_SPEECH_THRESH,
             word_timestamps=True,
         )

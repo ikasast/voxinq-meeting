@@ -154,6 +154,13 @@ class FasterWhisperBackend:
 
     name = "faster-whisper"
 
+    # The built-in Silero VAD's parameters, beside the minimum silence the caller passes.
+    # A low threshold, so faint speech is never what gets cut, and a second of margin either
+    # side. Digital silence -- a muted microphone, a shared window with nothing playing --
+    # scores near zero and still goes.
+    VAD_THRESHOLD = 0.2
+    VAD_PAD_MS = 1000
+
     def __init__(self, device: str, compute: str) -> None:
         self.device = device
         self.compute = compute
@@ -183,10 +190,15 @@ class FasterWhisperBackend:
             language=language,
             initial_prompt=initial_prompt or None,
             beam_size=beam_size,
-            # Boundaries come from the caller's VAD; this one suppresses the hallucinations
-            # that silence *inside* a segment would otherwise produce.
+            # Boundaries come from the caller's VAD; this one only cuts out long silences, where
+            # Whisper invents text. It is deliberately loose: at faster-whisper's defaults it
+            # dropped speech and cost 3-4 points of character error rate (docs/benchmarks.md).
             vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=vad_min_silence_ms),
+            vad_parameters=dict(
+                min_silence_duration_ms=vad_min_silence_ms,
+                threshold=self.VAD_THRESHOLD,
+                speech_pad_ms=self.VAD_PAD_MS,
+            ),
             condition_on_previous_text=False,
             no_speech_threshold=no_speech_threshold,
             # Alignment reuses the attention already computed for the decode, so it costs

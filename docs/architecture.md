@@ -222,7 +222,7 @@ recording survives the web app restarting.
    recorder does this instead, with the same processing, and writes each frame to a file first.
 2. STT segments the stream with an **energy-based VAD** (`VAD_*` settings) to find utterance
    boundaries, then recognizes each segment with Whisper — which applies its own **Silero VAD**
-   (`vad_filter`) inside the segment to suppress silence hallucinations. Provisional text is
+   (`vad_filter`) to cut out long silences, where Whisper would invent text. Provisional text is
    streamed first, then the final wording; the browser saves each utterance to the DB.
 3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization. Each
    boundary carries the words it was recognised from (`{"w","s","e"}`, on the recording's own
