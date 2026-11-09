@@ -126,6 +126,11 @@ jobs:
       # GPU — and it is the part that would put text on the wrong speaker without saying so.
       - run: python diarization/test_diarize.py
 
+      # Merging sherpa-onnx's over-split clusters into speakers, on synthetic voices. This step
+      # once put a whole meeting on one person while spending the other labels on single
+      # turns, and nothing failed. numpy only — no models, no sherpa-onnx.
+      - run: python diarization/test_sherpa_merge.py
+
       # Translation without its 1.2GB model: which languages are offered, and the cleanup
       # that drops a copy of the source the model sometimes writes before translating.
       - run: python stt-service/test_translator.py

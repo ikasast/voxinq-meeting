@@ -5,14 +5,15 @@ It needs neither PyTorch nor a Hugging Face token, so a fresh install can diariz
 to sign up for, and it costs tens of megabytes instead of the several gigabytes a CUDA torch
 chain does.
 
-It is *not* as accurate as the pyannote backend, and the difference is not small. Measured
-against pyannote's labels on real Japanese meetings:
+It is a little less accurate than the pyannote backend. On the public AMI benchmark
+(docs/benchmarks.md) it gives 84.5% of speech to the right person against pyannote's 85.3%,
+and 86.1% of clear lines against 90.5%. Against pyannote's labels on real Japanese meetings it
+agrees on 89% of a 12-minute meeting and 85% of a 41-minute one.
 
-    12-minute meeting, 3 people   pyannote 61/38/9   this backend 66/42  (86% agreement)
-    49-minute meeting, 3 people   pyannote 3 speakers  this backend 1 speaker
-
-The second line is why `backend_pyannote` remains the default wherever torch and CUDA exist.
-See docs/design-decisions.md, "Diarization: two backends, chosen by hardware".
+Those figures are from after the merge step below was fixed. Before, this backend agreed on
+86% of the short meeting and put every line of the long one on one speaker -- a collapse also
+seen on a 49-minute meeting, and why `backend_pyannote` remains the default wherever torch
+and CUDA exist. See docs/design-decisions.md, "Diarization has two backends".
 
 The embedding model is WeSpeaker trained on CN-Celeb rather than VoxCeleb. The English-trained
 build shipped in v2.0.0-beta.1 and was withdrawn: it could not separate Japanese speakers over
@@ -32,7 +33,6 @@ for generating minutes.
 
 from __future__ import annotations
 
-import itertools
 import math
 import os
 import wave
@@ -102,20 +102,47 @@ def embed_clip(audio_path: str) -> list[float]:
     return [float(x) for x in ex.compute(stream)]
 
 
+# Two centroids at least this similar are taken to be one person. On the AMI benchmark the
+# clusters sherpa splits one person into sit at 0.88-0.97 to each other, and different people at
+# 0.5-0.75 -- though a pair can reach 0.81. Merging down to 0.78 joined two real people in one
+# meeting; anywhere from 0.80 to 0.85 gave the same result, so the middle is used.
+MERGE_SIMILARITY = 0.82
+
+# Not told the count, a group must hold this much speech to be called a speaker; anything
+# smaller is folded into the nearest one. Absolute for short meetings, a share for long ones,
+# where the leftovers of crosstalk and laughter grow with the length.
+MIN_SPEAKER_S = 10.0
+MIN_SPEAKER_SHARE = 0.01
+
+
 def _merge_clusters(
     turn_vectors: list[tuple[str, np.ndarray, float]], want: int
 ) -> dict[str, str]:
-    """Merge over-split clusters down to `want` speakers, or to a count chosen by shape.
+    """Merge over-split clusters into `want` speakers, or into as many as the voices show.
 
     sherpa's clustering splits far past the truth on real meetings: a 12-minute conversation
-    between three people came back as 33 clusters at the most permissive threshold that still
-    kept anyone apart, and lowering it only split further. Told the participant count, the same
-    pipeline agreed with pyannote 91% of the time -- so the segmentation and the embeddings are
-    sound and it is the "how many are there" step that fails.
+    between three people came back as 33 clusters, and an AMI meeting of four as 136. Those
+    clusters are nearly pure -- 91-98% of each one's speech is one person's on the AMI
+    benchmark -- so the segmentation and the embeddings are sound and it is the "how many are
+    there" step that fails.
 
-    Rather than hunt for a threshold that cannot exist (same-speaker and different-speaker
-    distances overlap at the level of individual turns), the over-split clusters are merged
-    here by their centroids, where averaging has already cancelled most of that noise.
+    Two steps, in this order:
+
+    1. Merge only what is clearly the same person: join the two groups whose centroids are most
+       alike, again and again, while they are at least MERGE_SIMILARITY alike. A merged group's
+       centroid is its members' weighted by speech, so a big cluster is not dragged about by
+       the scraps that join it.
+    2. Then decide who is a speaker by how much each group says. Told the count, the `want`
+       groups with the most speech are the speakers; not told, every group with at least
+       MIN_SPEAKER_S and MIN_SPEAKER_SHARE of the speech is. Every other group's clusters go,
+       one by one, to the speaker whose centroid is nearest.
+
+    The order is the fix. The earlier version merged everything by similarity alone until
+    `want` were left. But a cluster of one or two turns -- crosstalk, a laugh, two voices at
+    once -- is alike to nobody, so it was always merged last, and real people were joined
+    first to make room for it. Told there were four, it put 521 of 523 lines of an AMI meeting
+    on one person and spent the other three labels on single lines. Counting speech instead of
+    clusters keeps those scraps from taking a speaker's place.
 
     Returns a mapping from sherpa's label to the merged label.
     """
@@ -123,84 +150,74 @@ def _merge_clusters(
         return {}
 
     # Duration-weighted centroid per cluster: longer speech is more of the person, less of the
-    # room. Normalised, so the distances below are cosine.
+    # room. Normalised, so the products below are cosine similarities.
     sums: dict[str, np.ndarray] = {}
     weights: dict[str, float] = {}
     for label, vec, w in turn_vectors:
         sums[label] = sums.get(label, np.zeros_like(vec)) + vec * w
         weights[label] = weights.get(label, 0.0) + w
     labels = sorted(sums)
-    cents = []
-    for label in labels:
-        c = sums[label] / weights[label]
-        n = np.linalg.norm(c)
-        cents.append(c / n if n > 0 else c)
-    if len(labels) <= 1:
-        return {label: label for label in labels}
+    cents = np.vstack([_unit(sums[label]) for label in labels])
+    mass = np.array([weights[label] for label in labels])
 
-    x = np.vstack(cents)
-    sim = x @ x.T
-    np.fill_diagonal(sim, -np.inf)
+    def merge_while(stop_at: float, floor: int) -> list[list[int]]:
+        """Centroid-linkage agglomeration: stop below `stop_at` similarity or at `floor` groups."""
+        groups = [[i] for i in range(len(labels))]
+        totals = cents * mass[:, None]
+        sim = cents @ cents.T
+        np.fill_diagonal(sim, -np.inf)
+        while len(groups) > max(floor, 1):
+            a, b = np.unravel_index(int(np.argmax(sim)), sim.shape)
+            if sim[a, b] < stop_at:
+                break
+            a, b = min(a, b), max(a, b)
+            groups[a] += groups.pop(b)
+            totals[a] += totals[b]
+            totals = np.delete(totals, b, axis=0)
+            sim = np.delete(np.delete(sim, b, axis=0), b, axis=1)
+            # Only the merged group's similarities change.
+            g = totals / np.linalg.norm(totals, axis=1, keepdims=True).clip(min=1e-12)
+            sim[a] = g @ g[a]
+            sim[:, a] = sim[a]
+            sim[a, a] = -np.inf
+        return groups
 
-    # Average-linkage agglomeration, recording the similarity at which each merge happened.
-    groups = {i: [i] for i in range(len(labels))}
-    merges: list[tuple[float, int, int]] = []
-    active = set(groups)
-    while len(active) > 1:
-        best = (-np.inf, None, None)
-        for i, j in itertools.combinations(sorted(active), 2):
-            score = float(np.mean(sim[np.ix_(groups[i], groups[j])]))
-            if score > best[0]:
-                best = (score, i, j)
-        score, i, j = best
-        merges.append((score, i, j))
-        groups[i] = groups[i] + groups[j]
-        active.discard(j)
+    floor = max(want, 1)
+    groups = merge_while(MERGE_SIMILARITY, floor)
 
+    spoken = np.array([mass[g].sum() for g in groups])
+    by_speech = [int(k) for k in np.argsort(-spoken, kind="stable")]
     if want > 0:
-        keep = max(1, min(want, len(labels)))
+        speakers = by_speech[:want]
     else:
-        # No participant count given. Cut where the merge similarity falls off hardest: the
-        # step from "merging one person's own variation" to "merging two people" is the
-        # largest drop in the sequence.
-        scores = [m[0] for m in merges]
-        keep = 1
-        if len(scores) >= 2:
-            drops = [(scores[k] - scores[k + 1], k) for k in range(len(scores) - 1)]
-            # Only consider cuts that leave a plausible number of speakers for a meeting.
-            plausible = [(d, k) for d, k in drops if 1 <= len(labels) - (k + 1) <= 10]
-            if plausible:
-                keep = len(labels) - (max(plausible)[1] + 1)
-        keep = max(1, min(keep, len(labels)))
+        least = max(MIN_SPEAKER_S, MIN_SPEAKER_SHARE * float(mass.sum()))
+        speakers = [k for k in by_speech if spoken[k] >= least] or by_speech[:1]
 
-    # Replay the merges, stopping once the wanted number of groups remain.
-    parent = list(range(len(labels)))
+    speaker_cents = np.vstack(
+        [_unit((cents[groups[k]] * mass[groups[k], None]).sum(axis=0)) for k in speakers]
+    )
+    owner: dict[int, int] = {}
+    for rank, k in enumerate(speakers):
+        for i in groups[k]:
+            owner[i] = rank
+    for i in range(len(labels)):
+        if i not in owner:
+            owner[i] = int(np.argmax(speaker_cents @ cents[i]))
 
-    def find(a: int) -> int:
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    remaining = len(labels)
-    for _score, i, j in merges:
-        if remaining <= keep:
-            break
-        ri, rj = find(i), find(j)
-        if ri == rj:
-            continue
-        parent[rj] = ri
-        remaining -= 1
-
-    # Renumber in first-seen order so the labels read speaker0, speaker1, ...
+    # Renumber in first-seen order so the labels read SPEAKER_00, SPEAKER_01, ...
     out: dict[str, str] = {}
     seen: dict[int, str] = {}
     for idx, label in enumerate(labels):
-        root = find(idx)
-        if root not in seen:
-            seen[root] = f"SPEAKER_{len(seen):02d}"
-        out[label] = seen[root]
+        rank = owner[idx]
+        if rank not in seen:
+            seen[rank] = f"SPEAKER_{len(seen):02d}"
+        out[label] = seen[rank]
     return out
+
+
+def _unit(v: np.ndarray) -> np.ndarray:
+    n = np.linalg.norm(v)
+    return v / n if n > 0 else v
 
 
 def diarize(audio_path: str):
@@ -230,6 +247,9 @@ def diarize(audio_path: str):
         # loosest threshold that still separated anyone -- so no attempt is made to get it
         # right here. The clusters are merged afterwards by their centroids, where averaging
         # has cancelled the per-turn noise that makes the threshold unfindable.
+        #
+        # The count is not passed here even when it is known: told the count directly, sherpa
+        # reached 76.3% on the AMI benchmark, against 84.5% for over-splitting and merging.
         clustering=sherpa_onnx.FastClusteringConfig(
             num_clusters=-1,
             threshold=float(os.environ.get("DIA_CLUSTER_THRESHOLD") or 0.5),
