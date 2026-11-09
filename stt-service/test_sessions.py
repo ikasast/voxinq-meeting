@@ -255,6 +255,53 @@ def test_saved_audio_is_not_counted_twice() -> None:
     _run(go())
 
 
+def test_the_length_waits_for_an_ending_session() -> None:
+    # The end of a meeting reads the recording's length as soon as the client stops waiting. A
+    # long session still being saved then would give the length of what came before it.
+    sessions = OpenSessions()
+    disk = Disk()
+
+    async def go() -> None:
+        ending = sessions.open(MEETING, None)
+        ending.received(1000)
+        ending.ending = True
+
+        async def saves_later() -> None:
+            await asyncio.sleep(0.05)
+            disk.save("ending", ending, sessions)
+
+        saver = asyncio.create_task(saves_later())
+        await sessions.ended(MEETING)
+        assert disk.samples == 1000
+        await saver
+
+    _run(go())
+
+
+def test_the_length_does_not_wait_for_a_session_still_recording() -> None:
+    # Another device still recording the meeting is not finishing; waiting would only stall.
+    sessions = OpenSessions()
+
+    async def go() -> None:
+        other = sessions.open(MEETING, None)
+        other.received(1000)
+        await asyncio.wait_for(sessions.ended(MEETING), timeout=0.5)
+        await asyncio.wait_for(sessions.ended("another meeting"), timeout=0.5)
+
+    _run(go())
+
+
+def test_the_length_waits_only_so_long() -> None:
+    sessions = OpenSessions()
+
+    async def go() -> None:
+        stuck = sessions.open(MEETING, None)
+        stuck.ending = True
+        await sessions.ended(MEETING, timeout=0.05)  # returns; never raises
+
+    _run(go())
+
+
 def test_a_closed_meeting_leaves_nothing_behind() -> None:
     sessions = OpenSessions()
     session = sessions.open(MEETING, None)

@@ -1,6 +1,7 @@
 """Which recording sessions of a meeting are still open, and where the next one starts.
 
-A session's audio reaches the recording only when it is saved, as it ends. A new session takes
+A session's audio reaches the recording only when it is saved, as it ends (until then it is in
+a part file beside the recording: recording_store.py). A new session takes
 its clock from the length of the recording, so one that starts while the last one is still on
 its way out would count from too early: its lines land on the wrong audio, for good, because
 the web app stores those offsets.
@@ -32,6 +33,10 @@ QUIET_S = 10.0
 # session is not held back for longer than that: the client buffers its audio until it is told
 # to send it, and what is still unsaved by then is counted anyway.
 SETTLE_S = 30.0
+# How long a question about a meeting's recording waits for the sessions on their way out. Longer
+# than settling: nothing is held up but the answer, and a short wait gives a wrong length that is
+# stored on the meeting.
+ENDED_S = 60.0
 
 
 @dataclass(eq=False)
@@ -112,6 +117,16 @@ class OpenSessions:
         if not leaving:
             return
         waits = [asyncio.ensure_future(other.gone.wait()) for other in leaving]
+        _, pending = await asyncio.wait(waits, timeout=timeout)
+        for wait in pending:
+            wait.cancel()
+
+    async def ended(self, meeting_id: str, timeout: float = ENDED_S) -> None:
+        """Wait for the meeting's sessions that are ending to be saved. Bounded; never raises."""
+        leaving = [s for s in self._open.get(meeting_id, []) if s.ending]
+        if not leaving:
+            return
+        waits = [asyncio.ensure_future(s.gone.wait()) for s in leaving]
         _, pending = await asyncio.wait(waits, timeout=timeout)
         for wait in pending:
             wait.cancel()

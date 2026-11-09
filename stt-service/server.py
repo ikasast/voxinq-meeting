@@ -43,7 +43,7 @@ import threading
 import time
 import wave
 from contextlib import asynccontextmanager, suppress
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -67,6 +67,7 @@ from translator import preload_translator, translate_to_ja, translator_state
 from retention import recording_files, sweep as sweep_recordings
 from sessions import OpenSessions, Session
 from trim import trim_recording
+from recording_store import PartWriter, discard as discard_parts, recover as recover_parts
 import voice
 
 SAMPLE_RATE = 16000
@@ -309,6 +310,12 @@ async def _idle_release_loop() -> None:
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    # Before anything is served: a session the last process was killed in the middle of is
+    # still on disk, and the web app may be about to read the recording's length.
+    try:
+        recover_recordings()
+    except Exception as e:  # noqa: BLE001  never keep the service from starting
+        print(f"[recording] recovery failed: {e}")
     # Periodic deletion of expired recordings (hourly) and model release when idle.
     cleanup_task = asyncio.create_task(_cleanup_loop())
     idle_task = asyncio.create_task(_idle_release_loop())
@@ -494,9 +501,9 @@ class StreamState:
     silence_samples: int = 0
     elapsed_samples: int = 0  # cumulative from the stream start (for timestamps)
     seg_start_sample: int = 0
-    # For diarization: the whole meeting audio (list of chunks) and finalized-utterance times (order = save order).
-    full_audio: list[np.ndarray] = field(default_factory=list)
-    finals: list[dict] = field(default_factory=list)
+    # For diarization: this session's audio and finalized-utterance times, written to disk as
+    # they arrive (recording_store.py). Only when the session belongs to a meeting.
+    part: PartWriter | None = None
 
     def __post_init__(self) -> None:
         if self.buffer is None:
@@ -525,48 +532,10 @@ def _existing_recording_samples(meeting_id: str) -> int:
         return 0
 
 
-def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]) -> None:
-    """Save the meeting audio (WAV) and finalized-utterance boundaries (JSON) on this PC.
-
-    So a meeting split across multiple recording sessions still maps to its utterances, it
-    **appends to the existing recording** instead of overwriting. The incoming boundaries are
-    already offsets into the whole recording — the session's clock was started at the existing
-    length (see the `start` handler) — so they are stored as they arrive. When the recording
-    changes, cached diarization results are invalidated.
-    """
-    if not chunks:
-        return
-    RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-    wav_path = RECORDINGS_DIR / f"{meeting_id}.wav"
-    seg_path = RECORDINGS_DIR / f"{meeting_id}.segments.json"
-    spk_path = RECORDINGS_DIR / f"{meeting_id}.speakers.json"
-
-    audio = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
-    new_pcm = (np.clip(audio, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
-
-    # If an existing recording is present, read it so the new audio is appended to it.
-    prev_pcm = b""
-    prev_finals: list[dict] = []
-    if wav_path.exists() and seg_path.exists():
-        try:
-            with wave.open(str(wav_path), "rb") as w:
-                if w.getframerate() == SAMPLE_RATE and w.getnchannels() == 1:
-                    prev_pcm = w.readframes(w.getnframes())
-                    prev_finals = json.loads(seg_path.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001  if corrupted, treat as new
-            prev_pcm, prev_finals = b"", []
-
-    with wave.open(str(wav_path), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(SAMPLE_RATE)
-        w.writeframes(prev_pcm + new_pcm)
-
-    seg_path.write_text(json.dumps(prev_finals + finals, ensure_ascii=False), encoding="utf-8")
-
-    # The recording content changed, so invalidate the previous diarization-result cache.
+def _invalidate_diarization(meeting_id: str) -> None:
+    """The recording changed: what speaker separation cached for it no longer applies."""
     for stale in (
-        spk_path,
+        RECORDINGS_DIR / f"{meeting_id}.speakers.json",
         RECORDINGS_DIR / f"{meeting_id}.embeddings.json",
         RECORDINGS_DIR / f"{meeting_id}.speakers.key",
         RECORDINGS_DIR / f"{meeting_id}.pieces.json",
@@ -577,6 +546,30 @@ def save_recording(meeting_id: str, chunks: list[np.ndarray], finals: list[dict]
             pass
     with _DIA_LOCK:
         _DIA_JOBS.pop(meeting_id, None)
+
+
+def save_recording(part: PartWriter) -> None:
+    """Append a finished session to the meeting's recording (WAV) and boundaries (JSON).
+
+    The session wrote its audio to disk as it arrived (recording_store.py); this appends it in
+    blocks, so saving costs no memory beyond a block, however long the meeting. It appends rather
+    than overwrites so a meeting split across sessions still maps to its utterances: the incoming
+    boundaries are already offsets into the whole recording, because the session's clock was
+    started at the existing length (see the `start` handler).
+    """
+    had_audio = part.samples > 0
+    part.fold(SAMPLE_RATE)
+    if had_audio:
+        _invalidate_diarization(part.mid)
+
+
+def recover_recordings(meeting_id: str | None = None) -> None:
+    """Fold in the sessions a stopped process left on disk, so their audio is not lost."""
+    if not RECORDINGS_DIR.exists():
+        return
+    for mid in recover_parts(RECORDINGS_DIR, SAMPLE_RATE, meeting_id):
+        print(f"[recording] recovered an unsaved session of {mid}")
+        _invalidate_diarization(mid)
 
 
 def pcm16_to_float32(data: bytes) -> np.ndarray:
@@ -905,6 +898,10 @@ async def recording_info(meeting_id: str) -> dict:
     mid = _safe_meeting_id(meeting_id)
     if not mid:
         raise HTTPException(status_code=400, detail="invalid meeting id")
+    # The end of a meeting asks for the length as soon as the client stops waiting, which can be
+    # before the last session has been added to the file. Read then, the length is only what came
+    # before that session, and the web app stores it on the meeting. Wait for it, bounded.
+    await _OPEN_SESSIONS.ended(mid)
     state = _recording_state(mid)
     if state.get("exists"):
         state["durationSec"] = _wav_duration_sec(_rec_paths(mid)["wav"])
@@ -1281,6 +1278,7 @@ async def recording_delete(meeting_id: str) -> dict:
         raise HTTPException(status_code=400, detail="invalid meeting id")
     for f in _rec_paths(mid).values():
         f.unlink(missing_ok=True)
+    discard_parts(RECORDINGS_DIR, mid)
     with _DIA_LOCK:
         _DIA_JOBS.pop(mid, None)
     return {"ok": True}
@@ -2208,7 +2206,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         {"w": w["w"], "s": round(w["s"] + start_s, 2), "e": round(w["e"] + start_s, 2)}
                         for w in words
                     ]
-                state.finals.append(entry)
+                if state.part is not None:
+                    state.part.add_final(entry)
                 # Translation runs on the CPU and lands separately, keyed by seq — the
                 # transcript must never wait on it.
                 if state.translate:
@@ -2279,6 +2278,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         if _OPEN_SESSIONS.unsettled(session):
                             await ws.send_text(json.dumps({"type": "status", "status": "loading"}))
                         await _OPEN_SESSIONS.settle(session)
+                        # A session of this meeting that a stopped process left on disk goes
+                        # into the recording first, so the clock counts it.
+                        await asyncio.to_thread(recover_recordings, state.meeting_id)
                         prior = _OPEN_SESSIONS.start_after(
                             session, _existing_recording_samples(state.meeting_id)
                         )
@@ -2334,7 +2336,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         if session is not None:
                             await _OPEN_SESSIONS.settle(session)
                         try:
-                            save_recording(state.meeting_id, state.full_audio, state.finals)
+                            # Off the event loop: other meetings' audio keeps arriving meanwhile.
+                            if state.part is not None:
+                                await asyncio.to_thread(save_recording, state.part)
                             saved = True
                             if session is not None:
                                 session.saved()
@@ -2355,9 +2359,12 @@ async def ws_endpoint(ws: WebSocket) -> None:
             samples = pcm16_to_float32(data)
             state.buffer = np.concatenate([state.buffer, samples])
             state.elapsed_samples += samples.size
-            # Keep all audio for post-meeting diarization (only when meetingId is set).
+            # Keep all audio for post-meeting diarization (only when meetingId is set). On
+            # disk as it arrives, not in memory until the end: see recording_store.py.
             if state.meeting_id:
-                state.full_audio.append(samples)
+                if state.part is None:
+                    state.part = PartWriter(RECORDINGS_DIR, state.meeting_id)
+                state.part.write(data)
                 if session is not None:
                     session.received(samples.size)
 
@@ -2409,11 +2416,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
         # If disconnected without end arriving (network drop, screen lock, an early client
         # close, etc.), still save the audio so far so it can be used for diarization.
         # A re-recording of the same meeting is appended.
-        if state.meeting_id and not saved and state.full_audio:
+        if state.part is not None and not saved:
             try:
-                save_recording(state.meeting_id, state.full_audio, state.finals)
-            except Exception:  # noqa: BLE001  swallow failures during cleanup
-                pass
+                save_recording(state.part)
+            except Exception:  # noqa: BLE001  the part stays on disk; the next start folds it in
+                state.part.abandon()
         if session is not None:
             _OPEN_SESSIONS.close(session)
 

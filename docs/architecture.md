@@ -224,7 +224,13 @@ recording survives the web app restarting.
    boundaries, then recognizes each segment with Whisper — which applies its own **Silero VAD**
    (`vad_filter`) to cut out long silences, where Whisper would invent text. Provisional text is
    streamed first, then the final wording; the browser saves each utterance to the DB.
-3. On end, STT writes `recordings/<id>.wav` + `<id>.segments.json` for later diarization. Each
+3. STT writes the audio to disk as it arrives, in a part file per session
+   (`recordings/<id>.<time>.part.pcm`, boundaries in `.part.jsonl`). On end it appends that to
+   `recordings/<id>.wav` + `<id>.segments.json` for later diarization. A session that never got to
+   the end, because the process was killed, is appended when the service next starts, so its audio
+   is not lost (`recording_store.py`). Until 4.9 the audio was held in memory until the end. A
+   two-hour session was lost that way, to the out-of-memory killer, at the moment it was being
+   saved. Each
    boundary carries the words it was recognised from (`{"w","s","e"}`, on the recording's own
    clock) where the backend can align them — an utterance is cut at silences, not at speaker
    changes, so these are what let a line holding two people be split between them rather than
