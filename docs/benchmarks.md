@@ -15,7 +15,7 @@ merged since), and the machine is named with them.
 | | GPU path | CPU path |
 | --- | --- | --- |
 | Japanese recognition of a whole recording, character error rate | **10.5%** (faster-whisper, CUDA) | **11.2%** (whisper.cpp) |
-| Recognition speed, as a fraction of the audio's length | **0.036** — an hour in about 2 minutes | **0.72** — an hour in about 43 minutes |
+| Recognition speed, as a fraction of the audio's length | **0.034** — an hour in about 2 minutes | **0.72** — an hour in about 43 minutes |
 | Same audio three times | identical (0.00% apart) | — |
 | Speaker separation, clear lines given to the right person (English) | **90.5%** (pyannote) | **53.3%** (sherpa-onnx) |
 | Speed of speaker separation | 0.066 — an hour in about 4 minutes | 0.14 — an hour in about 8 minutes |
@@ -69,7 +69,7 @@ error, though a reader would not call it one.
 
 | | CER, clips | CER, long file | Speed, clips | Speed, long file |
 | --- | --- | --- | --- | --- |
-| faster-whisper, CUDA (GPU path) | 12.6% | **10.5%** | 0.086 | **0.036** |
+| faster-whisper, CUDA (GPU path) | 12.5% | **10.5%** | 0.059 | **0.034** |
 | whisper.cpp, CPU (CPU path) | 10.6% | **11.2%** | 2.49 | **0.72** |
 
 Speed is time taken over the audio's length: below 1 is faster than real time. Loading the
@@ -94,7 +94,7 @@ two ways of keeping the second:
 | weights at `float16` rather than `int8_float16` | 14.8% | 14.3% |
 | faster-whisper's own voice detector off | 12.2% | 10.3% |
 | detector cuts silences of 2 s or more, at a lower threshold | 12.6% | 12.4% |
-| **detector cuts silences of 10 s or more — what ships now** | **12.6%** | **10.5%** |
+| **detector cuts silences of 10 s or more — what ships now** | **12.5%** | **10.5%** |
 
 **The weights were not it.** **The voice detector was.** On faster-whisper the service turns
 on its built-in Silero voice detector (`vad_filter=True`) inside every piece it recognises; the
