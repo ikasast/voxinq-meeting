@@ -855,8 +855,9 @@ workflow can also be run by hand for a trial build; that publishes the tag you n
 If a full release's own run fails and re-running it cannot help, run **Publish images** by
 hand with that tag and **finish_release** ticked. It builds the tag's code, moves `latest`, and
 attaches the licence files to the release, as the release's own run would have. A re-run
-cannot pick up a fix to the workflow, because it runs the workflow as it was at the tag. That
-is how `v4.9.0` was finished, when the hosted runners' DNS stopped resolving the Ubuntu archive.
+cannot pick up a fix to the workflow, because it runs the workflow as it was at the tag. The
+option was added when `v4.9.0`'s CUDA image could not be built, because the hosted runners'
+DNS had stopped resolving the Ubuntu archive.
 
 Deploying comes **after** publishing, and depends on how the host runs:
 
