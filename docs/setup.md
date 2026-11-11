@@ -852,6 +852,12 @@ Publishing is what builds and pushes the container images, and the only thing th
 workflow can also be run by hand for a trial build; that publishes the tag you name and leaves
 `latest` alone.
 
+If a full release's own run fails and re-running it cannot help, run **Publish images** by
+hand with that tag and **finish_release** ticked. It builds the tag's code, moves `latest`, and
+attaches the licence files to the release, as the release's own run would have. A re-run
+cannot pick up a fix to the workflow, because it runs the workflow as it was at the tag. That
+is how `v4.9.0` was finished, when the hosted runners' DNS stopped resolving the Ubuntu archive.
+
 Deploying comes **after** publishing, and depends on how the host runs:
 
 | host runs | deploy with |

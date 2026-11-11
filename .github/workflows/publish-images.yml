@@ -13,7 +13,19 @@ on:
       tag:
         description: "Image tag to publish (e.g. v1.3.0-rc1). Does not move latest."
         required: true
+      finish_release:
+        description: >-
+          Finish a full release whose own run failed: build that tag's code, move latest, and
+          attach the licence files to its release. Only for a tag already published as a full
+          release.
+        type: boolean
+        default: false
 
+# BuildKit runs its builds with its own resolver, and on a hosted runner that falls back to
+# Google's public DNS. On 2026-11-11 that stopped answering for archive.ubuntu.com, while
+# Cloudflare's still did, and the CUDA image (Ubuntu-based) failed four times over an hour
+# while the Debian-based ones built. Every setup-buildx step below names both, Cloudflare's
+# first.
 env:
   REGISTRY: ghcr.io
   # Lowercased owner/repo; GHCR rejects uppercase.
@@ -27,7 +39,14 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Empty on a release (the tag itself) and on an ordinary manual run (its branch).
+          ref: ${{ inputs.finish_release && inputs.tag || '' }}
       - uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -38,12 +57,13 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           IMAGE: ${{ env.IMAGE_BASE }}/web
-          # Only a full release moves `latest`. A manual run publishes its own tag alone, and a
-          # pre-release must not become what `docker compose up -d` pulls — an alpha of the next
-          # major would otherwise land on every install that never asked for it.
+          # Only a full release moves `latest` (or a manual run finishing one, `finish_release`).
+          # A trial run publishes its own tag alone, and a pre-release must not become what
+          # `docker compose up -d` pulls — an alpha of the next major would otherwise land on
+          # every install that never asked for it.
           # The event_name test is load-bearing: on workflow_dispatch there is no release object,
           # and GitHub's `==` treats that null as equal to false.
-          MOVES_LATEST: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
+          MOVES_LATEST: ${{ (github.event_name == 'release' && github.event.release.prerelease == false) || inputs.finish_release == true }}
         run: |
           {
             echo "list<<EOF"
@@ -98,7 +118,14 @@ jobs:
         if: steps.disk.outputs.free < 50
         run: df -h /
       - uses: actions/checkout@v4
+        with:
+          # Empty on a release (the tag itself) and on an ordinary manual run (its branch).
+          ref: ${{ inputs.finish_release && inputs.tag || '' }}
       - uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -109,8 +136,8 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
           IMAGE: ${{ env.IMAGE_BASE }}/stt
-          # Same rule as the web job: full releases only, never a manual run or a pre-release.
-          MOVES_LATEST: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
+          # Same rule as the web job: full releases only, never a pre-release or a trial run.
+          MOVES_LATEST: ${{ (github.event_name == 'release' && github.event.release.prerelease == false) || inputs.finish_release == true }}
         run: |
           {
             echo "list<<EOF"
@@ -141,8 +168,15 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Empty on a release (the tag itself) and on an ordinary manual run (its branch).
+          ref: ${{ inputs.finish_release && inputs.tag || '' }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -155,7 +189,7 @@ jobs:
           IMAGE: ${{ env.IMAGE_BASE }}/stt
           # `latest-cpu` rather than `latest`, on the same full-release-only rule: a compose
           # file pinned to the CPU variant needs a moving tag of its own.
-          MOVES_LATEST: ${{ github.event_name == 'release' && github.event.release.prerelease == false }}
+          MOVES_LATEST: ${{ (github.event_name == 'release' && github.event.release.prerelease == false) || inputs.finish_release == true }}
         run: |
           {
             echo "list<<EOF"
@@ -191,7 +225,14 @@ jobs:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Empty on a release (the tag itself) and on an ordinary manual run (its branch).
+          ref: ${{ inputs.finish_release && inputs.tag || '' }}
       - uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -207,12 +248,12 @@ jobs:
       # the CI check on the app's own dependencies.
       - run: node scripts/licences.mjs THIRD_PARTY_LICENSES.md sbom-web.json sbom-stt.json sbom-stt-cpu.json
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.finish_release == true
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" sbom-web.json sbom-stt.json sbom-stt-cpu.json THIRD_PARTY_LICENSES.md --clobber
       # A manual run has no release to attach to; keep the files with the run instead.
-      - if: github.event_name != 'release'
+      - if: github.event_name != 'release' && inputs.finish_release != true
         uses: actions/upload-artifact@v4
         with:
           name: licences-${{ env.TAG }}
