@@ -143,6 +143,11 @@ jobs:
       # hands out are stored on the lines for good. Standard library only.
       - run: python stt-service/test_sessions.py
 
+      # A session's audio is on disk from the first chunk and is appended to the recording at
+      # the end, or at the next start if the process was killed first. Once, a two-hour session
+      # held only in memory was lost that way. Standard library only.
+      - run: python stt-service/test_recording_store.py
+
       # The retention sweep: a recording goes with every file beside it, and files an older
       # sweep left are cleared once the period has passed. Standard library only.
       - run: python stt-service/test_retention.py

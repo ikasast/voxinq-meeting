@@ -22,10 +22,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const knownEnd = knownTime(asked?.endedAt);
 
   // Best-effort: fetch the recorded length from STT. Never fails the "end" over this.
+  //
+  // The service answers once the meeting's last session is in the file, which it waits up to a
+  // minute for. A long session can still be saving when the recording screen stops waiting and
+  // calls this, and the length read before then was the part recorded before it.
   let recordedMs: number | undefined;
   try {
     const st = (await sttFetch(`/recordings/${id}`, {
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(75_000),
     }).then((r) => (r.ok ? r.json() : null))) as
       | { exists?: boolean; durationSec?: number | null }
       | null;
