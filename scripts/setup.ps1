@@ -34,12 +34,15 @@ if (Test-Path .env) {
 } else {
   Copy-Item .env.example .env
   Ok "created .env from .env.example"
-  $dburl = Read-Host "  Enter your PostgreSQL connection string`n  [postgresql://voxinq:PASSWORD@localhost:5432/voxinq]"
+  $example = "postgresql://voxinq:PASSWORD@localhost:5432/voxinq"
+  $dburl = Read-Host "  Enter your PostgreSQL connection string`n  [$example]"
+  # The template leaves the line commented out, because Docker installs build their own.
+  $value = if ($dburl) { $dburl } else { $example }
+  $lines = Get-Content .env | ForEach-Object {
+    if ($_ -match '^# ?DATABASE_URL=') { "DATABASE_URL=`"$value`"" } else { $_ }
+  }
+  Set-Content .env $lines
   if ($dburl) {
-    $lines = Get-Content .env | ForEach-Object {
-      if ($_ -match '^DATABASE_URL=') { "DATABASE_URL=`"$dburl`"" } else { $_ }
-    }
-    Set-Content .env $lines
     Ok "DATABASE_URL set"
   } else {
     Warn "kept the example DATABASE_URL - edit .env before the next step if it is wrong"

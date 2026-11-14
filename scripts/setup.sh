@@ -40,9 +40,11 @@ else
   ok "created .env from .env.example"
   printf '  Enter your PostgreSQL connection string\n  [postgresql://voxinq:PASSWORD@localhost:5432/voxinq]: '
   if [ -t 0 ]; then read -r DBURL; else DBURL=""; fi
+  # The template leaves the line commented out, because Docker installs build their own; write
+  # it with the answer, or with the example when there was none.
+  url=${DBURL:-postgresql://voxinq:PASSWORD@localhost:5432/voxinq}
+  tmp=$(mktemp); awk -v url="$url" '/^# ?DATABASE_URL=/{print "DATABASE_URL=\"" url "\""; next} {print}' .env > "$tmp" && mv "$tmp" .env
   if [ -n "${DBURL:-}" ]; then
-    # replace the DATABASE_URL line with the answer
-    tmp=$(mktemp); awk -v url="$DBURL" '/^DATABASE_URL=/{print "DATABASE_URL=\"" url "\""; next} {print}' .env > "$tmp" && mv "$tmp" .env
     ok "DATABASE_URL set"
   else
     warn "kept the example DATABASE_URL — edit .env before the next step if it is wrong"

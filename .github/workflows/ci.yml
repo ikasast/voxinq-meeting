@@ -186,6 +186,23 @@ jobs:
       # which is not what a pull request is.
       - name: Build the web image
         run: docker build -t voxinq-web:ci .
+      # The documented install with nothing but the compose file: no `.env`, so the secrets are
+      # generated and the web app has to find the database with them. The STT image is not
+      # built here (see above), so only web and what it depends on start.
+      - name: Start web with no .env
+        run: |
+          mkdir /tmp/bare && cp docker-compose.yml /tmp/bare/ && cd /tmp/bare
+          docker tag voxinq-web:ci ghcr.io/ikasast/voxinq-meeting/web:ci
+          VOXINQ_VERSION=ci docker compose up -d web
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health | tee /tmp/health.json | grep -q '"db":{"ok":true'; then
+              echo; echo "web reached the database"; exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/health.json || true
+          docker compose logs init-secrets db web
+          exit 1
 
   # The licences of everything the app depends on, from its lockfiles: a list to read, and a
   # check that nothing arrives under a licence an MIT project offered commercially cannot carry

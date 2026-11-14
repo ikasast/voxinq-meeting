@@ -67,24 +67,24 @@ PC にはメモリ 16GB と、約 40GB の空き（GPU 無しなら約 20GB）�
 **MagicDNS** と **HTTPS Certificates** を有効にします。PC のアドレスは `<ホスト名>.<テイルネット名>.ts.net`
 という形です（[機器一覧](https://login.tailscale.com/admin/machines)でコピーできます）。
 
-**③ ファイルを 2 つ取得し、`.env` に 4 項目を書く**
+**③ compose ファイルを取得し、`.env` に 2 行を書く**
 
 ```bash
 mkdir voxinq
 cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 ```
 
+同じフォルダに `.env` を作り、次の 2 行を書きます。
+
 ```env
-POSTGRES_PASSWORD="自分で決めるパスワード"
-DATABASE_URL="postgresql://voxinq:上と同じパスワード@db:5432/voxinq"
 TZ="Asia/Tokyo"
 STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"
 ```
 
 `STT_WS_URL` は、スマホから文字起こしサービスに届くアドレスで、スマホで録音するなら必須です。
-ほかの項目は、使いたくなったときに足せば十分です（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
+`TZ` は、サーバーが日付を日本時間で表示するためのものです。パスワードを考える必要はありません。最初の起動で
+自動的に作られます。ほかの項目は、使いたくなったときに足せば十分です（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
 
 **④ 起動し、議事録用の AI モデルを入れ、スマホから届くようにする**
 
