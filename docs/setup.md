@@ -836,9 +836,15 @@ git push origin 'v1.1.0^{}:refs/heads/release'   # the docs' download links foll
 Then the Android app, which rides the same version: build it signed and attach it, so the release
 is the one place a phone can be updated from (`android/README.md` covers the key).
 
+**Name the APK `voxinq-<version>.apk`.** The app's **Update** button downloads exactly
+`releases/download/v<version>/voxinq-<version>.apk` (`android/.../Updater.kt`), so an APK attached
+as Gradle's `app-release.apk` makes every phone report "HTTP 404". `v4.8.0` and `v4.9.0` went out
+that way.
+
 ```bash
-cd android && ./gradlew assembleRelease
-gh release create v1.1.0 --title v1.1.0 --notes-file <file>   android/app/build/outputs/apk/release/app-release.apk
+cd android && ./gradlew assembleRelease && cd ..
+cp android/app/build/outputs/apk/release/app-release.apk voxinq-1.1.0.apk
+gh release create v1.1.0 --title v1.1.0 --notes-file <file>   voxinq-1.1.0.apk
 ```
 
 **Publish it — not as a pre-release — or `latest` stays where it is.** A pre-release is the right
