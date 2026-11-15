@@ -16,6 +16,7 @@ import { readExtensions } from "./extensions-store";
 import { withExtensions } from "./extensions-settings";
 import { prisma } from "./prisma";
 import { onlyUserKeys } from "./settings-scope";
+import { isTimeZone } from "./time-zone";
 import {
   type MinutesTemplate,
   migrateMinutesTemplates,
@@ -117,6 +118,9 @@ export type AppSettings = {
   recordingRetentionDays: number;
   // How long a meeting stays in the trash before it is deleted for good, recording and all.
   trashRetentionDays: number;
+  // The zone meeting dates are written in (lib/time-zone.ts). Empty: TZ from the environment,
+  // or UTC without one.
+  timeZone: string;
 };
 
 function defaults(): AppSettings {
@@ -155,6 +159,7 @@ function defaults(): AppSettings {
     requireAppLock: false,
     recordingRetentionDays: -1,
     trashRetentionDays: 30,
+    timeZone: "",
   };
 }
 
@@ -263,6 +268,7 @@ export async function readMachineSettings(): Promise<AppSettings> {
     if (!(TRASH_RETENTION_CHOICES as readonly number[]).includes(merged.trashRetentionDays)) {
       merged.trashRetentionDays = base.trashRetentionDays;
     }
+    if (merged.timeZone !== "" && !isTimeZone(merged.timeZone)) merged.timeZone = base.timeZone;
     // Nonsense is worse than the estimate it overrides: a budget of 12 MB is a queue that
     // never moves, and a negative one is a typo.
     if (

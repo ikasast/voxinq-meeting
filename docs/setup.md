@@ -198,11 +198,10 @@ Everything above assumes a terminal. On Windows it can be done almost entirely w
    then Ctrl+S. That is the whole install; the passwords it needs are generated when it first
    starts.
 
-4. **Optional: a `.env` for your own settings.** Without one, dates show in UTC and only this
-   PC can record. To change that, open Notepad, write the lines you want from the
-   [table below](#filling-in-env) — usually `TZ` with your timezone and, for a phone,
-   `STT_WS_URL` — and save into the folder with the name in quotes, `".env"`, or Notepad
-   saves it as `.env.txt`.
+4. **Optional: a `.env` for your own settings.** Without one, only this PC can record. To
+   record from a phone, open Notepad, write the `STT_WS_URL` line from the
+   [table below](#filling-in-env), and save into the folder with the name in quotes, `".env"`,
+   or Notepad saves it as `.env.txt`.
 
 5. **Start it.** Open Docker Desktop and use its built-in terminal (the `>_` button along the
    bottom), or PowerShell in the folder. This is the one command:
@@ -218,15 +217,13 @@ Everything above assumes a terminal. On Windows it can be done almost entirely w
    into the folder and use `docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d`
    instead — under 0.5 GB to download and 1.8 GB on disk.
 
-6. **Get the minutes model.** In Docker Desktop → **Containers**, expand the `voxinq` project,
-   click the `ollama` container, open its **Exec** tab and run:
+6. **Open it.** In Docker Desktop → **Containers**, the `web` row shows `3000:3000` as a
+   link — click it, or go to `http://localhost:3000`.
 
-   ```
-   ollama pull qwen3:8b
-   ```
-
-7. **Open it.** Still in **Containers**, the `web` row shows `3000:3000` as a link — click it,
-   or go to `http://localhost:3000`.
+7. **Follow the checklist on the home page.** It sets your time zone from the browser's,
+   downloads the model that writes the minutes (about 5 GB, one button), says whether the GPU
+   is in use, and ticks the phone off once one reaches the transcription service. It is shown
+   to whoever runs the machine until they close it.
 
 **From then on there is no command line at all.** The Containers view starts and stops the
 whole project with one button, shows each service's logs on its own tab, and survives reboots
@@ -241,7 +238,7 @@ has every setting with an explanation.
 
 | Setting | Needed? | What to put there |
 | --- | --- | --- |
-| `TZ` | Unless you are in UTC | Your timezone, e.g. `Asia/Tokyo`. A container has none of its own, so without it meeting dates on the list and in exports show in UTC |
+| `TZ` | Rarely | Your timezone, e.g. `Asia/Tokyo`. A container has none of its own, so without it meeting dates on the list and in exports show in UTC — but the checklist on the home page offers the browser's zone, and **Administration → This machine** changes it, which wins over this |
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
 | `APP_PASSWORD` | Before exposing it | A login password. Without it, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine. **Creating the first account replaces the password as the way in** — see [Accounts](usage.md#accounts). The cookie it signs in with is signed by a generated `APP_SESSION_SECRET` |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
@@ -258,10 +255,11 @@ Then start it:
 
 ```bash
 docker compose up -d
-docker compose exec ollama ollama pull qwen3:8b   # the model that writes minutes
 ```
 
-Open `http://localhost:3000` and you are ready. **Settings → LLM** already points at the
+Open `http://localhost:3000`. The checklist on the home page takes it from there: the time
+zone, the model that writes the minutes, and a phone. To fetch the model from the command line
+instead, `docker compose exec ollama ollama pull qwen3:8b`. **Settings → LLM** already points at the
 bundled Ollama, because the compose file addresses it by service name.
 
 The second command can also be left out: **Settings → LLM** says whether the model named there
