@@ -72,24 +72,24 @@ same account on both.
 enable **MagicDNS** and **HTTPS Certificates**. The PC's address has the form `<host>.<tailnet>.ts.net`
 ([machines list](https://login.tailscale.com/admin/machines)).
 
-**③ Fetch the two files, and set four values in `.env`**
+**③ Fetch the compose file, and write two lines in `.env`**
 
 ```bash
 mkdir voxinq
 cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 ```
 
+Then create `.env` in the same folder:
+
 ```env
-POSTGRES_PASSWORD="a password you choose"
-DATABASE_URL="postgresql://voxinq:the-same-password@db:5432/voxinq"
 TZ="Europe/London"
 STT_WS_URL="wss://<host>.<tailnet>.ts.net:8443/ws"
 ```
 
 `STT_WS_URL` is where the phone reaches the transcription service, and recording from a phone needs it.
-The rest of `.env` can wait until you want it ([every variable](docs/configuration.md)).
+`TZ` makes the server show dates in your time. There are no passwords to invent: they are generated
+on the first start. Everything else can wait until you want it ([every variable](docs/configuration.md)).
 
 **④ Start it, fetch the minutes model, and make it reachable from the phone**
 

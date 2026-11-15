@@ -1,7 +1,18 @@
 # Voxinq Meeting — full stack in one command.
 #
-# This file and .env are all you need; the images come from ghcr.io, so there is no clone and
-# no Node or Python on the host.
+# This file is all you need; the images come from ghcr.io, so there is no clone and no Node or
+# Python on the host.
+#
+#   curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
+#   docker compose up -d
+#
+# **No `.env` is needed to start.** The passwords and keys the services share are generated on
+# the first start by the `init-secrets` service below and kept in volumes. A `.env` beside this
+# file is still read, for the settings that are yours to choose (a timezone, the address a phone
+# uses, ports), and anything it sets wins over a generated value. The template with every
+# setting explained:
+#
+#   curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
 #
 # **It is a starting point, and it is yours.** Nothing updates it after you download it -- not
 # `docker compose pull`, which moves the images -- so edit it to match the machine you are on:
@@ -9,10 +20,8 @@
 # comments below say what each part is for and what happens without it. `.env` is for the
 # settings; this file is for the shape of the thing.
 #
-#   curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
-#   curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
-#   # edit .env, then
-#   docker compose up -d
+# Needs Docker Compose 2.24 or later, for the optional `.env` (Docker Desktop has had it since
+# early 2024).
 #
 # To build from a checkout instead (development, or an unreleased change), add the build
 # override: docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
@@ -37,15 +46,73 @@
 #   OLLAMA_PORT=127.0.0.1:11435
 
 services:
+  # Generates the secrets the other services share, once, so that nobody has to invent them.
+  #
+  # It runs at every `docker compose up` and exits; a value that already exists is never
+  # replaced, so it only writes anything on the first start. Each value is 32 random bytes
+  # from /dev/urandom, as hex. They live in three volumes, so that each service holds only
+  # what it uses: the database never sees the web app's keys, and the transcription service
+  # never sees the database password.
+  #
+  #   postgres_password  the database's password            db, web
+  #   stt_secret         what web signs its STT requests with  web, stt
+  #   key_secret         wraps the keys open during a session  web
+  #   session_secret     signs the sign-in cookie              web
+  #
+  # A value set in `.env` wins over the generated one (POSTGRES_PASSWORD, VOXINQ_STT_SECRET,
+  # VOXINQ_KEY_SECRET, APP_SESSION_SECRET), so an install that already has them is unchanged.
+  # The images read these files in docker/with-secrets.sh.
+  #
+  # Keep `secrets-web` out of anything you back up next to the database, as you would
+  # VOXINQ_KEY_SECRET: a backup should not carry the key that opens it. **Do not delete these
+  # volumes** on their own: the database keeps the password it was created with, and a new
+  # one would lock the web app out of it.
+  #
+  # The database image, because it is already being pulled and has a shell; nothing of
+  # PostgreSQL runs here.
+  init-secrets:
+    image: postgres:17-alpine
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        umask 077
+        for name in postgres_password stt_secret key_secret session_secret; do
+          if [ ! -s "/web/$$name" ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "/web/$$name"
+            echo "generated $$name"
+          fi
+        done
+        cp /web/postgres_password /db/postgres_password
+        cp /web/stt_secret /stt/stt_secret
+    volumes:
+      - secrets-db:/db
+      - secrets-web:/web
+      - secrets-stt:/stt
+    restart: "no"
+
   # Meeting data.
   db:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-voxinq}
       POSTGRES_USER: ${POSTGRES_USER:-voxinq}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Empty unless `.env` sets it, and then the generated one is used. It only matters the
+      # first time the database starts: PostgreSQL keeps the password it was created with.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    # The image's own entrypoint, after taking the generated password when none was given.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - '[ -n "$$POSTGRES_PASSWORD" ] || export POSTGRES_PASSWORD="$$(cat /run/voxinq/postgres_password)"; exec docker-entrypoint.sh "$$@"'
+      - docker-entrypoint.sh
+    command: ["postgres"]
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - secrets-db:/run/voxinq:ro
+    depends_on:
+      init-secrets:
+        condition: service_completed_successfully
     # Published on loopback so host tools (psql, pg_dump backups) can reach it.
     ports:
       - "${DB_PORT:-127.0.0.1:5432}:5432"
@@ -59,8 +126,15 @@ services:
   # Web app. Runs `prisma migrate deploy` on start.
   web:
     image: ghcr.io/ikasast/voxinq-meeting/web:${VOXINQ_VERSION:-latest}
-    env_file: .env
+    # Read when it is there; nothing in it is needed to start.
+    env_file:
+      - path: .env
+        required: false
     environment:
+      # With no DATABASE_URL in `.env`, the image builds one for the `db` service from these and
+      # the generated password.
+      POSTGRES_DB: ${POSTGRES_DB:-voxinq}
+      POSTGRES_USER: ${POSTGRES_USER:-voxinq}
       # Server-side reach to STT (container-to-container, unlike the browser's URL below).
       STT_INTERNAL_URL: http://stt:8000
       # Where the BROWSER should reach STT. Read at request time, so the published image does
@@ -82,12 +156,13 @@ services:
       VOXINQ_SIGNUP: ${VOXINQ_SIGNUP:-open}
       # Wraps the keys that are open while somebody is using the app or has work queued. Without
       # it a stolen database alone reads whatever was unlocked; with it, a dump or a backup on
-      # its own does not. Keep it out of the backup.
+      # its own does not. Keep it out of the backup. Generated unless `.env` sets it.
       VOXINQ_KEY_SECRET: ${VOXINQ_KEY_SECRET:-}
       # Shared with `stt` below: the web app signs what it asks of the transcription service and
       # issues each recording a token for its own meeting, and the service refuses anything
-      # else. Derived from POSTGRES_PASSWORD unless VOXINQ_STT_SECRET is set — set it to keep the
-      # database password out of the stt container. Both services must get the same value.
+      # else. Both services must get the same value. Generated unless `.env` sets
+      # VOXINQ_STT_SECRET -- or POSTGRES_PASSWORD, which installs from before the generated
+      # secrets used, and which this still falls back to so that they keep working unchanged.
       STT_SECRET: ${VOXINQ_STT_SECRET:-${POSTGRES_PASSWORD:-}}
       # Meeting dates on the list, the detail header, the print page and the exports are
       # formatted here, in the container. A container has no timezone unless it is given
@@ -120,9 +195,12 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - settings:/data
+      - secrets-web:/run/voxinq:ro
     # No `depends_on: db` requirement beyond ordering: an external-viewer deployment points
     # DATABASE_URL at another host and runs `docker compose up -d web` alone.
     depends_on:
+      init-secrets:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
         required: false
@@ -148,6 +226,7 @@ services:
       STT_ALLOWED_ORIGINS: ${STT_ALLOWED_ORIGINS:-}
       # The same as web's: only the web app's signed requests, and recordings carrying its token
       # for their meeting, are answered. Without it anybody who reaches the port can use it.
+      # Generated unless `.env` sets it, as for web.
       STT_SECRET: ${VOXINQ_STT_SECRET:-${POSTGRES_PASSWORD:-}}
       # Log timestamps only — nothing here is shown in the UI — but a stack whose services
       # disagree about what time it is makes correlating logs needlessly hard.
@@ -159,6 +238,10 @@ services:
       # Several GB of Whisper / pyannote weights — without this they re-download on every
       # container rebuild.
       - hfcache:/data/huggingface
+      - secrets-stt:/run/voxinq:ro
+    depends_on:
+      init-secrets:
+        condition: service_completed_successfully
     deploy:
       resources:
         reservations:
@@ -203,6 +286,10 @@ volumes:
   recordings:
   hfcache:
   ollama:
+  # Written by init-secrets; see there before removing any of them.
+  secrets-db:
+  secrets-web:
+  secrets-stt:
 
 # Two files sit beside this one for the situations that need a key removed rather than a value
 # changed, which is the one thing .env cannot do:

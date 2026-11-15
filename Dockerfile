@@ -32,6 +32,8 @@ RUN apt-get update -qq \
 ENV NODE_ENV=production
 COPY --from=build /app /app
 EXPOSE 3000
+# Fills in the secrets compose generated when `.env` does not give them; see the script.
+ENTRYPOINT ["/bin/sh", "/app/docker/with-secrets.sh"]
 # Apply pending migrations, then serve. `migrate deploy` only rolls forward and is a no-op
 # when the schema is current, so restarting is safe. (The pre-1.0 image used `db push`, which
 # would silently diverge from the migration history.)

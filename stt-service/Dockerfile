@@ -60,6 +60,7 @@ RUN python3.11 -m venv /app/diarization/.venv \
 COPY LICENSE NOTICE.md /app/
 COPY stt-service/ /app/stt-service/
 COPY diarization/ /app/diarization/
+COPY docker/with-secrets.sh /app/docker/with-secrets.sh
 
 # The two ONNX models, baked in rather than fetched on first use: ~33 MB together, and a
 # diarization that works offline beats one that needs the network at the wrong moment.
@@ -77,4 +78,6 @@ RUN mkdir -p /data/recordings /data/huggingface
 
 EXPOSE 8000
 WORKDIR /app/stt-service
+# Fills in the shared secret compose generated when `.env` does not give one; see the script.
+ENTRYPOINT ["/bin/sh", "/app/docker/with-secrets.sh"]
 CMD ["/app/stt-service/.venv/bin/python", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]

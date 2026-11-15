@@ -7,13 +7,13 @@ in the UI). Both are gitignored.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | — | PostgreSQL connection string (required). Under Docker this names the compose service: `postgresql://voxinq:PASSWORD@db:5432/voxinq` — a loopback address would mean the web container itself. |
+| `DATABASE_URL` | — | PostgreSQL connection string. Required on a native install. **Leave it unset under Docker**: the web container builds one for the `db` service from the generated password. Set it there only to use another database, and not at a loopback address, which would mean the web container itself. |
 | `STT_WS_URL` | falls back to the build-time value | **Docker path.** STT WebSocket URL the *browser* connects to. Read at request time, so `docker compose up -d` applies it — no rebuild. Set this to record from a phone: `wss://<host>.<tailnet>.ts.net:8443/ws`. |
 | `NEXT_PUBLIC_STT_WS_URL` | `ws://localhost:8000/ws` | **Native path.** Same URL, compiled into the browser bundle — **rebuild after changing**. Ignored when `STT_WS_URL` is set. |
 | `APP_PASSWORD` | unset | The shared password, for an instance with **no accounts**. Unset = open within your network. When set, access without a tailnet identity (Funnel, a public URL) is **read-only**: view & download only, state-changing requests are refused (403). Creating the first account replaces it — see [Accounts](usage.md#accounts). |
-| `APP_SESSION_SECRET` | `voxinq-default-secret` | Secret for the auth cookie. Set your own if using `APP_PASSWORD` or accounts. |
+| `APP_SESSION_SECRET` | generated under Docker; `voxinq-default-secret` elsewhere | Secret for the auth cookie. On a native install, set your own if using `APP_PASSWORD` or accounts. |
 | `VOXINQ_SIGNUP` | `open` | `open`: a tailnet identity nobody has seen becomes an account the first time it appears — what keeps a household's phones working with nobody administering anything. `closed`: only an administrator makes accounts, and an unknown identity is sent to the login page. The **first** account is exempt either way, or a server with this closed and nobody on it would have no administrator and no way to make one. An unrecognised value reads as `open`. |
-| `VOXINQ_KEY_SECRET` | falls back to `APP_SESSION_SECRET`, then a built-in default | Wraps the keys that are open while somebody is using the app or has work queued. **Without it a stolen database alone reads whatever was unlocked at that moment; with it, a dump or a backup on its own does not.** Keep it out of the backup. Changing it costs nothing: any open key becomes unreadable and the next sign-in opens it again from the password. |
+| `VOXINQ_KEY_SECRET` | generated under Docker; elsewhere falls back to `APP_SESSION_SECRET`, then a built-in default | Wraps the keys that are open while somebody is using the app or has work queued. **Without it a stolen database alone reads whatever was unlocked at that moment; with it, a dump or a backup on its own does not.** Keep it out of the backup. Changing it costs nothing: any open key becomes unreadable and the next sign-in opens it again from the password. |
 | `NETWORK_MODE` | `tailscale` | `tailscale`: external (non-tailnet) access is login-gated. `lan`: any reachable client is trusted. |
 | `STT_INTERNAL_URL` | `http://127.0.0.1:8000` | Where the web server reaches the STT service (server-side). More goes through it than the name suggests: reading a recording's length when a meeting ends, keeping utterance boundaries in step when a line is deleted, **every queued re-transcription and diarization**, and **a recording shared from the Android app**, which is stored through it. Wrong, and all of those fail while live recording — which goes from the browser to `STT_WS_URL` — carries on as if nothing were amiss. Set if STT runs on another host. **Literal `127.0.0.1`, not `localhost`** — see below. |
 | `TAILSCALE_BIN` | auto | Path to the `tailscale` CLI, used by **Settings → Remote access** to publish/unpublish. Defaults to the OS install path, then `PATH`. |
@@ -24,7 +24,7 @@ Docker-only, read by `docker-compose.yml` rather than by the app:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `POSTGRES_PASSWORD` | — | Password for the bundled database. Compose refuses to start without it; use the same value in `DATABASE_URL`. |
+| `POSTGRES_PASSWORD` | generated | Password for the bundled database. Generated on the first start when unset. An install from before 4.10 sets it in `.env`: keep it there, because the database keeps the password it was created with. |
 | `HF_TOKEN` | unset | Needed for diarization on an NVIDIA GPU, which uses pyannote — a gated model. Without a GPU, diarization uses ungated ONNX models and needs no token. Also needed if `WHISPER_MODEL` points at a gated Hugging Face repo, and for the Emotion extension: accept the terms of `imprt/kushinada-hubert-large` and `imprt/kushinada-hubert-large-jtes-er` with the same account (about 1.3 GB, downloaded on first use; the NVIDIA GPU build only, as it runs on torch). |
 | `DIA_BACKEND` | unset | Which diarization engine to use: `pyannote` (accurate, CUDA + `HF_TOKEN`) or `sherpa` (portable, no token). Unset picks from the hardware. Forcing one that cannot run is an error, not a fallback. |
 | `DIA_MIN_PIECE_S` | `0` | When diarization divides a line between two speakers, fold any piece shorter than this many seconds into its neighbour. `0` keeps every piece, deliberately: a short piece is usually a real answer — the "yes" to a question — and folding it away is the mistake the division exists to stop. Raise it only if short fragments turn out to be the diarizer's noise on your recordings. |
@@ -132,9 +132,10 @@ Under Docker, `OLLAMA_BASE_URL` is set by the compose file to the bundled Ollama
 web app. The web app signs every request it makes to the service, and gives each recording a
 token for its own meeting, issued only to that meeting's owner; the service refuses anything
 else. **Both must have the same value.** Under Docker you set nothing: the compose file gives
-both containers `VOXINQ_STT_SECRET` from `.env` if it is there, and otherwise `POSTGRES_PASSWORD`.
-Set `VOXINQ_STT_SECRET` (any long random string) to keep the database password out of the `stt`
-container. The `voxinq` launcher generates one and keeps it in its data directory. For a native
+both containers `VOXINQ_STT_SECRET` from `.env` if it is there, then `POSTGRES_PASSWORD` if that
+is (as it is on installs from before 4.10), and otherwise one generated on the first start. Set
+`VOXINQ_STT_SECRET` (any long random string) on an older install to keep the database password
+out of the `stt` container. The `voxinq` launcher generates one and keeps it in its data directory. For a native
 install, set `STT_SECRET` to the same value for both processes. Without it the service answers
 anybody who can reach its port, and **Administration** says so.
 

@@ -125,14 +125,19 @@ NVIDIA driver on the host, but not Node, Python, PostgreSQL or Ollama.
 [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
 (on Windows: Docker Desktop with the WSL2 backend, where GPU support is built in).
 
-**No clone needed** — the images are published, so two files are the whole install:
+**No clone needed** — the images are published, so one file is the whole install:
 
 ```bash
 mkdir voxinq && cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example
-# edit .env: set POSTGRES_PASSWORD and TZ, and point DATABASE_URL at the `db` service
 ```
+
+**There are no passwords to invent.** The ones the services share — the database's, and the keys
+the web app signs and encrypts with — are generated on the first start by the compose file's
+`init-secrets` service and kept in volumes. A `.env` beside the compose file is optional, and is
+for the settings that are yours to choose: your timezone, and the address a phone uses
+([what to put in it](#filling-in-env)). Anything it sets wins over a generated value, which is
+also why an install from before 4.10, whose `.env` already has them, carries on unchanged.
 
 **Two questions before you start it**, because both change what gets downloaded — the first
 pull is around 7.5 GB compressed — 21 GB once unpacked — and neither is worth doing twice.
@@ -188,20 +193,16 @@ Everything above assumes a terminal. On Windows it can be done almost entirely w
 2. **Make a folder for it** — File Explorer, right-click → *New* → *Folder*. `C:\voxinq` will
    do. Everything Voxinq needs on the host lives in this one folder.
 
-3. **Save two files into it from your browser.** Open each link, then Ctrl+S:
+3. **Save the compose file into it from your browser.** Open
+   [`docker-compose.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml),
+   then Ctrl+S. That is the whole install; the passwords it needs are generated when it first
+   starts.
 
-   - [`docker-compose.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml)
-   - [`.env.example`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example)
-     — in the save dialog set **Save as type: All Files** and name it exactly `.env`, with the
-     dot and no extension.
-
-   > Windows fights you over a filename that starts with a dot. If the dialog will not take
-   > `.env`, save it as `env.txt` and rename it afterwards to `.env.` — with a **trailing**
-   > dot, which Explorer strips, leaving `.env`.
-
-4. **Fill it in.** Right-click `.env` → *Open with* → *Notepad*. Most lines are commented out
-   with `#` and can stay that way; the table below says which ones to change. When saving from
-   Notepad, put quotes round the name — `".env"` — or it will be saved as `.env.txt`.
+4. **Optional: a `.env` for your own settings.** Without one, dates show in UTC and only this
+   PC can record. To change that, open Notepad, write the lines you want from the
+   [table below](#filling-in-env) — usually `TZ` with your timezone and, for a phone,
+   `STT_WS_URL` — and save into the folder with the name in quotes, `".env"`, or Notepad
+   saves it as `.env.txt`.
 
 5. **Start it.** Open Docker Desktop and use its built-in terminal (the `>_` button along the
    bottom), or PowerShell in the folder. This is the one command:
@@ -234,21 +235,21 @@ icon on the project in the **Images** view, then start it again.
 
 ### Filling in `.env`
 
-The file you downloaded has every setting commented out with an explanation. You do not need
-most of them. Work down this table: **two entries are required**, the rest can wait until you
-want the feature they belong to.
+**Nothing in it is required.** Start with no file, or an empty one, and add a line when you want
+what it does. [`.env.example`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/.env.example)
+has every setting with an explanation.
 
 | Setting | Needed? | What to put there |
 | --- | --- | --- |
-| `POSTGRES_PASSWORD` | **Required** | Invent one. It is the password for the database container this install creates, so it does not have to match anything that already exists |
-| `DATABASE_URL` | **Required** | `postgresql://voxinq:THAT-SAME-PASSWORD@db:5432/voxinq`. `db` is the compose service name — `localhost` here would mean "the web container itself" and cannot work |
+| `TZ` | Unless you are in UTC | Your timezone, e.g. `Asia/Tokyo`. A container has none of its own, so without it meeting dates on the list and in exports show in UTC |
 | `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
-| `APP_PASSWORD` + `APP_SESSION_SECRET` | Before exposing it | A login password and a long random string. Without them, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine. **Creating the first account replaces the password as the way in** — see [Accounts](usage.md#accounts) |
-| `VOXINQ_KEY_SECRET` | With accounts | A second long random string. It wraps the keys that are open while somebody is using the app, so a stolen database or a backup on its own reads nothing. **Keep it out of the backup** |
+| `APP_PASSWORD` | Before exposing it | A login password. Without it, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine. **Creating the first account replaces the password as the way in** — see [Accounts](usage.md#accounts). The cookie it signs in with is signed by a generated `APP_SESSION_SECRET` |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
 | `VOXINQ_VERSION` | Rarely | Pins the image version instead of following `latest`, e.g. `v4.0.0`. Leave it unset to follow the newest stable release. Prereleases never move `latest`, so a beta or rc has to be named here. `v3.9.2` is the last 3.x release and `v1.5.0` the last 1.x — pin one to stay on that line |
 | `NEXT_PUBLIC_STT_WS_URL` | **Ignore on Docker** | Native installs only — it is compiled into the bundle. The published image reads `STT_WS_URL` at runtime instead |
+| `POSTGRES_PASSWORD` `DATABASE_URL` | **Leave unset** on a new install | Generated, and built from the generated password. **An install from before 4.10 has them: keep them.** The database keeps the password it was created with, so removing the line would lock the web app out |
+| `VOXINQ_STT_SECRET` `VOXINQ_KEY_SECRET` `APP_SESSION_SECRET` | Rarely | Generated when unset. Set one only to choose the value yourself |
 
 Everything else — transcription model, glossary, minutes format, LLM provider, API keys —
 lives in **Settings** in the app, not in `.env`. Full reference: [Configuration](configuration.md).
