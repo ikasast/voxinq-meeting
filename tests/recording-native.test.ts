@@ -60,7 +60,9 @@ describe("recording inside the Android app", () => {
     // In a WebView the browser's "leave this page?" is a modal dialog, and it guarded a
     // recording that carries on without the page. Found when a reload froze behind it.
     const warn = between(recorder, "// Closing the tab stops a browser recording", "// Keep the screen awake while recording");
-    expect(warn).toContain("if (!recording || native) return;");
+    // Neither while it records nor while a stopped one is still finishing: the app finishes it.
+    expect(warn).toContain("if (!(recording && !native) && !delivering) return;");
+    expect(warn).toContain("const delivering = finishing !== null && !finishing.native;");
   });
 
   it("leaves the app's recording, and its GPU, alone when the page goes away", () => {

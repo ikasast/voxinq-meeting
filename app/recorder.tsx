@@ -12,6 +12,7 @@ import {
   nativeState,
   startNative,
 } from "@/lib/stt/native";
+import { deliverEnd } from "@/lib/recording/deliver-end";
 import { showNotification } from "./device-notifications";
 import { useT } from "./locale-provider";
 import { isRecording } from "./recording-status";
@@ -77,6 +78,31 @@ export type RecordingSession = {
   native: boolean;
 };
 
+/** A recording that has stopped taking audio and is still delivering the end of it. */
+export type FinishingRecording = { meetingId: string; native: boolean };
+
+/**
+ * One recording's handlers, from start to the end of its stop. Once it is stopping, what it
+ * reports about the link — status, level, what is being heard — is no longer this recorder's:
+ * the screen already says it stopped, and the next recording may have begun. What it saved is
+ * still reported, and its saves are waited for before the stop is over.
+ */
+type Run = { stopping: boolean; saves: Set<Promise<void>> };
+
+/**
+ * How long a stop waits for its last lines to be saved, after the service has finished. The
+ * service itself is bounded on its side (lib/stt/client.ts, lib/stt/native.ts).
+ */
+const LAST_SAVES_MS = 15_000;
+
+/** Wraps a handler so it does nothing once `r` is stopping. */
+function running(r: Run) {
+  return <A extends unknown[]>(fn: (...a: A) => void) =>
+    (...a: A) => {
+      if (!r.stopping) fn(...a);
+    };
+}
+
 export type StartRecording = {
   meetingId: string;
   title: string;
@@ -115,8 +141,18 @@ type Recorder = {
   /** Whether this is the Android app, whose recorder outlives the page. */
   nativeAvailable: boolean;
   start: (r: StartRecording) => Promise<void>;
-  /** Stops taking audio — the meeting itself is not ended — and hands the GPU back. */
+  /**
+   * Stops taking audio — the meeting itself is not ended — and hands the GPU back.
+   *
+   * The screen says it stopped at once. The promise is for whoever needs the end of it on the
+   * server too — ending the meeting, writing minutes — and settles once the service has the last
+   * of the audio, has recognised it, and its lines are saved.
+   */
   stop: () => Promise<void>;
+  /** Settles once a stop of this meeting's recording has finished; at once if there is none. */
+  settled: (meetingId: string) => Promise<void>;
+  /** A recording that has stopped and is still delivering its end, or null. */
+  finishing: FinishingRecording | null;
   subscribe: (fn: (e: RecorderEvent) => void) => () => void;
   /** Stop re-rendering for the level meter, while nothing that shows it is on screen. */
   setQuiet: (quiet: boolean) => void;
@@ -126,9 +162,21 @@ type Recorder = {
 // second, and the transcript of an hour-long meeting has no business re-rendering with it.
 type RecorderApi = Pick<
   Recorder,
-  "current" | "nativeAvailable" | "start" | "stop" | "subscribe" | "setQuiet" | "dismissError" | "reshare" | "dismissIdle"
+  | "current"
+  | "nativeAvailable"
+  | "start"
+  | "stop"
+  | "settled"
+  | "subscribe"
+  | "setQuiet"
+  | "dismissError"
+  | "reshare"
+  | "dismissIdle"
 >;
-type RecorderState = Pick<Recorder, "session" | "status" | "partial" | "error" | "shared" | "pcSilent" | "idle">;
+type RecorderState = Pick<
+  Recorder,
+  "session" | "status" | "partial" | "error" | "shared" | "pcSilent" | "idle" | "finishing"
+>;
 type RecorderLevel = Pick<Recorder, "level" | "clipping" | "sources">;
 
 const ApiContext = createContext<RecorderApi | null>(null);
@@ -176,6 +224,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const [shared, setShared] = useState<SharedAudio | null>(null);
   const [pcSilent, setPcSilent] = useState(false);
   const [idle, setIdle] = useState(false);
+  const [finishing, setFinishing] = useState<FinishingRecording | null>(null);
   // When PC audio was last heard, and when a voice was: read ten times a second, so refs.
   const pcHeardAt = useRef(0);
   const voiceAt = useRef(0);
@@ -186,6 +235,10 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   // the button already says Stop — and must stop what it is about to become, not nothing.
   const starting = useRef<Promise<SttHandle> | null>(null);
   const nativeHandle = useRef<NativeHandle | null>(null);
+  // The handlers of the recording now running, so a stop can tell them it is stopping.
+  const run = useRef<Run | null>(null);
+  // The stop still delivering the end of a recording, and which recording that is.
+  const finishingWork = useRef<{ at: FinishingRecording; done: Promise<void> } | null>(null);
   const sessionRef = useRef<RecordingSession | null>(null);
   const quiet = useRef(false);
   const listeners = useRef(new Set<(e: RecorderEvent) => void>());
@@ -228,11 +281,12 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     setIdle(false);
   }, []);
 
+  // About the recording of `meetingId`, which may have stopped by now: its stop goes on behind
+  // the screen.
   const report = useCallback(
-    (message: string) => {
+    (message: string, meetingId: string) => {
       setError(message);
-      const s = sessionRef.current;
-      if (s) emit({ kind: "error", meetingId: s.meetingId, message });
+      emit({ kind: "error", meetingId, message });
     },
     [emit],
   );
@@ -265,7 +319,7 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         problem = (e as Error).message;
       }
-      report(t("Failed to save utterance: {error}", { error: problem }));
+      report(t("Failed to save utterance: {error}", { error: problem }), meetingId);
     },
     [emit, report, t],
   );
@@ -291,67 +345,87 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => setClipping(false), 4000);
   }, []);
 
-  // What the browser's own recording reports, for the meeting it was started for.
+  // A new run, as the running one: made when a recording's handlers are.
+  const newRun = useCallback((): Run => {
+    const r: Run = { stopping: false, saves: new Set() };
+    run.current = r;
+    return r;
+  }, []);
+
+  // What the browser's own recording reports, for the meeting it was started for. Once it is
+  // stopping, only what it saved and what went wrong.
   const micHandlers = useCallback(
-    (meetingId: string) => ({
-      onPartial: (text: string) => setPartial(text),
-      onFinal: (speaker: string, text: string, seq?: number, audio?: { startMs: number; endMs: number }) => {
-        setPartial("");
-        void keepLine(meetingId, speaker, text, seq, audio);
-      },
-      // A translation runs on the CPU after its line, so it is saved onto the row afterwards.
-      onTranslation: (seq: number, text: string) => {
-        const id = seqToId.current.get(seq);
-        if (id) {
-          void fetch(`/api/transcripts/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ translation: text }),
-          }).catch(() => {});
-        }
-        emit({ kind: "translation", meetingId, seq, text, id });
-      },
-      onStatus: (s: LinkStatus) => setStatus(s),
-      onError: (message: string) => report(readStored(t, message)),
-      onLevel: level10,
-      onClipping: clipped,
-      onKept: () => emit({ kind: "kept", meetingId }),
-      onShared: (s: SharedAudio) => {
-        setShared(s);
-        if (s === "ok") {
-          pcHeardAt.current = Date.now();
-          setPcSilent(false);
-        }
-      },
-      onSourceLevels: sourceLevels,
-    }),
-    [keepLine, emit, report, level10, clipped, sourceLevels, t],
+    (meetingId: string) => {
+      const r = newRun();
+      const live = running(r);
+      return {
+        onPartial: live((text: string) => setPartial(text)),
+        onFinal: (speaker: string, text: string, seq?: number, audio?: { startMs: number; endMs: number }) => {
+          if (!r.stopping) setPartial("");
+          const saving = keepLine(meetingId, speaker, text, seq, audio);
+          r.saves.add(saving);
+          void saving.finally(() => r.saves.delete(saving));
+        },
+        // A translation runs on the CPU after its line, so it is saved onto the row afterwards.
+        onTranslation: (seq: number, text: string) => {
+          const id = seqToId.current.get(seq);
+          if (id) {
+            void fetch(`/api/transcripts/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ translation: text }),
+            }).catch(() => {});
+          }
+          emit({ kind: "translation", meetingId, seq, text, id });
+        },
+        onStatus: live((s: LinkStatus) => setStatus(s)),
+        onError: (message: string) => report(readStored(t, message), meetingId),
+        onLevel: live(level10),
+        onClipping: live(clipped),
+        onKept: () => emit({ kind: "kept", meetingId }),
+        onShared: live((s: SharedAudio) => {
+          setShared(s);
+          if (s === "ok") {
+            pcHeardAt.current = Date.now();
+            setPcSilent(false);
+          }
+        }),
+        onSourceLevels: live(sourceLevels),
+      };
+    },
+    [newRun, keepLine, emit, report, level10, clipped, sourceLevels, t],
   );
 
-  // What the app's recorder reports. It saves each line itself, so a line arrives already saved.
+  // What the app's recorder reports. It saves each line itself, so a line arrives already saved,
+  // and its stop is over only once the app has saved the last of them (lib/stt/native.ts).
   const appHandlers = useCallback(
-    (meetingId: string) => ({
-      onPartial: (text: string) => setPartial(text),
-      onSaved: (row: NativeSaved) => {
-        setPartial("");
-        emit({
-          kind: "saved",
-          meetingId,
-          line: { id: row.id, speaker: row.speaker, text: row.text, at: row.createdAt, seq: row.seq },
-        });
-      },
-      onTranslation: (seq: number, text: string, id?: string) => emit({ kind: "translation", meetingId, seq, text, id }),
-      onStatus: (s: LinkStatus) => setStatus(s),
-      onError: (message: string) => report(readStored(t, message)),
-      onLevel: level10,
-      onClipping: clipped,
-      onResync: () => emit({ kind: "resync", meetingId }),
-      onEnded: () => {
-        finish();
-        emit({ kind: "ended", meetingId });
-      },
-    }),
-    [emit, report, level10, clipped, finish, t],
+    (meetingId: string) => {
+      const r = newRun();
+      const live = running(r);
+      return {
+        onPartial: live((text: string) => setPartial(text)),
+        onSaved: (row: NativeSaved) => {
+          if (!r.stopping) setPartial("");
+          emit({
+            kind: "saved",
+            meetingId,
+            line: { id: row.id, speaker: row.speaker, text: row.text, at: row.createdAt, seq: row.seq },
+          });
+        },
+        onTranslation: (seq: number, text: string, id?: string) => emit({ kind: "translation", meetingId, seq, text, id }),
+        onStatus: live((s: LinkStatus) => setStatus(s)),
+        onError: (message: string) => report(readStored(t, message), meetingId),
+        onLevel: live(level10),
+        onClipping: live(clipped),
+        onResync: () => emit({ kind: "resync", meetingId }),
+        onEnded: () => {
+          // A stop already reset the screen, and another recording may be on it by now.
+          if (!r.stopping) finish();
+          emit({ kind: "ended", meetingId });
+        },
+      };
+    },
+    [newRun, emit, report, level10, clipped, finish, t],
   );
 
   // In the app, ask whether it is already recording — the WebView reloaded, or was opened from
@@ -400,8 +474,21 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         return;
       }
       const native = hasNativeRecorder();
-      begin({ meetingId: r.meetingId, title: r.title, startedAt: r.startedAt, native });
+      const me: RecordingSession = { meetingId: r.meetingId, title: r.title, startedAt: r.startedAt, native };
+      begin(me);
       setStatus("connecting");
+      // The last recording may still be delivering its end. Started now, this one would be
+      // taken by the app for that one carrying on, or have its card handed back by that one's
+      // stop; so it waits, saying "connecting", which is what it is about to do.
+      const before = finishingWork.current;
+      if (before) {
+        await before.done;
+        if (sessionRef.current !== me) {
+          // Stopped while it waited: that stop has already reset the screen.
+          r.micStream?.getTracks().forEach((track) => track.stop());
+          return;
+        }
+      }
       try {
         let attempt: Promise<SttHandle>;
         if (native) {
@@ -424,30 +511,68 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
         } finally {
           starting.current = null;
         }
-        // Stopped while it was starting: stop() has the handle and is stopping it.
-        if (sessionRef.current?.meetingId !== r.meetingId) return;
+        // Stopped while it was starting: stop() has the handle and is stopping it. By the session
+        // itself, not its meeting: the same meeting may have been started again since.
+        if (sessionRef.current !== me) return;
         handle.current = h;
         if (native) nativeHandle.current = h as NativeHandle;
       } catch (e) {
-        releaseCard(r.meetingId);
-        finish();
-        setStatus("error");
+        // Unless a stop has already reset the screen, and perhaps started something else on it.
+        if (sessionRef.current === me) {
+          releaseCard(r.meetingId);
+          finish();
+          setStatus("error");
+        }
         throw e;
       }
     },
     [begin, finish, appHandlers, micHandlers, t],
   );
 
-  const stop = useCallback(async () => {
+  // Stop says so on the screen at once, and delivers the end of the recording behind it.
+  //
+  // The end used to come first: the button stayed a red square and the clock kept running
+  // while the service recognised the last segment, waited for translations (up to 8 s), saved
+  // the recording, and the page waited for it (up to 10 s; in the app, up to 45 s for the last
+  // lines to be saved too). The microphone stops here regardless — none of that needs the
+  // screen to wait. What does need it, ending the meeting and writing minutes from the last
+  // line, waits on the promise instead.
+  const stop = useCallback(() => {
     const s = sessionRef.current;
     const pending = starting.current;
-    const h = handle.current ?? (pending ? await pending.catch(() => null) : null);
+    const h = handle.current;
+    const r = run.current;
+    if (!s && !h && !pending) return finishingWork.current?.done ?? Promise.resolve();
+    if (r) r.stopping = true;
+    run.current = null;
     handle.current = null;
     nativeHandle.current = null;
-    await h?.stop().catch(() => {});
-    if (s) releaseCard(s.meetingId);
     finish();
+    const meetingId = s?.meetingId ?? "";
+    const at: FinishingRecording = { meetingId, native: s?.native ?? false };
+    const done = deliverEnd({
+      handle: h ?? pending,
+      saves: r?.saves ?? new Set(),
+      savesMs: LAST_SAVES_MS,
+      earlier: finishingWork.current?.done,
+      // Not when this meeting is recording again: the card is that recording's now.
+      mayRelease: () => meetingId !== "" && sessionRef.current?.meetingId !== meetingId,
+      release: () => releaseCard(meetingId),
+    }).finally(() => {
+      if (finishingWork.current?.done === done) {
+        finishingWork.current = null;
+        setFinishing(null);
+      }
+    });
+    finishingWork.current = { at, done };
+    setFinishing(at);
+    return done;
   }, [finish]);
+
+  const settled = useCallback((meetingId: string) => {
+    const f = finishingWork.current;
+    return f && f.at.meetingId === meetingId ? f.done : Promise.resolve();
+  }, []);
 
   const reshare = useCallback(async () => {
     const h = handle.current;
@@ -492,16 +617,18 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   }, [recording, shared, idle, t]);
 
   // Closing the tab stops a browser recording, so the tab asks first. Not in the app, where the
-  // recording carries on without the page and the question would guard nothing.
+  // recording carries on without the page and the question would guard nothing. Also while a
+  // stopped one is still delivering its end: closed then, its last line is never recognised.
+  const delivering = finishing !== null && !finishing.native;
   useEffect(() => {
-    if (!recording || native) return;
+    if (!(recording && !native) && !delivering) return;
     const askFirst = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
     window.addEventListener("beforeunload", askFirst);
     return () => window.removeEventListener("beforeunload", askFirst);
-  }, [recording, native]);
+  }, [recording, native, delivering]);
 
   // Keep the screen awake while recording: on a phone, a screen going off stops the microphone.
   // The lock is let go when the page is hidden, so it is taken again on the way back.
@@ -545,6 +672,8 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
     const onHide = () => {
       const s = sessionRef.current;
       if (s && !s.native) releaseCard(s.meetingId);
+      const f = finishingWork.current?.at;
+      if (f && !f.native && f.meetingId) releaseCard(f.meetingId);
     };
     window.addEventListener("pagehide", onHide);
     return () => window.removeEventListener("pagehide", onHide);
@@ -557,12 +686,12 @@ export function RecorderProvider({ children }: { children: ReactNode }) {
   const current = useCallback(() => sessionRef.current, []);
 
   const api = useMemo<RecorderApi>(
-    () => ({ current, nativeAvailable, start, stop, subscribe, setQuiet, dismissError, reshare, dismissIdle }),
-    [current, nativeAvailable, start, stop, subscribe, setQuiet, dismissError, reshare, dismissIdle],
+    () => ({ current, nativeAvailable, start, stop, settled, subscribe, setQuiet, dismissError, reshare, dismissIdle }),
+    [current, nativeAvailable, start, stop, settled, subscribe, setQuiet, dismissError, reshare, dismissIdle],
   );
   const state = useMemo<RecorderState>(
-    () => ({ session, status, partial, error, shared, pcSilent, idle }),
-    [session, status, partial, error, shared, pcSilent, idle],
+    () => ({ session, status, partial, error, shared, pcSilent, idle, finishing }),
+    [session, status, partial, error, shared, pcSilent, idle, finishing],
   );
   const meter = useMemo<RecorderLevel>(() => ({ level, clipping, sources }), [level, clipping, sources]);
   return (
