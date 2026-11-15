@@ -11,6 +11,11 @@ export async function register() {
   // started there would outlive nothing useful and talk to a database that may not exist.
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
+  // The time zone chosen in the app, before the first date is formatted (lib/time-zone.ts).
+  const { readMachineSettings } = await import("./lib/settings");
+  const { applyTimeZone } = await import("./lib/time-zone");
+  applyTimeZone((await readMachineSettings()).timeZone);
+
   const { startDispatcher } = await import("./lib/queue/dispatcher");
   await startDispatcher();
 

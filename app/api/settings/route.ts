@@ -17,6 +17,7 @@ import { normalizeProfiles } from "@/lib/stt/profiles";
 import { normalizeTemplates } from "@/lib/minutes-templates";
 import { pushRecordingRetention } from "@/lib/retention";
 import { RECORDING_RETENTION_CHOICES, TRASH_RETENTION_CHOICES } from "@/lib/retention-choices";
+import { applyTimeZone, isTimeZone } from "@/lib/time-zone";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,7 @@ const STRING_FIELDS: (keyof AppSettings)[] = [
   "uiLanguage",
   "meetingTitleFormat",
   "summaryLanguage",
+  "timeZone",
 ];
 
 export async function PATCH(req: NextRequest) {
@@ -76,6 +78,8 @@ export async function PATCH(req: NextRequest) {
     const v = body[key];
     if (typeof v === "string") (patch as Record<string, string>)[key] = cleanSetting(v);
   }
+  // A zone this runtime does not know would be stored and then ignored; "" goes back to TZ.
+  if (patch.timeZone && !isTimeZone(patch.timeZone)) delete patch.timeZone;
   if (typeof body.sttTranslate === "boolean") patch.sttTranslate = body.sttTranslate;
   // 0 means "work it out from the card". Anything under 512 MB is a typo, not a budget, and
   // writeSettings refuses it too — this is just the earlier of the two.
@@ -176,6 +180,7 @@ export async function PATCH(req: NextRequest) {
   // With no accounts at all this is the app it has always been: one settings file, no owner.
   if (!me) {
     const next = await writeSettings(patch);
+    if (patch.timeZone !== undefined) applyTimeZone(next.timeZone);
     if (patch.recordingRetentionDays !== undefined) await pushRecordingRetention(patch.recordingRetentionDays);
     return NextResponse.json(toPublic(withExtensions(next, extensions)));
   }
@@ -197,7 +202,10 @@ export async function PATCH(req: NextRequest) {
     userPatch.sttProfiles = posted.filter((p) => !sharedIds.has(p.id));
     if (me.isAdmin) machinePatch.sttProfiles = posted.filter((p) => sharedIds.has(p.id));
   }
-  if (Object.keys(machinePatch).length > 0) await writeSettings(machinePatch);
+  if (Object.keys(machinePatch).length > 0) {
+    const written = await writeSettings(machinePatch);
+    if (machinePatch.timeZone !== undefined) applyTimeZone(written.timeZone);
+  }
   if (machinePatch.recordingRetentionDays !== undefined) await pushRecordingRetention(machinePatch.recordingRetentionDays);
   const next =
     Object.keys(userPatch).length > 0

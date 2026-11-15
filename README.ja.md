@@ -67,7 +67,7 @@ PC にはメモリ 16GB と、約 40GB の空き（GPU 無しなら約 20GB）�
 **MagicDNS** と **HTTPS Certificates** を有効にします。PC のアドレスは `<ホスト名>.<テイルネット名>.ts.net`
 という形です（[機器一覧](https://login.tailscale.com/admin/machines)でコピーできます）。
 
-**③ compose ファイルを取得し、`.env` に 2 行を書く**
+**③ compose ファイルを取得し、`.env` に 1 行を書く**
 
 ```bash
 mkdir voxinq
@@ -75,22 +75,20 @@ cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 ```
 
-同じフォルダに `.env` を作り、次の 2 行を書きます。
+同じフォルダに `.env` を作り、次の 1 行を書きます。
 
 ```env
-TZ="Asia/Tokyo"
 STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"
 ```
 
-`STT_WS_URL` は、スマホから文字起こしサービスに届くアドレスで、スマホで録音するなら必須です。
-`TZ` は、サーバーが日付を日本時間で表示するためのものです。パスワードを考える必要はありません。最初の起動で
-自動的に作られます。ほかの項目は、使いたくなったときに足せば十分です（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
+スマホから文字起こしサービスに届くアドレスで、スマホで録音するなら必須です。パスワードを考える必要は
+ありません。最初の起動で自動的に作られます。ほかの項目は、使いたくなったときに足せば十分です
+（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
 
-**④ 起動し、議事録用の AI モデルを入れ、スマホから届くようにする**
+**④ 起動し、スマホから届くようにする**
 
 ```bash
 docker compose up -d
-docker compose exec ollama ollama pull qwen3:8b
 tailscale serve --bg --https=443 localhost:3000
 tailscale serve --bg --https=8443 localhost:8000
 ```
@@ -98,8 +96,12 @@ tailscale serve --bg --https=8443 localhost:8000
 > ⚠️ 8443（文字起こしサービス）は Web アプリが署名した要求にしか応じませんが、ログインの仕組みは
 > ありません。**Tailscale の外（Funnel など）には絶対に公開しないでください。**
 
-**⑤ スマホで `https://<ホスト名>.<テイルネット名>.ts.net` を開く**：Android はアプリ（下記）で、
-iPhone は Safari で開きます（iPhone は、画面を点けて Safari を前に出している間だけ録音できます）。最初の本番の前に、[短い会議を 1 本通しで試してください](docs/ja/setup.md#動作確認)。
+**⑤ PC で `https://<ホスト名>.<テイルネット名>.ts.net` を開く**：ホーム画面に、残りの準備が並びます。
+タイムゾーン、議事録を書く AI モデル（ボタン 1 つでダウンロード、約 5 GB）、GPU を使っているかどうかです。
+
+**⑥ スマホで同じアドレスを開く**：Android はアプリ（下記）で、iPhone は Safari で開きます（iPhone は、
+画面を点けて Safari を前に出している間だけ録音できます）。スマホから文字起こしサービスに届くと、
+チェックリストの最後の項目が完了になります。最初の本番の前に、[短い会議を 1 本通しで試してください](docs/ja/setup.md#動作確認)。
 
 <details>
 <summary><b>NVIDIA GPU が無い PC や Mac の場合</b></summary>

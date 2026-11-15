@@ -16,7 +16,17 @@ type Machine = {
   vramBudgetMb: number;
   recordingRetentionDays: number;
   trashRetentionDays: number;
+  timeZone: string;
 };
+
+/** Every zone the browser knows, or null on one too old to list them. */
+function timeZones(): string[] | null {
+  try {
+    return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone") ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const INPUT = "input";
 
@@ -132,6 +142,8 @@ export function MachineSettings() {
         />
       </FieldRow>
 
+      <TimeZoneField value={values.timeZone} onSave={(tz) => void save({ timeZone: tz })} />
+
       <RetentionFields
         recordingDays={values.recordingRetentionDays}
         trashDays={values.trashRetentionDays}
@@ -141,5 +153,48 @@ export function MachineSettings() {
         onTrash={(d) => void save({ trashRetentionDays: d })}
       />
     </div>
+  );
+}
+
+/**
+ * The zone meeting dates are written in (lib/time-zone.ts). Empty leaves it to TZ in `.env`, or
+ * UTC without one. This browser's own zone is offered first, since it is usually the answer.
+ */
+function TimeZoneField({ value, onSave }: { value: string; onSave: (tz: string) => void }) {
+  const t = useT();
+  const [zones] = useState(timeZones);
+  const [typed, setTyped] = useState(value);
+  const here = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const hint = t("The clock meeting dates are shown in. Empty: TZ in .env, or UTC without it.");
+
+  if (!zones) {
+    return (
+      <FieldRow label={t("Time zone")} htmlFor="timeZone" hint={hint}>
+        <input
+          id="timeZone"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onBlur={() => typed.trim() !== value && onSave(typed.trim())}
+          placeholder={here}
+          className={`${INPUT} max-w-xs`}
+        />
+      </FieldRow>
+    );
+  }
+  return (
+    <FieldRow label={t("Time zone")} htmlFor="timeZone" hint={hint}>
+      <select id="timeZone" value={value} onChange={(e) => onSave(e.target.value)} className={`${INPUT} max-w-xs`}>
+        <option value="">{t("From the server (TZ)")}</option>
+        {here && zones.includes(here) ? <option value={here}>{t("{zone} (this browser)", { zone: here })}</option> : null}
+        {zones
+          .filter((z) => z !== here)
+          .map((z) => (
+            <option key={z} value={z}>
+              {z}
+            </option>
+          ))}
+        {value && !zones.includes(value) ? <option value={value}>{value}</option> : null}
+      </select>
+    </FieldRow>
   );
 }

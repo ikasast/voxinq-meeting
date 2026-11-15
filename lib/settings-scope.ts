@@ -30,6 +30,8 @@ export const MACHINE_KEYS = [
   // How long the machine keeps what it holds: one disk, one answer.
   "recordingRetentionDays",
   "trashRetentionDays",
+  // The server's clock: dates are formatted on it, once, for everybody.
+  "timeZone",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 /**

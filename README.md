@@ -72,7 +72,7 @@ same account on both.
 enable **MagicDNS** and **HTTPS Certificates**. The PC's address has the form `<host>.<tailnet>.ts.net`
 ([machines list](https://login.tailscale.com/admin/machines)).
 
-**③ Fetch the compose file, and write two lines in `.env`**
+**③ Fetch the compose file, and write one line in `.env`**
 
 ```bash
 mkdir voxinq
@@ -83,19 +83,17 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 Then create `.env` in the same folder:
 
 ```env
-TZ="Europe/London"
 STT_WS_URL="wss://<host>.<tailnet>.ts.net:8443/ws"
 ```
 
-`STT_WS_URL` is where the phone reaches the transcription service, and recording from a phone needs it.
-`TZ` makes the server show dates in your time. There are no passwords to invent: they are generated
-on the first start. Everything else can wait until you want it ([every variable](docs/configuration.md)).
+It is where the phone reaches the transcription service, and recording from a phone needs it.
+There are no passwords to invent: they are generated on the first start. Everything else can wait
+until you want it ([every variable](docs/configuration.md)).
 
-**④ Start it, fetch the minutes model, and make it reachable from the phone**
+**④ Start it, and make it reachable from the phone**
 
 ```bash
 docker compose up -d
-docker compose exec ollama ollama pull qwen3:8b
 tailscale serve --bg --https=443 localhost:3000
 tailscale serve --bg --https=8443 localhost:8000
 ```
@@ -103,8 +101,13 @@ tailscale serve --bg --https=8443 localhost:8000
 > ⚠️ Port 8443, the transcription service, answers only what the web app signs, but nobody signs in
 > to it. **Never publish it outside your tailnet** (Funnel or otherwise).
 
-**⑤ Open `https://<host>.<tailnet>.ts.net` on the phone** — in the Android app (below), or in Safari on
-an iPhone, which records only while the screen stays on and Safari stays in front. Then [run one short meeting through](docs/setup.md#check-that-it-works) before the first real one.
+**⑤ Open `https://<host>.<tailnet>.ts.net` on the PC.** The home page shows what is left to set up:
+your time zone, the model that writes the minutes (a button downloads it, about 5 GB), and whether
+the GPU is in use.
+
+**⑥ Open the same address on the phone** — in the Android app (below), or in Safari on an iPhone,
+which records only while the screen stays on and Safari stays in front. The checklist's last line is
+ticked once the phone reaches the transcription service. Then [run one short meeting through](docs/setup.md#check-that-it-works) before the first real one.
 
 <details>
 <summary><b>Without an NVIDIA GPU, or on a Mac</b></summary>

@@ -5,6 +5,7 @@ import { currentLocale, serverT } from "@/lib/i18n/server";
 import { HomeStart } from "./home-start";
 import { sidebarMeetings } from "./sidebar-meetings";
 import { ListDate } from "./list-date";
+import { SetupChecklist } from "./setup-checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,8 @@ export default async function HomePage({
 
   return (
     <div data-paper className="mx-auto max-w-4xl space-y-10 pt-4 lg:pt-10">
+      {/* Finds out for itself whether to show (only to whoever runs the machine, until closed). */}
+      {external ? null : <SetupChecklist />}
       <HomeStart external={external} />
       {recent.length > 0 ? (
         <section>

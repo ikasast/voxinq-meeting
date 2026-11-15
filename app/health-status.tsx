@@ -32,6 +32,23 @@ export function lowDisk(free: number | undefined): { gb: string; hours: number }
 }
 
 /**
+ * Tell the first-run checklist that this device reached the transcription service, if it is a
+ * phone (the server decides that from the User-Agent). Once per page load, and never from the
+ * machine itself, where reaching localhost proves nothing about the phone.
+ */
+let phoneNoted = false;
+function notePhoneReach() {
+  if (phoneNoted) return;
+  phoneNoted = true;
+  if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname)) return;
+  void fetch("/api/setup-checklist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: true }),
+  }).catch(() => {});
+}
+
+/**
  * `showDisk`: whether to say that the disk is filling up — for whoever can do something about
  * it, which with accounts is an administrator.
  */
@@ -55,6 +72,7 @@ export function ServiceAlert({ showStt, showDisk = false }: { showStt: boolean; 
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const body = (await res.json().catch(() => null)) as { disk?: { free?: number } | null } | null;
           setDisk(showDisk ? lowDisk(body?.disk?.free) : null);
+          notePhoneReach();
           reason = null;
           break;
         } catch (e) {
