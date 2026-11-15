@@ -241,7 +241,7 @@ export function SetupChecklist() {
             <button type="button" className="btn-outline !py-1 !text-xs" disabled={busy !== null} onClick={() => void download(m.model)}>
               {pull?.error ? t("Try again") : t("Download {model}", { model: m.model })}
             </button>
-            <Link href="/settings" className="btn-outline !py-1 !text-xs">
+            <Link href="/settings?tab=llm" className="btn-outline !py-1 !text-xs">
               {t("Choose another model")}
             </Link>
           </div>
