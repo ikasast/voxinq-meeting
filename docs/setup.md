@@ -198,10 +198,10 @@ Everything above assumes a terminal. On Windows it can be done almost entirely w
    then Ctrl+S. That is the whole install; the passwords it needs are generated when it first
    starts.
 
-4. **Optional: a `.env` for your own settings.** Without one, only this PC can record. To
-   record from a phone, open Notepad, write the `STT_WS_URL` line from the
-   [table below](#filling-in-env), and save into the folder with the name in quotes, `".env"`,
-   or Notepad saves it as `.env.txt`.
+4. **Optional: a `.env` for your own settings.** Nothing in it is needed, a phone included:
+   the page finds the transcription service from its own address. To change something from
+   the [table below](#filling-in-env), write it in Notepad and save into the folder with the
+   name in quotes, `".env"`, or Notepad saves it as `.env.txt`.
 
 5. **Start it.** Open Docker Desktop and use its built-in terminal (the `>_` button along the
    bottom), or PowerShell in the folder. This is the one command:
@@ -239,7 +239,8 @@ has every setting with an explanation.
 | Setting | Needed? | What to put there |
 | --- | --- | --- |
 | `TZ` | Rarely | Your timezone, e.g. `Asia/Tokyo`. A container has none of its own, so without it meeting dates on the list and in exports show in UTC — but the checklist on the home page offers the browser's zone, and **Administration → This machine** changes it, which wins over this |
-| `STT_WS_URL` | To record from a phone | The address the *phone's browser* uses to reach transcription, e.g. `wss://myhost.tailnet.ts.net:8443/ws`. [Walkthrough below](remote-access.md#step-by-step-including-the-phone) |
+| `STT_WS_URL` | Rarely | Where the browser reaches transcription. **Unset, the page works it out from its own address:** `https://<host>/` finds `wss://<host>:8443/ws` (the layout of `tailscale serve` and of the [Tailscale container](remote-access.md#tailscale-in-a-container)), and `http://localhost:3000` finds `ws://localhost:8000/ws`. Set it only for another layout, e.g. `wss://stt.example.com/ws` |
+| `COMPOSE_PROFILES` | To run Tailscale in a container | `tailscale` starts Tailscale beside the app, instead of on the PC → [Tailscale in a container](remote-access.md#tailscale-in-a-container). `TS_AUTHKEY` and `TS_HOSTNAME` go with it |
 | `APP_PASSWORD` | Before exposing it | A login password. Without it, anyone who can reach the address gets in. Only relevant once the app is reachable beyond your own machine. **Creating the first account replaces the password as the way in** — see [Accounts](usage.md#accounts). The cookie it signs in with is signed by a generated `APP_SESSION_SECRET` |
 | `VOXINQ_SIGNUP` | Rarely | `closed` stops new accounts being created; the default `open` lets a tailnet identity nobody has seen become one |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | Only on a clash | Compose fails with "port is already allocated" rather than sharing. [Which to change](#already-using-one-of-these-ports) |
@@ -298,7 +299,7 @@ name, so only access from the host moves:
 WEB_PORT=3100
 DB_PORT=127.0.0.1:5433
 OLLAMA_PORT=127.0.0.1:11435
-STT_PORT=8100          # STT_WS_URL follows this unless you set one explicitly
+STT_PORT=8100          # the page follows this unless STT_WS_URL names an address
 ```
 
 Useful commands:
@@ -547,7 +548,7 @@ step rather than a broken install:
 | Live transcription *as you speak* | ✅ with an NVIDIA GPU or Apple silicon; elsewhere the text arrives when the meeting ends ([why](#what-runs-on-what)) |
 | Playing a recording back, editing utterances | ✅ |
 | Generating minutes | ✅ once `ollama pull` has finished |
-| Recording **from a phone** | Needs `STT_WS_URL` — the phone cannot reach `localhost` |
+| Recording **from a phone** | Needs an HTTPS address the phone reaches — `tailscale serve`, or the [Tailscale container](remote-access.md#tailscale-in-a-container) |
 | **Telling speakers apart** (diarization) | ✅ without a GPU. With an NVIDIA GPU it uses pyannote, which needs `HF_TOKEN` first ([how](#getting-a-hugging-face-token-nvidia-gpus-only)) |
 | Voice profiles (naming speakers automatically) | Same as above — it uses the same model |
 | **Recognising speech somewhere else** (Groq, Gemini, your own whisper box) | Nothing to install: add an endpoint in **Settings → Transcription** and pick it at *Re-transcribe*. Off until you do ([details](configuration.md#recognising-speech-somewhere-else)) |

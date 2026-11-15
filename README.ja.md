@@ -67,7 +67,7 @@ PC にはメモリ 16GB と、約 40GB の空き（GPU 無しなら約 20GB）�
 **MagicDNS** と **HTTPS Certificates** を有効にします。PC のアドレスは `<ホスト名>.<テイルネット名>.ts.net`
 という形です（[機器一覧](https://login.tailscale.com/admin/machines)でコピーできます）。
 
-**③ compose ファイルを取得し、`.env` に 1 行を書く**
+**③ compose ファイルを取得する**
 
 ```bash
 mkdir voxinq
@@ -75,15 +75,9 @@ cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 ```
 
-同じフォルダに `.env` を作り、次の 1 行を書きます。
-
-```env
-STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"
-```
-
-スマホから文字起こしサービスに届くアドレスで、スマホで録音するなら必須です。パスワードを考える必要は
-ありません。最初の起動で自動的に作られます。ほかの項目は、使いたくなったときに足せば十分です
-（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
+`.env` を書く必要も、パスワードを考える必要もありません。パスワードは最初の起動で自動的に作られ、
+文字起こしサービスのアドレスはページが自分のアドレスから割り出します。`.env` は、何かを変えたく
+なったときに作れば十分です（[`.env` の全項目](docs/ja/setup.md#env-に何を書くか)）。
 
 **④ 起動し、スマホから届くようにする**
 
@@ -95,6 +89,21 @@ tailscale serve --bg --https=8443 localhost:8000
 
 > ⚠️ 8443（文字起こしサービス）は Web アプリが署名した要求にしか応じませんが、ログインの仕組みは
 > ありません。**Tailscale の外（Funnel など）には絶対に公開しないでください。**
+
+<details>
+<summary><b>PC に Tailscale を入れたくない場合</b></summary>
+
+Tailscale をアプリの横のコンテナで動かすこともでき、その場合は `tailscale serve` の 2 行が要りません。
+compose ファイルと同じフォルダの `.env` に 1 行を書きます。
+
+```env
+COMPOSE_PROFILES=tailscale
+```
+
+`docker compose up -d` のあと `docker compose logs tailscale` を実行するとリンクが出るので、開いて
+テイルネットにログインします。アプリは独立した 1 台として参加するので、アドレスは
+`https://voxinq.<テイルネット名>.ts.net` です。→ [Tailscale をコンテナで動かす](docs/ja/setup.md#tailscale-をコンテナで動かす)
+</details>
 
 **⑤ PC で `https://<ホスト名>.<テイルネット名>.ts.net` を開く**：ホーム画面に、残りの準備が並びます。
 タイムゾーン、議事録を書く AI モデル（ボタン 1 つでダウンロード、約 5 GB）、GPU を使っているかどうかです。

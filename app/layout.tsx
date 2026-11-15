@@ -28,6 +28,7 @@ import { DisplaySizeKeeper } from "./display-size-keeper";
 import { Tooltips } from "./tooltips";
 import { version as appVersion } from "../package.json";
 import { isExternalRequest } from "@/lib/is-tailnet";
+import { STT_DEFAULT_PORT, sttPortFrom } from "@/lib/stt/public-url";
 
 // Latin text uses Inter, shipped with the repo rather than fetched from Google.
 //
@@ -122,11 +123,20 @@ export default async function RootLayout({
             request time. The build-time NEXT_PUBLIC_ value still applies when this is unset,
             so building from source is unchanged — but a published image cannot bake in a URL
             that only the person running it knows, and recording from a phone needs exactly
-            that. Set STT_WS_URL to override without rebuilding. */}
-        {process.env.STT_WS_URL ? (
+            that. Set STT_WS_URL to override without rebuilding; with neither, the browser
+            derives it from the page's own address. */}
+        {process.env.STT_WS_URL?.trim() ? (
           <script
             dangerouslySetInnerHTML={{
-              __html: `window.__VOXINQ_STT_WS__=${JSON.stringify(process.env.STT_WS_URL)}`,
+              __html: `window.__VOXINQ_STT_WS__=${JSON.stringify(process.env.STT_WS_URL.trim())}`,
+            }}
+          />
+        ) : sttPortFrom(process.env.STT_PORT) !== STT_DEFAULT_PORT ? (
+          // Unset: the browser derives the address from the page (lib/stt/public-url.ts), and
+          // needs to know only that the service was moved off its usual port.
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `window.__VOXINQ_STT_PORT__=${sttPortFrom(process.env.STT_PORT)}`,
             }}
           />
         ) : null}

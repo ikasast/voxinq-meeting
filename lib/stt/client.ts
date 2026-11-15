@@ -3,6 +3,7 @@ import { appendLocal, createLocal, finishLocal } from "@/lib/local-recordings";
 import { fromDiarizer, MIC_SPEAKER } from "@/lib/speakers";
 import { micConstraints, micGain, streamIsLive } from "./mic-constraints";
 import { sttTokens } from "./token";
+import { deriveSttWsUrl, STT_DEFAULT_PORT } from "./public-url";
 import { storedText } from "@/lib/i18n/stored";
 
 // WebSocket client for the self-hosted STT service (Python/faster-whisper).
@@ -133,9 +134,12 @@ export type SttHandle = {
 // stuck with whatever URL the image was built with, and recording from a phone needs a URL
 // that only they know. So the server may also inject one at runtime (see app/layout.tsx),
 // and that wins when present.
+// With neither, the address follows the page (lib/stt/public-url.ts); the server passes along
+// STT_PORT for that when it is not the default.
 declare global {
   interface Window {
     __VOXINQ_STT_WS__?: string;
+    __VOXINQ_STT_PORT__?: number;
   }
 }
 
@@ -150,11 +154,13 @@ export function reconnectDelay(n: number): number {
   return n <= QUICK_RETRIES ? 2000 : Math.min(30_000, 2000 * 2 ** (n - QUICK_RETRIES));
 }
 
-const BUILT_IN_WS_URL = process.env.NEXT_PUBLIC_STT_WS_URL ?? "ws://localhost:8000/ws";
+const BUILT_IN_WS_URL = process.env.NEXT_PUBLIC_STT_WS_URL || null;
 
 function wsUrl(): string {
-  if (typeof window !== "undefined" && window.__VOXINQ_STT_WS__) return window.__VOXINQ_STT_WS__;
-  return BUILT_IN_WS_URL;
+  if (typeof window === "undefined") return BUILT_IN_WS_URL ?? deriveSttWsUrl({ protocol: "http:", hostname: "localhost" });
+  if (window.__VOXINQ_STT_WS__) return window.__VOXINQ_STT_WS__;
+  if (BUILT_IN_WS_URL) return BUILT_IN_WS_URL;
+  return deriveSttWsUrl(window.location, window.__VOXINQ_STT_PORT__ ?? STT_DEFAULT_PORT);
 }
 
 /** The STT WebSocket address, for the Android app's recorder to connect to the same service. */

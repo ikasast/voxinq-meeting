@@ -72,7 +72,7 @@ same account on both.
 enable **MagicDNS** and **HTTPS Certificates**. The PC's address has the form `<host>.<tailnet>.ts.net`
 ([machines list](https://login.tailscale.com/admin/machines)).
 
-**③ Fetch the compose file, and write one line in `.env`**
+**③ Fetch the compose file**
 
 ```bash
 mkdir voxinq
@@ -80,15 +80,9 @@ cd voxinq
 curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml
 ```
 
-Then create `.env` in the same folder:
-
-```env
-STT_WS_URL="wss://<host>.<tailnet>.ts.net:8443/ws"
-```
-
-It is where the phone reaches the transcription service, and recording from a phone needs it.
-There are no passwords to invent: they are generated on the first start. Everything else can wait
-until you want it ([every variable](docs/configuration.md)).
+There is no `.env` to write and no password to invent: the passwords are generated on the first
+start, and the page finds the transcription service from its own address. A `.env` is for when
+you want to change something ([every variable](docs/configuration.md)).
 
 **④ Start it, and make it reachable from the phone**
 
@@ -100,6 +94,21 @@ tailscale serve --bg --https=8443 localhost:8000
 
 > ⚠️ Port 8443, the transcription service, answers only what the web app signs, but nobody signs in
 > to it. **Never publish it outside your tailnet** (Funnel or otherwise).
+
+<details>
+<summary><b>Rather not install Tailscale on the PC?</b></summary>
+
+Tailscale can run in a container beside the app instead, which replaces both `tailscale serve`
+lines. Put one line in `.env` beside the compose file:
+
+```env
+COMPOSE_PROFILES=tailscale
+```
+
+Then `docker compose up -d`, and `docker compose logs tailscale` prints a link: open it and sign
+in to your tailnet. The app joins it as a machine of its own, so its address is
+`https://voxinq.<tailnet>.ts.net`. → [Tailscale in a container](docs/remote-access.md#tailscale-in-a-container)
+</details>
 
 **⑤ Open `https://<host>.<tailnet>.ts.net` on the PC.** The home page shows what is left to set up:
 your time zone, the model that writes the minutes (a button downloads it, about 5 GB), and whether

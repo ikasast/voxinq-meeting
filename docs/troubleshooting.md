@@ -10,7 +10,7 @@
 | Symptom | Check first |
 | --- | --- |
 | The phone cannot open it, or shows a blank page | Is Tailscale connected on the phone? Is the address `https://`? |
-| No text while recording | Is `STT_WS_URL` right? Without a GPU, text arriving after you stop is normal |
+| No text while recording | Is the page open at the `https://` address (or `STT_WS_URL`, if you set one, right)? Without a GPU, text arriving after you stop is normal |
 | No minutes | Has `ollama pull` finished? **Settings → LLM** shows it |
 | Separating speakers fails | On an NVIDIA PC, `HF_TOKEN` |
 | No notice at a booked meeting's time | The Android app's notification permission, and that its battery setting is not *Restricted* |

@@ -31,8 +31,8 @@
 #
 # Note on ports: the browser connects to the STT service **directly** over WebSocket (the web
 # app never proxies audio), so port 8000 has to be reachable from the browser — it is not an
-# internal-only service. STT_WS_URL below tells the browser where that is, and unlike the
-# build-time NEXT_PUBLIC_ value it takes effect on a restart.
+# internal-only service. The page works out where it is from its own address (see STT_WS_URL
+# under `web`).
 #
 # Every published port is overridable from .env, because these are ordinary ports that a
 # machine may already be using — a local PostgreSQL on 5432 is common enough that the
@@ -41,7 +41,7 @@
 # host port changes nothing internally:
 #
 #   WEB_PORT=3100          # then browse http://localhost:3100
-#   STT_PORT=8100          # STT_WS_URL follows it automatically unless you set one
+#   STT_PORT=8100          # the page follows it automatically
 #   DB_PORT=127.0.0.1:5433
 #   OLLAMA_PORT=127.0.0.1:11435
 
@@ -137,9 +137,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-voxinq}
       # Server-side reach to STT (container-to-container, unlike the browser's URL below).
       STT_INTERNAL_URL: http://stt:8000
-      # Where the BROWSER should reach STT. Read at request time, so the published image does
-      # not need rebuilding to change it — set STT_WS_URL in .env and restart web.
-      STT_WS_URL: ${STT_WS_URL:-ws://localhost:${STT_PORT:-8000}/ws}
+      # Where the BROWSER should reach STT. Usually left unset: the page then derives it from
+      # its own address -- https://<host>/ finds wss://<host>:8443/ws, the layout tailscale
+      # serve and the `tailscale` service below both use, and http://localhost:3000/ finds
+      # ws://localhost:<STT_PORT>/ws. Set STT_WS_URL in .env only for a different layout; it is
+      # read at request time, so no rebuild.
+      STT_WS_URL: ${STT_WS_URL:-}
+      STT_PORT: ${STT_PORT:-8000}
       # Seeds the default shown in Settings → LLM. Loopback is right for a native install but
       # means "this container" here, so name the service instead — otherwise a fresh install
       # cannot generate minutes until someone edits the setting by hand.
@@ -259,6 +263,8 @@ services:
   # replaces it — or set OLLAMA_PROFILE in .env to anything at all, which moves it into a
   # profile nothing enables. Unset resolves to an empty profile, which Compose reads as "no
   # profile" and starts as always, so neither is imposed on anyone who wants the container.
+  # The second entry keeps it starting when `COMPOSE_PROFILES=tailscale` turns on the
+  # `tailscale` service below: once any profile is active, the empty one no longer counts.
   #
   # Either way, point Settings → LLM at http://host.docker.internal:11434 and give the host's
   # Ollama OLLAMA_HOST=0.0.0.0 — its default is loopback, which from in here is in here.
@@ -266,7 +272,7 @@ services:
     # A fixed release rather than `latest`, so a `docker compose pull` for a Voxinq update does not
     # also change the model server underneath it. Dependabot proposes newer ones.
     image: ollama/ollama:0.40.13
-    profiles: ["${OLLAMA_PROFILE:-}"]
+    profiles: ["${OLLAMA_PROFILE:-}", "${OLLAMA_PROFILE:-tailscale}"]
     volumes:
       - ollama:/root/.ollama
     ports:
@@ -280,12 +286,67 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
 
+  # Optional: Tailscale in a container of its own, so that the PC needs no Tailscale installed
+  # and no `tailscale serve` commands. It joins your tailnet as a machine of its own, named
+  # TS_HOSTNAME, and serves the app on https://<TS_HOSTNAME>.<tailnet>.ts.net/ and the
+  # transcription service on :8443 of the same name -- the layout the page derives the
+  # transcription service's address from, so nothing else needs setting.
+  #
+  # Off unless enabled. Turn it on with two lines in .env:
+  #
+  #   COMPOSE_PROFILES=tailscale
+  #   TS_AUTHKEY=tskey-auth-...     # https://login.tailscale.com/admin/settings/keys
+  #
+  # The key is used once, to join; after that the login lives in the `tailscale` volume and the
+  # key can expire. MagicDNS and HTTPS Certificates must be on in the tailnet's DNS settings, as
+  # for `tailscale serve`. Requests arrive with the Tailscale-User-Login header, as they do
+  # through `tailscale serve`, so accounts and the external-request rules work the same way.
+  #
+  # Nothing here is published on the PC: the app is reached through the tailnet name alone.
+  # Do not run it and `tailscale serve` for the same app at once -- that is two addresses for
+  # one server.
+  tailscale:
+    image: tailscale/tailscale:v1.104.4
+    profiles: ["tailscale"]
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-voxinq}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /config/serve.json
+      # Userspace networking (the image's default): no /dev/net/tun and no extra privileges.
+      # The container reaches `web` and `stt` by name on the compose network.
+      TS_USERSPACE: "true"
+    configs:
+      - source: tailscale-serve
+        target: /config/serve.json
+    volumes:
+      - tailscale:/var/lib/tailscale
+    restart: unless-stopped
+
+configs:
+  # What the `tailscale` service serves. $${TS_CERT_DOMAIN} becomes the machine's own
+  # <name>.<tailnet>.ts.net when the container starts.
+  tailscale-serve:
+    content: |
+      {
+        "TCP": {
+          "443": { "HTTPS": true },
+          "8443": { "HTTPS": true }
+        },
+        "Web": {
+          "$${TS_CERT_DOMAIN}:443": { "Handlers": { "/": { "Proxy": "http://web:3000" } } },
+          "$${TS_CERT_DOMAIN}:8443": { "Handlers": { "/": { "Proxy": "http://stt:8000" } } }
+        }
+      }
+
 volumes:
   pgdata:
   settings:
   recordings:
   hfcache:
   ollama:
+  # The `tailscale` service's login. Removing it makes the machine join again, under a new name.
+  tailscale:
   # Written by init-secrets; see there before removing any of them.
   secrets-db:
   secrets-web:

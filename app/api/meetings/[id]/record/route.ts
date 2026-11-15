@@ -7,6 +7,7 @@ import { gpuContenders, reserveForRecording } from "@/lib/queue/recording";
 import { recordingPlan } from "@/lib/recording/plan";
 import { readEffectiveSettings } from "@/lib/settings";
 import { sttFetch } from "@/lib/stt/internal";
+import { sttWsUrlForRequest } from "@/lib/stt/public-url";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ export const runtime = "nodejs";
 // pressed on a meeting's notice — on the phone's lock screen, or on a watch the notice was
 // forwarded to. It answers with everything the recorder needs, decided as the recording page
 // would decide it (lib/recording/plan.ts), and reserves the card when nothing else wants it.
-export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   if (await isExternalRequest()) {
     return apiError("Recording is not available from an external network", 403);
   }
@@ -36,9 +37,9 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     return apiError("This meeting has already ended. Recording cannot be restarted.", 409);
   }
 
-  // Where the phone reaches the transcription service: the same value the pages are given.
-  const wsUrl = process.env.STT_WS_URL || process.env.NEXT_PUBLIC_STT_WS_URL;
-  if (!wsUrl) return apiError("STT_WS_URL is not set on the server.", 503);
+  // Where the phone reaches the transcription service: the address the pages would use, from
+  // the one the app reached this server by when nothing names it.
+  const wsUrl = sttWsUrlForRequest(req.headers);
 
   // Unreachable counts as "can keep up": the recording connects and waits for the service
   // either way, and the card is reserved as it would be from the page.

@@ -59,8 +59,6 @@ export async function GET() {
     },
     minutes,
     phone: state.phone,
-    // Without it the page points the browser at ws://localhost:8000, which a phone cannot reach.
-    sttUrlSet: Boolean(process.env.STT_WS_URL || process.env.NEXT_PUBLIC_STT_WS_URL),
   });
 }
 
