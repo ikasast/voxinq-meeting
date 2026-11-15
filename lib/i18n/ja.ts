@@ -1352,6 +1352,9 @@ export const ja: Record<string, string> = {
   "No GPU acceleration on this machine, so recognition would fall behind live speech. The meeting is recorded and transcribed in one pass at the end — nothing is lost, but the text arrives afterwards.":
     "この機器に GPU アクセラレーションが無いため、リアルタイムでは認識が話す速度に追いつきません。会議は録音され、終了後に一括で文字起こしされます。失われるものはありませんが、文字は後から出てきます。",
   "Transcribes when the meeting ends": "会議の終了後に文字起こしします",
+  "Saving the end of the recording…": "録音の最後を保存中…",
+  "Stopped. The last few seconds are still being transcribed and saved; they appear in the transcript in a moment.":
+    "停止しました。最後の数秒を文字起こしして保存しています。まもなく文字起こしに表示されます。",
   "{model} is loaded — transcription starts right away":
     "{model} を読み込み済みです — すぐに文字起こしが始まります",
   "The model": "モデル",

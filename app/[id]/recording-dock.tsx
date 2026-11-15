@@ -87,9 +87,19 @@ export function RecordingDock({
   // screen is its control panel. What it says about it is this meeting's only if the recording
   // was started for this meeting.
   const recorder = useRecorder();
-  const { session: recSession, current: recCurrent, start: recStart, stop: recStop, subscribe: recSubscribe, setQuiet } =
-    recorder;
+  const {
+    session: recSession,
+    current: recCurrent,
+    start: recStart,
+    stop: recStop,
+    settled: recSettled,
+    subscribe: recSubscribe,
+    setQuiet,
+  } = recorder;
   const mine = recSession?.meetingId === meetingId;
+  // Stopped, and still delivering the end of it: the last segment is being recognised and its
+  // line saved. The screen says it stopped; this says the last words are on their way.
+  const finishingHere = recorder.finishing?.meetingId === meetingId;
   const status: LinkState = mine ? recorder.status : "idle";
   const active = isRecording(status);
   const level = mine ? recorder.level : 0;
@@ -560,10 +570,13 @@ export function RecordingDock({
     }
   }, [recCurrent, recStart, title, startedAt, meetingId, announce, activeModel, confirm, deferred, claimCard, t]);
 
-  // Stops taking audio; the meeting goes on, and recording again adds to it.
+  // Stops taking audio; the meeting goes on, and recording again adds to it. The screen says so
+  // at once (app/recorder.tsx); what awaits this — ending the meeting — waits for the end of the
+  // recording to reach the server too, as it does after a Stop pressed a moment earlier.
   const stopRecording = useCallback(async () => {
     if (mine) await recStop();
-  }, [mine, recStop]);
+    else await recSettled(meetingId);
+  }, [mine, recStop, recSettled, meetingId]);
 
   // Change recording source. Remembered per device; if recording, re-record with the new source (appended to the meeting).
   const changeSource = useCallback(
@@ -868,7 +881,7 @@ export function RecordingDock({
             {displaySupported ? <option value="both">{t("Mic + PC audio")}</option> : null}
           </select>
           <span className="text-[var(--text-muted)]">·</span>
-          {ended && active ? (
+          {ended && (active || finishingHere) ? (
             // Ending: the service is closing the file, which takes a few seconds, and then the
             // page is drawn again as the ended meeting's.
             <span className="text-[var(--text-secondary)]">{t("Stopping…")}</span>
@@ -876,6 +889,15 @@ export function RecordingDock({
             <span className="inline-flex items-center gap-1.5">
               <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
               {statusText(t, status)}
+            </span>
+          ) : finishingHere ? (
+            <span
+              className="text-[var(--text-secondary)]"
+              title={t(
+                "Stopped. The last few seconds are still being transcribed and saved; they appear in the transcript in a moment.",
+              )}
+            >
+              {t("Saving the end of the recording…")}
             </span>
           ) : deferred ? (
             <span
