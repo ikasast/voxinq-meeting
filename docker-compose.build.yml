@@ -12,10 +12,10 @@ services:
     build:
       context: .
       args:
-        # Only meaningful for a local build. The published image leaves this at its default
-        # and reads STT_WS_URL at runtime instead, because an image cannot know the URL its
-        # eventual user will need.
-        NEXT_PUBLIC_STT_WS_URL: ${NEXT_PUBLIC_STT_WS_URL:-ws://localhost:8000/ws}
+        # Only meaningful for a local build, and best left empty: the published image bakes in
+        # nothing, so the page derives the address from its own (or reads STT_WS_URL at
+        # runtime), and a value here would fix one address into this build.
+        NEXT_PUBLIC_STT_WS_URL: ${NEXT_PUBLIC_STT_WS_URL:-}
         APP_PASSWORD: ${APP_PASSWORD:-}
         APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
 

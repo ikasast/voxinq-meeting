@@ -177,7 +177,8 @@ curl -O https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-
 | --- | --- | --- |
 | `TZ` | ふつうは不要 | 自分のタイムゾーン（例 `Asia/Tokyo`）。コンテナは時刻帯を持たないので、未設定だと会議一覧・タイトル下の日時・印刷・エクスポートが UTC で表示されます。ただし、ホーム画面のチェックリストがブラウザのタイムゾーンを提案し、**管理 → このマシン** でも変えられます（こちらが `TZ` より優先）。保存されるデータは正しいので、後から設定しても既存の会議ごと直ります |
 | `HF_TOKEN` | NVIDIA GPU 搭載機で話者分離を使うなら | Hugging Face の無料トークン。**後回しで構いません** — 話者を区別する機能以外はこれ無しで動きます。GPU が無い環境では不要です。→ [取得手順](#hf_token-の取り方nvidia-gpu-での話者分離に必要) |
-| `STT_WS_URL` | スマホで録音するなら | スマホのブラウザから文字起こしサービスに届くアドレス（例 `wss://myhost.tailnet.ts.net:8443/ws`）→ [スマホから使う](#スマホから使うtailscale) |
+| `STT_WS_URL` | ふつうは不要 | ブラウザが文字起こしサービスに届くアドレス。**未設定なら、ページが自分のアドレスから割り出します。** `https://<ホスト>/` で開けば `wss://<ホスト>:8443/ws`（`tailscale serve` や [Tailscale のコンテナ](#tailscale-をコンテナで動かす)の構成）、`http://localhost:3000` なら `ws://localhost:8000/ws` です。これと違う構成のときだけ書きます（例 `wss://stt.example.com/ws`） |
+| `COMPOSE_PROFILES` | Tailscale をコンテナで動かすなら | `tailscale` と書くと、PC ではなくアプリの横のコンテナで Tailscale が動きます → [Tailscale をコンテナで動かす](#tailscale-をコンテナで動かす)。`TS_AUTHKEY` と `TS_HOSTNAME` も併せて使えます |
 | `APP_PASSWORD` | 外部に公開するなら | ログインパスワード。自分のPCの中だけで使う間は不要です。ログインの cookie は、自動で作られる `APP_SESSION_SECRET` で署名されます |
 | `WEB_PORT` `STT_PORT` `DB_PORT` `OLLAMA_PORT` | ぶつかったときだけ | ポートが使用中だと起動に失敗します。その場合だけ変更（例 `DB_PORT="127.0.0.1:5433"`） |
 | `OLLAMA_PROFILE` | 既に Ollama がある場合 | 何か書けば同梱の Ollama を起動しません（例 `external`）。値は Compose の profile 名として使われるだけなので、`off` でも `yes` でも結果は同じです。未設定なら起動します → [自分の環境に合わせる](#自分の環境に合わせる) |
@@ -266,9 +267,9 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d    # それ
    [`docker-compose.yml`](https://raw.githubusercontent.com/ikasast/voxinq-meeting/release/docker-compose.yml)
    を開いて Ctrl+S。必要なファイルはこれだけです。パスワードは最初の起動で自動的に作られます。
 
-4. **必要なら `.env` を作ります。** 無くても動きますが、その場合は録音できるのがこの PC からだけです。
-   スマホで録音するなら、メモ帳を開いて[上の表](#env-に何を書くか)の `STT_WS_URL` の行を書き、
-   このフォルダに保存します。
+4. **必要なら `.env` を作ります。** スマホで録音する場合も含めて、無くても動きます。文字起こし
+   サービスのアドレスは、ページが自分のアドレスから割り出します。[上の表](#env-に何を書くか)の
+   項目を変えたいときは、メモ帳で書いてこのフォルダに保存します。
    **ファイル名は `".env"` と引用符で囲んでください** — そうしないと `.env.txt` として保存されます。
 
 5. **起動します。** Docker Desktop を開き、下部の `>_` ボタンで内蔵ターミナルを出すか、
@@ -304,7 +305,7 @@ docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d    # それ
 | 録音・文字起こし | ✅（NVIDIA GPU / Apple Silicon なら会議中に、それ以外は終了時に） |
 | 録音の再生、発言の編集 | ✅ |
 | 議事録の生成 | ✅（`ollama pull` の完了後）。GPU が無いと 1 本 15 分前後かかります → [議事録の生成はどうなるか](#議事録の生成はどうなるか) |
-| **スマホから**録音 | `STT_WS_URL` が必要（スマホから `localhost` には届かないため） |
+| **スマホから**録音 | スマホから届く HTTPS のアドレスが必要（`tailscale serve` か [Tailscale のコンテナ](#tailscale-をコンテナで動かす)） |
 | **話者を区別する**（話者分離） | NVIDIA GPU 搭載機なら `HF_TOKEN` が必要 → 次項。GPU 無しならそのまま動きます |
 | 声紋登録（話者の自動命名） | 同上（話者分離と同じモデルを使います） |
 
@@ -513,7 +514,7 @@ PC を再起動しても、Docker Desktop が起動すれば Voxinq も自動で
 
 **手順1**: PC とスマホの両方に Tailscale を入れ、同じアカウントでログイン（PC 側は `tailscale up`）。
 
-**手順2**: **自分のアドレスを調べます。** これが分からないと次に進めません。
+**手順2**: **自分のアドレスを調べます。** スマホで開くアドレスです。
 アドレスは `<ホスト名>.<テイルネット名>.ts.net` という形です。
 
 ```bash
@@ -538,12 +539,35 @@ tailscale serve --bg --https=8443 localhost:8000     # 文字起こしサービ�
 
 `tailscale serve status` で、意図どおり転送されているか確認できます。
 
-**手順5**: 文字起こしサービスのアドレスをアプリに教えます。**導入方法によって変数が違います。**
+これで終わりです。`https://<ホスト名>.<テイルネット名>.ts.net` で開いたページは、文字起こしサービスを
+同じ名前の `:8443` に自分で見つけます。ポートやホストを変えた構成のときだけ、`STT_WS_URL`（Docker。
+実行時に読まれます）か `NEXT_PUBLIC_STT_WS_URL`（ネイティブ。ビルド時に埋め込まれます）で指定します。
 
-| 導入方法 | 設定する変数 | 反映方法 |
-| --- | --- | --- |
-| **Docker** | `STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"` | `docker compose up -d`（**再ビルド不要**。実行時に読まれます） |
-| **ネイティブ** | `NEXT_PUBLIC_STT_WS_URL="wss://<ホスト名>.<テイルネット名>.ts.net:8443/ws"` | **`npm run build` で再ビルドが必要**（ビルド時に埋め込まれるため） |
+### Tailscale をコンテナで動かす
+
+PC に Tailscale を入れる代わりに、アプリの横のコンテナで動かせます。`tailscale serve` の 2 行も
+要りません。compose ファイルと同じフォルダの `.env` に書きます。
+
+```env
+COMPOSE_PROFILES=tailscale
+```
+
+```bash
+docker compose up -d
+docker compose logs tailscale
+```
+
+ログに出る `https://login.tailscale.com/a/...` を開き、テイルネットにログインします。ログインは
+`tailscale` ボリュームに残るので、一度だけです。アプリは**独立した 1 台**として参加し、アドレスは
+`https://voxinq.<テイルネット名>.ts.net`、文字起こしサービスは同じ名前の `:8443` です。
+
+- **MagicDNS と HTTPS Certificates** は、PC に入れる場合と同じく有効にしておきます（手順3）。
+- 名前を変えるなら `TS_HOSTNAME=会議室`。ブラウザを使わずに参加させるなら、
+  [管理コンソールの Keys](https://login.tailscale.com/admin/settings/keys) で作った認証キーを
+  `TS_AUTHKEY=tskey-auth-...` に書きます（使うのは最初の 1 回だけです）。
+- 何もしないと、Tailscale のログインはおよそ半年で切れます。管理コンソールの機器一覧で、
+  この機器の **Disable key expiry** を選ぶと切れなくなります。
+- PC 側の `tailscale serve` と同時に使わないでください。同じサーバーにアドレスが 2 つできます。
 
 #### アプリとして追加する（PWA）
 

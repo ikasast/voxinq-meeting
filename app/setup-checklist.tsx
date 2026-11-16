@@ -30,7 +30,6 @@ type Status =
         | { provider: "ollama"; model: string; reachable: boolean; installed: boolean; pull: PullState | null }
         | { provider: "anthropic" | "openai"; model: string };
       phone: { at: string; via: "app" | "browser" } | null;
-      sttUrlSet: boolean;
     };
 
 type Stt = { reachable: false } | { reachable: true; device: string; live: boolean };
@@ -299,20 +298,20 @@ export function SetupChecklist() {
           ? t("The Android app reached the transcription service ({when}).", { when: formatDateTimeIn(locale, status.phone.at) })
           : t("A phone's browser reached the transcription service ({when}).", { when: formatDateTimeIn(locale, status.phone.at) })}
       </p>
-    ) : !status.sttUrlSet ? (
+    ) : phoneAddress ? (
       <p>
-        {t("STT_WS_URL is not set in .env, so a phone has no address for the transcription service.")}{" "}
-        <a href={`${DOCS}/remote-access.md`} target="_blank" rel="noreferrer" className="underline">
-          {t("How to set it")}
-        </a>
+        {t("Open {address} on the phone, in the Android app or the browser. This line is ticked once it reaches the transcription service.", {
+          address: phoneAddress,
+        })}
       </p>
     ) : (
+      // Opened on this machine itself (localhost): the address a phone uses is one this page
+      // cannot know — Tailscale's https://<name>.ts.net, as a rule.
       <p>
-        {phoneAddress
-          ? t("Open {address} on the phone, in the Android app or the browser. This line is ticked once it reaches the transcription service.", {
-              address: phoneAddress,
-            })
-          : t("Open this server on the phone, in the Android app or the browser. This line is ticked once it reaches the transcription service.")}
+        {t("Open this server's HTTPS address on the phone, such as https://<name>.ts.net with Tailscale, in the Android app or the browser. This line is ticked once it reaches the transcription service.")}{" "}
+        <a href={`${DOCS}/remote-access.md`} target="_blank" rel="noreferrer" className="underline">
+          {t("Reaching it from a phone")}
+        </a>
       </p>
     ),
   };

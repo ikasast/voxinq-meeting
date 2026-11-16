@@ -43,12 +43,14 @@ line, and the tailnet name is at the top of the
 must be enabled** in the console's [DNS](https://login.tailscale.com/admin/dns) page, or
 `--https` cannot get a certificate. `tailscale serve status` confirms the result.
 
-Then point the app at the STT address, which differs by install:
+There is nothing else to set. A page opened at `https://<host>.<tailnet>.ts.net/` looks for the
+STT service at `wss://<host>.<tailnet>.ts.net:8443/ws`, the same name on `:8443`. Only a different
+layout (another port, another host) needs the address named:
 
 | Install | Variable | Applied by |
 | --- | --- | --- |
-| **Docker** | `STT_WS_URL=wss://<host>.<tailnet>.ts.net:8443/ws` | `docker compose up -d` — read at request time, **no rebuild** |
-| **Native** | `NEXT_PUBLIC_STT_WS_URL=wss://<host>.<tailnet>.ts.net:8443/ws` | **`npm run build`** — compiled into the browser bundle |
+| **Docker** | `STT_WS_URL=wss://…/ws` | `docker compose up -d` — read at request time, **no rebuild** |
+| **Native** | `NEXT_PUBLIC_STT_WS_URL=wss://…/ws` | **`npm run build`** — compiled into the browser bundle |
 
 Optionally set `APP_PASSWORD` for login on public/Funnel access. See
 [Configuration](configuration.md).
@@ -65,7 +67,7 @@ Optionally set `APP_PASSWORD` for login on public/Funnel access. See
 tailscale up
 ```
 
-**2. Find your host's name.** This is the part the `STT_WS_URL` placeholder cannot tell you.
+**2. Find your host's name** — the address you will open on the phone.
 Your machine's full name is `<host>.<tailnet>.ts.net`, and `tailscale status` prints it — your
 own machine is the first line:
 
@@ -107,22 +109,7 @@ https://myhost.tail1a2b3c.ts.net:8443 (tailnet only)
 |-- / proxy http://localhost:8000
 ```
 
-**5. Point the app at the STT address the phone will use** — the `:8443` one, with the `wss://`
-scheme and the `/ws` path:
-
-```bash
-STT_WS_URL=wss://myhost.tail1a2b3c.ts.net:8443/ws
-```
-
-```bash
-docker compose up -d
-```
-
-> **Docker reads this at request time**, so a restart is enough — no rebuild. On a **native**
-> install the equivalent is `NEXT_PUBLIC_STT_WS_URL`, which is compiled into the JavaScript
-> bundle at build time and therefore needs `npm run build` again after any change.
-
-**6. On the phone**, open `https://myhost.tail1a2b3c.ts.net` and install it: the header carries
+**5. On the phone**, open `https://myhost.tail1a2b3c.ts.net` and install it: the header carries
 a **downward-arrow icon** (no label — it reads as "Install app" to a screen reader), and on iOS
 Safari that icon explains **Add to Home Screen** instead. The app is a PWA and runs full-screen
 from there. The icon is absent where the browser cannot install, and once it already has.
@@ -136,6 +123,37 @@ If the page loads but recording fails, the STT service is rejecting the browser'
 allows `localhost`, private LAN ranges and `*.ts.net` automatically; if you set
 `STT_ALLOWED_ORIGINS` yourself, your web address has to be in that list. See
 [Troubleshooting](troubleshooting.md).
+
+### Tailscale in a container
+
+Instead of installing Tailscale on the host, the compose file can run it in a container beside
+the app. It replaces both `tailscale serve` lines. In `.env` beside the compose file:
+
+```env
+COMPOSE_PROFILES=tailscale
+```
+
+```bash
+docker compose up -d
+docker compose logs tailscale
+```
+
+Open the `https://login.tailscale.com/a/...` link from the log and sign in to your tailnet. The
+login is kept in the `tailscale` volume, so this happens once. The app joins as **a machine of its
+own**: it is at `https://voxinq.<tailnet>.ts.net`, and the STT service at `:8443` of the same name,
+which is where the page looks for it.
+
+- **MagicDNS and HTTPS Certificates** must be on, as for `tailscale serve` (step 3 above).
+- `TS_HOSTNAME=meeting-room` changes the name. `TS_AUTHKEY=tskey-auth-...`, a key from the
+  [admin console's Keys page](https://login.tailscale.com/admin/settings/keys), joins without the
+  browser step; it is used once, so it may expire afterwards.
+- The machine's login expires after about six months unless you choose **Disable key expiry** for
+  it in the admin console's machine list.
+- Requests arrive with the same `Tailscale-User-Login` header as through `tailscale serve`, so
+  accounts and the internal/external rules behave the same.
+- Do not also run `tailscale serve` on the host for the same app: that is two addresses for one
+  server.
+- Nothing is published on the host for it; Funnel (below) is for a host-installed Tailscale.
 
 ### Read-only public sharing (view & download from anywhere)
 
@@ -284,11 +302,7 @@ Then:
    `~/.local/share/caddy/pki/authorities/local/root.crt`) and install it on the phone
    (Android: *Settings → Security → Install a certificate → CA certificate*; iOS: install the
    profile, then enable it under *Settings → General → About → Certificate Trust Settings*).
-2. **Rebuild** with the STT URL pointing at the HTTPS endpoint (baked in at build time):
-   ```
-   NEXT_PUBLIC_STT_WS_URL="wss://10.9.0.1:8443/ws"
-   ```
-3. **Enable the recording UI over the tunnel** by setting `NETWORK_MODE=lan` (the tunnel is
+2. **Enable the recording UI over the tunnel** by setting `NETWORK_MODE=lan` (the tunnel is
    already your trust boundary, so every reachable client is treated as internal). See
    [Configuration](configuration.md).
 
@@ -315,8 +329,9 @@ remember nobody signs in to the STT service, so you must add sign-in at the edge
   you must enforce authentication in front of **both** the web app and the STT routes
   yourself, and open a port / use dynamic DNS.
 
-Whichever you pick, point `NEXT_PUBLIC_STT_WS_URL` at the public STT URL before building, and
-never leave the STT service reachable without an auth layer.
+Whichever you pick, the page finds the STT service at `:8443` of its own host name; if yours is
+elsewhere, name it with `STT_WS_URL` (Docker) or `NEXT_PUBLIC_STT_WS_URL` (native, before
+building). Never leave the STT service reachable without an auth layer.
 
 ---
 

@@ -148,7 +148,6 @@ export const ja: Record<string, string> = {
   "End the meeting and assign speakers automatically; generate minutes after reviewing them":
     "会議を終了し、話者を自動で割り当てます。議事録は内容を確認してから作成します",
   "Recording is not available from an external network": "外部ネットワークからは録音できません",
-  "STT_WS_URL is not set on the server.": "サーバーに STT_WS_URL が設定されていません。",
   "This meeting has ended": "この会議は終了しています",
   Microphone: "マイク",
   "Mic + PC audio": "マイク + PC音声",
@@ -1938,10 +1937,10 @@ export const ja: Record<string, string> = {
   "Recording from a phone": "スマホから録音",
   "The Android app reached the transcription service ({when}).": "Android アプリから文字起こしサービスに届きました（{when}）。",
   "A phone's browser reached the transcription service ({when}).": "スマホのブラウザから文字起こしサービスに届きました（{when}）。",
-  "STT_WS_URL is not set in .env, so a phone has no address for the transcription service.": ".env に STT_WS_URL が無いため、スマホから文字起こしサービスへの宛先がありません。",
-  "How to set it": "設定のしかた",
+  "Open this server's HTTPS address on the phone, such as https://<name>.ts.net with Tailscale, in the Android app or the browser. This line is ticked once it reaches the transcription service.":
+    "スマホでこのサーバーの HTTPS のアドレス（Tailscale なら https://<名前>.ts.net）を、Android アプリかブラウザで開いてください。文字起こしサービスに届くと完了になります。",
+  "Reaching it from a phone": "スマホから使うには",
   "Open {address} on the phone, in the Android app or the browser. This line is ticked once it reaches the transcription service.": "スマホの Android アプリかブラウザで {address} を開いてください。文字起こしサービスに届くと、ここが完了になります。",
-  "Open this server on the phone, in the Android app or the browser. This line is ticked once it reaches the transcription service.": "スマホの Android アプリかブラウザでこのサーバーを開いてください。文字起こしサービスに届くと、ここが完了になります。",
   "Everything is set up.": "準備はすべて済みました。",
   "Try it": "試してみる",
   Optional: "任意",
