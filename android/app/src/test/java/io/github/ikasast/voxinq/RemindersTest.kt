@@ -142,6 +142,21 @@ class RemindersTest {
     }
 
     @Test
+    fun an_alarm_five_minutes_early_is_announced_by_a_server_that_calls_it_coming() {
+        // The alarm goes off NOTICE_AHEAD_MS before the meeting. A server from before the early
+        // notice still lists it as coming then, not as due.
+        val reply = Reminders.Reply(due = emptyList(), soon = listOf(standup))
+        val early = now - Reminders.NOTICE_AHEAD_MS
+        assertEquals(standup, Reminders.dueAtAlarm(standup, reply, early))
+    }
+
+    @Test
+    fun an_alarm_well_before_the_notice_says_nothing() {
+        val reply = Reminders.Reply(due = emptyList(), soon = listOf(standup))
+        assertNull(Reminders.dueAtAlarm(standup, reply, now - 20 * 60 * 1000L))
+    }
+
+    @Test
     fun a_meeting_moved_later_waits_for_its_new_alarm() {
         val moved = standup.copy(at = at(hour))
         val reply = Reminders.Reply(due = emptyList(), soon = listOf(moved))

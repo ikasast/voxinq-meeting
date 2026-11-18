@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { formatDateTimeIn } from "@/lib/i18n/format";
+import { formatDateTimeIn, formatShortDateTimeIn } from "@/lib/i18n/format";
 import { useLocale, useT } from "./locale-provider";
 import { ASKED_KEY, askToNotify, notifyState, showNotification } from "./device-notifications";
 
@@ -27,6 +27,14 @@ const POLL_MS = 30_000;
 const DISMISSED_KEY = "voxinq.dueDismissed";
 
 type Due = { id: string; title: string; scheduledAt: string | null };
+
+/**
+ * Whether a due meeting is still ahead. The server calls one due five minutes early
+ * (lib/meetings/notice-ahead.ts), so "it is time" would be untrue for those five minutes.
+ */
+function ahead(m: Due, now = Date.now()): boolean {
+  return m.scheduledAt !== null && Date.parse(m.scheduledAt) > now;
+}
 
 /** Per device, like the theme: seeing it on a phone should not silence the laptop in the room. */
 function readDismissed(): string[] {
@@ -77,9 +85,12 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
       if (notified.current.has(m.id)) return;
       notified.current.add(m.id);
       const url = `/${m.id}`;
-      void showNotification(m.title, t("It is time for this meeting."), url, `voxinq-due-${m.id}`);
+      const body = ahead(m)
+        ? t("Starts at {time}.", { time: formatShortDateTimeIn(locale, m.scheduledAt) })
+        : t("It is time for this meeting.");
+      void showNotification(m.title, body, url, `voxinq-due-${m.id}`);
     },
-    [t],
+    [t, locale],
   );
 
   useEffect(() => {
@@ -138,7 +149,9 @@ export function DueMeetingAlert({ external }: { external: boolean }) {
                 {formatDateTimeIn(locale, m.scheduledAt)}
               </span>
             ) : null}
-            <span className="ml-2">{t("It is time for this meeting.")}</span>
+            {/* Drawn again by each poll, so it turns from one to the other within thirty seconds
+                of the time. */}
+            <span className="ml-2">{ahead(m) ? t("Starts soon.") : t("It is time for this meeting.")}</span>
           </p>
           {/* Recording needs the transcription service, which an external browser cannot
               reach — so from out there the reminder is a reminder and nothing more. */}

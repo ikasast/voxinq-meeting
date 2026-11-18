@@ -1432,6 +1432,8 @@ export const ja: Record<string, string> = {
 
   // ---- A booked meeting whose time has come ----
   "It is time for this meeting.": "この会議の時刻になりました。",
+  "Starts soon.": "まもなく始まります。",
+  "Starts at {time}.": "{time} に始まります。",
   "Notify me on this device": "この端末で通知を受け取る",
   "Notifications need a secure connection. Open Voxinq through its https address to turn them on.":
     "通知は安全な接続（https）でしか使えません。https のアドレスで Voxinq を開いてから有効にしてください。",

@@ -19,8 +19,19 @@ const helpers = readFileSync(join(root, "app/device-notifications.ts"), "utf8");
 const settingsCard = readFileSync(join(root, "app/settings/reminder-notifications.tsx"), "utf8");
 
 describe("which meetings are worth interrupting for", () => {
-  it("only ones whose time has passed", () => {
-    expect(route).toContain("scheduledAt: { lte: new Date(now)");
+  it("only ones whose time has come, or will in five minutes", () => {
+    // Five minutes ahead, so there is a moment to start recording before anybody talks.
+    expect(route).toContain("scheduledAt: { lte: new Date(now + NOTICE_AHEAD_MS)");
+    expect(readFileSync(join(root, "lib/meetings/notice-ahead.ts"), "utf8")).toContain(
+      "export const NOTICE_AHEAD_MS = 5 * 60_000;",
+    );
+    // What is coming starts where due ends, so a meeting is never in both.
+    expect(route).toContain("gt: new Date(now + NOTICE_AHEAD_MS),");
+  });
+
+  it("says when it starts while it is still ahead, and that it is time after", () => {
+    expect(alert).toContain('{ahead(m) ? t("Starts soon.") : t("It is time for this meeting.")}');
+    expect(alert).toContain('t("Starts at {time}.", { time: formatShortDateTimeIn(locale, m.scheduledAt) })');
   });
 
   it("not ones that are hours late", () => {

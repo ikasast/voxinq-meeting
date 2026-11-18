@@ -160,7 +160,7 @@ on under **Administration → Extensions**:
 
 - **Speaker separation** — who said each line; enrol a voice once and it is named in every meeting after
 - **Series** — recurring meetings share a background and members, and the last minutes carry into the next
-- **Schedule and reminders** — book meetings ahead, and be told when one is due
+- **Schedule and reminders** — book meetings ahead, and be told five minutes before one starts
 - **Meeting feedback** — a score out of 100 for the facilitator or a participant, against criteria you set
 - **Ask about meetings** — ask a meeting's minutes or transcript, or a whole series, a question
 - **Questions** — questions and a short summary kept up to date during a talk, ready for the Q&A
