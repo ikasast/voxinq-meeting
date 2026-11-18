@@ -114,3 +114,47 @@ export function weekdaysIn(locale: Locale): readonly string[] {
     ? (["月", "火", "水", "木", "金", "土", "日"] as const)
     : (["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const);
 }
+
+const WEEKDAYS_JA = ["日", "月", "火", "水", "木", "金", "土"] as const;
+const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/**
+ * When a booked meeting is, as its row in the sidebar's Upcoming says it — by how near it is.
+ * A meeting is planned by the clock, so the clock is what most of these say; only within the
+ * hour does what is left matter more than the time it starts:
+ *
+ *   within the hour   "35分後" / "in 35 min"
+ *   later today       "15:00"
+ *   tomorrow          "明日 10:00" / "Tomorrow 10:00"
+ *   within the week   "金 14:00" / "Fri 14:00"
+ *   further           "11/28" / "Nov 28"
+ *
+ * One whose time has passed with nothing recorded says when it was, the same way ("昨日 13:00"),
+ * and `past` tells the row to draw it quieter. Days are this device's own.
+ */
+export function formatUpcomingIn(
+  locale: Locale,
+  value: Date | string,
+  now: Date = new Date(),
+): { text: string; past: boolean } {
+  const d = asDate(value);
+  const ms = d.getTime() - now.getTime();
+  const time = `${z2(d.getHours())}:${z2(d.getMinutes())}`;
+  const dayOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  // Calendar days apart, by local midnight: a meeting at 09:00 tomorrow is one day off at 23:00.
+  const days = Math.round((dayOf(d) - dayOf(now)) / 86_400_000);
+  const ja = locale === "ja";
+  if (ms > 0 && ms <= 60 * 60_000) {
+    const min = Math.max(1, Math.ceil(ms / 60_000));
+    return { text: ja ? `${min}分後` : `in ${min} min`, past: false };
+  }
+  const past = ms <= 0;
+  let text: string;
+  if (days === 0) text = time;
+  else if (days === 1) text = ja ? `明日 ${time}` : `Tomorrow ${time}`;
+  else if (days === -1) text = ja ? `昨日 ${time}` : `Yesterday ${time}`;
+  else if (days > 1 && days < 7) text = `${(ja ? WEEKDAYS_JA : WEEKDAYS_EN)[d.getDay()]} ${time}`;
+  else if (d.getFullYear() === now.getFullYear()) text = ja ? `${d.getMonth() + 1}/${d.getDate()}` : `${MONTHS_EN[d.getMonth()]} ${d.getDate()}`;
+  else text = ja ? `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}` : `${MONTHS_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  return { text, past };
+}
