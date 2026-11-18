@@ -971,13 +971,55 @@ export function TranscriptList({
   const { subscribe: recSubscribe, current: recCurrent } = useRecorderApi();
   // What the server last told us, as the base for merging: see lib/live-merge.
   const serverSnapshot = useRef<ServerSnapshot>(new Map());
+  // Booked and not recorded yet, as far as this page knows. The server said so when it drew the
+  // page, and that alone used to decide it: a booked meeting recorded from its own page went on
+  // waiting for a meeting that had started, and showed nothing until it was opened again.
+  // Recording it in this tab, or a line from another device, ends the wait.
+  const [begun, setBegun] = useState(false);
+  const booked = upcoming && !begun;
+  const markBegun = useCallback(() => setBegun(true), []);
+  // Whether the server still drew it as booked, for the moment its first line arrives: the page
+  // and the sidebar are drawn again then, to move it out of Upcoming.
+  const drawnBooked = useRef(upcoming);
+  useEffect(() => {
+    drawnBooked.current = upcoming;
+  }, [upcoming]);
+  // The last sign of a recording before this page opened: when it started, or its newest line.
+  const lastSign = useRef(
+    Math.max(Date.parse(meetingStartedAt), ...initialTranscripts.map((l) => Date.parse(l.createdAt) || 0)),
+  );
+
+  // Booked: look in now and then for a recording another device started. Rarely — most booked
+  // meetings are looked at long before they happen.
+  useEffect(() => {
+    if (!booked) return;
+    let stopped = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      const res = await fetch(`/api/meetings/${meetingId}/live`, {
+        signal: AbortSignal.timeout(6000),
+        cache: "no-store",
+      }).catch(() => null);
+      const data = res?.ok
+        ? ((await res.json().catch(() => null)) as { endedAt: string | null; transcripts: unknown[] } | null)
+        : null;
+      if (!stopped && data && (data.transcripts.length > 0 || data.endedAt)) setBegun(true);
+    };
+    const timer = setInterval(() => void check(), 30_000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [booked, meetingId]);
 
   useEffect(() => {
     // A meeting that has not happened yet is not one that is happening: there is no session to
     // follow, and polling for it would find nothing every second until someone gave up.
-    if (endedAt || upcoming) return;
-    // A recorder that crashed leaves endedAt null forever. Stop chasing it after a day.
-    if (Date.now() - Date.parse(meetingStartedAt) > 86400_000) return;
+    if (endedAt || booked) return;
+    // A recorder that crashed leaves endedAt null forever. Stop chasing it a day after the last
+    // sign of it. Not from the start alone: a meeting booked for yesterday and recorded today
+    // starts, until it ends, at the time it was booked for. One that began on this page is live.
+    if (!begun && Date.now() - lastSign.current > 86400_000) return;
 
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -1009,6 +1051,10 @@ export function TranscriptList({
 
       misses = 0;
       setLiveOffline(false);
+      if (drawnBooked.current && data.transcripts.length > 0) {
+        drawnBooked.current = false;
+        router.refresh();
+      }
       setTranscripts((list) => {
         const { next, snapshot } = mergeLiveTranscripts(list, serverSnapshot.current, data.transcripts);
         serverSnapshot.current = snapshot;
@@ -1056,9 +1102,9 @@ export function TranscriptList({
       off();
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [endedAt, upcoming, meetingId, meetingStartedAt, router, recSubscribe]);
+  }, [endedAt, booked, begun, meetingId, router, recSubscribe]);
 
-  const live = !endedAt && !upcoming;
+  const live = !endedAt && !booked;
 
   // While this tab records the meeting, the page follows the newest line down — as long as it
   // is already at the bottom. Scrolled up to read something, it stays put.
@@ -1765,8 +1811,22 @@ export function TranscriptList({
       ) : null}
       {/* After the last line: what is being heard right now, while this tab records. */}
       {live ? <Hearing meetingId={meetingId} /> : null}
+      {booked ? <RecordingStartWatch meetingId={meetingId} onStart={markBegun} /> : null}
     </div>
   );
+}
+
+/**
+ * Tells a booked meeting's page that this tab has started recording it. Its own component for
+ * the reason Hearing is: the recorder's state changes with every word heard.
+ */
+function RecordingStartWatch({ meetingId, onStart }: { meetingId: string; onStart: () => void }) {
+  const { session } = useRecorderState();
+  const mine = session?.meetingId === meetingId;
+  useEffect(() => {
+    if (mine) onStart();
+  }, [mine, onStart]);
+  return null;
 }
 
 /**

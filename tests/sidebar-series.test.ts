@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The sidebar lists each series as one row that opens to its latest meetings (mockup A), and
-// the days below hold the one-off meetings.
+// the days below hold every meeting, those of a series marked as such.
 
 const read = (p: string) => readFileSync(join(__dirname, "..", p), "utf8");
 
@@ -11,8 +11,17 @@ describe("series in the sidebar", () => {
   const sidebar = read("app/sidebar.tsx");
   const data = read("app/sidebar-meetings.ts");
 
-  it("keep a series' meetings out of the days, but not the pinned or booked ones", () => {
-    expect(sidebar).toContain("if (m.seriesId && !m.pinned && !m.upcoming) continue;");
+  it("list a series' meetings among the days too, marked with the series", () => {
+    expect(sidebar).not.toContain("if (m.seriesId && !m.pinned && !m.upcoming) continue;");
+    expect(sidebar).toContain("{m.seriesId ? <SeriesMark name={m.seriesName} /> : null}");
+    expect(data).toContain("seriesName: seriesOn ? (m.series?.name ?? null) : null");
+  });
+
+  it("draw the list again for a meeting on screen it does not have yet", () => {
+    // The root layout is not drawn again on a move between pages, so a meeting just created
+    // was missing until a reload.
+    expect(sidebar).toContain("!MEETING_ID.test(id) || knownIds.has(id) || refreshedFor.current.has(id)");
+    expect(sidebar).toContain("router.refresh();");
   });
 
   it("list only while Series is on, the most recent first", () => {

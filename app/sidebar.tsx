@@ -54,9 +54,9 @@ type Group = { key: string; label: string; items: SidebarMeeting[] };
 
 /**
  * Pinned first, then upcoming, then by when they were, in this device's own days. A meeting in a
- * series is not among the days: it is listed under its series (seriesSection), so the days hold
- * the one-off meetings. Pinned and upcoming ones stay where they are — that is why they were put
- * there.
+ * series is among the days too, marked as one (SeriesMark), as well as under its series
+ * (seriesSection). It used to be under its series alone, so the latest meetings could not be read
+ * down one list: those in a series took opening the series to find.
  */
 function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] {
   const now = new Date();
@@ -71,7 +71,6 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
     { key: "earlier", label: t("Earlier"), items: [] },
   ];
   for (const m of meetings) {
-    if (m.seriesId && !m.pinned && !m.upcoming) continue;
     const at = new Date(m.at).getTime();
     const g = m.pinned
       ? 0
@@ -92,6 +91,9 @@ function grouped(meetings: SidebarMeeting[], t: (k: string) => string): Group[] 
 }
 
 const OPEN_SERIES_KEY = "voxinq.sidebar.series";
+
+/** A meeting's page, /<id>: ids are cuids, which no other top-level page is named like. */
+const MEETING_ID = /^c[a-z0-9]{20,31}$/;
 
 /**
  * The sidebar's foot: its own tone and a firmer rule (mockup 5B). The shade it also had along the
@@ -202,6 +204,19 @@ export function Sidebar({
       } catch {}
       return next;
     });
+  // The sidebar is drawn with the root layout, which a move between pages does not draw again
+  // (Next.js keeps shared layouts). So a meeting created a moment ago — booked from New meeting,
+  // started from Record, made from a file — was missing from it until the page was reloaded: book
+  // two, and the second never appeared. A meeting on screen that the list does not have draws it
+  // again, once per meeting, since one too old for the list stays missing.
+  const knownIds = useMemo(() => new Set(meetings.map((m) => m.id)), [meetings]);
+  const refreshedFor = useRef(new Set<string>());
+  useEffect(() => {
+    const id = pathname.split("/")[1] ?? "";
+    if (!MEETING_ID.test(id) || knownIds.has(id) || refreshedFor.current.has(id)) return;
+    refreshedFor.current.add(id);
+    router.refresh();
+  }, [pathname, knownIds, router]);
   if (isAuthPath(pathname)) return null;
 
   const change = (m: Mode) => {
@@ -381,6 +396,7 @@ export function Sidebar({
                           for now.) */}
                       <LiveDot id={m.id} live={m.live} />
                       <span className="min-w-0 flex-1 truncate">{m.title}</span>
+                      {m.seriesId ? <SeriesMark name={m.seriesName} /> : null}
                     </Link>
                     {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
                         one when the row is pointed at, to pin it. From outside, only the mark. */}
@@ -626,6 +642,21 @@ export function Sidebar({
  * second of its own recording, and on a machine that only transcribes at the end, when no line
  * is saved until then. Its own component, so the list does not re-render as words are heard.
  */
+/**
+ * A meeting of a series, among the days: the series' own icon after the name, named for whoever
+ * points at it or reads the row aloud. After the name rather than before it, where the recording
+ * dot goes, so the names still start in one column.
+ */
+function SeriesMark({ name }: { name: string | null }) {
+  const t = useT();
+  const label = name ? `${t("Series")}: ${name}` : t("Series");
+  return (
+    <span role="img" aria-label={label} title={label} className="shrink-0 text-[var(--text-muted)]">
+      <SeriesIcon aria-hidden className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
 function LiveDot({ id, live }: { id: string; live: boolean }) {
   const t = useT();
   const { session } = useRecorderState();
