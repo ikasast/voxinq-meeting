@@ -18,8 +18,13 @@ export type SidebarMeeting = {
   noMinutes: boolean;
   /** Kept at the top of the sidebar. */
   pinned: boolean;
-  /** The series it belongs to, when Series is on: it is then listed under its series. */
+  /**
+   * The series it belongs to, when Series is on. It is listed among the days like any meeting,
+   * marked as one of the series, and under its series as well.
+   */
   seriesId: string | null;
+  /** That series' name, for the mark's label. */
+  seriesName: string | null;
 };
 
 /** A series in the sidebar: its name, how many meetings it has, and when the latest was. */
@@ -40,6 +45,7 @@ const SELECT = {
   scheduledAt: true,
   pinnedAt: true,
   seriesId: true,
+  series: { select: { name: true } },
   _count: { select: { transcripts: true, summaries: true } },
 } as const;
 
@@ -74,6 +80,7 @@ export async function sidebarMeetings(): Promise<SidebarMeeting[]> {
       noMinutes: m.endedAt !== null && m._count.transcripts > 0 && m._count.summaries === 0,
       pinned: m.pinnedAt !== null,
       seriesId: seriesOn ? m.seriesId : null,
+      seriesName: seriesOn ? (m.series?.name ?? null) : null,
     };
   });
 }
