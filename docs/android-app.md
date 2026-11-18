@@ -136,8 +136,11 @@ On the web side, one addition:
 
 A meeting booked in advance is the one most likely to go unrecorded: everybody walks in already
 talking. The web app has a banner for exactly this, but a banner needs a page somebody is looking
-at, and on a phone the page is not open. So the phone wakes at the meeting's own time and says so,
-with **Record** in the notice.
+at, and on a phone the page is not open. So the phone wakes five minutes before the meeting and says
+so, with **Record** in the notice. (At the meeting's own time until 4.11: five minutes is the moment
+to get the phone out and start before people talk. The server calls a meeting due five minutes
+early to match; against an older server the alarm still goes off early and counts "coming within
+five minutes" as starting.)
 
 **Two mechanisms, because neither alone is enough.** An alarm for each meeting is on time, but the
 app has to have heard about the meeting to set one. A check every quarter of an hour hears about

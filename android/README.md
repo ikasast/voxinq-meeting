@@ -172,7 +172,7 @@ is up on the phone, the app says **Tailscale is off** instead of "Cannot reach t
 
 ## A meeting you booked
 
-When a meeting has a time, the phone says so at that time, with **Record** in the notice. Pressing
+When a meeting has a time, the phone says so five minutes before it, with **Record** in the notice. Pressing
 it starts recording there and then — on the lock screen, or on a watch the notice is forwarded to —
 with nothing opened; **Stop and end** in the recording's notification finishes the meeting. If
 Android does not let the microphone start that way, a notice says so and the meeting is recorded

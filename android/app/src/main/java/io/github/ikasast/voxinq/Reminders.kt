@@ -27,7 +27,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
- * The notice at a booked meeting's own time, with a way to record it.
+ * The notice five minutes before a booked meeting, with a way to record it.
  *
  * A meeting booked in advance is the one most likely to go unrecorded: everybody walks in
  * already talking. The web app has a banner for this, but a banner needs somebody looking at
@@ -80,6 +80,17 @@ object Reminders {
      * alarm spent, say nothing until the next check a quarter of an hour later.
      */
     const val EARLY_MS = 2L * 60 * 1000
+
+    /**
+     * How long before a meeting its notice comes: the same five minutes as the server's
+     * (`lib/meetings/notice-ahead.ts`), which calls a meeting due that much early. It used to be
+     * the meeting's own time, which left no moment to get the phone out before people talked.
+     *
+     * A server from before this calls a meeting due only at its time, and lists it as coming
+     * until then. The alarm still goes off early, and [dueAtAlarm] takes "coming within these
+     * five minutes" as starting, so the notice is early against either.
+     */
+    const val NOTICE_AHEAD_MS = 5L * 60 * 1000
 
     /**
      * How long the server has to be out of reach before it is said: three checks in a row, so a
@@ -142,8 +153,9 @@ object Reminders {
      * - The server could not be reached: what the alarm was set with. Better a notice that may be
      *   stale than silence about a meeting that is starting.
      * - The server calls it due: nothing here, because [check] has already announced it.
-     * - The server still has it coming, within [EARLY_MS]: it is starting, and only the two clocks
-     *   disagree. Announced with the server's own time for it.
+     * - The server still has it coming, within [NOTICE_AHEAD_MS] and [EARLY_MS]: it is about to
+     *   start, and only the server's version or the two clocks disagree. Announced with the
+     *   server's own time for it.
      * - Anything else — coming later (it was moved, and [check] has moved its alarm), or not
      *   listed at all (recorded, ended, deleted): nothing.
      */
@@ -151,7 +163,7 @@ object Reminders {
         if (reply == null) return knew
         if (reply.due.any { it.id == knew.id }) return null
         val coming = reply.soon.firstOrNull { it.id == knew.id } ?: return null
-        return coming.takeIf { it.at <= now + earlyMs }
+        return coming.takeIf { it.at <= now + NOTICE_AHEAD_MS + earlyMs }
     }
 
     /**
@@ -269,8 +281,8 @@ object Reminders {
     }
 
     /**
-     * Set each meeting's own alarm, at its own time, and allowed to fire in Doze — the phone's
-     * usual state before a meeting.
+     * Set each meeting's own alarm, [NOTICE_AHEAD_MS] before its time (or now, for one closer than
+     * that), and allowed to fire in Doze — the phone's usual state before a meeting.
      *
      * **Exact.** These used to be inexact, on the belief that the system would be late by a
      * couple of minutes. It is late by up to three quarters of the time left when the alarm was
@@ -291,7 +303,9 @@ object Reminders {
     fun schedule(context: Context, booked: List<Booked>) {
         val alarms = context.getSystemService(AlarmManager::class.java) ?: return
         val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+        val now = System.currentTimeMillis()
         for (meeting in booked) {
+            val fireAt = maxOf(meeting.at - NOTICE_AHEAD_MS, now)
             val intent = Intent(context, ReminderReceiver::class.java)
                 .setAction(ACTION_DUE)
                 .putExtra(EXTRA_ID, meeting.id)
@@ -299,9 +313,9 @@ object Reminders {
                 .putExtra(EXTRA_AT, meeting.at)
             val pending = broadcast(context, meeting.id.hashCode(), intent)
             if (exact) {
-                alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, meeting.at, pending)
+                alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pending)
             } else {
-                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, meeting.at, pending)
+                alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, fireAt, pending)
             }
         }
     }
@@ -503,7 +517,18 @@ object Reminders {
         val at = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(meeting.at))
         // Out of reach, Record still records, on the phone and sent later (RecorderService), and
         // the notice says so, so pressing it is not a leap of faith.
-        val text = context.getString(if (serverDown(context)) R.string.reminder_text_offline else R.string.reminder_text, at)
+        // Still ahead, it says when it starts; the notice comes five minutes early, and "it is
+        // time" would be untrue until then.
+        val soon = meeting.at > System.currentTimeMillis()
+        val text = context.getString(
+            when {
+                serverDown(context) && soon -> R.string.reminder_text_soon_offline
+                serverDown(context) -> R.string.reminder_text_offline
+                soon -> R.string.reminder_text_soon
+                else -> R.string.reminder_text
+            },
+            at,
+        )
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_recording)
             .setContentTitle(meeting.title.ifBlank { context.getString(R.string.reminder_untitled) })

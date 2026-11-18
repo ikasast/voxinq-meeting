@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extensionOff } from "@/app/api/extension-off";
+import { NOTICE_AHEAD_MS } from "@/lib/meetings/notice-ahead";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -15,7 +16,8 @@ export const dynamic = "force-dynamic";
 const STALE_AFTER_MS = 2 * 60 * 60 * 1000;
 
 /**
- * The meetings whose time has come.
+ * The meetings whose time has come, or will in the next five minutes (NOTICE_AHEAD_MS): the
+ * reminder comes that much ahead, so there is a moment to start recording before anybody talks.
  *
  * Booked, not recorded, and due. A meeting stops being due the moment it has a transcript or an
  * end time, so acting on the reminder is what clears it — there is no "seen" flag on the server
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
     where: {
       deletedAt: null,
       endedAt: null,
-      scheduledAt: { lte: new Date(now), gte: new Date(now - STALE_AFTER_MS) },
+      scheduledAt: { lte: new Date(now + NOTICE_AHEAD_MS), gte: new Date(now - STALE_AFTER_MS) },
       transcripts: { none: {} },
     },
     orderBy: { scheduledAt: "asc" },
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest) {
             deletedAt: null,
             endedAt: null,
             scheduledAt: {
-              gt: new Date(now),
+              gt: new Date(now + NOTICE_AHEAD_MS),
               lte: new Date(now + Math.min(soonMinutes, 7 * 24 * 60) * 60_000),
             },
             transcripts: { none: {} },

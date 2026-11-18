@@ -40,8 +40,9 @@ under **Upcoming** at the top of the list, soonest first, and opens on its own p
 the recording screen — because the point of booking it is to settle the title, agenda, series
 and participants calmly beforehand, rather than while everyone waits to start.
 
-When the meeting comes round the app says so: a bar appears across the top of whatever page is
-open, naming the meeting, with **Start recording** next to it. It stays until it is dismissed or
+Five minutes before the meeting the app says so: a bar appears across the top of whatever page is
+open, naming the meeting and saying it starts soon, with **Start recording** next to it. Five
+minutes is a moment to put the phone on the table and start before anybody talks. It stays until it is dismissed or
 until the meeting has something in it — recording is what clears it, so there is nothing to
 mark as read. Two hours after its time it stops being mentioned; a reminder for a meeting that
 started this morning is not a reminder.
@@ -59,8 +60,8 @@ asked for is how a browser decides to stop asking on a site's behalf for good.
 > (the downward-arrow icon in the header — see [Remote access](remote-access.md)), on the machine
 > you want to be told on.
 >
-> **On Android there is one way round this**: the app sets a notice on the phone for each booked
-> meeting's own time, so nothing has to be open, and its notice has **Record** in it. See
+> **On Android there is one way round this**: the app sets a notice on the phone for five minutes
+> before each booked meeting, so nothing has to be open, and its notice has **Record** in it. See
 > [the Android app](android-app.md).
 
 From outside your private network the bar appears without **Start recording**: recording needs
