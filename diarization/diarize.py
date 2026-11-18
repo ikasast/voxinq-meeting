@@ -177,6 +177,87 @@ def absorb_short(pieces, min_seconds):
     return pieces
 
 
+# Characters no Japanese word starts with: the small tsu, the moraic n, the long-vowel mark, the
+# small kana, and the punctuation that closes a phrase. A piece starting with one is the tail of
+# the word before it. Whisper's "words" in Japanese are pieces of words (セ / ッ / ショ / ン), so
+# a diarizer wavering for a moment used to cut a line inside a word.
+WORD_TAIL = set("ッっンんーゃゅょャュョぁぃぅぇぉァィゥェォゎヮヵヶ、。，．！？!?…）」』")
+
+# A piece this short is a flicker when it has a short neighbour, not somebody's turn.
+FLICKER_S = 0.6
+
+
+def _merge_same_speaker(pieces):
+    """Join pieces side by side that a merge has given the same speaker."""
+    out = []
+    for p in pieces:
+        if out and out[-1]["speaker"] == p["speaker"]:
+            out[-1]["text"] += p["text"]
+            out[-1]["end"] = p["end"]
+        else:
+            out.append(p)
+    return out
+
+
+def join_word_tails(pieces):
+    """Give a piece that starts in the middle of a word to the piece before it.
+
+    Nobody's turn starts with ッ or ン, so this cannot take a real answer away: "はい" and "そう"
+    start like words. The first piece of a line has nothing before it and stays.
+    """
+    out = []
+    for p in (dict(p) for p in pieces):
+        head = p["text"].lstrip()[:1]
+        if out and head and head in WORD_TAIL:
+            out[-1]["text"] += p["text"]
+            out[-1]["end"] = p["end"]
+        else:
+            out.append(p)
+    return _merge_same_speaker(out)
+
+
+def absorb_flicker(pieces, short_seconds=FLICKER_S):
+    """Fold runs of short pieces, two or more side by side, into the longer neighbour.
+
+    The diarizer, unsure for a moment at a change or where two voices overlap, hands a few
+    hundred milliseconds to each side in turn: いセ / ッ / ショ / ン, alternating. A real short
+    answer — "はい" between two longer pieces — stands alone, and is kept: it is the case the
+    division exists for, and absorbing every short piece (absorb_short) was measured to hurt.
+    A line that is nothing but short pieces goes to whoever has most of it.
+    """
+    pieces = [dict(p) for p in pieces]
+    short = lambda p: p["end"] - p["start"] < short_seconds  # noqa: E731
+    i = 0
+    while i < len(pieces):
+        j = i
+        while j < len(pieces) and short(pieces[j]):
+            j += 1
+        if j - i >= 2:
+            run = pieces[i:j]
+            before = pieces[i - 1] if i > 0 else None
+            after = pieces[j] if j < len(pieces) else None
+            sides = [n for n in (before, after) if n is not None]
+            if sides:
+                owner = max(sides, key=lambda n: n["end"] - n["start"])["speaker"]
+            else:
+                time = {}
+                for p in run:
+                    time[p["speaker"]] = time.get(p["speaker"], 0.0) + p["end"] - p["start"]
+                owner = max(time, key=time.get)
+            merged = {
+                "speaker": owner,
+                "text": "".join(p["text"] for p in run),
+                "start": run[0]["start"],
+                "end": run[-1]["end"],
+            }
+            pieces[i:j] = [merged]
+            pieces = _merge_same_speaker(pieces)
+            i = 0  # the merge may have joined a run to its neighbour; look again from the start
+            continue
+        i = max(j, i + 1)
+    return pieces
+
+
 def split_utterances(turns, segments, min_piece_seconds=0.0):
     """Where a single utterance holds more than one speaker, say who said which part.
 
@@ -209,6 +290,7 @@ def split_utterances(turns, segments, min_piece_seconds=0.0):
                 pieces[-1]["end"] = end
             else:
                 pieces.append({"speaker": speaker, "text": text, "start": start, "end": end})
+        pieces = absorb_flicker(join_word_tails(pieces))
         pieces = absorb_short(pieces, min_piece_seconds)
         out.append(
             [

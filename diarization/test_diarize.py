@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from diarize import absorb_short, assign_speakers, split_utterances  # noqa: E402
+from diarize import absorb_flicker, absorb_short, assign_speakers, join_word_tails, split_utterances  # noqa: E402
 
 # Two people, taking turns: A speaks to 5 s, B from 5.2 to 8 s, A again from 8.4 s.
 TURNS = [(0.0, 5.0, "spk_a"), (5.2, 8.0, "spk_b"), (8.4, 12.0, "spk_a")]
@@ -82,6 +82,75 @@ def test_short_pieces_can_be_absorbed_when_asked() -> None:
     assert absorb_short([dict(p) for p in pieces], 0.0) == pieces
     merged = absorb_short([dict(p) for p in pieces], 1.0)
     assert [(p["speaker"], p["text"]) for p in merged] == [("speaker1", "はいそれでいいです")]
+
+
+def P(speaker, text, start, end):
+    return {"speaker": speaker, "text": text, "start": start, "end": end}
+
+
+def spoken(pieces):
+    return [(p["speaker"], p["text"]) for p in pieces]
+
+
+def test_a_piece_starting_inside_a_word_goes_back_to_the_word() -> None:
+    # Whisper's Japanese "words" are pieces of words; a wavering diarizer cut one in four.
+    pieces = [
+        P("speaker0", "新しいセ", 1.0, 1.9),
+        P("speaker1", "ッ", 1.9, 2.0),
+        P("speaker0", "ショ", 2.0, 2.2),
+        P("speaker1", "ン", 2.2, 2.3),
+        P("speaker0", "になると思います", 2.3, 3.6),
+    ]
+    assert spoken(join_word_tails(pieces)) == [("speaker0", "新しいセッションになると思います")]
+
+
+def test_an_answer_that_starts_like_a_word_is_not_taken() -> None:
+    pieces = [P("speaker0", "それでいいですか", 0.0, 1.4), P("speaker1", "はい", 1.5, 1.8)]
+    assert spoken(join_word_tails(pieces)) == spoken(pieces)
+    # Nor is a line's first piece, which has nothing before it.
+    tail_first = [P("speaker1", "ン", 0.0, 0.1), P("speaker0", "そうですね", 0.1, 1.0)]
+    assert spoken(join_word_tails(tail_first)) == spoken(tail_first)
+
+
+def test_short_pieces_side_by_side_go_to_the_longer_neighbour() -> None:
+    pieces = [
+        P("speaker0", "来週の会議では", 0.0, 1.5),
+        P("speaker1", "資", 1.5, 1.7),
+        P("speaker0", "料", 1.7, 1.9),
+        P("speaker1", "を", 1.9, 2.0),
+        P("speaker1", "配ります", 2.0, 2.9),
+    ]
+    # The run 資 / 料 / を sits between 1.5 s of speaker0 and 0.9 s of speaker1.
+    assert spoken(absorb_flicker(pieces)) == [("speaker0", "来週の会議では資料を"), ("speaker1", "配ります")]
+
+
+def test_a_short_answer_on_its_own_is_kept() -> None:
+    # "はい" between two longer pieces is the exchange the division exists for.
+    pieces = [
+        P("speaker0", "それでいいですか", 0.0, 1.4),
+        P("speaker1", "はい", 1.5, 1.8),
+        P("speaker0", "では次に進みます", 1.9, 3.2),
+    ]
+    assert spoken(absorb_flicker(pieces)) == spoken(pieces)
+
+
+def test_a_line_of_nothing_but_flicker_goes_to_whoever_has_most_of_it() -> None:
+    pieces = [P("speaker0", "え", 0.0, 0.3), P("speaker1", "っと", 0.3, 0.5), P("speaker0", "はい", 0.5, 1.0)]
+    assert spoken(absorb_flicker(pieces)) == [("speaker0", "えっとはい")]
+
+
+def test_the_split_uses_both_rules() -> None:
+    turns = [(0.0, 1.9, "a"), (1.9, 2.0, "b"), (2.0, 2.2, "a"), (2.2, 2.3, "b"), (2.3, 3.6, "a"), (3.7, 5.0, "b")]
+    seg = {
+        "start": 0.0,
+        "end": 5.0,
+        "words": words(
+            ("新しい", 0.0, 1.0), ("セ", 1.0, 1.9), ("ッ", 1.9, 2.0), ("ショ", 2.0, 2.2), ("ン", 2.2, 2.3),
+            ("になります", 2.3, 3.6), ("そうですね", 3.7, 5.0),
+        ),
+    }
+    [pieces] = split_utterances(turns, [seg])
+    assert spoken(pieces) == [("speaker0", "新しいセッションになります"), ("speaker1", "そうですね")]
 
 
 if __name__ == "__main__":
