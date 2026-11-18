@@ -22,7 +22,8 @@ import {
 import { isAuthPath } from "./auth-paths";
 import { type QueuedJob, useQueue } from "./use-my-queue-count";
 import { busyLabel } from "@/lib/queue/job-label";
-import { useT } from "./locale-provider";
+import { useLocale, useT } from "./locale-provider";
+import { formatUpcomingIn } from "@/lib/i18n/format";
 import { useRecorderState } from "./recorder";
 import { useExtensions } from "./extensions-provider";
 import type { SidebarMeeting, SidebarSeries } from "./sidebar-meetings";
@@ -397,6 +398,7 @@ export function Sidebar({
                       <LiveDot id={m.id} live={m.live} />
                       <span className="min-w-0 flex-1 truncate">{m.title}</span>
                       {m.seriesId ? <SeriesMark name={m.seriesName} /> : null}
+                      {m.upcoming ? <When at={m.at} /> : null}
                     </Link>
                     {/* A pinned meeting shows its pin standing straight, always; any other shows a tilted
                         one when the row is pointed at, to pin it. From outside, only the mark. */}
@@ -642,6 +644,37 @@ export function Sidebar({
  * second of its own recording, and on a machine that only transcribes at the end, when no line
  * is saved until then. Its own component, so the list does not re-render as words are heard.
  */
+/**
+ * When a booked meeting is, at the end of its row under Upcoming (formatUpcomingIn): "35分後",
+ * "15:00", "明日 10:00", "金 14:00", "11/28". Drawn only in the browser, whose clock and days
+ * are the ones meant — the server's would disagree with them and with the page that replaces it —
+ * and again each minute, so "35分後" counts down.
+ */
+function When({ at }: { at: string }) {
+  const locale = useLocale();
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const first = setTimeout(tick, 0);
+    const timer = setInterval(tick, 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, []);
+  if (!now) return null;
+  const { text, past } = formatUpcomingIn(locale, at, now);
+  return (
+    <span
+      className={`shrink-0 text-[11px] tabular-nums ${
+        past ? "text-[color-mix(in_srgb,var(--text-muted)_70%,transparent)]" : "text-[var(--text-muted)]"
+      }`}
+    >
+      {text}
+    </span>
+  );
+}
+
 /**
  * A meeting of a series, among the days: the series' own icon after the name, named for whoever
  * points at it or reads the row aloud. After the name rather than before it, where the recording
