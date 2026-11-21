@@ -1648,14 +1648,20 @@ export function TranscriptList({
           line under the player. Not while it is still being recorded: the file has no end yet, so
           the player could only say 0:00 / 0:00. */}
       {recInfo?.exists && !live ? (
-        <div className="mt-3">
-          <audio
-            ref={audioRef}
-            controls
-            preload="metadata"
-            src={`/api/meetings/${meetingId}/recording/audio`}
-            className="h-9 w-full"
-          />
+        <>
+          {/* Held in sight while the lines scroll under it: a long transcript is read with the
+              player in reach, to pause it or jump back. It sits under the phone's bar and its
+              tabs (meeting-body.tsx sets their height), and at the top of the panel otherwise.
+              A child of the whole list, so it stays stuck to the last line. */}
+          <div className="sticky top-[calc(3.5rem+var(--phone-tabs-h,0px))] z-10 -mx-2 mt-3 rounded-lg bg-[var(--panel)] px-2 py-1 lg:top-0">
+            <audio
+              ref={audioRef}
+              controls
+              preload="metadata"
+              src={`/api/meetings/${meetingId}/recording/audio`}
+              className="h-9 w-full"
+            />
+          </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-muted)]">
             <span>{t("Click a timestamp to play from that point.")}</span>
             <span aria-hidden>·</span>
@@ -1708,7 +1714,7 @@ export function TranscriptList({
               />
             ) : null}
           </div>
-        </div>
+        </>
       ) : null}
 
       {/* The meeting at a glance, a minute at a time, from what Emotion found (mood-strip.tsx). */}

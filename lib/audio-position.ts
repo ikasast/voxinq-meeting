@@ -78,14 +78,19 @@ export function latestLineEnd(rows: PositionRow[], sources: PositionSources): nu
   return latest;
 }
 
-/** Position relative to the first utterance — what the row's timestamp label shows. */
+/**
+ * What a line's time label shows: its place in the recording, on the player's own clock.
+ *
+ * It used to count from the first utterance, so the labels started at 0:00 while the player
+ * counted from the start of the file. The two differed by however long the room was quiet before
+ * anyone spoke — 8 or 12 seconds on real meetings — and a time read off a line could not be
+ * found on the player. A trim moves the lines' stored positions with the cut, so the labels
+ * follow a trim as well.
+ */
 export function displayOffset(
   rows: PositionRow[],
   index: number,
   sources: PositionSources,
 ): number | null {
-  const here = audioPosition(rows, index, sources);
-  const first = audioPosition(rows, 0, sources);
-  if (here === null || first === null) return null;
-  return Math.max(0, here - first);
+  return audioPosition(rows, index, sources);
 }

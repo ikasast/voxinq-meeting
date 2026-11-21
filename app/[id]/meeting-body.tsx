@@ -279,9 +279,12 @@ export function MeetingBody({
         <div className="lg:h-full lg:overflow-hidden">
           <div
             inert={!panel}
-            className="lg:h-full lg:w-[var(--tw)] lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:py-6 lg:pl-6 lg:pr-8"
+            className="lg:h-full lg:w-[var(--tw)] lg:overflow-y-auto lg:border-l lg:border-[var(--border)] lg:pb-6 lg:pl-6 lg:pr-8"
           >
-            {transcript}
+            {/* The room at the top is inside, not the scroller's own padding: the transcript's
+                player sticks to the scroller's top edge, and padding there would leave a strip
+                above it for the lines to show through. */}
+            <div className="lg:pt-6">{transcript}</div>
           </div>
         </div>
       </aside>
@@ -300,8 +303,24 @@ function PhoneTabs({
   current: Tab;
   onChange: (tab: Tab) => void;
 }) {
+  // Their height, for what sticks under them (the transcript's player). Measured rather than
+  // written down, because text size and the number of tabs change it; zero when they are gone.
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const put = () => root.style.setProperty("--phone-tabs-h", `${el.offsetHeight}px`);
+    put();
+    const watch = new ResizeObserver(put);
+    watch.observe(el);
+    return () => {
+      watch.disconnect();
+      root.style.removeProperty("--phone-tabs-h");
+    };
+  }, []);
   return (
-    <div className="sticky top-14 z-20 -mx-4 bg-[var(--paper)] px-4 py-2 lg:hidden">
+    <div ref={box} className="sticky top-14 z-20 -mx-4 bg-[var(--paper)] px-4 py-2 lg:hidden">
       <div role="tablist" className="flex rounded-lg border border-[var(--border)] bg-[var(--panel)] p-1">
         {tabs.map(([k, label]) => (
           <button

@@ -42,7 +42,6 @@ export async function runReview(job: { meetingId: string | null; params: string 
     orderBy: { createdAt: "asc" },
     select: { id: true, speakerType: true, text: true, audioStartMs: true, audioEndMs: true },
   });
-  const firstMs = rows.find((r) => typeof r.audioStartMs === "number")?.audioStartMs ?? 0;
   const lines = rows.map((r) => ({
     id: r.id,
     speaker: nameOf(r.speakerType, names),
@@ -72,7 +71,8 @@ export async function runReview(job: { meetingId: string | null; params: string 
     id: l.id,
     speaker: l.speaker,
     text: l.text,
-    at: l.startSec !== null ? formatOffset(l.startSec - firstMs / 1000) : null,
+    // The page's times, which are the player's: where the line is in the recording.
+    at: l.startSec !== null ? formatOffset(l.startSec) : null,
   }));
   const { lines: shown, focused } = focusLines(shownLines, person, Math.max(2000, room));
 
