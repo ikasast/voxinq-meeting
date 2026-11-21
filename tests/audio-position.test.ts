@@ -65,14 +65,16 @@ describe("audioPosition", () => {
 });
 
 describe("displayOffset", () => {
-  it("counts from the first utterance, so the label starts at 0:00", () => {
-    const r = rows([{ start: 1400, atSec: 0 }, { start: 13400, atSec: 6 }]);
-    expect(displayOffset(r, 0, {})).toBe(0);
-    expect(displayOffset(r, 1, {})).toBeCloseTo(12, 5);
+  it("counts from the start of the recording, as the player does", () => {
+    // Silence before the first word is not taken off: a label read on a line is the time to
+    // find on the player.
+    const r = rows([{ start: 12_000, atSec: 0 }, { start: 24_000, atSec: 6 }]);
+    expect(displayOffset(r, 0, {})).toBe(12);
+    expect(displayOffset(r, 1, {})).toBe(24);
   });
 
-  it("agrees with where the click seeks", () => {
-    // The label and the seek must come from the same number, or the player looks broken.
+  it("is where the click seeks", () => {
+    // The label and the seek must be the same number, or the player looks broken.
     const r = rows([{ atSec: 0 }, { atSec: 6 }]);
     const sources = {
       segments: [
@@ -81,9 +83,7 @@ describe("displayOffset", () => {
       ],
       firstUtteranceStart: 1.4,
     };
-    const seek = audioPosition(r, 1, sources)!;
-    const label = displayOffset(r, 1, sources)!;
-    expect(seek - label).toBeCloseTo(audioPosition(r, 0, sources)!, 5);
+    for (const i of [0, 1]) expect(displayOffset(r, i, sources)).toBe(audioPosition(r, i, sources));
   });
 });
 

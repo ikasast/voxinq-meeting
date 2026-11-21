@@ -22,6 +22,18 @@ describe("a line's position in the recording", () => {
     expect(live).toContain("splitOfId: true");
   });
 
+  it("gives a review the page's times, not times from the first word", () => {
+    const review = read("lib/queue/runners/review.ts");
+    expect(review).toContain("formatOffset(l.startSec)");
+    expect(review).not.toContain("firstMs");
+  });
+
+  it("keeps the player in sight while the lines scroll, under the phone's tabs", () => {
+    const list = read("app/[id]/transcript-list.tsx");
+    expect(list).toContain("sticky top-[calc(3.5rem+var(--phone-tabs-h,0px))]");
+    expect(read("app/[id]/meeting-body.tsx")).toContain('root.style.setProperty("--phone-tabs-h"');
+  });
+
   it("gives the exported transcript the page's times", () => {
     const route = read("app/api/meetings/[id]/export/route.ts");
     expect(route).toContain("displayOffset(rows, i, {})");
